@@ -1,0 +1,85 @@
+{
+  "Belm App": {
+    "prefix": "app",
+    "description": "Create a full Belm app scaffold",
+    "body": [
+      "app ${1:MyApi}",
+      "port ${2:4100}",
+      "database \"${3:./app.db}\"",
+      "",
+      "entity ${4:User} {",
+      "  id: Int primary auto",
+      "  email: String",
+      "  role: String optional",
+      "  ${5:rule \\\"Email must be valid\\\" when matches(email, \\\"^[^@\\\\s]+@[^@\\\\s]+\\\\.[^@\\\\s]+$\\\")}",
+      "}",
+      "",
+      "auth {",
+      "  user_entity ${4:User}",
+      "  email_field email",
+      "  role_field role",
+      "  code_ttl_minutes 10",
+      "  session_ttl_hours 24",
+      "  email_transport console",
+      "  email_from \"no-reply@example.local\"",
+      "  email_subject \"Your ${1:MyApi} login code\"",
+      "  dev_expose_code true",
+      "}"
+    ]
+  },
+  "Belm Entity": {
+    "prefix": "entity",
+    "description": "Create an entity block",
+    "body": [
+      "entity ${1:EntityName} {",
+      "  id: Int primary auto",
+      "  ${2:name}: ${3:String}",
+      "  ${4:rule \\\"Validation message\\\" when true}",
+      "}"
+    ]
+  },
+  "Belm Field": {
+    "prefix": "field",
+    "description": "Create a field declaration",
+    "body": "${1:fieldName}: ${2|Int,String,Bool,Float|} ${3|,optional,primary,auto,primary auto|}"
+  },
+  "Belm Rule": {
+    "prefix": "rule",
+    "description": "Create a business rule inside an entity",
+    "body": "rule \"${1:Validation message}\" when ${2:expression}"
+  },
+  "Belm Authorize": {
+    "prefix": "authorize",
+    "description": "Create one authorize rule",
+    "body": "authorize ${1|list,get,create,update,delete|} when ${2:auth_authenticated}"
+  },
+  "Belm Auth Block": {
+    "prefix": "auth",
+    "description": "Create an auth configuration block",
+    "body": [
+      "auth {",
+      "  user_entity ${1:User}",
+      "  email_field ${2:email}",
+      "  role_field ${3:role}",
+      "  code_ttl_minutes ${4:10}",
+      "  session_ttl_hours ${5:24}",
+      "  email_transport ${6|console,sendmail|}",
+      "  email_from \"${7:no-reply@example.local}\"",
+      "  email_subject \"${8:Your login code}\"",
+      "  sendmail_path \"${9:/usr/sbin/sendmail}\"",
+      "  dev_expose_code ${10|true,false|}",
+      "}"
+    ]
+  },
+  "Belm Authorize Pack": {
+    "prefix": "authzcrud",
+    "description": "Create full CRUD authorization rules",
+    "body": [
+      "authorize list when ${1:isRole(\"admin\")}",
+      "authorize get when ${2:auth_authenticated and (id == auth_user_id or isRole(\"admin\"))}",
+      "authorize create when ${3:auth_authenticated}",
+      "authorize update when ${4:auth_authenticated and (id == auth_user_id or isRole(\"admin\"))}",
+      "authorize delete when ${5:isRole(\"admin\")}"
+    ]
+  }
+}

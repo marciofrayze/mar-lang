@@ -110,6 +110,7 @@ func Parse(source string) (*model.App, error) {
 	return app, nil
 }
 
+// parseAuthBlock parses the auth configuration block and applies defaults.
 func parseAuthBlock(lines []line, idx *int) (*model.AuthConfig, error) {
 	auth := &model.AuthConfig{
 		EmailField:      "email",
@@ -190,6 +191,7 @@ func parseAuthBlock(lines []line, idx *int) (*model.AuthConfig, error) {
 	return nil, fmt.Errorf("auth block is missing closing }")
 }
 
+// parseEntityBlock parses a single entity body including fields, rules, and authorize clauses.
 func parseEntityBlock(lines []line, idx *int, name string) (*model.Entity, error) {
 	if !upperNameRe.MatchString(name) {
 		return nil, fmt.Errorf("entity name %q is invalid", name)
@@ -255,6 +257,7 @@ func parseEntityBlock(lines []line, idx *int, name string) (*model.Entity, error
 	return nil, fmt.Errorf("entity %s is missing closing }", name)
 }
 
+// finalizeEntity resolves derived metadata and validates rule/authorization expressions.
 func finalizeEntity(ent *model.Entity, rawRules []model.Rule, rawAuthz []model.Authorization) error {
 	if len(ent.Fields) == 0 {
 		return fmt.Errorf("entity %s has no fields", ent.Name)
@@ -335,6 +338,7 @@ func finalizeEntity(ent *model.Entity, rawRules []model.Rule, rawAuthz []model.A
 	return nil
 }
 
+// validateAuthConfig ensures auth settings reference valid fields in the selected user entity.
 func validateAuthConfig(app *model.App) error {
 	if app.Auth == nil {
 		return nil

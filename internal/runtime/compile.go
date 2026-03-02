@@ -7,6 +7,7 @@ import (
 	"belm/internal/model"
 )
 
+// compileExpressions parses and caches rule/authorization expressions for runtime evaluation.
 func (r *Runtime) compileExpressions() error {
 	for _, entity := range r.App.Entities {
 		fieldVars := map[string]struct{}{}
@@ -54,6 +55,7 @@ func (r *Runtime) compileExpressions() error {
 	return nil
 }
 
+// findField returns a field by name from an entity definition.
 func findField(entity *model.Entity, name string) *model.Field {
 	for i := range entity.Fields {
 		if entity.Fields[i].Name == name {
@@ -63,6 +65,7 @@ func findField(entity *model.Entity, name string) *model.Field {
 	return nil
 }
 
+// primaryField returns the field marked as the entity primary key.
 func primaryField(entity *model.Entity) *model.Field {
 	for i := range entity.Fields {
 		if entity.Fields[i].Name == entity.PrimaryKey {
@@ -72,6 +75,7 @@ func primaryField(entity *model.Entity) *model.Field {
 	return nil
 }
 
+// typeToSQLite maps Belm primitive field types to SQLite column types.
 func typeToSQLite(fieldType string) string {
 	switch fieldType {
 	case "Int":

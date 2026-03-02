@@ -50,6 +50,7 @@ func (r *Runtime) runMigrations() error {
 	return nil
 }
 
+// ensureMigrationMetaTable creates the migration history table when missing.
 func (r *Runtime) ensureMigrationMetaTable() error {
 	_, err := r.DB.Exec(`
 		CREATE TABLE IF NOT EXISTS belm_schema_migrations (
@@ -63,6 +64,7 @@ func (r *Runtime) ensureMigrationMetaTable() error {
 	return err
 }
 
+// recordMigration appends an applied migration statement to history.
 func (r *Runtime) recordMigration(tableName, kind, sqlText string) error {
 	_, err := r.DB.Exec(
 		`INSERT INTO belm_schema_migrations (table_name, migration_kind, sql_text, applied_at) VALUES (?, ?, ?, CAST((julianday('now') - 2440587.5)*86400000 AS INTEGER))`,
@@ -104,6 +106,7 @@ func (r *Runtime) readTableInfo(tableName string) ([]tableInfoRow, error) {
 	return info, nil
 }
 
+// migrateEntityTable applies safe forward-only schema updates for an app entity table.
 func (r *Runtime) migrateEntityTable(entity *model.Entity) error {
 	exists, err := r.tableExists(entity.Table)
 	if err != nil {
@@ -179,6 +182,7 @@ type staticColumn struct {
 	DefaultSQL string
 }
 
+// migrateStaticTable applies safe migrations for Belm internal auth tables.
 func (r *Runtime) migrateStaticTable(tableName string, columns []staticColumn) error {
 	exists, err := r.tableExists(tableName)
 	if err != nil {
@@ -242,6 +246,7 @@ func staticTypeToBelm(sqlType string) string {
 	}
 }
 
+// assertCompatibleColumn blocks startup when the live schema drifts in a non-safe direction.
 func assertCompatibleColumn(entityName, tableName string, field *model.Field, existing tableInfoRow) error {
 	existingType := strings.ToUpper(strings.TrimSpace(existing.Type))
 	expectedType := strings.ToUpper(typeToSQLite(field.Type))

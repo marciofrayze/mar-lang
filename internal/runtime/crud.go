@@ -9,6 +9,7 @@ import (
 	"belm/internal/model"
 )
 
+// handleList returns all rows from an entity resource after authorization.
 func (r *Runtime) handleList(w http.ResponseWriter, entity *model.Entity, auth authSession) error {
 	if err := r.ensureAuthorized(entity, "list", auth, entityNullContext(entity)); err != nil {
 		return err
@@ -28,6 +29,7 @@ func (r *Runtime) handleList(w http.ResponseWriter, entity *model.Entity, auth a
 	return nil
 }
 
+// handleGet returns a single entity row by primary key after authorization.
 func (r *Runtime) handleGet(w http.ResponseWriter, entity *model.Entity, auth authSession, id any) error {
 	row, ok, err := r.fetchByID(entity, id)
 	if err != nil {
@@ -44,6 +46,7 @@ func (r *Runtime) handleGet(w http.ResponseWriter, entity *model.Entity, auth au
 	return nil
 }
 
+// handleDelete removes a single entity row by primary key after authorization.
 func (r *Runtime) handleDelete(w http.ResponseWriter, entity *model.Entity, auth authSession, id any) error {
 	row, ok, err := r.fetchByID(entity, id)
 	if err != nil {
@@ -70,6 +73,7 @@ func (r *Runtime) handleDelete(w http.ResponseWriter, entity *model.Entity, auth
 	return nil
 }
 
+// handleCreate validates payload, checks rules/authorization, inserts, and returns the created row.
 func (r *Runtime) handleCreate(w http.ResponseWriter, entity *model.Entity, auth authSession, payload map[string]any) error {
 	insert, err := buildInsert(entity, payload)
 	if err != nil {
@@ -124,6 +128,7 @@ func (r *Runtime) handleCreate(w http.ResponseWriter, entity *model.Entity, auth
 	return nil
 }
 
+// handleUpdate validates payload, checks rules/authorization, updates, and returns the updated row.
 func (r *Runtime) handleUpdate(w http.ResponseWriter, entity *model.Entity, auth authSession, id any, payload map[string]any) error {
 	row, ok, err := r.fetchByID(entity, id)
 	if err != nil {
@@ -195,6 +200,7 @@ func entityNullContext(entity *model.Entity) map[string]any {
 	return ctx
 }
 
+// validateEntityRules evaluates compiled entity rules against a request context.
 func (r *Runtime) validateEntityRules(entity *model.Entity, context map[string]any) error {
 	for _, rule := range r.rules[entity.Name] {
 		v, err := rule.Expr.Eval(context)
@@ -208,6 +214,7 @@ func (r *Runtime) validateEntityRules(entity *model.Entity, context map[string]a
 	return nil
 }
 
+// ensureAuthorized evaluates entity authorization for the given action and request context.
 func (r *Runtime) ensureAuthorized(entity *model.Entity, action string, auth authSession, entityContext map[string]any) error {
 	if !r.authEnabled() {
 		return nil
@@ -258,6 +265,7 @@ type updateBuild struct {
 	Context map[string]any
 }
 
+// buildInsert normalizes create payload values and builds SQL-ready insert input.
 func buildInsert(entity *model.Entity, payload map[string]any) (*insertBuild, error) {
 	if payload == nil {
 		return nil, fmt.Errorf("JSON body must be an object")
@@ -291,6 +299,7 @@ func buildInsert(entity *model.Entity, payload map[string]any) (*insertBuild, er
 	return out, nil
 }
 
+// buildUpdate normalizes update payload values and merges them into current entity context.
 func buildUpdate(entity *model.Entity, payload map[string]any, current map[string]any) (*updateBuild, error) {
 	if payload == nil {
 		return nil, fmt.Errorf("JSON body must be an object")

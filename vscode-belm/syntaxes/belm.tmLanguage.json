@@ -1,0 +1,221 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Belm",
+  "scopeName": "source.belm",
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#strings"
+    },
+    {
+      "include": "#declarations"
+    },
+    {
+      "include": "#keywords"
+    },
+    {
+      "include": "#types"
+    },
+    {
+      "include": "#literals"
+    },
+    {
+      "include": "#numbers"
+    },
+    {
+      "include": "#operators"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-dash.belm",
+          "match": "--.*$"
+        },
+        {
+          "name": "comment.line.number-sign.belm",
+          "match": "#.*$"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.belm",
+          "begin": "\"",
+          "beginCaptures": {
+            "0": {
+              "name": "punctuation.definition.string.begin.belm"
+            }
+          },
+          "end": "\"",
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.definition.string.end.belm"
+            }
+          },
+          "patterns": [
+            {
+              "name": "constant.character.escape.belm",
+              "match": "\\\\."
+            }
+          ]
+        }
+      ]
+    },
+    "declarations": {
+      "patterns": [
+        {
+          "name": "meta.app.declaration.belm",
+          "match": "\\b(app)\\s+([A-Z][A-Za-z0-9_]*)\\b",
+          "captures": {
+            "1": {
+              "name": "keyword.control.declaration.belm"
+            },
+            "2": {
+              "name": "entity.name.type.belm"
+            }
+          }
+        },
+        {
+          "name": "meta.entity.declaration.belm",
+          "match": "\\b(entity)\\s+([A-Z][A-Za-z0-9_]*)\\b",
+          "captures": {
+            "1": {
+              "name": "keyword.control.declaration.belm"
+            },
+            "2": {
+              "name": "entity.name.type.belm"
+            }
+          }
+        },
+        {
+          "name": "meta.auth.user-entity.belm",
+          "match": "\\b(user_entity)\\s+([A-Z][A-Za-z0-9_]*)\\b",
+          "captures": {
+            "1": {
+              "name": "keyword.other.auth.belm"
+            },
+            "2": {
+              "name": "entity.name.type.belm"
+            }
+          }
+        },
+        {
+          "name": "meta.field.declaration.belm",
+          "match": "\\b([a-z][A-Za-z0-9_]*)\\s*(:)\\s*(Int|String|Bool|Float)\\b",
+          "captures": {
+            "1": {
+              "name": "variable.other.member.belm"
+            },
+            "2": {
+              "name": "punctuation.separator.key-value.belm"
+            },
+            "3": {
+              "name": "storage.type.belm"
+            }
+          }
+        },
+        {
+          "name": "meta.authorize.action.belm",
+          "match": "\\b(authorize)\\s+(list|get|create|update|delete)\\b",
+          "captures": {
+            "1": {
+              "name": "keyword.control.authorization.belm"
+            },
+            "2": {
+              "name": "support.constant.action.belm"
+            }
+          }
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.declaration.belm",
+          "match": "\\b(app|port|database|entity|auth)\\b"
+        },
+        {
+          "name": "keyword.control.rule.belm",
+          "match": "\\b(rule|when|authorize)\\b"
+        },
+        {
+          "name": "keyword.other.auth.belm",
+          "match": "\\b(user_entity|email_field|role_field|code_ttl_minutes|session_ttl_hours|email_transport|email_from|email_subject|sendmail_path|dev_expose_code)\\b"
+        },
+        {
+          "name": "storage.modifier.belm",
+          "match": "\\b(primary|auto|optional)\\b"
+        },
+        {
+          "name": "keyword.operator.logical.belm",
+          "match": "\\b(and|or|not)\\b"
+        },
+        {
+          "name": "support.function.belm",
+          "match": "\\b(contains|startsWith|endsWith|len|matches|isRole)\\b(?=\\s*\\()"
+        }
+      ]
+    },
+    "types": {
+      "patterns": [
+        {
+          "name": "storage.type.belm",
+          "match": "\\b(Int|String|Bool|Float)\\b"
+        }
+      ]
+    },
+    "literals": {
+      "patterns": [
+        {
+          "name": "constant.language.boolean.belm",
+          "match": "\\b(true|false)\\b"
+        },
+        {
+          "name": "constant.language.null.belm",
+          "match": "\\bnull\\b"
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.belm",
+          "match": "\\b\\d+(?:\\.\\d+)?\\b"
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.comparison.belm",
+          "match": "==|!=|>=|<=|>|<"
+        },
+        {
+          "name": "keyword.operator.arithmetic.belm",
+          "match": "\\+|-|\\*|/"
+        },
+        {
+          "name": "punctuation.section.block.begin.belm",
+          "match": "\\{"
+        },
+        {
+          "name": "punctuation.section.block.end.belm",
+          "match": "\\}"
+        },
+        {
+          "name": "punctuation.section.parens.begin.belm",
+          "match": "\\("
+        },
+        {
+          "name": "punctuation.section.parens.end.belm",
+          "match": "\\)"
+        }
+      ]
+    }
+  }
+}

@@ -15,6 +15,7 @@ func normalizeEmail(email string) string {
 	return strings.ToLower(strings.TrimSpace(email))
 }
 
+// resolveAuth resolves a bearer token into an active session and hydrated auth user.
 func (r *Runtime) resolveAuth(req *http.Request) (authSession, error) {
 	if !r.authEnabled() || r.authUser == nil {
 		return authSession{}, nil
@@ -68,6 +69,7 @@ func (r *Runtime) resolveAuth(req *http.Request) (authSession, error) {
 	}, nil
 }
 
+// parseBearerToken extracts the token from an Authorization header.
 func parseBearerToken(header string) string {
 	header = strings.TrimSpace(header)
 	if header == "" {
@@ -93,6 +95,7 @@ func (r *Runtime) loadAuthUserByID(id any) (map[string]any, bool, error) {
 	return queryRow(r.DB, query, id)
 }
 
+// handleAuthRequestCode creates and delivers a one-time login code for an existing user email.
 func (r *Runtime) handleAuthRequestCode(w http.ResponseWriter, payload map[string]any) error {
 	if !r.authEnabled() {
 		return &apiError{Status: http.StatusNotFound, Message: "Authentication is not enabled"}
@@ -137,6 +140,7 @@ func (r *Runtime) handleAuthRequestCode(w http.ResponseWriter, payload map[strin
 	return nil
 }
 
+// handleAuthLogin verifies an email+code pair and issues a session token.
 func (r *Runtime) handleAuthLogin(w http.ResponseWriter, payload map[string]any) error {
 	if !r.authEnabled() {
 		return &apiError{Status: http.StatusNotFound, Message: "Authentication is not enabled"}
@@ -204,6 +208,7 @@ func (r *Runtime) handleAuthLogin(w http.ResponseWriter, payload map[string]any)
 	return nil
 }
 
+// handleAuthLogout revokes the caller session token.
 func (r *Runtime) handleAuthLogout(w http.ResponseWriter, auth authSession) error {
 	if !r.authEnabled() {
 		return &apiError{Status: http.StatusNotFound, Message: "Authentication is not enabled"}
@@ -218,6 +223,7 @@ func (r *Runtime) handleAuthLogout(w http.ResponseWriter, auth authSession) erro
 	return nil
 }
 
+// deliverEmailCode dispatches login codes through the configured transport.
 func (r *Runtime) deliverEmailCode(toEmail, code string) error {
 	switch r.App.Auth.EmailTransport {
 	case "console":
@@ -230,6 +236,7 @@ func (r *Runtime) deliverEmailCode(toEmail, code string) error {
 	}
 }
 
+// sendWithSendmail sends plain-text email by invoking the local sendmail binary.
 func sendWithSendmail(sendmailPath, from, subject, to, code string, ttlMinutes int) error {
 	msg := strings.Join([]string{
 		"From: " + from,
@@ -266,6 +273,7 @@ func sendWithSendmail(sendmailPath, from, subject, to, code string, ttlMinutes i
 	return nil
 }
 
+// randomCode6 returns a zero-padded 6-digit cryptographically random code.
 func randomCode6() (string, error) {
 	n, err := rand.Int(rand.Reader, big.NewInt(1_000_000))
 	if err != nil {
@@ -274,6 +282,7 @@ func randomCode6() (string, error) {
 	return fmt.Sprintf("%06d", n.Int64()), nil
 }
 
+// randomToken returns a hex-encoded cryptographically random token.
 func randomToken(bytesLen int) (string, error) {
 	buf := make([]byte, bytesLen)
 	if _, err := rand.Read(buf); err != nil {

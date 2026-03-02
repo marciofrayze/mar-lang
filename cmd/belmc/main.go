@@ -21,6 +21,7 @@ func main() {
 	}
 }
 
+// run dispatches CLI subcommands for compiling and serving Belm apps.
 func run(args []string) error {
 	if len(args) == 0 {
 		printUsage()
@@ -60,6 +61,7 @@ func run(args []string) error {
 	}
 }
 
+// parseBelmFile reads a .belm source file and converts it to an in-memory app model.
 func parseBelmFile(path string) (*model.App, error) {
 	content, err := os.ReadFile(path)
 	if err != nil {
@@ -68,6 +70,7 @@ func parseBelmFile(path string) (*model.App, error) {
 	return parser.Parse(string(content))
 }
 
+// writeManifest persists the compiled app manifest and its generated Elm API client.
 func writeManifest(path string, app *model.App) error {
 	if app == nil {
 		return errors.New("nil app")
@@ -95,6 +98,7 @@ func writeManifest(path string, app *model.App) error {
 	return nil
 }
 
+// readManifest loads a previously compiled app manifest from disk.
 func readManifest(path string) (*model.App, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -110,6 +114,7 @@ func readManifest(path string) (*model.App, error) {
 	return &app, nil
 }
 
+// serveApp creates a runtime for the app and starts the HTTP server lifecycle.
 func serveApp(app *model.App) error {
 	r, err := runtime.New(app)
 	if err != nil {
@@ -119,6 +124,7 @@ func serveApp(app *model.App) error {
 	return r.Serve(context.Background())
 }
 
+// printUsage prints the supported belmc commands.
 func printUsage() {
 	fmt.Println("belmc commands:")
 	fmt.Println("  belmc compile <input.belm> <output.json>")

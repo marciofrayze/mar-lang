@@ -17,6 +17,7 @@ import (
 	"belm/internal/sqlitecli"
 )
 
+// Runtime hosts the compiled Belm app state and serves its HTTP API on top of SQLite.
 type Runtime struct {
 	App            *model.App
 	DB             *sqlitecli.DB
@@ -48,10 +49,12 @@ type apiError struct {
 	Details map[string]any
 }
 
+// Error implements error for API-layer errors that carry HTTP metadata.
 func (e *apiError) Error() string {
 	return e.Message
 }
 
+// New builds a runtime from an app model, compiles expressions, and applies migrations.
 func New(app *model.App) (*Runtime, error) {
 	if app == nil {
 		return nil, errors.New("app is nil")
@@ -85,10 +88,12 @@ func New(app *model.App) (*Runtime, error) {
 	return r, nil
 }
 
+// Close releases runtime resources.
 func (r *Runtime) Close() error {
 	return nil
 }
 
+// Serve starts the HTTP server and blocks until shutdown or an unrecoverable server error.
 func (r *Runtime) Serve(ctx context.Context) error {
 	server := &http.Server{
 		Addr:         fmt.Sprintf(":%d", r.App.Port),
@@ -123,6 +128,7 @@ func (r *Runtime) Serve(ctx context.Context) error {
 	}
 }
 
+// handleHTTP applies shared transport behavior before delegating to route.
 func (r *Runtime) handleHTTP(w http.ResponseWriter, req *http.Request) {
 	setCORSHeaders(w)
 	if req.Method == http.MethodOptions {
@@ -135,6 +141,7 @@ func (r *Runtime) handleHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
+// route resolves Belm endpoints for health, schema, auth, and entity CRUD operations.
 func (r *Runtime) route(w http.ResponseWriter, req *http.Request) error {
 	path := strings.TrimSuffix(req.URL.Path, "/")
 	if path == "" {
@@ -236,6 +243,7 @@ func (r *Runtime) writeJSON(w http.ResponseWriter, status int, payload any) {
 	writeJSON(w, status, payload)
 }
 
+// writeError converts internal errors into consistent JSON API responses.
 func (r *Runtime) writeError(w http.ResponseWriter, err error) {
 	status := http.StatusBadRequest
 	msg := err.Error()
@@ -257,6 +265,7 @@ func (r *Runtime) authEnabled() bool {
 
 var identifierRe = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
+// quoteIdentifier validates and quotes SQL identifiers to avoid unsafe interpolation.
 func quoteIdentifier(name string) (string, error) {
 	if !identifierRe.MatchString(name) {
 		return "", fmt.Errorf("unsafe SQL identifier %q", name)
@@ -271,6 +280,7 @@ func fatalIfErr(err error) {
 	}
 }
 
+// setCORSHeaders sets permissive CORS defaults for local development and generated UIs.
 func setCORSHeaders(w http.ResponseWriter) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS")

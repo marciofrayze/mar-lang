@@ -1,0 +1,45 @@
+{
+  "name": "belm-language-support",
+  "displayName": "Belm Language Support",
+  "description": "Syntax highlighting and language configuration for Belm files.",
+  "version": "0.0.1",
+  "publisher": "belm-dev",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onLanguage:belm"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "belm",
+        "aliases": [
+          "Belm",
+          "belm"
+        ],
+        "extensions": [
+          ".belm"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "belm",
+        "scopeName": "source.belm",
+        "path": "./syntaxes/belm.tmLanguage.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "belm",
+        "path": "./snippets/belm.json"
+      }
+    ]
+  }
+}

@@ -1,6 +1,6 @@
-# Belm Admin (Elm + elm-ui)
+# Belm Admin
 
-This is a lightweight admin panel similar to PocketBase for inspecting Belm entities and records.
+This is a lightweight admin panel for inspecting Belm entities and records.
 
 ## Build
 

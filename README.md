@@ -1,69 +1,69 @@
-# Belm (Go)
+# Belm
 
-Belm é uma linguagem inspirada em Elm para backend, agora reimplementada em **Go** com foco em legibilidade e manutenção.
+Belm is an Elm-inspired language for backend development, implemented in Go, with a strong focus on readability, simplicity and maintainability.
 
-## Objetivo
+## Goals
 
-- Sintaxe simples e declarativa (`entity`, `rule`, `authorize`, `auth`)
-- CRUD REST automático
-- SQLite como banco
-- Login por código enviado por email
-- Autorização por regras
-- Migrações automáticas seguras
+- Simple, declarative syntax (`entity`, `rule`, `authorize`, `auth`)
+- Automatic REST CRUD
+- SQLite as the database
+- Email code login flow
+- Rule-based authorization
+- Safe automatic migrations
 
-## Arquitetura (Go)
+## Architecture (Go)
 
-- [cmd/belmc/main.go](/Users/marcio/dev/github/belm/cmd/belmc/main.go): CLI do compilador/runtime
-- [internal/parser/parser.go](/Users/marcio/dev/github/belm/internal/parser/parser.go): parser da linguagem `.belm`
-- [internal/expr/parser.go](/Users/marcio/dev/github/belm/internal/expr/parser.go): parser de expressões (`rule`/`authorize`)
-- [internal/runtime](/Users/marcio/dev/github/belm/internal/runtime): servidor HTTP, auth/authz e migrações
-- [internal/sqlitecli/sqlitecli.go](/Users/marcio/dev/github/belm/internal/sqlitecli/sqlitecli.go): acesso SQLite via binário `sqlite3` (sem dependências externas)
+- [cmd/belmc/main.go](/Users/marcio/dev/github/belm/cmd/belmc/main.go): compiler/runtime CLI
+- [internal/parser/parser.go](/Users/marcio/dev/github/belm/internal/parser/parser.go): `.belm` language parser
+- [internal/expr/parser.go](/Users/marcio/dev/github/belm/internal/expr/parser.go): expression parser (`rule`/`authorize`)
+- [internal/runtime](/Users/marcio/dev/github/belm/internal/runtime): HTTP server, auth/authz, and migrations
+- [internal/sqlitecli/sqlitecli.go](/Users/marcio/dev/github/belm/internal/sqlitecli/sqlitecli.go): SQLite access via `sqlite3` binary (no external dependencies)
 
-## Comandos
+## Commands
 
-Compilar `.belm` para manifesto JSON:
+Compile `.belm` into a JSON manifest:
 
 ```bash
 go run ./cmd/belmc compile examples/store.belm build/store.manifest.json
 ```
 
-Ao compilar, o Belm também gera um cliente Elm no mesmo diretório do manifesto.
-Exemplo de saída:
+When compiling, Belm also generates an Elm client in the same directory as the manifest.
+Example output:
 
 - `build/store.manifest.json`
 - `build/StoreApiClient.elm`
 
-Rodar direto do `.belm`:
+Run directly from `.belm`:
 
 ```bash
 go run ./cmd/belmc serve examples/store.belm
 ```
 
-Rodar a partir de manifesto compilado:
+Run from a compiled manifest:
 
 ```bash
 go run ./cmd/belmc serve-manifest build/store.manifest.json
 ```
 
-## Cliente Elm gerado automaticamente
+## Auto-generated Elm Client
 
-O módulo gerado (`<AppName>Client.elm`) inclui:
+The generated module (`<AppName>Client.elm`) includes:
 
-- `schema` (metadados das entidades)
+- `schema` (entity metadata)
 - `rowDecoder`
-- funções CRUD por entidade:
-  - `list<Entity>`
-  - `get<Entity>`
-  - `create<Entity>`
-  - `update<Entity>`
-  - `delete<Entity>`
-- quando auth está habilitado:
-  - `requestCode`
-  - `login`
-  - `logout`
-  - `me`
+- CRUD functions per entity:
+- `list<Entity>`
+- `get<Entity>`
+- `create<Entity>`
+- `update<Entity>`
+- `delete<Entity>`
+- auth endpoints, when auth is enabled:
+- `requestCode`
+- `login`
+- `logout`
+- `me`
 
-Exemplo de uso em Elm:
+Usage example in Elm:
 
 ```elm
 import StoreApiClient as Api
@@ -78,18 +78,26 @@ load =
         GotCustomers
 ```
 
-## Painel Admin (Elm + elm-ui)
+## Admin Panel
 
-Foi adicionado um painel gráfico em Elm:
+An Admin panel (built with Elm and elm-ui) is also provide:
 
-- código: [admin/src/Main.elm](/Users/marcio/dev/github/belm/admin/src/Main.elm)
+- code: [admin/src/Main.elm](/Users/marcio/dev/github/belm/admin/src/Main.elm)
 - docs: [admin/README.md](/Users/marcio/dev/github/belm/admin/README.md)
 
-Ele consome `GET /_belm/schema` para descobrir entidades e permite listar/criar/editar/deletar registros.
+It uses `GET /_belm/schema` to discover entities and lets you list/create/update/delete records.
 
-## Sintaxe da linguagem
+## VS Code Syntax Highlighting
 
-Exemplo mínimo:
+A VS Code language extension for `.belm` files is available in:
+
+- [vscode-belm](/Users/marcio/dev/github/belm/vscode-belm)
+
+It provides syntax highlighting plus snippets/autocomplete for declarations, entities, auth/authorization blocks, rules, types, and common templates.
+
+## Language Syntax
+
+Minimal example:
 
 ```belm
 app TodoApi
@@ -116,38 +124,38 @@ entity Todo {
 
 `<fieldName>: <Type> [primary] [auto] [optional]`
 
-Tipos:
+Types:
 
 - `Int`
 - `String`
 - `Bool`
 - `Float`
 
-Atributos:
+Attributes:
 
-- `primary`: chave primária
-- `auto`: autoincrement (normalmente usado com `Int primary`)
-- `optional`: campo nullable
+- `primary`: primary key
+- `auto`: auto-increment (usually with `Int primary`)
+- `optional`: nullable field
 
-Se não houver primary key, Belm adiciona automaticamente:
+If no primary key is provided, Belm automatically adds:
 
 `id: Int primary auto`
 
-## Regras de negócio (`rule`)
+## Business Rules (`rule`)
 
-Dentro de `entity`:
+Inside `entity`:
 
 ```belm
 rule "Customer must be 18 or older" when age >= 18
 ```
 
-Operadores:
+Operators:
 
 - `and`, `or`, `not`
 - `==`, `!=`, `>`, `>=`, `<`, `<=`
 - `+`, `-`, `*`, `/`
 
-Funções:
+Functions:
 
 - `contains(text, part)`
 - `startsWith(text, prefix)`
@@ -155,22 +163,22 @@ Funções:
 - `len(value)`
 - `matches(text, regex)`
 
-Literais:
+Literals:
 
 - `true`, `false`, `null`
 
-Se uma regra falha, retorna HTTP `422` com `error` e `details`.
+If a rule fails, the API returns HTTP `422` with `error` and `details`.
 
-## Autenticação (`auth`)
+## Authentication (`auth`)
 
-Fluxo nativo de login por código:
+Built-in email code login flow:
 
 1. `POST /auth/request-code`
-2. envio do código por email
-3. `POST /auth/login` (email + code) retorna bearer token
-4. `POST /auth/logout` revoga sessão
+2. send the code by email
+3. `POST /auth/login` (email + code) returns a bearer token
+4. `POST /auth/logout` revokes the session
 
-Configuração:
+Configuration:
 
 ```belm
 auth {
@@ -188,12 +196,12 @@ auth {
 
 `email_transport`:
 
-- `console`: imprime código no log
-- `sendmail`: usa binário local (`sendmail_path`)
+- `console`: prints code in logs
+- `sendmail`: uses local binary (`sendmail_path`)
 
-## Autorização (`authorize`)
+## Authorization (`authorize`)
 
-Por operação CRUD:
+Per CRUD operation:
 
 ```belm
 authorize list when isRole("admin")
@@ -203,21 +211,21 @@ authorize update when auth_authenticated and (id == auth_user_id or isRole("admi
 authorize delete when isRole("admin")
 ```
 
-Contexto disponível em expressões de autorização:
+Context available in authorization expressions:
 
 - `auth_authenticated`
 - `auth_email`
 - `auth_user_id`
 - `auth_role`
-- campos da entidade (`id`, `customerId`, etc.)
+- entity fields (`id`, `customerId`, etc.)
 
-Função extra:
+Extra function:
 
 - `isRole("admin")`
 
-## Endpoints gerados
+## Generated Endpoints
 
-Para cada entidade `X`:
+For each entity `X`:
 
 - `GET /xs`
 - `GET /xs/:id`
@@ -226,44 +234,44 @@ Para cada entidade `X`:
 - `PATCH /xs/:id`
 - `DELETE /xs/:id`
 
-Sempre:
+Always:
 
 - `GET /health`
 - `GET /_belm/schema`
 
-Com auth habilitado:
+With auth enabled:
 
 - `POST /auth/request-code`
 - `POST /auth/login`
 - `POST /auth/logout`
 - `GET /auth/me`
 
-## Migrações
+## Migrations
 
-As migrações rodam automaticamente no startup.
+Migrations run automatically on startup.
 
-Automático:
+Automatic behavior:
 
-- cria tabelas faltantes
-- adiciona colunas novas opcionais
-- cria/migra tabelas internas de auth
-- registra operações em `belm_schema_migrations`
+- creates missing tables
+- adds new optional columns
+- creates/migrates internal auth tables
+- records operations in `belm_schema_migrations`
 
-Bloqueado (migração manual):
+Blocked (manual migration required):
 
-- troca de tipo de coluna
-- mudança de primary key
-- mudança de nulabilidade
-- adição de campo obrigatório em tabela existente
-- adição de coluna primary/auto em tabela existente
+- column type changes
+- primary key changes
+- nullability changes
+- adding required fields to existing tables
+- adding primary/auto columns to existing tables
 
-Quando bloqueia, o servidor falha no startup com mensagem explícita.
+When blocked, the server fails at startup with a clear error message.
 
-## Exemplo completo
+## Full Example
 
-Use [examples/store.belm](/Users/marcio/dev/github/belm/examples/store.belm), que já inclui:
+Use [examples/store.belm](/Users/marcio/dev/github/belm/examples/store.belm), which already includes:
 
-- regras de negócio (`age >= 18`, validação email etc.)
-- auth por código
-- autorização por papel/ownership
-- entidades `Customer`, `Product`, `Order`, `OrderItem`
+- business rules (`age >= 18`, email validation, etc.)
+- email code auth
+- role/ownership authorization
+- entities: `Customer`, `Product`, `Order`, `OrderItem`

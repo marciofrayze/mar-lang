@@ -308,6 +308,7 @@ func GenerateElmClient(app *model.App) (*ElmClientOutput, error) {
 	return out, nil
 }
 
+// ElmOutputPath resolves the generated Elm client location next to the manifest.
 func ElmOutputPath(manifestPath, fileName string) string {
 	dir := filepath.Dir(manifestPath)
 	return filepath.Join(dir, fileName)
@@ -331,6 +332,7 @@ func elmBool(value bool) string {
 	return "False"
 }
 
+// sanitizeModuleName converts arbitrary app names into valid Elm module identifiers.
 func sanitizeModuleName(value string) string {
 	cleaned := regexp.MustCompile(`[^A-Za-z0-9]+`).ReplaceAllString(value, " ")
 	parts := strings.Fields(cleaned)
