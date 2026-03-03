@@ -1,8 +1,0 @@
-./actions.go
-./auth.go
-./compile.go
-./crud.go
-./dbutil.go
-./meta.go
-./migrations.go
-./runtime.go
