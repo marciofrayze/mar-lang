@@ -109,7 +109,7 @@ func (r *Runtime) handleAuthRequestCode(w http.ResponseWriter, payload map[strin
 		return &apiError{Status: http.StatusBadRequest, Message: "email is required"}
 	}
 
-	user, found, err := r.loadAuthUserByEmail(email)
+	user, found, err := r.loadOrCreateAuthUserForRequestCode(email)
 	if err != nil {
 		return err
 	}
@@ -138,6 +138,91 @@ func (r *Runtime) handleAuthRequestCode(w http.ResponseWriter, payload map[strin
 	}
 	r.writeJSON(w, http.StatusOK, resp)
 	return nil
+}
+
+// loadOrCreateAuthUserForRequestCode loads an auth user by email or auto-creates it when possible.
+func (r *Runtime) loadOrCreateAuthUserForRequestCode(email string) (map[string]any, bool, error) {
+	user, found, err := r.loadAuthUserByEmail(email)
+	if err != nil || found {
+		return user, found, err
+	}
+	return r.tryAutoCreateAuthUser(email)
+}
+
+// tryAutoCreateAuthUser creates a minimal auth user for passwordless first-login flows.
+// It only succeeds when all required fields can be safely inferred from auth config.
+func (r *Runtime) tryAutoCreateAuthUser(email string) (map[string]any, bool, error) {
+	if r.authUser == nil {
+		return nil, false, nil
+	}
+
+	columns := make([]string, 0, len(r.authUser.Fields))
+	placeholders := make([]string, 0, len(r.authUser.Fields))
+	values := make([]any, 0, len(r.authUser.Fields))
+	ctx := entityNullContext(r.authUser)
+	hasEmailField := false
+
+	for _, field := range r.authUser.Fields {
+		if field.Primary && field.Auto {
+			continue
+		}
+
+		quoted, err := quoteIdentifier(field.Name)
+		if err != nil {
+			return nil, false, err
+		}
+
+		switch {
+		case field.Name == r.App.Auth.EmailField:
+			columns = append(columns, quoted)
+			placeholders = append(placeholders, "?")
+			values = append(values, email)
+			ctx[field.Name] = email
+			hasEmailField = true
+		case r.App.Auth.RoleField != "" && field.Name == r.App.Auth.RoleField:
+			if field.Type != "String" {
+				return nil, false, nil
+			}
+			role := "user"
+			columns = append(columns, quoted)
+			placeholders = append(placeholders, "?")
+			values = append(values, role)
+			ctx[field.Name] = role
+		case field.Optional:
+			// Keep optional fields nil for auto-provisioned users.
+		default:
+			// Required field that cannot be inferred automatically.
+			return nil, false, nil
+		}
+	}
+
+	if !hasEmailField || len(columns) == 0 {
+		return nil, false, nil
+	}
+
+	if err := r.validateEntityRules(r.authUser, ctx); err != nil {
+		return nil, false, nil
+	}
+
+	table, err := quoteIdentifier(r.authUser.Table)
+	if err != nil {
+		return nil, false, err
+	}
+	insertSQL := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", table, strings.Join(columns, ", "), strings.Join(placeholders, ", "))
+	if _, err := r.DB.Exec(insertSQL, values...); err != nil {
+		// If a concurrent request created the same user, load and continue.
+		user, found, loadErr := r.loadAuthUserByEmail(email)
+		if loadErr == nil && found {
+			return user, true, nil
+		}
+		return nil, false, err
+	}
+
+	user, found, err := r.loadAuthUserByEmail(email)
+	if err != nil {
+		return nil, false, err
+	}
+	return user, found, nil
 }
 
 // handleAuthLogin verifies an email+code pair and issues a session token.
@@ -189,6 +274,7 @@ func (r *Runtime) handleAuthLogin(w http.ResponseWriter, payload map[string]any)
 	if !found {
 		return &apiError{Status: http.StatusUnauthorized, Message: "Invalid or expired code"}
 	}
+	decodedUser := decodeEntityRow(r.authUser, userRow)
 
 	token, err := randomToken(32)
 	if err != nil {
@@ -203,7 +289,7 @@ func (r *Runtime) handleAuthLogin(w http.ResponseWriter, payload map[string]any)
 		"ok":        true,
 		"token":     token,
 		"expiresAt": sessionExpiresAt,
-		"user":      decodeEntityRow(r.authUser, userRow),
+		"user":      decodedUser,
 	})
 	return nil
 }
@@ -225,12 +311,20 @@ func (r *Runtime) handleAuthLogout(w http.ResponseWriter, auth authSession) erro
 
 // deliverEmailCode dispatches login codes through the configured transport.
 func (r *Runtime) deliverEmailCode(toEmail, code string) error {
+	if r.App.Auth.DevExposeCode {
+		fmt.Printf("[BelmAuthDevCode] to=%s code=%s\n", toEmail, code)
+	}
+
 	switch r.App.Auth.EmailTransport {
 	case "console":
-		fmt.Printf("[BelmAuthEmail] to=%s code=%s\n", toEmail, code)
+		fmt.Printf("[BelmAuthEmail] transport=console to=%s\n", toEmail)
 		return nil
 	case "sendmail":
-		return sendWithSendmail(r.App.Auth.SendmailPath, r.App.Auth.EmailFrom, r.App.Auth.EmailSubject, toEmail, code, r.App.Auth.CodeTTLMinutes)
+		if err := sendWithSendmail(r.App.Auth.SendmailPath, r.App.Auth.EmailFrom, r.App.Auth.EmailSubject, toEmail, code, r.App.Auth.CodeTTLMinutes); err != nil {
+			return err
+		}
+		fmt.Printf("[BelmAuthEmail] transport=sendmail to=%s\n", toEmail)
+		return nil
 	default:
 		return fmt.Errorf("unsupported email transport %q", r.App.Auth.EmailTransport)
 	}

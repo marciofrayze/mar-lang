@@ -1,5 +1,9 @@
 module Belm.Api exposing
-    ( Entity
+    ( AuthInfo
+    , ActionInfo
+    , InputAliasInfo
+    , InputAliasField
+    , Entity
     , Field
     , FieldType(..)
     , Row
@@ -48,6 +52,9 @@ type alias Schema =
     , portNumber : Int
     , database : String
     , entities : List Entity
+    , auth : Maybe AuthInfo
+    , inputAliases : List InputAliasInfo
+    , actions : List ActionInfo
     }
 
 
@@ -55,13 +62,100 @@ type alias Row =
     Dict String Value
 
 
+type alias AuthInfo =
+    { enabled : Bool
+    , userEntity : String
+    , emailField : String
+    , roleField : String
+    , emailTransport : String
+    }
+
+
+type alias ActionInfo =
+    { name : String
+    , inputAlias : String
+    , steps : Int
+    }
+
+
+type alias InputAliasInfo =
+    { name : String
+    , fields : List InputAliasField
+    }
+
+
+type alias InputAliasField =
+    { name : String
+    , fieldType : String
+    }
+
+
 decodeSchema : Decoder Schema
 decodeSchema =
-    Decode.map4 Schema
+    Decode.map7 Schema
         (Decode.field "appName" Decode.string)
         (Decode.field "port" Decode.int)
         (Decode.field "database" Decode.string)
         (Decode.field "entities" (Decode.list entityDecoder))
+        decodeAuthInfo
+        decodeInputAliases
+        decodeActionInfo
+
+
+decodeAuthInfo : Decoder (Maybe AuthInfo)
+decodeAuthInfo =
+    Decode.oneOf
+        [ Decode.field "auth" (Decode.map Just authInfoDecoder)
+        , Decode.succeed Nothing
+        ]
+
+
+authInfoDecoder : Decoder AuthInfo
+authInfoDecoder =
+    Decode.map5 AuthInfo
+        (Decode.field "enabled" Decode.bool)
+        (Decode.field "userEntity" Decode.string)
+        (Decode.field "emailField" Decode.string)
+        (Decode.field "roleField" Decode.string)
+        (Decode.field "emailTransport" Decode.string)
+
+
+decodeActionInfo : Decoder (List ActionInfo)
+decodeActionInfo =
+    Decode.oneOf
+        [ Decode.field "actions" (Decode.list actionInfoDecoder)
+        , Decode.succeed []
+        ]
+
+
+decodeInputAliases : Decoder (List InputAliasInfo)
+decodeInputAliases =
+    Decode.oneOf
+        [ Decode.field "inputAliases" (Decode.list inputAliasDecoder)
+        , Decode.succeed []
+        ]
+
+
+inputAliasDecoder : Decoder InputAliasInfo
+inputAliasDecoder =
+    Decode.map2 InputAliasInfo
+        (Decode.field "name" Decode.string)
+        (Decode.field "fields" (Decode.list inputAliasFieldDecoder))
+
+
+inputAliasFieldDecoder : Decoder InputAliasField
+inputAliasFieldDecoder =
+    Decode.map2 InputAliasField
+        (Decode.field "name" Decode.string)
+        (Decode.field "type" Decode.string)
+
+
+actionInfoDecoder : Decoder ActionInfo
+actionInfoDecoder =
+    Decode.map3 ActionInfo
+        (Decode.field "name" Decode.string)
+        (Decode.field "inputAlias" Decode.string)
+        (Decode.field "steps" Decode.int)
 
 
 entityDecoder : Decoder Entity

@@ -10,8 +10,14 @@
       "entity ${4:User} {",
       "  id: Int primary auto",
       "  email: String",
-      "  role: String optional",
+      "  role: String",
       "  ${5:rule \\\"Email must be valid\\\" when matches(email, \\\"^[^@\\\\s]+@[^@\\\\s]+\\\\.[^@\\\\s]+$\\\")}",
+      "  rule \"Role must be admin or user\" when role == \"admin\" or role == \"user\"",
+      "  authorize list when isRole(\"admin\")",
+      "  authorize get when auth_authenticated and (id == auth_user_id or isRole(\"admin\"))",
+      "  authorize create when role == \"user\"",
+      "  authorize update when isRole(\"admin\")",
+      "  authorize delete when isRole(\"admin\")",
       "}",
       "",
       "auth {",
@@ -24,7 +30,17 @@
       "  email_from \"no-reply@example.local\"",
       "  email_subject \"Your ${1:MyApi} login code\"",
       "  dev_expose_code true",
-      "}"
+      "}",
+      "",
+      "type alias ${6:RegisterUserInput} =",
+      "  { email : String",
+      "  }",
+      "",
+      "${7:registerUser} : ${6:RegisterUserInput} -> Result ${8:DomainError} Effect",
+      "${7:registerUser} =",
+      "  tx",
+      "    [ insert ${4:User} { email = input.email, role = \"user\" }",
+      "    ]"
     ]
   },
   "Belm Entity": {
@@ -41,7 +57,7 @@
   "Belm Field": {
     "prefix": "field",
     "description": "Create a field declaration",
-    "body": "${1:fieldName}: ${2|Int,String,Bool,Float|} ${3|,optional,primary,auto,primary auto|}"
+    "body": "${1:fieldName}: ${2|Int,String,Bool,Float|}${3|, optional, primary, auto, primary auto|}"
   },
   "Belm Rule": {
     "prefix": "rule",
@@ -80,6 +96,49 @@
       "authorize create when ${3:auth_authenticated}",
       "authorize update when ${4:auth_authenticated and (id == auth_user_id or isRole(\"admin\"))}",
       "authorize delete when ${5:isRole(\"admin\")}"
+    ]
+  },
+  "Belm Type Alias": {
+    "prefix": "typealias",
+    "description": "Create an Elm-style type alias for typed action inputs",
+    "body": [
+      "type alias ${1:CreateOrderInput} =",
+      "  { ${2:userId} : ${3:Int}",
+      "  , ${4:total} : ${5:Float}",
+      "  }"
+    ]
+  },
+  "Belm Action Signature": {
+    "prefix": "actionsig",
+    "description": "Create a typed action signature",
+    "body": [
+      "${1:placeOrder} : ${2:PlaceOrderInput} -> Result ${3:DomainError} Effect"
+    ]
+  },
+  "Belm Action Definition": {
+    "prefix": "actiondef",
+    "description": "Create an action definition with tx list",
+    "body": [
+      "${1:placeOrder} =",
+      "  tx",
+      "    [ insert ${2:Order} { ${3:userId} = input.${4:userId} }",
+      "    ]"
+    ]
+  },
+  "Belm Insert Step": {
+    "prefix": "insertstep",
+    "description": "Create one insert step inside a tx list",
+    "body": "insert ${1:Order} { ${2:userId} = input.${3:userId} }"
+  },
+  "Belm Typed Action": {
+    "prefix": "actiontx",
+    "description": "Create an Elm-style typed action with tx insert steps",
+    "body": [
+      "${1:placeOrder} : ${2:PlaceOrderInput} -> Result ${3:DomainError} Effect",
+      "${1:placeOrder} =",
+      "  tx",
+      "    [ insert ${4:Order} { ${5:userId} = input.${6:userId} }",
+      "    ]"
     ]
   }
 }

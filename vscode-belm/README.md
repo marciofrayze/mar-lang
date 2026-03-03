@@ -5,13 +5,15 @@ This extension adds syntax highlighting, snippets/autocomplete, and basic langua
 ## Features
 
 - Syntax highlighting for:
-- Belm declarations (`app`, `entity`, `auth`, `rule`, `authorize`, `when`)
+- Belm declarations (`app`, `port`, `database`, `entity`, `auth`, `type alias`)
+- Rule/authz keywords (`rule`, `when`, `authorize`)
+- Action syntax (`name : Input -> Result DomainError Effect`, `tx`, `insert`)
 - Auth config keys (`user_entity`, `email_field`, etc.)
 - Field modifiers (`primary`, `auto`, `optional`)
-- Built-in types (`Int`, `String`, `Bool`, `Float`)
+- Built-in types (`Int`, `String`, `Bool`, `Float`, `Effect`, `Result`)
 - Built-in functions (`contains`, `startsWith`, `endsWith`, `len`, `matches`, `isRole`)
-- Comments (`--` and `#`)
-- Strings, numbers, booleans, and operators
+- Context variables (`input`, `input.field`, `auth_authenticated`, `auth_email`, `auth_user_id`, `auth_role`)
+- Comments (`--` and `#`), strings, numbers, booleans, null, operators, and punctuation
 - Snippets/autocomplete (examples):
 - `app`
 - `entity`
@@ -20,6 +22,11 @@ This extension adds syntax highlighting, snippets/autocomplete, and basic langua
 - `authorize`
 - `auth`
 - `authzcrud`
+- `typealias`
+- `actionsig`
+- `actiondef`
+- `insertstep`
+- `actiontx`
 
 ## Run Locally (Development Host)
 
@@ -34,5 +41,6 @@ This extension adds syntax highlighting, snippets/autocomplete, and basic langua
    - `npm i -g @vscode/vsce`
 2. From this folder, create a package:
    - `vsce package`
+   - or `npx @vscode/vsce package`
 3. Install the generated `.vsix` in VS Code:
    - Command Palette -> `Extensions: Install from VSIX...`

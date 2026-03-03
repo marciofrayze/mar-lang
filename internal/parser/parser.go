@@ -3,6 +3,7 @@ package parser
 import (
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"belm/internal/expr"
@@ -94,6 +95,24 @@ func Parse(source string) (*model.App, error) {
 			continue
 		}
 
+		if match(`^type\s+alias\s+([A-Za-z][A-Za-z0-9_]*)\s*=.*$`, trimmed) != nil {
+			alias, err := parseTypeAlias(lines, &idx)
+			if err != nil {
+				return nil, err
+			}
+			app.InputAliases = append(app.InputAliases, *alias)
+			continue
+		}
+
+		if m := match(`^([a-z][A-Za-z0-9_]*)\s*:\s*([A-Za-z][A-Za-z0-9_]*)\s*->\s*(?:Effect|Result\s+[A-Za-z][A-Za-z0-9_]*\s+Effect)$`, trimmed); m != nil {
+			action, err := parseAction(lines, &idx, m[1], m[2])
+			if err != nil {
+				return nil, err
+			}
+			app.Actions = append(app.Actions, *action)
+			continue
+		}
+
 		return nil, fmt.Errorf("line %d: unknown statement %q", cur.number, trimmed)
 	}
 
@@ -104,6 +123,9 @@ func Parse(source string) (*model.App, error) {
 		return nil, fmt.Errorf("at least one entity is required")
 	}
 	if err := validateAuthConfig(app); err != nil {
+		return nil, err
+	}
+	if err := validateActions(app); err != nil {
 		return nil, err
 	}
 
@@ -338,6 +360,317 @@ func finalizeEntity(ent *model.Entity, rawRules []model.Rule, rawAuthz []model.A
 	return nil
 }
 
+func parseTypeAlias(lines []line, idx *int) (*model.TypeAlias, error) {
+	start := lines[*idx]
+	trimmed := strings.TrimSpace(start.text)
+	m := match(`^type\s+alias\s+([A-Za-z][A-Za-z0-9_]*)\s*=\s*(.*)$`, trimmed)
+	if m == nil {
+		return nil, fmt.Errorf("line %d: invalid type alias declaration", start.number)
+	}
+	name := m[1]
+	rest := strings.TrimSpace(m[2])
+	alias := &model.TypeAlias{Name: name, Fields: []model.AliasField{}}
+	seen := map[string]bool{}
+
+	curLine := start.number
+	if rest == "" {
+		(*idx)++
+		for *idx < len(lines) {
+			curLine = lines[*idx].number
+			rest = strings.TrimSpace(lines[*idx].text)
+			if isCommentOrBlank(rest) {
+				(*idx)++
+				continue
+			}
+			break
+		}
+	}
+
+	if !strings.HasPrefix(rest, "{") {
+		return nil, fmt.Errorf("line %d: type alias %s must start with a record. Try: type alias %s = { field : String }", curLine, name, name)
+	}
+	rest = strings.TrimSpace(strings.TrimPrefix(rest, "{"))
+	for {
+		if rest == "" {
+			(*idx)++
+			if *idx >= len(lines) {
+				return nil, fmt.Errorf("type alias %s is missing closing }", name)
+			}
+			curLine = lines[*idx].number
+			rest = strings.TrimSpace(lines[*idx].text)
+			if isCommentOrBlank(rest) {
+				continue
+			}
+		}
+
+		if strings.Contains(rest, "}") {
+			before, after, _ := strings.Cut(rest, "}")
+			before = strings.TrimSpace(before)
+			if before != "" {
+				if err := parseAliasFieldToken(alias, seen, before, curLine); err != nil {
+					return nil, err
+				}
+			}
+			if strings.TrimSpace(after) != "" {
+				return nil, fmt.Errorf("line %d: unexpected tokens after type alias %s record", curLine, name)
+			}
+			(*idx)++
+			if len(alias.Fields) == 0 {
+				return nil, fmt.Errorf("line %d: type alias %s must declare at least one field", start.number, name)
+			}
+			return alias, nil
+		}
+
+		if err := parseAliasFieldToken(alias, seen, rest, curLine); err != nil {
+			return nil, err
+		}
+		rest = ""
+	}
+}
+
+func parseAliasFieldToken(alias *model.TypeAlias, seen map[string]bool, token string, lineNo int) error {
+	token = strings.TrimSpace(strings.TrimPrefix(token, ","))
+	token = strings.TrimSpace(strings.TrimSuffix(token, ","))
+	if token == "" {
+		return nil
+	}
+	m := match(`^([a-z][A-Za-z0-9_]*)\s*:\s*(Int|String|Bool|Float)$`, token)
+	if m == nil {
+		return fmt.Errorf("line %d: invalid field in type alias %s. Expected `name : Type` with Int/String/Bool/Float", lineNo, alias.Name)
+	}
+	name := m[1]
+	if seen[name] {
+		return fmt.Errorf("line %d: duplicate field %q in type alias %s", lineNo, name, alias.Name)
+	}
+	seen[name] = true
+	alias.Fields = append(alias.Fields, model.AliasField{Name: name, Type: m[2]})
+	return nil
+}
+
+func parseAction(lines []line, idx *int, name, inputAlias string) (*model.Action, error) {
+	action := &model.Action{Name: name, InputAlias: inputAlias, Steps: []model.ActionStep{}}
+	startListOpen := false
+
+	(*idx)++
+	for *idx < len(lines) {
+		trimmed := strings.TrimSpace(lines[*idx].text)
+		if isCommentOrBlank(trimmed) {
+			(*idx)++
+			continue
+		}
+		expected := name + " ="
+		if trimmed != expected {
+			return nil, fmt.Errorf("line %d: expected action definition `%s` after signature", lines[*idx].number, expected)
+		}
+		break
+	}
+	if *idx >= len(lines) {
+		return nil, fmt.Errorf("action %s is missing definition body", name)
+	}
+
+	(*idx)++
+	for *idx < len(lines) {
+		trimmed := strings.TrimSpace(lines[*idx].text)
+		if isCommentOrBlank(trimmed) {
+			(*idx)++
+			continue
+		}
+		if trimmed == "tx" {
+			(*idx)++
+			break
+		}
+		if strings.HasPrefix(trimmed, "tx ") {
+			rest := strings.TrimSpace(strings.TrimPrefix(trimmed, "tx"))
+			if rest == "[" {
+				// tx [ on one line
+				startListOpen = true
+				(*idx)++
+				break
+			}
+		}
+		return nil, fmt.Errorf("line %d: action %s body must start with `tx`", lines[*idx].number, name)
+	}
+	if *idx >= len(lines) {
+		return nil, fmt.Errorf("action %s is missing transaction steps", name)
+	}
+
+	startedList := startListOpen
+	for *idx < len(lines) {
+		ln := lines[*idx]
+		trimmed := strings.TrimSpace(ln.text)
+		if isCommentOrBlank(trimmed) {
+			(*idx)++
+			continue
+		}
+
+		if !startedList {
+			if trimmed == "[" {
+				startedList = true
+				(*idx)++
+				continue
+			}
+			if strings.HasPrefix(trimmed, "[") {
+				startedList = true
+				trimmed = strings.TrimSpace(strings.TrimPrefix(trimmed, "["))
+			} else {
+				return nil, fmt.Errorf("line %d: action %s tx block must use list syntax `[ ... ]`", ln.number, name)
+			}
+		}
+
+		if trimmed == "]" {
+			(*idx)++
+			break
+		}
+
+		endNow := false
+		if strings.HasSuffix(trimmed, "]") {
+			trimmed = strings.TrimSpace(strings.TrimSuffix(trimmed, "]"))
+			endNow = true
+		}
+		trimmed = strings.TrimSpace(strings.TrimPrefix(trimmed, ","))
+		if trimmed != "" {
+			step, err := parseActionStep(trimmed, ln.number)
+			if err != nil {
+				return nil, err
+			}
+			action.Steps = append(action.Steps, *step)
+		}
+		(*idx)++
+		if endNow {
+			break
+		}
+	}
+
+	if len(action.Steps) == 0 {
+		return nil, fmt.Errorf("action %s must contain at least one step inside tx", name)
+	}
+	return action, nil
+}
+
+func parseActionStep(token string, lineNo int) (*model.ActionStep, error) {
+	m := match(`^insert\s+([A-Za-z][A-Za-z0-9_]*)\s*\{(.+)\}$`, token)
+	if m == nil {
+		return nil, fmt.Errorf("line %d: unsupported action step. Expected `insert Entity { field = value }`", lineNo)
+	}
+
+	step := &model.ActionStep{Kind: "insert", Entity: m[1], Values: []model.ActionFieldExpr{}}
+	parts, err := splitCSV(m[2])
+	if err != nil {
+		return nil, fmt.Errorf("line %d: invalid field assignments in action step: %w", lineNo, err)
+	}
+	seen := map[string]bool{}
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		assign := match(`^([a-z][A-Za-z0-9_]*)\s*=\s*(.+)$`, part)
+		if assign == nil {
+			return nil, fmt.Errorf("line %d: invalid assignment %q. Expected `field = value`", lineNo, part)
+		}
+		field := assign[1]
+		if seen[field] {
+			return nil, fmt.Errorf("line %d: duplicate assignment for field %q", lineNo, field)
+		}
+		seen[field] = true
+
+		expr, err := parseActionFieldExpr(strings.TrimSpace(assign[2]), lineNo)
+		if err != nil {
+			return nil, err
+		}
+		expr.Field = field
+		step.Values = append(step.Values, *expr)
+	}
+	return step, nil
+}
+
+func parseActionFieldExpr(raw string, lineNo int) (*model.ActionFieldExpr, error) {
+	if m := match(`^input\.([a-z][A-Za-z0-9_]*)$`, raw); m != nil {
+		return &model.ActionFieldExpr{
+			SourceKind: "input",
+			InputField: m[1],
+		}, nil
+	}
+	if raw == "true" || raw == "false" {
+		return &model.ActionFieldExpr{
+			SourceKind: "literal_bool",
+			Literal:    raw == "true",
+		}, nil
+	}
+	if raw == "null" {
+		return &model.ActionFieldExpr{
+			SourceKind: "literal_null",
+			Literal:    nil,
+		}, nil
+	}
+	if strings.HasPrefix(raw, "\"") && strings.HasSuffix(raw, "\"") {
+		unquoted, err := strconv.Unquote(raw)
+		if err != nil {
+			return nil, fmt.Errorf("line %d: invalid string literal %q", lineNo, raw)
+		}
+		return &model.ActionFieldExpr{
+			SourceKind: "literal_string",
+			Literal:    unquoted,
+		}, nil
+	}
+	if m := match(`^-?[0-9]+$`, raw); m != nil {
+		n, err := strconv.ParseInt(raw, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("line %d: invalid integer literal %q", lineNo, raw)
+		}
+		return &model.ActionFieldExpr{
+			SourceKind: "literal_int",
+			Literal:    n,
+		}, nil
+	}
+	if m := match(`^-?[0-9]+\.[0-9]+$`, raw); m != nil {
+		f, err := strconv.ParseFloat(raw, 64)
+		if err != nil {
+			return nil, fmt.Errorf("line %d: invalid float literal %q", lineNo, raw)
+		}
+		return &model.ActionFieldExpr{
+			SourceKind: "literal_float",
+			Literal:    f,
+		}, nil
+	}
+	return nil, fmt.Errorf("line %d: unsupported value %q. Use input.field, string, number, bool, or null", lineNo, raw)
+}
+
+func splitCSV(value string) ([]string, error) {
+	parts := make([]string, 0, 8)
+	var b strings.Builder
+	inString := false
+	escaped := false
+	for _, ch := range value {
+		if escaped {
+			b.WriteRune(ch)
+			escaped = false
+			continue
+		}
+		if ch == '\\' && inString {
+			b.WriteRune(ch)
+			escaped = true
+			continue
+		}
+		if ch == '"' {
+			inString = !inString
+			b.WriteRune(ch)
+			continue
+		}
+		if ch == ',' && !inString {
+			parts = append(parts, b.String())
+			b.Reset()
+			continue
+		}
+		b.WriteRune(ch)
+	}
+	if inString {
+		return nil, fmt.Errorf("unterminated string")
+	}
+	parts = append(parts, b.String())
+	return parts, nil
+}
+
 // validateAuthConfig ensures auth settings reference valid fields in the selected user entity.
 func validateAuthConfig(app *model.App) error {
 	if app.Auth == nil {
@@ -365,6 +698,132 @@ func validateAuthConfig(app *model.App) error {
 		}
 	}
 
+	return nil
+}
+
+func validateActions(app *model.App) error {
+	aliasByName := map[string]*model.TypeAlias{}
+	for i := range app.InputAliases {
+		alias := &app.InputAliases[i]
+		if _, exists := aliasByName[alias.Name]; exists {
+			return fmt.Errorf("duplicate type alias %q", alias.Name)
+		}
+		aliasByName[alias.Name] = alias
+	}
+
+	entityByName := map[string]*model.Entity{}
+	for i := range app.Entities {
+		entityByName[app.Entities[i].Name] = &app.Entities[i]
+	}
+
+	seenActions := map[string]bool{}
+	for _, action := range app.Actions {
+		if seenActions[action.Name] {
+			return fmt.Errorf("duplicate action %q", action.Name)
+		}
+		seenActions[action.Name] = true
+
+		alias := aliasByName[action.InputAlias]
+		if alias == nil {
+			return fmt.Errorf("action %s references unknown input type %q", action.Name, action.InputAlias)
+		}
+		aliasFieldTypes := map[string]string{}
+		for _, f := range alias.Fields {
+			aliasFieldTypes[f.Name] = f.Type
+		}
+
+		if len(action.Steps) == 0 {
+			return fmt.Errorf("action %s must have at least one transaction step", action.Name)
+		}
+		for _, step := range action.Steps {
+			if step.Kind != "insert" {
+				return fmt.Errorf("action %s has unsupported step kind %q", action.Name, step.Kind)
+			}
+			entity := entityByName[step.Entity]
+			if entity == nil {
+				return fmt.Errorf("action %s references unknown entity %q", action.Name, step.Entity)
+			}
+			assignments := map[string]model.ActionFieldExpr{}
+			for _, item := range step.Values {
+				field := findEntityField(entity, item.Field)
+				if field == nil {
+					return fmt.Errorf("action %s assigns unknown field %s.%s", action.Name, entity.Name, item.Field)
+				}
+				if field.Primary && field.Auto {
+					return fmt.Errorf("action %s cannot assign auto-generated field %s.%s", action.Name, entity.Name, item.Field)
+				}
+				assignments[item.Field] = item
+
+				sourceType, err := resolveExprType(item, aliasFieldTypes)
+				if err != nil {
+					return fmt.Errorf("action %s field %s.%s: %w", action.Name, entity.Name, item.Field, err)
+				}
+				if sourceType == "Null" {
+					if !field.Optional && !field.Primary {
+						return fmt.Errorf("action %s field %s.%s: null is only allowed on optional fields", action.Name, entity.Name, item.Field)
+					}
+					continue
+				}
+				if !isTypeAssignable(field.Type, sourceType) {
+					return fmt.Errorf("action %s field %s.%s expects %s but got %s", action.Name, entity.Name, item.Field, field.Type, sourceType)
+				}
+			}
+
+			for _, field := range entity.Fields {
+				if field.Primary && field.Auto {
+					continue
+				}
+				if field.Optional {
+					continue
+				}
+				if _, ok := assignments[field.Name]; !ok {
+					return fmt.Errorf("action %s is missing required field %s.%s", action.Name, entity.Name, field.Name)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func resolveExprType(expr model.ActionFieldExpr, aliasFieldTypes map[string]string) (string, error) {
+	switch expr.SourceKind {
+	case "input":
+		t := aliasFieldTypes[expr.InputField]
+		if t == "" {
+			return "", fmt.Errorf("references unknown input field %q", expr.InputField)
+		}
+		return t, nil
+	case "literal_string":
+		return "String", nil
+	case "literal_int":
+		return "Int", nil
+	case "literal_float":
+		return "Float", nil
+	case "literal_bool":
+		return "Bool", nil
+	case "literal_null":
+		return "Null", nil
+	default:
+		return "", fmt.Errorf("unsupported source kind %q", expr.SourceKind)
+	}
+}
+
+func isTypeAssignable(targetType, sourceType string) bool {
+	if targetType == sourceType {
+		return true
+	}
+	if targetType == "Float" && sourceType == "Int" {
+		return true
+	}
+	return false
+}
+
+func findEntityField(entity *model.Entity, name string) *model.Field {
+	for i := range entity.Fields {
+		if entity.Fields[i].Name == name {
+			return &entity.Fields[i]
+		}
+	}
 	return nil
 }
 

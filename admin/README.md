@@ -15,7 +15,8 @@ elm make src/Main.elm --output=dist/app.js
 
 ```bash
 cd /Users/marcio/dev/github/belm
-GOCACHE=/tmp/belm-gocache go run ./cmd/belmc serve examples/store.belm
+go run ./cmd/belm compile examples/store.belm
+./build/store/store
 ```
 
 2. Serve the admin static files:
@@ -28,6 +29,16 @@ python3 -m http.server 8080
 3. Open:
 
 - <http://localhost:8080/index.html?api=http://localhost:4100>
+
+## One-command mode
+
+You can run backend + admin and open the browser automatically:
+
+```bash
+cd /Users/marcio/dev/github/belm
+go run ./cmd/belm compile examples/store.belm
+./build/store/store admin
+```
 
 ## Features
 

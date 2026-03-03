@@ -45,6 +45,9 @@ func GenerateElmClient(app *model.App) (*ElmClientOutput, error) {
 		writeLine(buf, "    , update"+title)
 		writeLine(buf, "    , delete"+title)
 	}
+	for _, action := range app.Actions {
+		writeLine(buf, "    , run"+toTitle(action.Name))
+	}
 	if app.Auth != nil {
 		writeLine(buf, "    , requestCode")
 		writeLine(buf, "    , login")
@@ -298,6 +301,16 @@ func GenerateElmClient(app *model.App) (*ElmClientOutput, error) {
 		writeLine(buf, "me : Config -> (Result Http.Error Row -> msg) -> Cmd msg")
 		writeLine(buf, "me config toMsg =")
 		writeLine(buf, "    httpGetRow config \"/auth/me\" toMsg")
+	}
+
+	for _, action := range app.Actions {
+		title := toTitle(action.Name)
+		path := "/actions/" + action.Name
+		writeLine(buf, "")
+		writeLine(buf, "")
+		writeLine(buf, "run"+title+" : Config -> Encode.Value -> (Result Http.Error Row -> msg) -> Cmd msg")
+		writeLine(buf, "run"+title+" config payload toMsg =")
+		writeLine(buf, "    httpWriteRow \"POST\" config "+elmString(path)+" payload toMsg")
 	}
 
 	out := &ElmClientOutput{

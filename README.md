@@ -13,55 +13,71 @@ Belm is an Elm-inspired language for backend development, implemented in Go, wit
 
 ## Architecture (Go)
 
-- [cmd/belmc/main.go](/Users/marcio/dev/github/belm/cmd/belmc/main.go): compiler/runtime CLI
+- [cmd/belm/main.go](/Users/marcio/dev/github/belm/cmd/belm/main.go): compiler/runtime CLI
 - [internal/parser/parser.go](/Users/marcio/dev/github/belm/internal/parser/parser.go): `.belm` language parser
 - [internal/expr/parser.go](/Users/marcio/dev/github/belm/internal/expr/parser.go): expression parser (`rule`/`authorize`)
 - [internal/runtime](/Users/marcio/dev/github/belm/internal/runtime): HTTP server, auth/authz, and migrations
 - [internal/sqlitecli/sqlitecli.go](/Users/marcio/dev/github/belm/internal/sqlitecli/sqlitecli.go): SQLite access via `sqlite3` binary (no external dependencies)
 
-## Commands
+## Command
 
-Compile `.belm` into a JSON manifest:
-
-```bash
-go run ./cmd/belmc compile examples/store.belm build/store.manifest.json
-```
-
-When compiling, Belm also generates an Elm client in the same directory as the manifest.
-Example output:
-
-- `build/store.manifest.json`
-- `build/StoreApiClient.elm`
-
-Run directly from `.belm`:
+Compile `.belm` into an executable:
 
 ```bash
-go run ./cmd/belmc serve examples/store.belm
+go run ./cmd/belm compile examples/store.belm
 ```
 
-Run from a compiled manifest:
+Default output location is `build/<name>/<name>` where `<name>` comes from input filename:
+
+- `examples/store.belm` -> `build/store/store`
+
+Run the compiled executable:
 
 ```bash
-go run ./cmd/belmc serve-manifest build/store.manifest.json
+./build/store/store
+./build/store/store admin
 ```
 
-## Auto-generated Elm Client
+Optional output name:
 
-The generated module (`<AppName>Client.elm`) includes:
+```bash
+go run ./cmd/belm compile examples/store.belm bookstore-dev
+# output: build/bookstore-dev/bookstore-dev
+```
+
+Run API + Admin panel and open browser (from the compiled executable):
+
+```bash
+./build/store/store admin
+```
+
+## Auto-generated Clients
+
+Belm generates client files in the same output folder as the executable:
+
+- Elm: `<AppName>Client.elm`
+- TypeScript: `<AppName>Client.ts`
+
+Both clients include:
 
 - `schema` (entity metadata)
-- `rowDecoder`
 - CRUD functions per entity:
 - `list<Entity>`
 - `get<Entity>`
 - `create<Entity>`
 - `update<Entity>`
 - `delete<Entity>`
+- typed action functions:
+- `run<Action>`
 - auth endpoints, when auth is enabled:
 - `requestCode`
 - `login`
 - `logout`
 - `me`
+
+Elm client also exposes:
+
+- `rowDecoder`
 
 Usage example in Elm:
 
@@ -69,13 +85,44 @@ Usage example in Elm:
 import StoreApiClient as Api
 
 type Msg
-    = GotCustomers (Result Http.Error (List Api.Row))
+    = GotUsers (Result Http.Error (List Api.Row))
 
 load : Cmd Msg
 load =
-    Api.listCustomer
+    Api.listUser
         { baseUrl = "http://localhost:4100", token = "" }
-        GotCustomers
+        GotUsers
+```
+
+Usage example in TypeScript:
+
+```ts
+import { Config, createBook, runPlaceBookOrder } from "./BookStoreApiClient";
+
+const config: Config = {
+  baseUrl: "http://localhost:4100",
+  token: "<bearer-token>",
+};
+
+await createBook(config, {
+  title: "Domain Modeling Made Functional",
+  authorName: "Scott Wlaschin",
+  isbn: "978-1-68050-254-1",
+  price: 129.9,
+  stock: 10,
+  active: true,
+});
+
+await runPlaceBookOrder(config, {
+  orderRef: "ORD-2026-0001",
+  userId: 1,
+  bookId: 1,
+  quantity: 1,
+  unitPrice: 129.9,
+  lineTotal: 129.9,
+  orderTotal: 129.9,
+  notes: "first order",
+});
 ```
 
 ## Admin Panel
@@ -119,6 +166,9 @@ entity Todo {
 - `database "<sqlite_path>"`
 - `auth { ... }`
 - `entity <Name> { ... }`
+- `type alias <Name> = { ... }`
+- `<actionName> : <InputAlias> -> Effect`
+- `<actionName> = tx [ insert Entity { field = input.value } ]`
 
 ### Fields
 
@@ -141,12 +191,37 @@ If no primary key is provided, Belm automatically adds:
 
 `id: Int primary auto`
 
+## Typed Actions (Elm-style)
+
+Belm supports Elm-inspired typed actions for multi-entity writes in a single transaction.
+
+```belm
+type alias PlaceOrderInput =
+  { userId : Int
+  , total : Float
+  , note : String
+  }
+
+placeOrder : PlaceOrderInput -> Result DomainError Effect
+placeOrder =
+  tx
+    [ insert Order { userId = input.userId, status = "created", total = input.total, note = input.note }
+    , insert AuditLog { userId = input.userId, message = "order created" }
+    ]
+```
+
+Behavior:
+
+- compile-time type checks for action input and assigned entity fields
+- friendly compile errors (`expects Float but got String`, missing required fields, unknown input fields)
+- atomic execution (all steps succeed or all rollback)
+
 ## Business Rules (`rule`)
 
 Inside `entity`:
 
 ```belm
-rule "Customer must be 18 or older" when age >= 18
+rule "User must be 18 or older" when age >= 18
 ```
 
 Operators:
@@ -178,11 +253,14 @@ Built-in email code login flow:
 3. `POST /auth/login` (email + code) returns a bearer token
 4. `POST /auth/logout` revokes the session
 
+For first-login flows, `request-code` can auto-create the auth user when the selected `user_entity`
+only requires inferable fields (for example `email` and `role`).
+
 Configuration:
 
 ```belm
 auth {
-  user_entity Customer
+  user_entity User
   email_field email
   role_field role
   code_ttl_minutes 10
@@ -193,6 +271,11 @@ auth {
   dev_expose_code true
 }
 ```
+
+Recommended framework pattern:
+
+- keep auth identities in a dedicated `User` entity (table: `users`)
+- use `auth_email` or `auth_user_id` in `authorize` expressions for ownership checks
 
 `email_transport`:
 
@@ -217,7 +300,7 @@ Context available in authorization expressions:
 - `auth_email`
 - `auth_user_id`
 - `auth_role`
-- entity fields (`id`, `customerId`, etc.)
+- entity fields (`id`, `userId`, etc.)
 
 Extra function:
 
@@ -246,6 +329,10 @@ With auth enabled:
 - `POST /auth/logout`
 - `GET /auth/me`
 
+For each typed action `myAction`:
+
+- `POST /actions/myAction`
+
 ## Migrations
 
 Migrations run automatically on startup.
@@ -273,5 +360,9 @@ Use [examples/store.belm](/Users/marcio/dev/github/belm/examples/store.belm), wh
 
 - business rules (`age >= 18`, email validation, etc.)
 - email code auth
-- role/ownership authorization
-- entities: `Customer`, `Product`, `Order`, `OrderItem`
+- role/ownership authorization with dedicated auth users
+- entities: `User`, `Product`, `Order`, `OrderItem`
+
+For typed action examples, see:
+
+- [examples/typed-actions.belm](/Users/marcio/dev/github/belm/examples/typed-actions.belm)

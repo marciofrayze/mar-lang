@@ -23,6 +23,8 @@ type Runtime struct {
 	DB             *sqlitecli.DB
 	entitiesByRes  map[string]*model.Entity
 	entitiesByName map[string]*model.Entity
+	aliasesByName  map[string]*model.TypeAlias
+	actionsByName  map[string]*model.Action
 	rules          map[string][]compiledRule
 	authorizers    map[string]map[string]expr.Expr
 	authUser       *model.Entity
@@ -66,6 +68,8 @@ func New(app *model.App) (*Runtime, error) {
 		DB:             db,
 		entitiesByRes:  map[string]*model.Entity{},
 		entitiesByName: map[string]*model.Entity{},
+		aliasesByName:  map[string]*model.TypeAlias{},
+		actionsByName:  map[string]*model.Action{},
 		rules:          map[string][]compiledRule{},
 		authorizers:    map[string]map[string]expr.Expr{},
 	}
@@ -74,6 +78,14 @@ func New(app *model.App) (*Runtime, error) {
 		ent := &app.Entities[i]
 		r.entitiesByRes[ent.Resource] = ent
 		r.entitiesByName[ent.Name] = ent
+	}
+	for i := range app.InputAliases {
+		alias := &app.InputAliases[i]
+		r.aliasesByName[alias.Name] = alias
+	}
+	for i := range app.Actions {
+		action := &app.Actions[i]
+		r.actionsByName[action.Name] = action
 	}
 	if app.Auth != nil {
 		r.authUser = r.entitiesByName[app.Auth.UserEntity]
@@ -105,11 +117,7 @@ func (r *Runtime) Serve(ctx context.Context) error {
 
 	errCh := make(chan error, 1)
 	go func() {
-		fmt.Printf("Belm app %q running on http://localhost:%d\n", r.App.AppName, r.App.Port)
-		fmt.Printf("SQLite database: %s\n", r.App.Database)
-		for _, entity := range r.App.Entities {
-			fmt.Printf("CRUD endpoints: %s\n", entity.Resource)
-		}
+		r.printStartupBanner()
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- err
 		}
@@ -192,6 +200,21 @@ func (r *Runtime) route(w http.ResponseWriter, req *http.Request) error {
 			})
 			return nil
 		}
+	}
+
+	if strings.HasPrefix(path, "/actions/") {
+		name := strings.TrimPrefix(path, "/actions/")
+		if name == "" || strings.Contains(name, "/") {
+			return &apiError{Status: http.StatusNotFound, Message: "Route not found"}
+		}
+		if method != http.MethodPost {
+			return &apiError{Status: http.StatusMethodNotAllowed, Message: "Method not allowed"}
+		}
+		payload, err := readJSONBody(req)
+		if err != nil {
+			return err
+		}
+		return r.handleAction(w, name, auth, payload)
 	}
 
 	for i := range r.App.Entities {

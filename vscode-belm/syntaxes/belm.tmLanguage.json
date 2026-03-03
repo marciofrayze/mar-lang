@@ -4,10 +4,10 @@
   "scopeName": "source.belm",
   "patterns": [
     {
-      "include": "#comments"
+      "include": "#strings"
     },
     {
-      "include": "#strings"
+      "include": "#comments"
     },
     {
       "include": "#declarations"
@@ -93,6 +93,24 @@
           }
         },
         {
+          "name": "meta.typealias.declaration.belm",
+          "match": "\\b(type)\\s+(alias)\\s+([A-Z][A-Za-z0-9_]*)\\s*(=)",
+          "captures": {
+            "1": {
+              "name": "keyword.control.declaration.belm"
+            },
+            "2": {
+              "name": "keyword.control.declaration.belm"
+            },
+            "3": {
+              "name": "entity.name.type.belm"
+            },
+            "4": {
+              "name": "keyword.operator.assignment.belm"
+            }
+          }
+        },
+        {
           "name": "meta.auth.user-entity.belm",
           "match": "\\b(user_entity)\\s+([A-Z][A-Za-z0-9_]*)\\b",
           "captures": {
@@ -101,6 +119,66 @@
             },
             "2": {
               "name": "entity.name.type.belm"
+            }
+          }
+        },
+        {
+          "name": "meta.action.signature.result.belm",
+          "match": "\\b([a-z][A-Za-z0-9_]*)\\s*(:)\\s*([A-Z][A-Za-z0-9_]*)\\s*(->)\\s*(Result)\\s+([A-Z][A-Za-z0-9_]*)\\s+(Effect)\\b",
+          "captures": {
+            "1": {
+              "name": "entity.name.function.belm"
+            },
+            "2": {
+              "name": "punctuation.separator.key-value.belm"
+            },
+            "3": {
+              "name": "entity.name.type.belm"
+            },
+            "4": {
+              "name": "keyword.operator.arrow.belm"
+            },
+            "5": {
+              "name": "storage.type.belm"
+            },
+            "6": {
+              "name": "entity.name.type.belm"
+            },
+            "7": {
+              "name": "storage.type.belm"
+            }
+          }
+        },
+        {
+          "name": "meta.action.signature.effect.belm",
+          "match": "\\b([a-z][A-Za-z0-9_]*)\\s*(:)\\s*([A-Z][A-Za-z0-9_]*)\\s*(->)\\s*(Effect)\\b",
+          "captures": {
+            "1": {
+              "name": "entity.name.function.belm"
+            },
+            "2": {
+              "name": "punctuation.separator.key-value.belm"
+            },
+            "3": {
+              "name": "entity.name.type.belm"
+            },
+            "4": {
+              "name": "keyword.operator.arrow.belm"
+            },
+            "5": {
+              "name": "storage.type.belm"
+            }
+          }
+        },
+        {
+          "name": "meta.action.definition.belm",
+          "match": "^\\s*([a-z][A-Za-z0-9_]*)\\s*(=)\\s*$",
+          "captures": {
+            "1": {
+              "name": "entity.name.function.belm"
+            },
+            "2": {
+              "name": "keyword.operator.assignment.belm"
             }
           }
         },
@@ -130,6 +208,33 @@
               "name": "support.constant.action.belm"
             }
           }
+        },
+        {
+          "name": "meta.rule.declaration.belm",
+          "match": "\\b(rule)\\s+(\"[^\"]*\")\\s+(when)\\b",
+          "captures": {
+            "1": {
+              "name": "keyword.control.rule.belm"
+            },
+            "2": {
+              "name": "string.quoted.double.belm"
+            },
+            "3": {
+              "name": "keyword.control.rule.belm"
+            }
+          }
+        },
+        {
+          "name": "meta.action.step.insert.belm",
+          "match": "\\b(insert)\\s+([A-Z][A-Za-z0-9_]*)\\b",
+          "captures": {
+            "1": {
+              "name": "keyword.control.rule.belm"
+            },
+            "2": {
+              "name": "entity.name.type.belm"
+            }
+          }
         }
       ]
     },
@@ -137,11 +242,15 @@
       "patterns": [
         {
           "name": "keyword.control.declaration.belm",
-          "match": "\\b(app|port|database|entity|auth)\\b"
+          "match": "\\b(app|port|database|entity|auth|type|alias)\\b"
         },
         {
           "name": "keyword.control.rule.belm",
-          "match": "\\b(rule|when|authorize)\\b"
+          "match": "\\b(rule|when|authorize|tx|insert)\\b"
+        },
+        {
+          "name": "storage.type.belm",
+          "match": "\\b(Effect|Result)\\b"
         },
         {
           "name": "keyword.other.auth.belm",
@@ -158,6 +267,18 @@
         {
           "name": "support.function.belm",
           "match": "\\b(contains|startsWith|endsWith|len|matches|isRole)\\b(?=\\s*\\()"
+        },
+        {
+          "name": "variable.other.member.belm",
+          "match": "\\binput\\.([a-z][A-Za-z0-9_]*)\\b"
+        },
+        {
+          "name": "variable.language.belm",
+          "match": "\\b(input|auth_authenticated|auth_email|auth_user_id|auth_role)\\b"
+        },
+        {
+          "name": "support.constant.action.belm",
+          "match": "\\b(list|get|create|update|delete)\\b"
         }
       ]
     },
@@ -200,6 +321,14 @@
           "match": "\\+|-|\\*|/"
         },
         {
+          "name": "keyword.operator.assignment.belm",
+          "match": "="
+        },
+        {
+          "name": "keyword.operator.arrow.belm",
+          "match": "->"
+        },
+        {
           "name": "punctuation.section.block.begin.belm",
           "match": "\\{"
         },
@@ -214,6 +343,18 @@
         {
           "name": "punctuation.section.parens.end.belm",
           "match": "\\)"
+        },
+        {
+          "name": "punctuation.section.brackets.begin.belm",
+          "match": "\\["
+        },
+        {
+          "name": "punctuation.section.brackets.end.belm",
+          "match": "\\]"
+        },
+        {
+          "name": "punctuation.separator.comma.belm",
+          "match": ","
         }
       ]
     }

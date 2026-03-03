@@ -29,6 +29,34 @@ func (r *Runtime) schemaPayload() map[string]any {
 		"database": r.App.Database,
 		"entities": entities,
 	}
+	if len(r.App.InputAliases) > 0 {
+		aliases := make([]map[string]any, 0, len(r.App.InputAliases))
+		for _, alias := range r.App.InputAliases {
+			fields := make([]map[string]any, 0, len(alias.Fields))
+			for _, field := range alias.Fields {
+				fields = append(fields, map[string]any{
+					"name": field.Name,
+					"type": field.Type,
+				})
+			}
+			aliases = append(aliases, map[string]any{
+				"name":   alias.Name,
+				"fields": fields,
+			})
+		}
+		payload["inputAliases"] = aliases
+	}
+	if len(r.App.Actions) > 0 {
+		actions := make([]map[string]any, 0, len(r.App.Actions))
+		for _, action := range r.App.Actions {
+			actions = append(actions, map[string]any{
+				"name":       action.Name,
+				"inputAlias": action.InputAlias,
+				"steps":      len(action.Steps),
+			})
+		}
+		payload["actions"] = actions
+	}
 	if r.authEnabled() {
 		payload["auth"] = map[string]any{
 			"enabled":        true,

@@ -1,11 +1,13 @@
 package model
 
 type App struct {
-	AppName  string      `json:"appName"`
-	Port     int         `json:"port"`
-	Database string      `json:"database"`
-	Entities []Entity    `json:"entities"`
-	Auth     *AuthConfig `json:"auth,omitempty"`
+	AppName      string      `json:"appName"`
+	Port         int         `json:"port"`
+	Database     string      `json:"database"`
+	Entities     []Entity    `json:"entities"`
+	Auth         *AuthConfig `json:"auth,omitempty"`
+	InputAliases []TypeAlias `json:"inputAliases,omitempty"`
+	Actions      []Action    `json:"actions,omitempty"`
 }
 
 type AuthConfig struct {
@@ -47,4 +49,33 @@ type Rule struct {
 type Authorization struct {
 	Action     string `json:"action"`
 	Expression string `json:"expression"`
+}
+
+type TypeAlias struct {
+	Name   string       `json:"name"`
+	Fields []AliasField `json:"fields"`
+}
+
+type AliasField struct {
+	Name string `json:"name"`
+	Type string `json:"type"`
+}
+
+type Action struct {
+	Name       string       `json:"name"`
+	InputAlias string       `json:"inputAlias"`
+	Steps      []ActionStep `json:"steps"`
+}
+
+type ActionStep struct {
+	Kind   string            `json:"kind"`
+	Entity string            `json:"entity"`
+	Values []ActionFieldExpr `json:"values"`
+}
+
+type ActionFieldExpr struct {
+	Field      string `json:"field"`
+	SourceKind string `json:"sourceKind"`
+	InputField string `json:"inputField,omitempty"`
+	Literal    any    `json:"literal,omitempty"`
 }

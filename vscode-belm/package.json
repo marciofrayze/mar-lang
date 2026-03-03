@@ -1,18 +1,19 @@
 {
   "name": "belm-language-support",
   "displayName": "Belm Language Support",
-  "description": "Syntax highlighting and language configuration for Belm files.",
-  "version": "0.0.1",
+  "description": "Syntax highlighting and snippets for modern Belm (.belm) files.",
+  "version": "0.0.2",
   "publisher": "belm-dev",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/marcio/belm.git"
+  },
   "license": "MIT",
   "engines": {
     "vscode": "^1.85.0"
   },
   "categories": [
     "Programming Languages"
-  ],
-  "activationEvents": [
-    "onLanguage:belm"
   ],
   "contributes": {
     "languages": [

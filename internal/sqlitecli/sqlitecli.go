@@ -17,6 +17,11 @@ type Result struct {
 	LastInsertRow int64
 }
 
+type Statement struct {
+	Query string
+	Args  []any
+}
+
 func Open(path string) *DB {
 	return &DB{Path: path}
 }
@@ -58,6 +63,25 @@ func (db *DB) QueryRow(query string, args ...any) (map[string]any, bool, error) 
 		return nil, false, nil
 	}
 	return rows[0], true, nil
+}
+
+func (db *DB) ExecTx(statements []Statement) error {
+	if len(statements) == 0 {
+		return nil
+	}
+	var b strings.Builder
+	b.WriteString("BEGIN IMMEDIATE; ")
+	for i, stmt := range statements {
+		expanded, err := expandQuery(stmt.Query, stmt.Args)
+		if err != nil {
+			return fmt.Errorf("statement %d: %w", i+1, err)
+		}
+		b.WriteString(expanded)
+		b.WriteString("; ")
+	}
+	b.WriteString("COMMIT;")
+	_, err := db.queryJSON(b.String())
+	return err
 }
 
 func (db *DB) queryJSON(sqlText string) ([]map[string]any, error) {
