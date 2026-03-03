@@ -30,11 +30,24 @@ func (r *Runtime) printStartupBanner() {
 		fmt.Printf("  %s %s\n", "POST", "/auth/login")
 		fmt.Printf("  %s %s\n", "POST", "/auth/logout")
 		fmt.Printf("  %s %s\n", "GET ", "/auth/me")
+		if r.authUser != nil {
+			fmt.Printf("  %s %s\n", "ALL ", r.authUser.Resource+" (auth users)")
+		}
 	}
 
-	if len(r.App.Entities) > 0 {
+	crudCount := 0
+	for _, entity := range r.App.Entities {
+		if r.authUser != nil && entity.Name == r.authUser.Name {
+			continue
+		}
+		crudCount++
+	}
+	if crudCount > 0 {
 		fmt.Printf("\n%s\n", colorize(useColor, ansiSection, "CRUD"))
 		for _, entity := range r.App.Entities {
+			if r.authUser != nil && entity.Name == r.authUser.Name {
+				continue
+			}
 			fmt.Printf("  %s %s\n", "ALL ", entity.Resource)
 		}
 	}
@@ -45,6 +58,14 @@ func (r *Runtime) printStartupBanner() {
 			fmt.Printf("  %s %s\n", "POST", "/actions/"+action.Name)
 		}
 	}
+
+	fmt.Printf("\n%s\n", colorize(useColor, ansiSection, "System"))
+	fmt.Printf("  %s %s\n", "GET ", "/health")
+	fmt.Printf("  %s %s\n", "GET ", "/_belm/schema")
+	fmt.Printf("  %s %s\n", "GET ", "/_belm/perf")
+	fmt.Printf("  %s %s\n", "POST", "/_belm/backup (admin)")
+	fmt.Printf("  %s %s\n", "POST", "/_belm/bootstrap-admin (first user)")
+	fmt.Printf("  %s %s\n", "GET ", "/metrics")
 
 	if shouldShowAdminHint() {
 		fmt.Printf("\n%s run %s to open Belm Admin\n", colorize(useColor, ansiHint, "Hint:"), colorize(useColor, ansiCommand, os.Args[0]+" admin"))

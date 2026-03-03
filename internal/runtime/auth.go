@@ -95,18 +95,42 @@ func (r *Runtime) loadAuthUserByID(id any) (map[string]any, bool, error) {
 	return queryRow(r.DB, query, id)
 }
 
+func (r *Runtime) countAuthUsers() (int64, error) {
+	if r.authUser == nil {
+		return 0, nil
+	}
+	table, _ := quoteIdentifier(r.authUser.Table)
+	row, ok, err := queryRow(r.DB, fmt.Sprintf("SELECT COUNT(*) AS total FROM %s", table))
+	if err != nil {
+		return 0, err
+	}
+	if !ok {
+		return 0, nil
+	}
+	total, _ := toInt64(row["total"])
+	return total, nil
+}
+
+func parseAuthEmail(payload map[string]any) (string, error) {
+	emailRaw, ok := payload["email"].(string)
+	if !ok {
+		return "", &apiError{Status: http.StatusBadRequest, Message: "email is required"}
+	}
+	email := normalizeEmail(emailRaw)
+	if email == "" {
+		return "", &apiError{Status: http.StatusBadRequest, Message: "email is required"}
+	}
+	return email, nil
+}
+
 // handleAuthRequestCode creates and delivers a one-time login code for an existing user email.
 func (r *Runtime) handleAuthRequestCode(w http.ResponseWriter, payload map[string]any) error {
 	if !r.authEnabled() {
 		return &apiError{Status: http.StatusNotFound, Message: "Authentication is not enabled"}
 	}
-	emailRaw, ok := payload["email"].(string)
-	if !ok {
-		return &apiError{Status: http.StatusBadRequest, Message: "email is required"}
-	}
-	email := normalizeEmail(emailRaw)
-	if email == "" {
-		return &apiError{Status: http.StatusBadRequest, Message: "email is required"}
+	email, err := parseAuthEmail(payload)
+	if err != nil {
+		return err
 	}
 
 	user, found, err := r.loadOrCreateAuthUserForRequestCode(email)
@@ -118,6 +142,46 @@ func (r *Runtime) handleAuthRequestCode(w http.ResponseWriter, payload map[strin
 		return nil
 	}
 	userID := user[r.authUser.PrimaryKey]
+	return r.issueAuthCode(w, email, userID, "If this email exists, a code was sent.")
+}
+
+// handleBootstrapAdmin creates the first auth user with role admin and sends a login code.
+func (r *Runtime) handleBootstrapAdmin(w http.ResponseWriter, payload map[string]any) error {
+	if !r.authEnabled() {
+		return &apiError{Status: http.StatusNotFound, Message: "Authentication is not enabled"}
+	}
+	if r.authUser == nil {
+		return &apiError{Status: http.StatusInternalServerError, Message: "Auth user entity is not configured"}
+	}
+	if strings.TrimSpace(r.App.Auth.RoleField) == "" {
+		return &apiError{Status: http.StatusBadRequest, Message: "auth.role_field is required for admin bootstrap"}
+	}
+
+	totalUsers, err := r.countAuthUsers()
+	if err != nil {
+		return err
+	}
+	if totalUsers > 0 {
+		return &apiError{Status: http.StatusConflict, Message: "Bootstrap is only allowed when there are no users"}
+	}
+
+	email, err := parseAuthEmail(payload)
+	if err != nil {
+		return err
+	}
+
+	user, found, err := r.tryAutoCreateAuthUserWithRole(email, "admin")
+	if err != nil {
+		return err
+	}
+	if !found {
+		return &apiError{Status: http.StatusUnprocessableEntity, Message: "Could not auto-create admin user. Add optional/default fields or create one manually."}
+	}
+	userID := user[r.authUser.PrimaryKey]
+	return r.issueAuthCode(w, email, userID, "First admin user created. A login code was sent.")
+}
+
+func (r *Runtime) issueAuthCode(w http.ResponseWriter, email string, userID any, message string) error {
 	code, err := randomCode6()
 	if err != nil {
 		return err
@@ -132,7 +196,7 @@ func (r *Runtime) handleAuthRequestCode(w http.ResponseWriter, payload map[strin
 		return err
 	}
 
-	resp := map[string]any{"ok": true, "message": "If this email exists, a code was sent."}
+	resp := map[string]any{"ok": true, "message": message}
 	if r.App.Auth.DevExposeCode {
 		resp["devCode"] = code
 	}
@@ -152,6 +216,10 @@ func (r *Runtime) loadOrCreateAuthUserForRequestCode(email string) (map[string]a
 // tryAutoCreateAuthUser creates a minimal auth user for passwordless first-login flows.
 // It only succeeds when all required fields can be safely inferred from auth config.
 func (r *Runtime) tryAutoCreateAuthUser(email string) (map[string]any, bool, error) {
+	return r.tryAutoCreateAuthUserWithRole(email, "user")
+}
+
+func (r *Runtime) tryAutoCreateAuthUserWithRole(email, roleValue string) (map[string]any, bool, error) {
 	if r.authUser == nil {
 		return nil, false, nil
 	}
@@ -183,11 +251,10 @@ func (r *Runtime) tryAutoCreateAuthUser(email string) (map[string]any, bool, err
 			if field.Type != "String" {
 				return nil, false, nil
 			}
-			role := "user"
 			columns = append(columns, quoted)
 			placeholders = append(placeholders, "?")
-			values = append(values, role)
-			ctx[field.Name] = role
+			values = append(values, roleValue)
+			ctx[field.Name] = roleValue
 		case field.Optional:
 			// Keep optional fields nil for auto-provisioned users.
 		default:
@@ -312,22 +379,55 @@ func (r *Runtime) handleAuthLogout(w http.ResponseWriter, auth authSession) erro
 // deliverEmailCode dispatches login codes through the configured transport.
 func (r *Runtime) deliverEmailCode(toEmail, code string) error {
 	if r.App.Auth.DevExposeCode {
-		fmt.Printf("[BelmAuthDevCode] to=%s code=%s\n", toEmail, code)
+		r.printAuthLogHeader()
+		useColor := supportsANSI()
+		fmt.Printf("  %s %s  %s %s\n",
+			colorize(useColor, ansiLabel, "Dev code:"),
+			colorize(useColor, ansiCommand, code),
+			colorize(useColor, ansiLabel, "Email:"),
+			toEmail,
+		)
 	}
 
 	switch r.App.Auth.EmailTransport {
 	case "console":
-		fmt.Printf("[BelmAuthEmail] transport=console to=%s\n", toEmail)
+		r.printAuthLogHeader()
+		useColor := supportsANSI()
+		fmt.Printf("  %s %s  %s %s  %s %s\n",
+			colorize(useColor, ansiLabel, "Email:"),
+			colorize(useColor, ansiCommand, "sent"),
+			colorize(useColor, ansiLabel, "Transport:"),
+			"console",
+			colorize(useColor, ansiLabel, "To:"),
+			toEmail,
+		)
 		return nil
 	case "sendmail":
 		if err := sendWithSendmail(r.App.Auth.SendmailPath, r.App.Auth.EmailFrom, r.App.Auth.EmailSubject, toEmail, code, r.App.Auth.CodeTTLMinutes); err != nil {
 			return err
 		}
-		fmt.Printf("[BelmAuthEmail] transport=sendmail to=%s\n", toEmail)
+		r.printAuthLogHeader()
+		useColor := supportsANSI()
+		fmt.Printf("  %s %s  %s %s  %s %s\n",
+			colorize(useColor, ansiLabel, "Email:"),
+			colorize(useColor, ansiCommand, "sent"),
+			colorize(useColor, ansiLabel, "Transport:"),
+			"sendmail",
+			colorize(useColor, ansiLabel, "To:"),
+			toEmail,
+		)
 		return nil
 	default:
 		return fmt.Errorf("unsupported email transport %q", r.App.Auth.EmailTransport)
 	}
+}
+
+func (r *Runtime) printAuthLogHeader() {
+	useColor := supportsANSI()
+	r.authLogOnce.Do(func() {
+		fmt.Println()
+		fmt.Printf("%s\n", colorize(useColor, ansiSection, "Auth logs"))
+	})
 }
 
 // sendWithSendmail sends plain-text email by invoking the local sendmail binary.

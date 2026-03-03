@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"regexp"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -28,6 +29,8 @@ type Runtime struct {
 	rules          map[string][]compiledRule
 	authorizers    map[string]map[string]expr.Expr
 	authUser       *model.Entity
+	metrics        *metricsCollector
+	authLogOnce    sync.Once
 }
 
 type compiledRule struct {
@@ -72,6 +75,7 @@ func New(app *model.App) (*Runtime, error) {
 		actionsByName:  map[string]*model.Action{},
 		rules:          map[string][]compiledRule{},
 		authorizers:    map[string]map[string]expr.Expr{},
+		metrics:        newMetricsCollector(),
 	}
 
 	for i := range app.Entities {
@@ -138,15 +142,25 @@ func (r *Runtime) Serve(ctx context.Context) error {
 
 // handleHTTP applies shared transport behavior before delegating to route.
 func (r *Runtime) handleHTTP(w http.ResponseWriter, req *http.Request) {
-	setCORSHeaders(w)
+	startedAt := time.Now()
+	routeLabel := r.metricsRouteLabel(req)
+	writer := &statusRecorder{ResponseWriter: w}
+
+	setCORSHeaders(writer)
 	if req.Method == http.MethodOptions {
-		w.WriteHeader(http.StatusNoContent)
+		writer.WriteHeader(http.StatusNoContent)
+		r.metrics.recordRequest(req.Method, routeLabel, writer.statusCode(), time.Since(startedAt))
 		return
 	}
 
-	if err := r.route(w, req); err != nil {
-		r.writeError(w, err)
+	if err := r.route(writer, req); err != nil {
+		r.writeError(writer, err)
 	}
+
+	if writer.statusCode() == 0 {
+		writer.WriteHeader(http.StatusOK)
+	}
+	r.metrics.recordRequest(req.Method, routeLabel, writer.statusCode(), time.Since(startedAt))
 }
 
 // route resolves Belm endpoints for health, schema, auth, and entity CRUD operations.
@@ -165,10 +179,49 @@ func (r *Runtime) route(w http.ResponseWriter, req *http.Request) error {
 		r.writeJSON(w, http.StatusOK, r.schemaPayload())
 		return nil
 	}
+	if method == http.MethodGet && path == "/_belm/perf" {
+		r.writeJSON(w, http.StatusOK, r.perfPayload())
+		return nil
+	}
+	if method == http.MethodGet && path == "/metrics" {
+		r.writePrometheus(w)
+		return nil
+	}
+	if method == http.MethodPost && path == "/_belm/bootstrap-admin" {
+		payload, err := readJSONBody(req)
+		if err != nil {
+			return err
+		}
+		return r.handleBootstrapAdmin(w, payload)
+	}
 
 	auth, err := r.resolveAuth(req)
 	if err != nil {
 		return err
+	}
+
+	if method == http.MethodPost && path == "/_belm/backup" {
+		if !r.authEnabled() {
+			return &apiError{Status: http.StatusForbidden, Message: "Backup requires authentication with admin role"}
+		}
+		if !auth.Authenticated {
+			return &apiError{Status: http.StatusUnauthorized, Message: "Authentication required"}
+		}
+		if !isAdminRole(auth.Role) {
+			return &apiError{Status: http.StatusForbidden, Message: "Admin role required"}
+		}
+		result, err := CreateSQLiteBackup(r.App.Database, 20)
+		if err != nil {
+			return err
+		}
+		r.writeJSON(w, http.StatusOK, map[string]any{
+			"ok":        true,
+			"path":      result.Path,
+			"backupDir": result.BackupDir,
+			"removed":   result.Removed,
+			"keptLast":  result.KeptLast,
+		})
+		return nil
 	}
 
 	if r.authEnabled() {
@@ -308,4 +361,79 @@ func setCORSHeaders(w http.ResponseWriter) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type,Authorization")
+}
+
+type statusRecorder struct {
+	http.ResponseWriter
+	status int
+}
+
+func (w *statusRecorder) WriteHeader(statusCode int) {
+	w.status = statusCode
+	w.ResponseWriter.WriteHeader(statusCode)
+}
+
+func (w *statusRecorder) Write(data []byte) (int, error) {
+	if w.status == 0 {
+		w.status = http.StatusOK
+	}
+	return w.ResponseWriter.Write(data)
+}
+
+func (w *statusRecorder) statusCode() int {
+	if w.status == 0 {
+		return http.StatusOK
+	}
+	return w.status
+}
+
+func (r *Runtime) metricsRouteLabel(req *http.Request) string {
+	path := strings.TrimSuffix(req.URL.Path, "/")
+	if path == "" {
+		path = "/"
+	}
+
+	switch path {
+	case "/health", "/_belm/schema", "/_belm/perf", "/_belm/backup", "/_belm/bootstrap-admin", "/metrics":
+		return path
+	}
+
+	if strings.HasPrefix(path, "/auth/") {
+		if path == "/auth/request-code" || path == "/auth/login" || path == "/auth/logout" || path == "/auth/me" {
+			return path
+		}
+		return "/auth/:unknown"
+	}
+
+	if strings.HasPrefix(path, "/actions/") {
+		name := strings.TrimPrefix(path, "/actions/")
+		if name != "" && !strings.Contains(name, "/") {
+			return "/actions/:name"
+		}
+		return "/actions/:unknown"
+	}
+
+	for i := range r.App.Entities {
+		base := r.App.Entities[i].Resource
+		if path == base {
+			return base
+		}
+		prefix := base + "/"
+		if strings.HasPrefix(path, prefix) {
+			rawID := strings.TrimPrefix(path, prefix)
+			if rawID != "" && !strings.Contains(rawID, "/") {
+				return base + "/:id"
+			}
+		}
+	}
+
+	return "/unknown"
+}
+
+func isAdminRole(role any) bool {
+	roleText, ok := role.(string)
+	if !ok {
+		return false
+	}
+	return strings.EqualFold(strings.TrimSpace(roleText), "admin")
 }

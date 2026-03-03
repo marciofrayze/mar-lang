@@ -19,12 +19,12 @@ Belm is an Elm-inspired language for backend development, implemented in Go, wit
 - [internal/runtime](/Users/marcio/dev/github/belm/internal/runtime): HTTP server, auth/authz, and migrations
 - [internal/sqlitecli/sqlitecli.go](/Users/marcio/dev/github/belm/internal/sqlitecli/sqlitecli.go): SQLite access via `sqlite3` binary (no external dependencies)
 
-## Command
+## Compiler Command
 
 Compile `.belm` into an executable:
 
 ```bash
-go run ./cmd/belm compile examples/store.belm
+./belm compile examples/store.belm
 ```
 
 Default output location is `build/<name>/<name>` where `<name>` comes from input filename:
@@ -34,14 +34,15 @@ Default output location is `build/<name>/<name>` where `<name>` comes from input
 Run the compiled executable:
 
 ```bash
-./build/store/store
+./build/store/store serve
 ./build/store/store admin
+./build/store/store backup
 ```
 
 Optional output name:
 
 ```bash
-go run ./cmd/belm compile examples/store.belm bookstore-dev
+./belm compile examples/store.belm bookstore-dev
 # output: build/bookstore-dev/bookstore-dev
 ```
 
@@ -110,7 +111,6 @@ await createBook(config, {
   isbn: "978-1-68050-254-1",
   price: 129.9,
   stock: 10,
-  active: true,
 });
 
 await runPlaceBookOrder(config, {
@@ -127,7 +127,7 @@ await runPlaceBookOrder(config, {
 
 ## Admin Panel
 
-An Admin panel (built with Elm and elm-ui) is also provide:
+An Admin panel (built with Elm and elm-ui) is also provided:
 
 - code: [admin/src/Main.elm](/Users/marcio/dev/github/belm/admin/src/Main.elm)
 - docs: [admin/README.md](/Users/marcio/dev/github/belm/admin/README.md)
@@ -148,7 +148,7 @@ Minimal example:
 
 ```belm
 app TodoApi
-port 4000
+port 4100
 database "./todo.db"
 
 entity Todo {
@@ -321,6 +321,8 @@ Always:
 
 - `GET /health`
 - `GET /_belm/schema`
+- `GET /_belm/perf`
+- `GET /metrics`
 
 With auth enabled:
 
@@ -328,6 +330,8 @@ With auth enabled:
 - `POST /auth/login`
 - `POST /auth/logout`
 - `GET /auth/me`
+- `POST /_belm/bootstrap-admin` (first user only)
+- `POST /_belm/backup` (admin only)
 
 For each typed action `myAction`:
 
@@ -358,11 +362,8 @@ When blocked, the server fails at startup with a clear error message.
 
 Use [examples/store.belm](/Users/marcio/dev/github/belm/examples/store.belm), which already includes:
 
-- business rules (`age >= 18`, email validation, etc.)
+- business rules (email validation, role checks, stock/order constraints, etc.)
 - email code auth
 - role/ownership authorization with dedicated auth users
-- entities: `User`, `Product`, `Order`, `OrderItem`
-
-For typed action examples, see:
-
-- [examples/typed-actions.belm](/Users/marcio/dev/github/belm/examples/typed-actions.belm)
+- entities: `User`, `Book`, `Order`, `OrderItem`, `AuditLog`
+- typed action: `placeBookOrder`

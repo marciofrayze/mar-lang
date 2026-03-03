@@ -116,11 +116,11 @@ import (
 	"io/fs"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"os/exec"
 	"os/signal"
 	"runtime"
+	"strings"
 	"syscall"
 	"time"
 
@@ -132,6 +132,7 @@ import (
 var files embed.FS
 
 const adminEnabled = %t
+const backupKeepLast = 20
 
 func main() {
 	var app model.App
@@ -147,6 +148,9 @@ func main() {
 
 	switch {
 	case len(os.Args) == 1:
+		printAppUsage(os.Args[0])
+		os.Exit(0)
+	case len(os.Args) == 2 && os.Args[1] == "serve":
 		if err := runServe(&app); err != nil {
 			belmruntime.PrintStartupError(err, os.Args[0])
 			os.Exit(1)
@@ -156,10 +160,73 @@ func main() {
 			belmruntime.PrintStartupError(err, os.Args[0])
 			os.Exit(1)
 		}
+	case len(os.Args) == 2 && os.Args[1] == "backup":
+		if err := runBackup(&app); err != nil {
+			fmt.Fprintln(os.Stderr, "error:", err)
+			os.Exit(1)
+		}
 	default:
-		fmt.Fprintf(os.Stderr, "usage: %%s [admin]\n", os.Args[0])
+		printAppUnknownCommand(os.Args[0], os.Args[1:])
 		os.Exit(1)
 	}
+}
+
+func printAppUsage(binaryName string) {
+	useColor := appSupportsANSI(os.Stdout)
+	fmt.Println()
+	fmt.Printf("%%s\n", appColorize(useColor, "\033[1m", "Available commands"))
+	fmt.Printf("  %%s  %%s\n", appColorize(useColor, "\033[1;32m", binaryName+" serve "), "Start the API server.")
+	fmt.Printf("  %%s  %%s\n", appColorize(useColor, "\033[1;32m", binaryName+" admin "), "Start the API server and open Belm Admin.")
+	fmt.Printf("  %%s  %%s\n", appColorize(useColor, "\033[1;32m", binaryName+" backup"), "Create a SQLite backup in ./backups.")
+	fmt.Printf(
+		"\n%%s Use %%s to start the API server and open Belm Admin.\n",
+		appColorize(useColor, "\033[1;33m", "Hint:"),
+		appColorize(useColor, "\033[1;32m", binaryName+" admin"),
+	)
+	fmt.Println()
+}
+
+func printAppUnknownCommand(binaryName string, args []string) {
+	useColor := appSupportsANSI(os.Stderr)
+	provided := strings.TrimSpace(strings.Join(args, " "))
+	if provided == "" {
+		provided = "(empty)"
+	}
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintf(os.Stderr, "%%s %%q\n\n", appColorize(useColor, "\033[1;31m", "unknown command"), provided)
+	fmt.Fprintf(os.Stderr, "%%s\n", appColorize(useColor, "\033[1;36m", "Available commands:"))
+	fmt.Fprintf(os.Stderr, "  %%s\n", binaryName+" serve")
+	fmt.Fprintf(os.Stderr, "  %%s\n", binaryName+" admin")
+	fmt.Fprintf(os.Stderr, "  %%s\n", binaryName+" backup")
+	fmt.Fprintf(
+		os.Stderr,
+		"\n%%s Use %%s to start the API server and open Belm Admin.\n",
+		appColorize(useColor, "\033[1;33m", "Hint:"),
+		appColorize(useColor, "\033[1;32m", binaryName+" admin"),
+	)
+	fmt.Fprintln(os.Stderr)
+}
+
+func appSupportsANSI(stream *os.File) bool {
+	if os.Getenv("NO_COLOR") != "" {
+		return false
+	}
+	term := strings.ToLower(strings.TrimSpace(os.Getenv("TERM")))
+	if term == "" || term == "dumb" {
+		return false
+	}
+	info, err := stream.Stat()
+	if err != nil {
+		return false
+	}
+	return (info.Mode() & os.ModeCharDevice) != 0
+}
+
+func appColorize(enabled bool, colorCode, value string) string {
+	if !enabled {
+		return value
+	}
+	return colorCode + value + "\033[0m"
 }
 
 func runServe(app *model.App) error {
@@ -196,7 +263,7 @@ func runAdmin(app *model.App) error {
 		errCh <- serveAdminFiles(ctx, ln)
 	}()
 
-	adminURL := fmt.Sprintf("http://127.0.0.1:%%d/index.html?api=%%s", port, url.QueryEscape(fmt.Sprintf("http://localhost:%%d", app.Port)))
+	adminURL := fmt.Sprintf("http://127.0.0.1:%%d/index.html", port)
 	fmt.Printf("\nAdmin panel: %%s\n", adminURL)
 	if err := openBrowser(adminURL); err != nil {
 		fmt.Fprintln(os.Stderr, "warning: could not open browser:", err)
@@ -212,6 +279,23 @@ func runAdmin(app *model.App) error {
 		cancel()
 		return err
 	}
+}
+
+func runBackup(app *model.App) error {
+	result, err := belmruntime.CreateSQLiteBackup(app.Database, backupKeepLast)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("\nBackup created:\n  %%s\n", result.Path)
+	if len(result.Removed) > 0 {
+		fmt.Println("\nRemoved old backups:")
+		for _, path := range result.Removed {
+			fmt.Printf("  %%s\n", path)
+		}
+	}
+	fmt.Printf("\nBackups directory:\n  %%s\n\n", result.BackupDir)
+	return nil
 }
 
 func serveAdminFiles(ctx context.Context, ln net.Listener) error {

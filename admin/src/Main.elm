@@ -35,6 +35,8 @@ type alias Model =
     { apiBase : String
     , advancedMode : Bool
     , authToken : String
+    , currentEmail : Maybe String
+    , currentRole : Maybe String
     , authEmail : String
     , authCode : String
     , authToolsOpen : Bool
@@ -47,6 +49,8 @@ type alias Model =
     , formValues : Dict String String
     , actionFormValues : Dict String String
     , actionResult : Maybe Row
+    , perf : Remote PerfPayload
+    , performanceMode : Bool
     , flash : Maybe String
     }
 
@@ -58,6 +62,11 @@ type Msg
     | SelectAction String
     | ReloadRows
     | GotRows (Result Http.Error (List Row))
+    | SelectPerformance
+    | ReloadPerformance
+    | GotPerformance (Result Http.Error PerfPayload)
+    | TriggerBackup
+    | GotBackup (Result Http.Error BackupResponse)
     | SetApiBase String
     | SetToken String
     | SetAuthEmail String
@@ -65,6 +74,8 @@ type Msg
     | SetActionField String String
     | RequestAuthCode
     | GotRequestAuthCode (Result Http.Error RequestCodeResponse)
+    | BootstrapFirstAdmin
+    | GotBootstrapFirstAdmin (Result Http.Error RequestCodeResponse)
     | LoginWithCode
     | GotLoginWithCode (Result Http.Error LoginResponse)
     | LoadAuthMe
@@ -96,12 +107,48 @@ type alias RequestCodeResponse =
 
 type alias LoginResponse =
     { token : String
+    , role : Maybe String
+    , email : Maybe String
     }
 
 
 type alias AuthMeResponse =
     { email : String
     , role : Maybe String
+    }
+
+
+type alias BackupResponse =
+    { path : String
+    , backupDir : String
+    , removed : List String
+    }
+
+
+type alias PerfPayload =
+    { uptimeSeconds : Float
+    , goroutines : Int
+    , memoryBytes : Float
+    , sqliteBytes : Float
+    , http : PerfHttp
+    }
+
+
+type alias PerfHttp =
+    { totalRequests : Int
+    , errors4xx : Int
+    , errors5xx : Int
+    , routes : List PerfRoute
+    }
+
+
+type alias PerfRoute =
+    { method : String
+    , route : String
+    , count : Int
+    , errors4xx : Int
+    , errors5xx : Int
+    , avgMs : Float
     }
 
 
@@ -120,6 +167,8 @@ init flags =
     ( { apiBase = flags.apiBase
       , advancedMode = False
       , authToken = ""
+      , currentEmail = Nothing
+      , currentRole = Nothing
       , authEmail = ""
       , authCode = ""
       , authToolsOpen = False
@@ -132,6 +181,8 @@ init flags =
       , formValues = Dict.empty
       , actionFormValues = Dict.empty
       , actionResult = Nothing
+      , perf = NotAsked
+      , performanceMode = False
       , flash = Nothing
       }
     , loadSchema flags.apiBase
@@ -149,11 +200,12 @@ update msg model =
                 Ok schema ->
                     let
                         maybeEntity =
-                            List.head schema.entities
+                            preferredInitialEntity schema
 
                         nextModel =
                             { model
                                 | schema = Loaded schema
+                                , performanceMode = False
                                 , authToolsOpen = False
                                 , selectedEntity = maybeEntity
                                 , selectedAction = Nothing
@@ -177,7 +229,8 @@ update msg model =
 
                 nextModel =
                     { model
-                        | selectedEntity = nextEntity
+                        | performanceMode = False
+                        , selectedEntity = nextEntity
                         , selectedAction = Nothing
                         , rows = Loading
                         , selectedRow = Nothing
@@ -200,7 +253,8 @@ update msg model =
 
                 Just actionInfo ->
                     ( { model
-                        | selectedAction = Just actionInfo
+                        | performanceMode = False
+                        , selectedAction = Just actionInfo
                         , selectedEntity = Nothing
                         , rows = NotAsked
                         , selectedRow = Nothing
@@ -228,11 +282,48 @@ update msg model =
                 Err httpError ->
                     ( { model | rows = Failed (httpErrorToString httpError) }, Cmd.none )
 
+        SelectPerformance ->
+            let
+                nextModel =
+                    { model
+                        | performanceMode = True
+                        , selectedEntity = Nothing
+                        , selectedAction = Nothing
+                        , selectedRow = Nothing
+                        , rows = NotAsked
+                        , formMode = FormHidden
+                        , formValues = Dict.empty
+                        , actionResult = Nothing
+                        , perf = Loading
+                        , flash = Nothing
+                    }
+            in
+            ( nextModel, loadPerformance nextModel )
+
+        ReloadPerformance ->
+            let
+                nextModel =
+                    { model | perf = Loading, flash = Nothing }
+            in
+            ( nextModel, loadPerformance nextModel )
+
+        GotPerformance result ->
+            case result of
+                Ok perf ->
+                    ( { model | perf = Loaded perf }, Cmd.none )
+
+                Err httpError ->
+                    ( { model | perf = Failed (httpErrorToString httpError) }, Cmd.none )
+
         SetApiBase value ->
             ( { model | apiBase = value }, Cmd.none )
 
         SetToken token ->
-            ( { model | authToken = token }, Cmd.none )
+            if String.trim token == "" then
+                ( { model | authToken = token, currentEmail = Nothing, currentRole = Nothing }, Cmd.none )
+
+            else
+                ( { model | authToken = token }, Cmd.none )
 
         SetAuthEmail email ->
             ( { model | authEmail = email }, Cmd.none )
@@ -271,6 +362,26 @@ update msg model =
                 Err httpError ->
                     ( { model | flash = Just (httpErrorToString httpError) }, Cmd.none )
 
+        BootstrapFirstAdmin ->
+            if String.trim model.authEmail == "" then
+                ( { model | flash = Just "Email is required to create the first admin" }, Cmd.none )
+
+            else
+                ( { model | flash = Nothing }, bootstrapFirstAdmin model )
+
+        GotBootstrapFirstAdmin result ->
+            case result of
+                Ok response ->
+                    case response.devCode of
+                        Just code ->
+                            ( { model | authCode = code, flash = Just ("First admin created. devCode: " ++ code) }, Cmd.none )
+
+                        Nothing ->
+                            ( { model | flash = Just response.message }, Cmd.none )
+
+                Err httpError ->
+                    ( { model | flash = Just (httpErrorToString httpError) }, Cmd.none )
+
         LoginWithCode ->
             if String.trim model.authEmail == "" || String.trim model.authCode == "" then
                 ( { model | flash = Just "Email and code are required for login" }, Cmd.none )
@@ -281,7 +392,14 @@ update msg model =
         GotLoginWithCode result ->
             case result of
                 Ok response ->
-                    ( { model | authToken = response.token, flash = Just "Login successful. Bearer token filled automatically." }, Cmd.none )
+                    ( { model
+                        | authToken = response.token
+                        , currentRole = response.role
+                        , currentEmail = response.email
+                        , flash = Just "Login successful. Bearer token filled automatically."
+                      }
+                    , Cmd.none
+                    )
 
                 Err httpError ->
                     ( { model | flash = Just (httpErrorToString httpError) }, Cmd.none )
@@ -305,7 +423,13 @@ update msg model =
                                 Nothing ->
                                     ""
                     in
-                    ( { model | flash = Just ("Authenticated as " ++ response.email ++ roleText) }, Cmd.none )
+                    ( { model
+                        | currentEmail = Just response.email
+                        , currentRole = response.role
+                        , flash = Just ("Authenticated as " ++ response.email ++ roleText)
+                      }
+                    , Cmd.none
+                    )
 
                 Err httpError ->
                     ( { model | flash = Just (httpErrorToString httpError) }, Cmd.none )
@@ -320,7 +444,33 @@ update msg model =
         GotLogoutSession result ->
             case result of
                 Ok _ ->
-                    ( { model | authToken = "", flash = Just "Logged out. Token cleared." }, Cmd.none )
+                    ( { model | authToken = "", currentEmail = Nothing, currentRole = Nothing, flash = Just "Logged out. Token cleared." }, Cmd.none )
+
+                Err httpError ->
+                    ( { model | flash = Just (httpErrorToString httpError) }, Cmd.none )
+
+        TriggerBackup ->
+            if not (isAdminProfile model) then
+                ( { model | flash = Just "Only admin can create backups" }, Cmd.none )
+
+            else
+                ( { model | flash = Nothing }, triggerBackup model )
+
+        GotBackup result ->
+            case result of
+                Ok response ->
+                    let
+                        removedCount =
+                            List.length response.removed
+
+                        removedText =
+                            if removedCount > 0 then
+                                " Removed " ++ String.fromInt removedCount ++ " old backup(s)."
+
+                            else
+                                ""
+                    in
+                    ( { model | flash = Just ("Backup created at " ++ response.path ++ "." ++ removedText) }, Cmd.none )
 
                 Err httpError ->
                     ( { model | flash = Just (httpErrorToString httpError) }, Cmd.none )
@@ -499,6 +649,32 @@ loadRows model =
                 }
 
 
+loadPerformance : Model -> Cmd Msg
+loadPerformance model =
+    Http.request
+        { method = "GET"
+        , headers = authHeaders model
+        , url = model.apiBase ++ "/_belm/perf"
+        , body = Http.emptyBody
+        , expect = expectJsonWithApiError GotPerformance perfPayloadDecoder
+        , timeout = Nothing
+        , tracker = Nothing
+        }
+
+
+triggerBackup : Model -> Cmd Msg
+triggerBackup model =
+    Http.request
+        { method = "POST"
+        , headers = authHeaders model
+        , url = model.apiBase ++ "/_belm/backup"
+        , body = Http.emptyBody
+        , expect = expectJsonWithApiError GotBackup backupResponseDecoder
+        , timeout = Nothing
+        , tracker = Nothing
+        }
+
+
 createRow : Model -> Entity -> Encode.Value -> Cmd Msg
 createRow model entity payload =
     Http.request
@@ -560,6 +736,24 @@ requestAuthCode model =
                     ]
                 )
         , expect = expectJsonWithApiError GotRequestAuthCode requestCodeDecoder
+        , timeout = Nothing
+        , tracker = Nothing
+        }
+
+
+bootstrapFirstAdmin : Model -> Cmd Msg
+bootstrapFirstAdmin model =
+    Http.request
+        { method = "POST"
+        , headers = []
+        , url = model.apiBase ++ "/_belm/bootstrap-admin"
+        , body =
+            Http.jsonBody
+                (Encode.object
+                    [ ( "email", Encode.string (String.trim model.authEmail) )
+                    ]
+                )
+        , expect = expectJsonWithApiError GotBootstrapFirstAdmin requestCodeDecoder
         , timeout = Nothing
         , tracker = Nothing
         }
@@ -707,7 +901,20 @@ requestCodeDecoder =
 
 loginResponseDecoder : Decode.Decoder LoginResponse
 loginResponseDecoder =
-    Decode.map LoginResponse (Decode.field "token" Decode.string)
+    Decode.map3 LoginResponse
+        (Decode.field "token" Decode.string)
+        (Decode.oneOf
+            [ Decode.at [ "user", "role" ] (Decode.map Just Decode.string)
+            , Decode.at [ "user", "role" ] (Decode.null Nothing)
+            , Decode.succeed Nothing
+            ]
+        )
+        (Decode.oneOf
+            [ Decode.at [ "user", "email" ] (Decode.map Just Decode.string)
+            , Decode.at [ "user", "email" ] (Decode.null Nothing)
+            , Decode.succeed Nothing
+            ]
+        )
 
 
 authMeResponseDecoder : Decode.Decoder AuthMeResponse
@@ -720,6 +927,44 @@ authMeResponseDecoder =
             , Decode.succeed Nothing
             ]
         )
+
+
+perfPayloadDecoder : Decode.Decoder PerfPayload
+perfPayloadDecoder =
+    Decode.map5 PerfPayload
+        (Decode.field "uptimeSeconds" Decode.float)
+        (Decode.field "goroutines" Decode.int)
+        (Decode.field "memoryBytes" Decode.float)
+        (Decode.field "sqliteBytes" Decode.float)
+        (Decode.field "http" perfHttpDecoder)
+
+
+perfHttpDecoder : Decode.Decoder PerfHttp
+perfHttpDecoder =
+    Decode.map4 PerfHttp
+        (Decode.field "totalRequests" Decode.int)
+        (Decode.field "errors4xx" Decode.int)
+        (Decode.field "errors5xx" Decode.int)
+        (Decode.field "routes" (Decode.list perfRouteDecoder))
+
+
+perfRouteDecoder : Decode.Decoder PerfRoute
+perfRouteDecoder =
+    Decode.map6 PerfRoute
+        (Decode.field "method" Decode.string)
+        (Decode.field "route" Decode.string)
+        (Decode.field "count" Decode.int)
+        (Decode.field "errors4xx" Decode.int)
+        (Decode.field "errors5xx" Decode.int)
+        (Decode.field "avgMs" Decode.float)
+
+
+backupResponseDecoder : Decode.Decoder BackupResponse
+backupResponseDecoder =
+    Decode.map3 BackupResponse
+        (Decode.field "path" Decode.string)
+        (Decode.field "backupDir" Decode.string)
+        (Decode.field "removed" (Decode.list Decode.string))
 
 
 findEntity : String -> Model -> Maybe Entity
@@ -753,6 +998,40 @@ findInputAlias aliasName model =
 
         _ ->
             Nothing
+
+
+preferredInitialEntity : Schema -> Maybe Entity
+preferredInitialEntity schema =
+    let
+        authEntityName =
+            schema.auth |> Maybe.map .userEntity
+
+        nonAuthEntities =
+            case authEntityName of
+                Just entityName ->
+                    List.filter (\entity -> entity.name /= entityName) schema.entities
+
+                Nothing ->
+                    schema.entities
+    in
+    case List.head nonAuthEntities of
+        Just entity ->
+            Just entity
+
+        Nothing ->
+            List.head schema.entities
+
+
+splitEntitiesForSidebar : Model -> List Entity -> ( List Entity, List Entity )
+splitEntitiesForSidebar model entities =
+    case authInfoFromModel model of
+        Just authInfo ->
+            ( List.filter (\entity -> entity.name == authInfo.userEntity) entities
+            , List.filter (\entity -> entity.name /= authInfo.userEntity) entities
+            )
+
+        Nothing ->
+            ( [], entities )
 
 
 actionFormDefaults : Model -> ActionInfo -> Dict String String
@@ -927,13 +1206,17 @@ viewLayout model =
 viewSidebar : Model -> Element Msg
 viewSidebar model =
     let
-        ( entities, actions ) =
+        ( authEntities, crudEntities, actions ) =
             case model.schema of
                 Loaded schema ->
-                    ( schema.entities, schema.actions )
+                    let
+                        ( authOnly, crudOnly ) =
+                            splitEntitiesForSidebar model schema.entities
+                    in
+                    ( authOnly, crudOnly, schema.actions )
 
                 _ ->
-                    ( [], [] )
+                    ( [], [], [] )
 
         entityButton entity =
             let
@@ -999,6 +1282,31 @@ viewSidebar model =
                         , el [ Font.size 12, Font.color (rgb255 170 181 196) ] (text "action")
                         ]
                 }
+
+        performanceButton : Element Msg
+        performanceButton =
+            let
+                backgroundColor =
+                    if model.performanceMode then
+                        rgb255 54 94 217
+
+                    else
+                        rgb255 24 29 36
+            in
+            Input.button
+                [ width fill
+                , Border.rounded 10
+                , Background.color backgroundColor
+                , Font.color (rgb255 244 246 248)
+                , paddingEach { top = 12, right = 12, bottom = 12, left = 12 }
+                ]
+                { onPress = Just SelectPerformance
+                , label =
+                    row [ width fill ]
+                        [ paragraph [ alignLeft ] [ text "Performance" ]
+                        , el [ Font.size 12, Font.color (rgb255 170 181 196) ] (text "/_belm/perf")
+                        ]
+                }
     in
     column
         [ width (px 280)
@@ -1018,9 +1326,28 @@ viewSidebar model =
                         "loading schema..."
                 )
             )
-         , el [ Font.size 11, Font.bold, Font.color (rgb255 118 136 160) ] (text "CRUD")
          ]
-            ++ List.map entityButton entities
+            ++ (if List.isEmpty authEntities then
+                    []
+
+                else
+                    [ el [ Font.size 11, Font.bold, Font.color (rgb255 118 136 160) ] (text "AUTH") ]
+                        ++ List.map entityButton authEntities
+               )
+            ++ (if List.isEmpty crudEntities then
+                    []
+
+                else
+                    [ el
+                        [ paddingEach { top = 10, right = 0, bottom = 0, left = 0 }
+                        , Font.size 11
+                        , Font.bold
+                        , Font.color (rgb255 118 136 160)
+                        ]
+                        (text "CRUD")
+                    ]
+                        ++ List.map entityButton crudEntities
+               )
             ++ (if List.isEmpty actions then
                     []
 
@@ -1035,6 +1362,15 @@ viewSidebar model =
                     ]
                         ++ List.map actionEndpointCard actions
                )
+            ++ [ el
+                    [ paddingEach { top = 10, right = 0, bottom = 0, left = 0 }
+                    , Font.size 11
+                    , Font.bold
+                    , Font.color (rgb255 118 136 160)
+                    ]
+                    (text "SYSTEM")
+               , performanceButton
+               ]
         )
 
 
@@ -1049,15 +1385,19 @@ viewContent model =
         [ viewTopBar model
         , viewAuthToolsPanel model
         , viewFlash model
-        , case model.selectedAction of
-            Just _ ->
-                viewDataPanel model
+        , if model.performanceMode then
+            viewPerformancePanel model
 
-            Nothing ->
-                row [ width fill, height fill, spacing 16 ]
-                    [ viewDataPanel model
-                    , viewInspector model
-                    ]
+          else
+            case model.selectedAction of
+                Just _ ->
+                    viewDataPanel model
+
+                Nothing ->
+                    row [ width fill, height fill, spacing 16 ]
+                        [ viewDataPanel model
+                        , viewInspector model
+                        ]
         ]
 
 
@@ -1121,6 +1461,23 @@ viewTopBar model =
                         text "Advanced"
                 }
 
+        backupButton =
+            if isAdminProfile model then
+                [ Input.button
+                    [ Element.alignBottom
+                    , Background.color (rgb255 34 124 95)
+                    , Font.color (rgb255 246 251 248)
+                    , Border.rounded 10
+                    , paddingEach { top = 12, right = 16, bottom = 12, left = 16 }
+                    ]
+                    { onPress = Just TriggerBackup
+                    , label = text "Backup DB"
+                    }
+                ]
+
+            else
+                []
+
         authToolsButtons =
             case authInfoFromModel model of
                 Just _ ->
@@ -1162,7 +1519,7 @@ viewTopBar model =
         , Border.width 1
         , Border.color (rgb255 226 232 239)
         ]
-        (mainControls ++ [ advancedButton ] ++ authToolsButtons)
+        (mainControls ++ [ advancedButton ] ++ backupButton ++ authToolsButtons)
 
 
 viewAuthToolsPanel : Model -> Element Msg
@@ -1218,6 +1575,16 @@ viewAuthToolsPanel model =
                             }
                         , Input.button
                             [ Element.alignBottom
+                            , Background.color (rgb255 242 180 42)
+                            , Font.color (rgb255 40 33 16)
+                            , Border.rounded 10
+                            , paddingEach { top = 10, right = 12, bottom = 10, left = 12 }
+                            ]
+                            { onPress = Just BootstrapFirstAdmin
+                            , label = text "Create first admin"
+                            }
+                        , Input.button
+                            [ Element.alignBottom
                             , Background.color (rgb255 34 124 95)
                             , Font.color (rgb255 246 251 248)
                             , Border.rounded 10
@@ -1245,6 +1612,8 @@ viewAuthToolsPanel model =
                             , label = text "Logout"
                             }
                         ]
+                    , el [ Font.size 12, Font.color (rgb255 106 84 31) ]
+                        (text "Create first admin only works when there are no users yet.")
                     ]
 
             Nothing ->
@@ -1259,6 +1628,16 @@ authInfoFromModel model =
 
         _ ->
             Nothing
+
+
+isAdminProfile : Model -> Bool
+isAdminProfile model =
+    case model.currentRole of
+        Just role ->
+            String.toLower (String.trim role) == "admin"
+
+        Nothing ->
+            False
 
 
 viewFlash : Model -> Element Msg
@@ -1534,6 +1913,129 @@ viewInspector model =
                 , viewFormPanel model
                 , viewSelectedRow model
                 ]
+
+
+viewPerformancePanel : Model -> Element Msg
+viewPerformancePanel model =
+    let
+        routeRow perfRoute =
+            row
+                [ width fill
+                , spacing 12
+                , Background.color (rgb255 248 250 252)
+                , Border.rounded 10
+                , paddingEach { top = 10, right = 12, bottom = 10, left = 12 }
+                ]
+                [ el [ width (fillPortion 1), Font.bold ] (text perfRoute.method)
+                , el [ width (fillPortion 3) ] (text perfRoute.route)
+                , el [ width (fillPortion 1) ] (text ("count: " ++ String.fromInt perfRoute.count))
+                , el [ width (fillPortion 1) ] (text ("avg: " ++ formatMs perfRoute.avgMs))
+                , el [ width (fillPortion 1), Font.color (rgb255 176 60 46) ] (text ("4xx/5xx: " ++ String.fromInt perfRoute.errors4xx ++ "/" ++ String.fromInt perfRoute.errors5xx))
+                ]
+
+        cards perf =
+            row [ width fill, spacing 12 ]
+                [ performanceCard "Uptime" (formatSeconds perf.uptimeSeconds)
+                , performanceCard "Memory (heap)" (formatBytes perf.memoryBytes)
+                , performanceCard "SQLite file" (formatBytes perf.sqliteBytes)
+                , performanceCard "Goroutines" (String.fromInt perf.goroutines)
+                , performanceCard "Requests" (String.fromInt perf.http.totalRequests)
+                ]
+    in
+    column
+        [ width fill
+        , spacing 14
+        , Background.color (rgb255 255 255 255)
+        , Border.rounded 14
+        , Border.width 1
+        , Border.color (rgb255 226 232 239)
+        , padding 16
+        ]
+        [ row [ width fill, spacing 10, centerY ]
+            [ el [ width fill, Font.bold, Font.size 20 ] (text "Performance")
+            , Input.button
+                [ Background.color (rgb255 224 231 241)
+                , Border.rounded 10
+                , paddingEach { top = 10, right = 14, bottom = 10, left = 14 }
+                ]
+                { onPress = Just ReloadPerformance
+                , label = text "Refresh performance"
+                }
+            ]
+        , case model.perf of
+            NotAsked ->
+                paragraph [] [ text "No performance data loaded yet." ]
+
+            Loading ->
+                paragraph [] [ text "Loading performance data..." ]
+
+            Failed message ->
+                paragraph [ Font.color (rgb255 176 60 46) ] [ text message ]
+
+            Loaded perf ->
+                column [ width fill, spacing 12 ]
+                    [ cards perf
+                    , row [ width fill, spacing 12 ]
+                        [ performanceCard "4xx errors" (String.fromInt perf.http.errors4xx)
+                        , performanceCard "5xx errors" (String.fromInt perf.http.errors5xx)
+                        ]
+                    , column [ width fill, spacing 8 ]
+                        ([ el [ Font.bold, Font.size 18 ] (text "Route metrics") ]
+                            ++ (if List.isEmpty perf.http.routes then
+                                    [ paragraph [] [ text "No requests captured yet." ] ]
+
+                                else
+                                    List.map routeRow perf.http.routes
+                               )
+                        )
+                    ]
+        ]
+
+
+performanceCard : String -> String -> Element Msg
+performanceCard title value =
+    column
+        [ width fill
+        , spacing 6
+        , Background.color (rgb255 248 250 252)
+        , Border.rounded 10
+        , Border.width 1
+        , Border.color (rgb255 226 232 239)
+        , padding 12
+        ]
+        [ el [ Font.size 12, Font.color (rgb255 93 103 120) ] (text title)
+        , el [ Font.size 20, Font.bold ] (text value)
+        ]
+
+
+formatMs : Float -> String
+formatMs ms =
+    String.fromFloat (roundTo1 ms) ++ " ms"
+
+
+formatSeconds : Float -> String
+formatSeconds seconds =
+    String.fromFloat (roundTo1 seconds) ++ " s"
+
+
+formatBytes : Float -> String
+formatBytes bytes =
+    if bytes < 1024 then
+        String.fromInt (round bytes) ++ " B"
+
+    else if bytes < 1024 * 1024 then
+        String.fromFloat (roundTo1 (bytes / 1024)) ++ " KB"
+
+    else if bytes < 1024 * 1024 * 1024 then
+        String.fromFloat (roundTo1 (bytes / (1024 * 1024))) ++ " MB"
+
+    else
+        String.fromFloat (roundTo1 (bytes / (1024 * 1024 * 1024))) ++ " GB"
+
+
+roundTo1 : Float -> Float
+roundTo1 value =
+    toFloat (round (value * 10)) / 10
 
 
 viewActionInfo : ActionInfo -> Element Msg
