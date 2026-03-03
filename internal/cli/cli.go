@@ -53,9 +53,7 @@ func Run(binaryName string, args []string) error {
 	case "format":
 		return runFormat(binaryName, args[1:])
 	case "lsp":
-		if len(args) != 1 {
-			return fmt.Errorf("usage: %s lsp", binaryName)
-		}
+		// Accept optional extra args (e.g. --stdio) for editor/client compatibility.
 		return lsp.RunStdio()
 	case "version":
 		if len(args) != 1 {

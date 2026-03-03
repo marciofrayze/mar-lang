@@ -137,7 +137,7 @@ type alias PlaceBookOrderInput =
   , lineTotal : Float
   , orderTotal : Float
   , notes : String
-  }
+}
 
 placeBookOrder : PlaceBookOrderInput -> Result DomainError Effect
 placeBookOrder =

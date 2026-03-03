@@ -23,11 +23,16 @@ type lspRequest struct {
 	Params  json.RawMessage `json:"params,omitempty"`
 }
 
-type lspResponse struct {
+type lspSuccessResponse struct {
 	JSONRPC string          `json:"jsonrpc"`
-	ID      json.RawMessage `json:"id,omitempty"`
-	Result  any             `json:"result,omitempty"`
-	Error   *lspRespError   `json:"error,omitempty"`
+	ID      json.RawMessage `json:"id"`
+	Result  any             `json:"result"`
+}
+
+type lspErrorResponse struct {
+	JSONRPC string          `json:"jsonrpc"`
+	ID      json.RawMessage `json:"id"`
+	Error   *lspRespError   `json:"error"`
 }
 
 type lspRespError struct {
@@ -479,7 +484,7 @@ func (s *server) respond(id json.RawMessage, result any) {
 	if len(id) == 0 {
 		return
 	}
-	resp := lspResponse{
+	resp := lspSuccessResponse{
 		JSONRPC: "2.0",
 		ID:      id,
 		Result:  result,
@@ -491,7 +496,7 @@ func (s *server) respondError(id json.RawMessage, code int, message string) {
 	if len(id) == 0 {
 		return
 	}
-	resp := lspResponse{
+	resp := lspErrorResponse{
 		JSONRPC: "2.0",
 		ID:      id,
 		Error: &lspRespError{
