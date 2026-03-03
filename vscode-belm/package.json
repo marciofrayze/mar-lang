@@ -1,8 +1,8 @@
 {
   "name": "belm-language-support",
   "displayName": "Belm Language Support",
-  "description": "Syntax highlighting and snippets for modern Belm (.belm) files.",
-  "version": "0.0.2",
+  "description": "Syntax highlighting, snippets, and LSP support for modern Belm (.belm) files.",
+  "version": "0.1.0",
   "publisher": "belm-dev",
   "repository": {
     "type": "git",
@@ -12,9 +12,17 @@
   "engines": {
     "vscode": "^1.85.0"
   },
-  "categories": [
-    "Programming Languages"
+  "main": "./extension.js",
+  "activationEvents": [
+    "onLanguage:belm"
   ],
+  "categories": [
+    "Programming Languages",
+    "Formatters"
+  ],
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
   "contributes": {
     "languages": [
       {
@@ -41,6 +49,16 @@
         "language": "belm",
         "path": "./snippets/belm.json"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Belm",
+      "properties": {
+        "belm.languageServer.path": {
+          "type": "string",
+          "default": "belm",
+          "description": "Path or command used to start the Belm Language Server via `<command> lsp`."
+        }
+      }
+    }
   }
 }

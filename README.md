@@ -27,6 +27,12 @@ Compile `.belm` into an executable:
 ./belm compile examples/store.belm
 ```
 
+Show Belm CLI version and build metadata:
+
+```bash
+./belm version
+```
+
 Default output location is `build/<name>/<name>` where `<name>` comes from input filename:
 
 - `examples/store.belm` -> `build/store/store`
@@ -50,6 +56,28 @@ Run API + Admin panel and open browser (from the compiled executable):
 
 ```bash
 ./build/store/store admin
+```
+
+## Code Formatting
+
+Belm provides a canonical formatter in Elm style (single official formatting style).
+
+Format files in place:
+
+```bash
+./belm format examples/store.belm examples/todo.belm
+```
+
+Check formatting in CI (no writes):
+
+```bash
+./belm format --check examples/store.belm
+```
+
+Format from stdin:
+
+```bash
+cat examples/store.belm | ./belm format --stdin
 ```
 
 ## Auto-generated Clients
@@ -134,13 +162,25 @@ An Admin panel (built with Elm and elm-ui) is also provided:
 
 It uses `GET /_belm/schema` to discover entities and lets you list/create/update/delete records.
 
-## VS Code Syntax Highlighting
+## VS Code Extension (Syntax + LSP + Format)
 
 A VS Code language extension for `.belm` files is available in:
 
 - [vscode-belm](/Users/marcio/dev/github/belm/vscode-belm)
 
-It provides syntax highlighting plus snippets/autocomplete for declarations, entities, auth/authorization blocks, rules, types, and common templates.
+It provides:
+
+- syntax highlighting
+- snippets/autocomplete templates
+- LSP diagnostics
+- LSP keyword completion
+- go to definition
+- find references
+- rename symbol
+- hover docs
+- document symbols (Outline)
+- quick fixes (code actions)
+- document formatting (`Format Document` and `formatOnSave`)
 
 ## Language Syntax
 
@@ -282,6 +322,27 @@ Recommended framework pattern:
 - `console`: prints code in logs
 - `sendmail`: uses local binary (`sendmail_path`)
 
+## System Admin Authentication
+
+Belm now includes a separate admin authentication flow for system endpoints and Belm Admin tools.
+
+System admin endpoints:
+
+- `POST /_belm/admin/request-code`
+- `POST /_belm/admin/login`
+- `POST /_belm/admin/logout`
+- `GET /_belm/admin/me`
+- `POST /_belm/admin/bootstrap` (first system admin only)
+
+System-only admin endpoints:
+
+- `GET /_belm/perf`
+- `POST /_belm/backup`
+- `GET /_belm/backups`
+
+This system auth does not depend on your app `User` entity, so apps without `auth { ... }`
+(for example `examples/todo.belm`) can still login as system admin in Belm Admin.
+
 ## Authorization (`authorize`)
 
 Per CRUD operation:
@@ -321,8 +382,14 @@ Always:
 
 - `GET /health`
 - `GET /_belm/schema`
-- `GET /_belm/perf`
-- `GET /metrics`
+- `POST /_belm/admin/request-code`
+- `POST /_belm/admin/login`
+- `POST /_belm/admin/logout`
+- `GET /_belm/admin/me`
+- `POST /_belm/admin/bootstrap` (first system admin only)
+- `GET /_belm/perf` (system admin only)
+- `POST /_belm/backup` (system admin only)
+- `GET /_belm/backups` (system admin only)
 
 With auth enabled:
 
@@ -331,7 +398,6 @@ With auth enabled:
 - `POST /auth/logout`
 - `GET /auth/me`
 - `POST /_belm/bootstrap-admin` (first user only)
-- `POST /_belm/backup` (admin only)
 
 For each typed action `myAction`:
 
@@ -345,7 +411,7 @@ Automatic behavior:
 
 - creates missing tables
 - adds new optional columns
-- creates/migrates internal auth tables
+- creates/migrates internal auth tables (app auth + system admin auth)
 - records operations in `belm_schema_migrations`
 
 Blocked (manual migration required):

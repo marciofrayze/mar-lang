@@ -9,11 +9,21 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"runtime/debug"
+	"sort"
 	"strings"
 
+	"belm/internal/formatter"
 	"belm/internal/generator"
+	"belm/internal/lsp"
 	"belm/internal/model"
 	"belm/internal/parser"
+)
+
+var (
+	cliVersion   = "dev"
+	cliCommit    = ""
+	cliBuildTime = ""
 )
 
 // Run dispatches Belm CLI subcommands.
@@ -40,9 +50,131 @@ func Run(binaryName string, args []string) error {
 			outputPath = defaultOutputPath(args[1], args[2])
 		}
 		return buildExecutable(app, outputPath)
+	case "format":
+		return runFormat(binaryName, args[1:])
+	case "lsp":
+		if len(args) != 1 {
+			return fmt.Errorf("usage: %s lsp", binaryName)
+		}
+		return lsp.RunStdio()
+	case "version":
+		if len(args) != 1 {
+			return fmt.Errorf("usage: %s version", binaryName)
+		}
+		return printVersion(binaryName)
 	default:
 		return unknownCommandError(binaryName, args[0])
 	}
+}
+
+type formatOptions struct {
+	Check bool
+	Stdin bool
+	Files []string
+}
+
+func runFormat(binaryName string, args []string) error {
+	opts, err := parseFormatArgs(binaryName, args)
+	if err != nil {
+		return err
+	}
+	if opts.Stdin {
+		return runFormatStdin(opts.Check)
+	}
+	return runFormatFiles(binaryName, opts.Files, opts.Check)
+}
+
+func parseFormatArgs(binaryName string, args []string) (*formatOptions, error) {
+	opts := &formatOptions{}
+	for _, arg := range args {
+		switch arg {
+		case "--check":
+			opts.Check = true
+		case "--stdin":
+			opts.Stdin = true
+		default:
+			if strings.HasPrefix(arg, "-") {
+				return nil, fmt.Errorf("unknown flag %q\n\nusage: %s format [--check] [--stdin] [files...]", arg, binaryName)
+			}
+			opts.Files = append(opts.Files, arg)
+		}
+	}
+
+	if opts.Stdin && len(opts.Files) > 0 {
+		return nil, fmt.Errorf("usage: %s format [--check] [--stdin] [files...]\n\nwhen --stdin is set, do not pass file paths", binaryName)
+	}
+	if !opts.Stdin && len(opts.Files) == 0 {
+		return nil, fmt.Errorf("usage: %s format [--check] [--stdin] [files...]\n\npass one or more .belm files, or use --stdin", binaryName)
+	}
+	return opts, nil
+}
+
+func runFormatStdin(check bool) error {
+	input, err := io.ReadAll(os.Stdin)
+	if err != nil {
+		return err
+	}
+	formatted, err := formatter.Format(string(input))
+	if err != nil {
+		return err
+	}
+	if check {
+		if formatted != normalizeFormattedCompare(string(input)) {
+			return errors.New("stdin is not formatted")
+		}
+		return nil
+	}
+	_, err = os.Stdout.Write([]byte(formatted))
+	return err
+}
+
+func runFormatFiles(binaryName string, files []string, check bool) error {
+	changed := make([]string, 0, len(files))
+	for _, path := range files {
+		if strings.ToLower(filepath.Ext(path)) != ".belm" {
+			return fmt.Errorf("format only supports .belm files: %s", path)
+		}
+
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		original := string(raw)
+		formatted, err := formatter.Format(original)
+		if err != nil {
+			return fmt.Errorf("%s: %w", path, err)
+		}
+		if normalizeFormattedCompare(original) == formatted {
+			continue
+		}
+		changed = append(changed, path)
+		if !check {
+			if err := os.WriteFile(path, []byte(formatted), 0o644); err != nil {
+				return err
+			}
+		}
+	}
+
+	if check && len(changed) > 0 {
+		sort.Strings(changed)
+		var b strings.Builder
+		fmt.Fprintf(&b, "the following files are not formatted:\n")
+		for _, file := range changed {
+			fmt.Fprintf(&b, "  %s\n", file)
+		}
+		fmt.Fprintf(&b, "\nHint:\n  Run: %s format %s\n", binaryName, strings.Join(changed, " "))
+		return errors.New(strings.TrimSpace(b.String()))
+	}
+	return nil
+}
+
+func normalizeFormattedCompare(source string) string {
+	s := strings.ReplaceAll(source, "\r\n", "\n")
+	s = strings.ReplaceAll(s, "\r", "\n")
+	if !strings.HasSuffix(s, "\n") {
+		s += "\n"
+	}
+	return s
 }
 
 func parseBelmFile(path string) (*model.App, error) {
@@ -498,8 +630,17 @@ func defaultOutputPath(inputPath, fallback string) string {
 }
 
 func printUsage(binaryName string) {
-	fmt.Println(binaryName + " commands:")
-	fmt.Printf("  %s compile <input.belm> [output-name]\n", binaryName)
+	useColor := cliSupportsANSIStream(os.Stdout)
+
+	fmt.Println()
+	fmt.Printf("%s\n", colorizeCLI(useColor, "\033[1;36m", "Available commands"))
+	fmt.Printf("  %s\n", fmt.Sprintf("%s compile <input.belm> [output-name]", binaryName))
+	fmt.Printf("  %s\n", fmt.Sprintf("%s format [--check] [--stdin] [files...]", binaryName))
+	fmt.Printf("  %s\n", fmt.Sprintf("%s lsp", binaryName))
+	fmt.Printf("  %s\n", fmt.Sprintf("%s version", binaryName))
+	fmt.Printf("\n%s\n", colorizeCLI(useColor, "\033[1;33m", "Hint:"))
+	fmt.Printf("  Build an app with: %s\n", colorizeCLI(useColor, "\033[1;32m", fmt.Sprintf("%s compile <input.belm>", binaryName)))
+	fmt.Println()
 }
 
 func unknownCommandError(binaryName, provided string) error {
@@ -508,6 +649,9 @@ func unknownCommandError(binaryName, provided string) error {
 	fmt.Fprintf(&b, "%s %q\n\n", colorizeCLI(useColor, "\033[1;31m", "unknown command"), provided)
 	fmt.Fprintf(&b, "%s\n", colorizeCLI(useColor, "\033[1;36m", "Available commands:"))
 	fmt.Fprintf(&b, "  %s\n", fmt.Sprintf("%s compile <input.belm> [output-name]", binaryName))
+	fmt.Fprintf(&b, "  %s\n", fmt.Sprintf("%s format [--check] [--stdin] [files...]", binaryName))
+	fmt.Fprintf(&b, "  %s\n", fmt.Sprintf("%s lsp", binaryName))
+	fmt.Fprintf(&b, "  %s\n", fmt.Sprintf("%s version", binaryName))
 	if looksLikeBelmFile(provided) {
 		fmt.Fprintf(&b, "\n%s\n", colorizeCLI(useColor, "\033[1;33m", "Hint:"))
 		fmt.Fprintf(&b, "  It looks like you passed a .belm file directly.\n")
@@ -562,4 +706,86 @@ func colorizeCLI(enabled bool, colorCode, value string) string {
 		return value
 	}
 	return colorCode + value + "\033[0m"
+}
+
+type versionInfo struct {
+	Version   string
+	Commit    string
+	BuildTime string
+	GoVersion string
+	Platform  string
+	Binary    string
+}
+
+func printVersion(binaryName string) error {
+	useColor := cliSupportsANSIStream(os.Stdout)
+	info := readVersionInfo(binaryName)
+
+	fmt.Println()
+	fmt.Printf("%s\n", colorizeCLI(useColor, "\033[1m", "Belm version"))
+	fmt.Printf("  %s %s\n", colorizeCLI(useColor, "\033[1;36m", "Version:"), info.Version)
+	fmt.Printf("  %s %s\n", colorizeCLI(useColor, "\033[1;36m", "Commit:"), info.Commit)
+	fmt.Printf("  %s %s\n", colorizeCLI(useColor, "\033[1;36m", "Build time:"), info.BuildTime)
+	fmt.Printf("  %s %s\n", colorizeCLI(useColor, "\033[1;36m", "Go:"), info.GoVersion)
+	fmt.Printf("  %s %s\n", colorizeCLI(useColor, "\033[1;36m", "Platform:"), info.Platform)
+	fmt.Printf("  %s %s\n", colorizeCLI(useColor, "\033[1;36m", "Binary:"), info.Binary)
+	fmt.Println()
+
+	return nil
+}
+
+func readVersionInfo(binaryName string) versionInfo {
+	info := versionInfo{
+		Version:   "dev",
+		Commit:    "unknown",
+		BuildTime: "unknown",
+		GoVersion: runtime.Version(),
+		Platform:  runtime.GOOS + "/" + runtime.GOARCH,
+		Binary:    binaryName,
+	}
+
+	if exe, err := os.Executable(); err == nil && strings.TrimSpace(exe) != "" {
+		info.Binary = exe
+	}
+
+	if strings.TrimSpace(cliVersion) != "" {
+		info.Version = strings.TrimSpace(cliVersion)
+	}
+	if strings.TrimSpace(cliCommit) != "" {
+		info.Commit = shortCommit(strings.TrimSpace(cliCommit))
+	}
+	if strings.TrimSpace(cliBuildTime) != "" {
+		info.BuildTime = strings.TrimSpace(cliBuildTime)
+	}
+
+	buildInfo, ok := debug.ReadBuildInfo()
+	if !ok {
+		return info
+	}
+	if info.Version == "dev" && buildInfo.Main.Version != "" && buildInfo.Main.Version != "(devel)" {
+		info.Version = buildInfo.Main.Version
+	}
+
+	for _, setting := range buildInfo.Settings {
+		switch setting.Key {
+		case "vcs.revision":
+			if info.Commit == "unknown" && strings.TrimSpace(setting.Value) != "" {
+				info.Commit = shortCommit(setting.Value)
+			}
+		case "vcs.time":
+			if info.BuildTime == "unknown" && strings.TrimSpace(setting.Value) != "" {
+				info.BuildTime = setting.Value
+			}
+		}
+	}
+
+	return info
+}
+
+func shortCommit(value string) string {
+	trimmed := strings.TrimSpace(value)
+	if len(trimmed) <= 12 {
+		return trimmed
+	}
+	return trimmed[:12]
 }

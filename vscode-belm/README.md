@@ -1,6 +1,6 @@
 # Belm Language Support (VS Code)
 
-This extension adds syntax highlighting, snippets/autocomplete, and basic language configuration for `.belm` files.
+This extension adds syntax highlighting, snippets/autocomplete, and LSP features for `.belm` files.
 
 ## Features
 
@@ -27,20 +27,48 @@ This extension adds syntax highlighting, snippets/autocomplete, and basic langua
 - `actiondef`
 - `insertstep`
 - `actiontx`
+- LSP (via `belm lsp`):
+- Parse diagnostics while editing
+- Keyword completions
+- Go to definition
+- Find references
+- Rename symbol
+- Hover documentation
+- Document symbols (Outline)
+- Quick fixes (code actions)
+- Format document support
 
 ## Run Locally (Development Host)
 
-1. Open this folder in VS Code:
+1. Build Belm from the repo root:
+   - `go build -o belm ./cmd/belm`
+2. Open this folder in VS Code:
    - `/Users/marcio/dev/github/belm/vscode-belm`
-2. Press `F5` to start an Extension Development Host window.
-3. Open any `.belm` file in the new window.
+3. Install extension dependencies:
+   - `npm install`
+4. Press `F5` to start an Extension Development Host window.
+5. Open any `.belm` file in the new window.
+
+If needed, set `belm.languageServer.path` in VS Code settings (examples: `belm`, `/abs/path/to/belm`).
+
+## Format on Save
+
+1. Open VS Code settings (`settings.json`) and configure:
+
+```json
+{
+  "[belm]": {
+    "editor.defaultFormatter": "belm-dev.belm-language-support",
+    "editor.formatOnSave": true
+  }
+}
+```
+
+2. Save a `.belm` file to apply Belm formatting automatically.
 
 ## Package for Installation
 
-1. Install `vsce`:
-   - `npm i -g @vscode/vsce`
-2. From this folder, create a package:
-   - `vsce package`
-   - or `npx @vscode/vsce package`
-3. Install the generated `.vsix` in VS Code:
+1. From this folder, create a package with `npx` (no global install needed):
+   - `npx @vscode/vsce package`
+2. Install the generated `.vsix` in VS Code:
    - Command Palette -> `Extensions: Install from VSIX...`

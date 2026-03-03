@@ -3,6 +3,7 @@ module Belm.Api exposing
     , ActionInfo
     , InputAliasInfo
     , InputAliasField
+    , SystemAuthInfo
     , Entity
     , Field
     , FieldType(..)
@@ -53,6 +54,7 @@ type alias Schema =
     , database : String
     , entities : List Entity
     , auth : Maybe AuthInfo
+    , systemAuth : Maybe SystemAuthInfo
     , inputAliases : List InputAliasInfo
     , actions : List ActionInfo
     }
@@ -68,6 +70,14 @@ type alias AuthInfo =
     , emailField : String
     , roleField : String
     , emailTransport : String
+    , needsBootstrap : Bool
+    }
+
+
+type alias SystemAuthInfo =
+    { enabled : Bool
+    , emailTransport : String
+    , needsBootstrap : Bool
     }
 
 
@@ -92,12 +102,13 @@ type alias InputAliasField =
 
 decodeSchema : Decoder Schema
 decodeSchema =
-    Decode.map7 Schema
+    Decode.map8 Schema
         (Decode.field "appName" Decode.string)
         (Decode.field "port" Decode.int)
         (Decode.field "database" Decode.string)
         (Decode.field "entities" (Decode.list entityDecoder))
         decodeAuthInfo
+        decodeSystemAuthInfo
         decodeInputAliases
         decodeActionInfo
 
@@ -112,12 +123,37 @@ decodeAuthInfo =
 
 authInfoDecoder : Decoder AuthInfo
 authInfoDecoder =
-    Decode.map5 AuthInfo
+    Decode.map6 AuthInfo
         (Decode.field "enabled" Decode.bool)
         (Decode.field "userEntity" Decode.string)
         (Decode.field "emailField" Decode.string)
         (Decode.field "roleField" Decode.string)
         (Decode.field "emailTransport" Decode.string)
+        (Decode.oneOf
+            [ Decode.field "needsBootstrap" Decode.bool
+            , Decode.succeed False
+            ]
+        )
+
+
+decodeSystemAuthInfo : Decoder (Maybe SystemAuthInfo)
+decodeSystemAuthInfo =
+    Decode.oneOf
+        [ Decode.field "systemAuth" (Decode.map Just systemAuthInfoDecoder)
+        , Decode.succeed Nothing
+        ]
+
+
+systemAuthInfoDecoder : Decoder SystemAuthInfo
+systemAuthInfoDecoder =
+    Decode.map3 SystemAuthInfo
+        (Decode.field "enabled" Decode.bool)
+        (Decode.field "emailTransport" Decode.string)
+        (Decode.oneOf
+            [ Decode.field "needsBootstrap" Decode.bool
+            , Decode.succeed False
+            ]
+        )
 
 
 decodeActionInfo : Decoder (List ActionInfo)

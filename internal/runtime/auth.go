@@ -205,10 +205,22 @@ func (r *Runtime) issueAuthCode(w http.ResponseWriter, email string, userID any,
 }
 
 // loadOrCreateAuthUserForRequestCode loads an auth user by email or auto-creates it when possible.
+// When no auth users exist yet, bootstrap-admin must be used to create the first admin user.
 func (r *Runtime) loadOrCreateAuthUserForRequestCode(email string) (map[string]any, bool, error) {
 	user, found, err := r.loadAuthUserByEmail(email)
 	if err != nil || found {
 		return user, found, err
+	}
+
+	totalUsers, err := r.countAuthUsers()
+	if err != nil {
+		return nil, false, err
+	}
+	if totalUsers == 0 {
+		return nil, false, &apiError{
+			Status:  http.StatusConflict,
+			Message: "No users exist yet. Create the first admin using /_belm/bootstrap-admin",
+		}
 	}
 	return r.tryAutoCreateAuthUser(email)
 }

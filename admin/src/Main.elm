@@ -1,6 +1,6 @@
 module Main exposing (main)
 
-import Belm.Api exposing (ActionInfo, AuthInfo, Entity, Field, InputAliasField, InputAliasInfo, Row, Schema, decodeRows, decodeSchema, encodePayload, fieldTypeLabel, rowDecoder, valueToString)
+import Belm.Api exposing (ActionInfo, AuthInfo, Entity, Field, InputAliasField, InputAliasInfo, Row, Schema, SystemAuthInfo, decodeRows, decodeSchema, encodePayload, fieldTypeLabel, rowDecoder, valueToString)
 import Browser
 import Dict exposing (Dict)
 import Element exposing (Element, alignLeft, centerY, column, el, fill, fillPortion, height, none, padding, paddingEach, paragraph, px, rgb255, row, spacing, text, width)
@@ -31,12 +31,25 @@ type FormMode
     | FormEdit Row
 
 
+type AuthTab
+    = AppAuthTab
+    | SystemAuthTab
+
+
+type AuthScope
+    = AppAuthScope
+    | SystemAuthScope
+
+
 type alias Model =
     { apiBase : String
-    , advancedMode : Bool
     , authToken : String
+    , systemAuthToken : String
     , currentEmail : Maybe String
     , currentRole : Maybe String
+    , currentSystemEmail : Maybe String
+    , currentSystemRole : Maybe String
+    , authTab : AuthTab
     , authEmail : String
     , authCode : String
     , authToolsOpen : Bool
@@ -50,39 +63,43 @@ type alias Model =
     , actionFormValues : Dict String String
     , actionResult : Maybe Row
     , perf : Remote PerfPayload
+    , backups : Remote (List BackupFile)
     , performanceMode : Bool
+    , databaseMode : Bool
+    , lastBackup : Maybe BackupResponse
     , flash : Maybe String
     }
 
 
 type Msg
-    = ReloadSchema
-    | GotSchema (Result Http.Error Schema)
+    = GotSchema (Result Http.Error Schema)
     | SelectEntity String
     | SelectAction String
     | ReloadRows
     | GotRows (Result Http.Error (List Row))
     | SelectPerformance
+    | SelectDatabase
+    | ReloadDatabase
     | ReloadPerformance
     | GotPerformance (Result Http.Error PerfPayload)
+    | GotBackups (Result Http.Error (List BackupFile))
     | TriggerBackup
     | GotBackup (Result Http.Error BackupResponse)
-    | SetApiBase String
-    | SetToken String
+    | SelectAuthTab AuthTab
+    | SetAuthToken String
     | SetAuthEmail String
     | SetAuthCode String
     | SetActionField String String
     | RequestAuthCode
-    | GotRequestAuthCode (Result Http.Error RequestCodeResponse)
+    | GotRequestAuthCode AuthScope (Result Http.Error RequestCodeResponse)
     | BootstrapFirstAdmin
-    | GotBootstrapFirstAdmin (Result Http.Error RequestCodeResponse)
+    | GotBootstrapFirstAdmin AuthScope (Result Http.Error RequestCodeResponse)
     | LoginWithCode
-    | GotLoginWithCode (Result Http.Error LoginResponse)
+    | GotLoginWithCode AuthScope (Result Http.Error LoginResponse)
     | LoadAuthMe
-    | GotAuthMe (Result Http.Error AuthMeResponse)
+    | GotAuthMe AuthScope (Result Http.Error AuthMeResponse)
     | LogoutSession
-    | GotLogoutSession (Result Http.Error ())
-    | ToggleAdvanced
+    | GotLogoutSession AuthScope (Result Http.Error ())
     | ToggleAuthTools
     | SelectRow Row
     | StartCreate
@@ -125,6 +142,14 @@ type alias BackupResponse =
     }
 
 
+type alias BackupFile =
+    { path : String
+    , name : String
+    , sizeBytes : Float
+    , createdAt : String
+    }
+
+
 type alias PerfPayload =
     { uptimeSeconds : Float
     , goroutines : Int
@@ -136,6 +161,7 @@ type alias PerfPayload =
 
 type alias PerfHttp =
     { totalRequests : Int
+    , success2xx : Int
     , errors4xx : Int
     , errors5xx : Int
     , routes : List PerfRoute
@@ -165,13 +191,16 @@ main =
 init : Flags -> ( Model, Cmd Msg )
 init flags =
     ( { apiBase = flags.apiBase
-      , advancedMode = False
       , authToken = ""
+      , systemAuthToken = ""
       , currentEmail = Nothing
       , currentRole = Nothing
+      , currentSystemEmail = Nothing
+      , currentSystemRole = Nothing
+      , authTab = SystemAuthTab
       , authEmail = ""
       , authCode = ""
-      , authToolsOpen = False
+      , authToolsOpen = True
       , schema = Loading
       , selectedEntity = Nothing
       , selectedAction = Nothing
@@ -182,7 +211,10 @@ init flags =
       , actionFormValues = Dict.empty
       , actionResult = Nothing
       , perf = NotAsked
+      , backups = NotAsked
       , performanceMode = False
+      , databaseMode = False
+      , lastBackup = Nothing
       , flash = Nothing
       }
     , loadSchema flags.apiBase
@@ -192,32 +224,50 @@ init flags =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        ReloadSchema ->
-            ( { model | schema = Loading, flash = Nothing }, loadSchema model.apiBase )
-
         GotSchema result ->
             case result of
                 Ok schema ->
                     let
+                        keepAuthToolsOpen =
+                            model.authToolsOpen || (not (hasActiveSession model))
+
                         maybeEntity =
-                            preferredInitialEntity schema
+                            if keepAuthToolsOpen then
+                                model.selectedEntity
+
+                            else
+                                preferredInitialEntity schema
+
+                        shouldLoadRows =
+                            maybeEntity /= Nothing
 
                         nextModel =
                             { model
                                 | schema = Loaded schema
                                 , performanceMode = False
-                                , authToolsOpen = False
+                                , databaseMode = False
+                                , authToolsOpen = keepAuthToolsOpen
                                 , selectedEntity = maybeEntity
                                 , selectedAction = Nothing
-                                , rows = Loading
+                                , rows =
+                                    if shouldLoadRows then
+                                        Loading
+
+                                    else
+                                        NotAsked
                                 , selectedRow = Nothing
                                 , formMode = FormHidden
                                 , formValues = Dict.empty
                                 , actionFormValues = Dict.empty
                                 , actionResult = Nothing
+                                , backups = NotAsked
                             }
                     in
-                    ( nextModel, loadRows nextModel )
+                    if shouldLoadRows then
+                        ( nextModel, loadRows nextModel )
+
+                    else
+                        ( nextModel, Cmd.none )
 
                 Err httpError ->
                     ( { model | schema = Failed (httpErrorToString httpError), rows = Failed "schema unavailable" }, Cmd.none )
@@ -230,6 +280,8 @@ update msg model =
                 nextModel =
                     { model
                         | performanceMode = False
+                        , databaseMode = False
+                        , authToolsOpen = False
                         , selectedEntity = nextEntity
                         , selectedAction = Nothing
                         , rows = Loading
@@ -254,6 +306,8 @@ update msg model =
                 Just actionInfo ->
                     ( { model
                         | performanceMode = False
+                        , databaseMode = False
+                        , authToolsOpen = False
                         , selectedAction = Just actionInfo
                         , selectedEntity = Nothing
                         , rows = NotAsked
@@ -283,22 +337,64 @@ update msg model =
                     ( { model | rows = Failed (httpErrorToString httpError) }, Cmd.none )
 
         SelectPerformance ->
-            let
-                nextModel =
-                    { model
-                        | performanceMode = True
-                        , selectedEntity = Nothing
-                        , selectedAction = Nothing
-                        , selectedRow = Nothing
-                        , rows = NotAsked
-                        , formMode = FormHidden
-                        , formValues = Dict.empty
-                        , actionResult = Nothing
-                        , perf = Loading
-                        , flash = Nothing
-                    }
-            in
-            ( nextModel, loadPerformance nextModel )
+            if not (isAdminProfile model) then
+                ( { model | flash = Just "Admin role required to access performance tools." }, Cmd.none )
+
+            else
+                let
+                    nextModel =
+                        { model
+                            | performanceMode = True
+                            , databaseMode = False
+                            , authToolsOpen = False
+                            , selectedEntity = Nothing
+                            , selectedAction = Nothing
+                            , selectedRow = Nothing
+                            , rows = NotAsked
+                            , formMode = FormHidden
+                            , formValues = Dict.empty
+                            , actionResult = Nothing
+                            , perf = Loading
+                            , flash = Nothing
+                        }
+                in
+                ( nextModel, loadPerformance nextModel )
+
+        SelectDatabase ->
+            if not (isAdminProfile model) then
+                ( { model | flash = Just "Admin role required to access database tools." }, Cmd.none )
+
+            else
+                let
+                    nextModel =
+                        { model
+                            | performanceMode = False
+                            , databaseMode = True
+                            , authToolsOpen = False
+                            , selectedEntity = Nothing
+                            , selectedAction = Nothing
+                            , selectedRow = Nothing
+                            , rows = NotAsked
+                            , formMode = FormHidden
+                            , formValues = Dict.empty
+                            , actionResult = Nothing
+                            , perf = Loading
+                            , backups = Loading
+                            , flash = Nothing
+                        }
+                in
+                ( nextModel, Cmd.batch [ loadPerformance nextModel, loadBackups nextModel ] )
+
+        ReloadDatabase ->
+            if not (isAdminProfile model) then
+                ( { model | flash = Just "Only admin can refresh database tools" }, Cmd.none )
+
+            else
+                let
+                    nextModel =
+                        { model | perf = Loading, backups = Loading, flash = Nothing }
+                in
+                ( nextModel, Cmd.batch [ loadPerformance nextModel, loadBackups nextModel ] )
 
         ReloadPerformance ->
             let
@@ -315,15 +411,29 @@ update msg model =
                 Err httpError ->
                     ( { model | perf = Failed (httpErrorToString httpError) }, Cmd.none )
 
-        SetApiBase value ->
-            ( { model | apiBase = value }, Cmd.none )
+        GotBackups result ->
+            case result of
+                Ok backups ->
+                    ( { model | backups = Loaded backups }, Cmd.none )
 
-        SetToken token ->
-            if String.trim token == "" then
-                ( { model | authToken = token, currentEmail = Nothing, currentRole = Nothing }, Cmd.none )
+                Err httpError ->
+                    ( { model | backups = Failed (httpErrorToString httpError) }, Cmd.none )
 
-            else
-                ( { model | authToken = token }, Cmd.none )
+        SetAuthToken token ->
+            case activeAuthScope model of
+                AppAuthScope ->
+                    if String.trim token == "" then
+                        ( { model | authToken = token, currentEmail = Nothing, currentRole = Nothing }, Cmd.none )
+
+                    else
+                        ( { model | authToken = token }, Cmd.none )
+
+                SystemAuthScope ->
+                    if String.trim token == "" then
+                        ( { model | systemAuthToken = token, currentSystemEmail = Nothing, currentSystemRole = Nothing }, Cmd.none )
+
+                    else
+                        ( { model | systemAuthToken = token }, Cmd.none )
 
         SetAuthEmail email ->
             ( { model | authEmail = email }, Cmd.none )
@@ -339,14 +449,18 @@ update msg model =
                 ( { model | flash = Just "Email is required for request-code" }, Cmd.none )
 
             else
-                ( { model | flash = Nothing }, requestAuthCode model )
+                let
+                    scope =
+                        activeAuthScope model
+                in
+                ( { model | flash = Nothing }, requestAuthCode scope model )
 
-        GotRequestAuthCode result ->
+        GotRequestAuthCode scope result ->
             case result of
                 Ok response ->
                     case response.devCode of
                         Just code ->
-                            ( { model | authCode = code, flash = Just ("Code generated. devCode: " ++ code) }, Cmd.none )
+                            ( { model | authCode = code, flash = Just (authScopeLabel scope ++ " code generated. devCode: " ++ code) }, Cmd.none )
 
                         Nothing ->
                             ( { model
@@ -367,17 +481,21 @@ update msg model =
                 ( { model | flash = Just "Email is required to create the first admin" }, Cmd.none )
 
             else
-                ( { model | flash = Nothing }, bootstrapFirstAdmin model )
+                let
+                    scope =
+                        activeAuthScope model
+                in
+                ( { model | flash = Nothing }, bootstrapFirstAdmin scope model )
 
-        GotBootstrapFirstAdmin result ->
+        GotBootstrapFirstAdmin scope result ->
             case result of
                 Ok response ->
                     case response.devCode of
                         Just code ->
-                            ( { model | authCode = code, flash = Just ("First admin created. devCode: " ++ code) }, Cmd.none )
+                            ( { model | authCode = code, flash = Just ("First " ++ authScopeLabel scope ++ " admin created. devCode: " ++ code) }, loadSchema model.apiBase )
 
                         Nothing ->
-                            ( { model | flash = Just response.message }, Cmd.none )
+                            ( { model | flash = Just response.message }, loadSchema model.apiBase )
 
                 Err httpError ->
                     ( { model | flash = Just (httpErrorToString httpError) }, Cmd.none )
@@ -387,31 +505,81 @@ update msg model =
                 ( { model | flash = Just "Email and code are required for login" }, Cmd.none )
 
             else
-                ( { model | flash = Nothing }, loginWithCode model )
+                let
+                    scope =
+                        activeAuthScope model
+                in
+                ( { model | flash = Nothing }, loginWithCode scope model )
 
-        GotLoginWithCode result ->
+        GotLoginWithCode scope result ->
             case result of
                 Ok response ->
-                    ( { model
-                        | authToken = response.token
-                        , currentRole = response.role
-                        , currentEmail = response.email
-                        , flash = Just "Login successful. Bearer token filled automatically."
-                      }
-                    , Cmd.none
-                    )
+                    case scope of
+                        AppAuthScope ->
+                            let
+                                nextModel =
+                                    { model
+                                        | authToken = response.token
+                                        , currentRole = response.role
+                                        , currentEmail = response.email
+                                        , flash = Just "User login successful. Bearer token filled automatically."
+                                    }
+                            in
+                            if shouldReloadCrudAfterLogin model then
+                                let
+                                    loadingModel =
+                                        { nextModel | rows = Loading }
+                                in
+                                ( loadingModel, loadRows loadingModel )
+
+                            else
+                                ( nextModel, Cmd.none )
+
+                        SystemAuthScope ->
+                            let
+                                nextModel =
+                                    { model
+                                        | systemAuthToken = response.token
+                                        , currentSystemRole = response.role
+                                        , currentSystemEmail = response.email
+                                        , flash = Just "Admin login successful."
+                                    }
+
+                                refreshCmd =
+                                    if model.performanceMode then
+                                        loadPerformance nextModel
+
+                                    else if model.databaseMode then
+                                        Cmd.batch [ loadPerformance nextModel, loadBackups nextModel ]
+
+                                    else
+                                        Cmd.none
+                            in
+                            ( nextModel, refreshCmd )
 
                 Err httpError ->
                     ( { model | flash = Just (httpErrorToString httpError) }, Cmd.none )
 
         LoadAuthMe ->
-            if String.trim model.authToken == "" then
+            let
+                scope =
+                    activeAuthScope model
+
+                hasToken =
+                    case scope of
+                        AppAuthScope ->
+                            String.trim model.authToken /= ""
+
+                        SystemAuthScope ->
+                            String.trim model.systemAuthToken /= ""
+            in
+            if not hasToken then
                 ( { model | flash = Just "Provide a bearer token first" }, Cmd.none )
 
             else
-                ( { model | flash = Nothing }, loadAuthMe model )
+                ( { model | flash = Nothing }, loadAuthMe scope model )
 
-        GotAuthMe result ->
+        GotAuthMe scope result ->
             case result of
                 Ok response ->
                     let
@@ -423,31 +591,70 @@ update msg model =
                                 Nothing ->
                                     ""
                     in
-                    ( { model
-                        | currentEmail = Just response.email
-                        , currentRole = response.role
-                        , flash = Just ("Authenticated as " ++ response.email ++ roleText)
-                      }
-                    , Cmd.none
-                    )
+                    case scope of
+                        AppAuthScope ->
+                            ( { model
+                                | currentEmail = Just response.email
+                                , currentRole = response.role
+                                , flash = Just ("Authenticated as " ++ response.email ++ roleText)
+                              }
+                            , Cmd.none
+                            )
+
+                        SystemAuthScope ->
+                            ( { model
+                                | currentSystemEmail = Just response.email
+                                , currentSystemRole = response.role
+                                , flash = Just ("Admin authenticated as " ++ response.email ++ roleText)
+                              }
+                            , Cmd.none
+                            )
 
                 Err httpError ->
                     ( { model | flash = Just (httpErrorToString httpError) }, Cmd.none )
 
         LogoutSession ->
-            if String.trim model.authToken == "" then
+            let
+                scope =
+                    activeAuthScope model
+
+                hasToken =
+                    case scope of
+                        AppAuthScope ->
+                            String.trim model.authToken /= ""
+
+                        SystemAuthScope ->
+                            String.trim model.systemAuthToken /= ""
+            in
+            if not hasToken then
                 ( { model | flash = Just "Provide a bearer token first" }, Cmd.none )
 
             else
-                ( { model | flash = Nothing }, logoutSession model )
+                ( { model | flash = Nothing }, logoutSession scope model )
 
-        GotLogoutSession result ->
+        GotLogoutSession scope result ->
             case result of
                 Ok _ ->
-                    ( { model | authToken = "", currentEmail = Nothing, currentRole = Nothing, flash = Just "Logged out. Token cleared." }, Cmd.none )
+                    case scope of
+                        AppAuthScope ->
+                            let
+                                nextModel =
+                                    { model | authToken = "", currentEmail = Nothing, currentRole = Nothing, flash = Just "User session logged out. Token cleared." }
+                            in
+                            ( { nextModel | authToolsOpen = not (hasActiveSession nextModel) }, Cmd.none )
+
+                        SystemAuthScope ->
+                            let
+                                nextModel =
+                                    { model | systemAuthToken = "", currentSystemEmail = Nothing, currentSystemRole = Nothing, flash = Just "Admin session logged out. Token cleared." }
+                            in
+                            ( { nextModel | authToolsOpen = not (hasActiveSession nextModel) }, Cmd.none )
 
                 Err httpError ->
                     ( { model | flash = Just (httpErrorToString httpError) }, Cmd.none )
+
+        SelectAuthTab tab ->
+            ( { model | authTab = tab, flash = Nothing }, Cmd.none )
 
         TriggerBackup ->
             if not (isAdminProfile model) then
@@ -470,13 +677,14 @@ update msg model =
                             else
                                 ""
                     in
-                    ( { model | flash = Just ("Backup created at " ++ response.path ++ "." ++ removedText) }, Cmd.none )
+                    let
+                        nextModel =
+                            { model | lastBackup = Just response, flash = Just ("Backup created at " ++ response.path ++ "." ++ removedText), backups = Loading }
+                    in
+                    ( nextModel, Cmd.batch [ loadBackups nextModel, loadPerformance nextModel ] )
 
                 Err httpError ->
                     ( { model | flash = Just (httpErrorToString httpError) }, Cmd.none )
-
-        ToggleAdvanced ->
-            ( { model | advancedMode = not model.advancedMode }, Cmd.none )
 
         ToggleAuthTools ->
             ( { model | authToolsOpen = not model.authToolsOpen }, Cmd.none )
@@ -640,7 +848,7 @@ loadRows model =
         Just entity ->
             Http.request
                 { method = "GET"
-                , headers = authHeaders model
+                , headers = appAuthHeaders model
                 , url = model.apiBase ++ entity.resource
                 , body = Http.emptyBody
                 , expect = expectJsonWithApiError GotRows decodeRows
@@ -653,10 +861,23 @@ loadPerformance : Model -> Cmd Msg
 loadPerformance model =
     Http.request
         { method = "GET"
-        , headers = authHeaders model
+        , headers = systemAuthHeaders model
         , url = model.apiBase ++ "/_belm/perf"
         , body = Http.emptyBody
         , expect = expectJsonWithApiError GotPerformance perfPayloadDecoder
+        , timeout = Nothing
+        , tracker = Nothing
+        }
+
+
+loadBackups : Model -> Cmd Msg
+loadBackups model =
+    Http.request
+        { method = "GET"
+        , headers = systemAuthHeaders model
+        , url = model.apiBase ++ "/_belm/backups"
+        , body = Http.emptyBody
+        , expect = expectJsonWithApiError GotBackups backupsDecoder
         , timeout = Nothing
         , tracker = Nothing
         }
@@ -666,7 +887,7 @@ triggerBackup : Model -> Cmd Msg
 triggerBackup model =
     Http.request
         { method = "POST"
-        , headers = authHeaders model
+        , headers = systemAuthHeaders model
         , url = model.apiBase ++ "/_belm/backup"
         , body = Http.emptyBody
         , expect = expectJsonWithApiError GotBackup backupResponseDecoder
@@ -679,7 +900,7 @@ createRow : Model -> Entity -> Encode.Value -> Cmd Msg
 createRow model entity payload =
     Http.request
         { method = "POST"
-        , headers = authHeaders model
+        , headers = appAuthHeaders model
         , url = model.apiBase ++ entity.resource
         , body = Http.jsonBody payload
         , expect = expectJsonWithApiError GotCreate rowDecoder
@@ -692,7 +913,7 @@ updateRow : Model -> Entity -> String -> Encode.Value -> Cmd Msg
 updateRow model entity idValue payload =
     Http.request
         { method = "PATCH"
-        , headers = authHeaders model
+        , headers = appAuthHeaders model
         , url = model.apiBase ++ entity.resource ++ "/" ++ idValue
         , body = Http.jsonBody payload
         , expect = expectJsonWithApiError GotUpdate rowDecoder
@@ -705,7 +926,7 @@ deleteRowRequest : Model -> Entity -> String -> Cmd Msg
 deleteRowRequest model entity idValue =
     Http.request
         { method = "DELETE"
-        , headers = authHeaders model
+        , headers = appAuthHeaders model
         , url = model.apiBase ++ entity.resource ++ "/" ++ idValue
         , body = Http.emptyBody
         , expect = expectUnitWithApiError GotDelete
@@ -714,8 +935,8 @@ deleteRowRequest model entity idValue =
         }
 
 
-authHeaders : Model -> List Http.Header
-authHeaders model =
+appAuthHeaders : Model -> List Http.Header
+appAuthHeaders model =
     if String.trim model.authToken == "" then
         []
 
@@ -723,48 +944,84 @@ authHeaders model =
         [ Http.header "Authorization" ("Bearer " ++ String.trim model.authToken) ]
 
 
-requestAuthCode : Model -> Cmd Msg
-requestAuthCode model =
+systemAuthHeaders : Model -> List Http.Header
+systemAuthHeaders model =
+    if String.trim model.systemAuthToken == "" then
+        []
+
+    else
+        [ Http.header "Authorization" ("Bearer " ++ String.trim model.systemAuthToken) ]
+
+
+requestAuthCode : AuthScope -> Model -> Cmd Msg
+requestAuthCode scope model =
+    let
+        endpoint =
+            case scope of
+                AppAuthScope ->
+                    "/auth/request-code"
+
+                SystemAuthScope ->
+                    "/_belm/admin/request-code"
+    in
     Http.request
         { method = "POST"
         , headers = []
-        , url = model.apiBase ++ "/auth/request-code"
+        , url = model.apiBase ++ endpoint
         , body =
             Http.jsonBody
                 (Encode.object
                     [ ( "email", Encode.string (String.trim model.authEmail) )
                     ]
                 )
-        , expect = expectJsonWithApiError GotRequestAuthCode requestCodeDecoder
+        , expect = expectJsonWithApiError (GotRequestAuthCode scope) requestCodeDecoder
         , timeout = Nothing
         , tracker = Nothing
         }
 
 
-bootstrapFirstAdmin : Model -> Cmd Msg
-bootstrapFirstAdmin model =
+bootstrapFirstAdmin : AuthScope -> Model -> Cmd Msg
+bootstrapFirstAdmin scope model =
+    let
+        endpoint =
+            case scope of
+                AppAuthScope ->
+                    "/_belm/bootstrap-admin"
+
+                SystemAuthScope ->
+                    "/_belm/admin/bootstrap"
+    in
     Http.request
         { method = "POST"
         , headers = []
-        , url = model.apiBase ++ "/_belm/bootstrap-admin"
+        , url = model.apiBase ++ endpoint
         , body =
             Http.jsonBody
                 (Encode.object
                     [ ( "email", Encode.string (String.trim model.authEmail) )
                     ]
                 )
-        , expect = expectJsonWithApiError GotBootstrapFirstAdmin requestCodeDecoder
+        , expect = expectJsonWithApiError (GotBootstrapFirstAdmin scope) requestCodeDecoder
         , timeout = Nothing
         , tracker = Nothing
         }
 
 
-loginWithCode : Model -> Cmd Msg
-loginWithCode model =
+loginWithCode : AuthScope -> Model -> Cmd Msg
+loginWithCode scope model =
+    let
+        endpoint =
+            case scope of
+                AppAuthScope ->
+                    "/auth/login"
+
+                SystemAuthScope ->
+                    "/_belm/admin/login"
+    in
     Http.request
         { method = "POST"
         , headers = []
-        , url = model.apiBase ++ "/auth/login"
+        , url = model.apiBase ++ endpoint
         , body =
             Http.jsonBody
                 (Encode.object
@@ -772,33 +1029,67 @@ loginWithCode model =
                     , ( "code", Encode.string (String.trim model.authCode) )
                     ]
                 )
-        , expect = expectJsonWithApiError GotLoginWithCode loginResponseDecoder
+        , expect = expectJsonWithApiError (GotLoginWithCode scope) loginResponseDecoder
         , timeout = Nothing
         , tracker = Nothing
         }
 
 
-loadAuthMe : Model -> Cmd Msg
-loadAuthMe model =
+loadAuthMe : AuthScope -> Model -> Cmd Msg
+loadAuthMe scope model =
+    let
+        headers =
+            case scope of
+                AppAuthScope ->
+                    appAuthHeaders model
+
+                SystemAuthScope ->
+                    systemAuthHeaders model
+
+        endpoint =
+            case scope of
+                AppAuthScope ->
+                    "/auth/me"
+
+                SystemAuthScope ->
+                    "/_belm/admin/me"
+    in
     Http.request
         { method = "GET"
-        , headers = authHeaders model
-        , url = model.apiBase ++ "/auth/me"
+        , headers = headers
+        , url = model.apiBase ++ endpoint
         , body = Http.emptyBody
-        , expect = expectJsonWithApiError GotAuthMe authMeResponseDecoder
+        , expect = expectJsonWithApiError (GotAuthMe scope) authMeResponseDecoder
         , timeout = Nothing
         , tracker = Nothing
         }
 
 
-logoutSession : Model -> Cmd Msg
-logoutSession model =
+logoutSession : AuthScope -> Model -> Cmd Msg
+logoutSession scope model =
+    let
+        headers =
+            case scope of
+                AppAuthScope ->
+                    appAuthHeaders model
+
+                SystemAuthScope ->
+                    systemAuthHeaders model
+
+        endpoint =
+            case scope of
+                AppAuthScope ->
+                    "/auth/logout"
+
+                SystemAuthScope ->
+                    "/_belm/admin/logout"
+    in
     Http.request
         { method = "POST"
-        , headers = authHeaders model
-        , url = model.apiBase ++ "/auth/logout"
+        , headers = headers
+        , url = model.apiBase ++ endpoint
         , body = Http.emptyBody
-        , expect = expectUnitWithApiError GotLogoutSession
+        , expect = expectUnitWithApiError (GotLogoutSession scope)
         , timeout = Nothing
         , tracker = Nothing
         }
@@ -808,7 +1099,7 @@ runAction : Model -> ActionInfo -> Encode.Value -> Cmd Msg
 runAction model actionInfo payload =
     Http.request
         { method = "POST"
-        , headers = authHeaders model
+        , headers = appAuthHeaders model
         , url = model.apiBase ++ "/actions/" ++ actionInfo.name
         , body = Http.jsonBody payload
         , expect = expectJsonWithApiError GotRunAction rowDecoder
@@ -941,8 +1232,13 @@ perfPayloadDecoder =
 
 perfHttpDecoder : Decode.Decoder PerfHttp
 perfHttpDecoder =
-    Decode.map4 PerfHttp
+    Decode.map5 PerfHttp
         (Decode.field "totalRequests" Decode.int)
+        (Decode.oneOf
+            [ Decode.field "success2xx" Decode.int
+            , Decode.succeed 0
+            ]
+        )
         (Decode.field "errors4xx" Decode.int)
         (Decode.field "errors5xx" Decode.int)
         (Decode.field "routes" (Decode.list perfRouteDecoder))
@@ -964,7 +1260,26 @@ backupResponseDecoder =
     Decode.map3 BackupResponse
         (Decode.field "path" Decode.string)
         (Decode.field "backupDir" Decode.string)
-        (Decode.field "removed" (Decode.list Decode.string))
+        (Decode.oneOf
+            [ Decode.field "removed" (Decode.list Decode.string)
+            , Decode.field "removed" (Decode.null [])
+            , Decode.succeed []
+            ]
+        )
+
+
+backupsDecoder : Decode.Decoder (List BackupFile)
+backupsDecoder =
+    Decode.field "backups" (Decode.list backupFileDecoder)
+
+
+backupFileDecoder : Decode.Decoder BackupFile
+backupFileDecoder =
+    Decode.map4 BackupFile
+        (Decode.field "path" Decode.string)
+        (Decode.field "name" Decode.string)
+        (Decode.field "sizeBytes" Decode.float)
+        (Decode.field "createdAt" Decode.string)
 
 
 findEntity : String -> Model -> Maybe Entity
@@ -1221,12 +1536,17 @@ viewSidebar model =
         entityButton entity =
             let
                 selected =
-                    case model.selectedEntity of
-                        Just current ->
-                            current.name == entity.name
+                    (not model.authToolsOpen)
+                        && (not model.performanceMode)
+                        && (not model.databaseMode)
+                        &&
+                            (case model.selectedEntity of
+                                Just current ->
+                                    current.name == entity.name
 
-                        Nothing ->
-                            False
+                                Nothing ->
+                                    False
+                            )
 
                 backgroundColor =
                     if selected then
@@ -1254,12 +1574,17 @@ viewSidebar model =
         actionEndpointCard actionInfo =
             let
                 selected =
-                    case model.selectedAction of
-                        Just current ->
-                            current.name == actionInfo.name
+                    (not model.authToolsOpen)
+                        && (not model.performanceMode)
+                        && (not model.databaseMode)
+                        &&
+                            (case model.selectedAction of
+                                Just current ->
+                                    current.name == actionInfo.name
 
-                        Nothing ->
-                            False
+                                Nothing ->
+                                    False
+                            )
 
                 backgroundColor =
                     if selected then
@@ -1287,7 +1612,7 @@ viewSidebar model =
         performanceButton =
             let
                 backgroundColor =
-                    if model.performanceMode then
+                    if model.performanceMode && (not model.authToolsOpen) then
                         rgb255 54 94 217
 
                     else
@@ -1305,6 +1630,56 @@ viewSidebar model =
                     row [ width fill ]
                         [ paragraph [ alignLeft ] [ text "Performance" ]
                         , el [ Font.size 12, Font.color (rgb255 170 181 196) ] (text "/_belm/perf")
+                        ]
+                }
+
+        databaseButton : Element Msg
+        databaseButton =
+            let
+                backgroundColor =
+                    if model.databaseMode && (not model.authToolsOpen) then
+                        rgb255 54 94 217
+
+                    else
+                        rgb255 24 29 36
+            in
+            Input.button
+                [ width fill
+                , Border.rounded 10
+                , Background.color backgroundColor
+                , Font.color (rgb255 244 246 248)
+                , paddingEach { top = 12, right = 12, bottom = 12, left = 12 }
+                ]
+                { onPress = Just SelectDatabase
+                , label =
+                    row [ width fill ]
+                        [ paragraph [ alignLeft ] [ text "Database" ]
+                        , el [ Font.size 12, Font.color (rgb255 170 181 196) ] (text "/_belm/backup")
+                        ]
+                }
+
+        authToolsButton : Element Msg
+        authToolsButton =
+            let
+                backgroundColor =
+                    if model.authToolsOpen then
+                        rgb255 54 94 217
+
+                    else
+                        rgb255 24 29 36
+            in
+            Input.button
+                [ width fill
+                , Border.rounded 10
+                , Background.color backgroundColor
+                , Font.color (rgb255 244 246 248)
+                , paddingEach { top = 12, right = 12, bottom = 12, left = 12 }
+                ]
+                { onPress = Just ToggleAuthTools
+                , label =
+                    row [ width fill ]
+                        [ paragraph [ alignLeft ] [ text "Authentication" ]
+                        , el [ Font.size 12, Font.color (rgb255 170 181 196) ] (text "/auth")
                         ]
                 }
     in
@@ -1327,12 +1702,14 @@ viewSidebar model =
                 )
             )
          ]
-            ++ (if List.isEmpty authEntities then
-                    []
+            ++ (if hasAnyAuthInfo model then
+                    [ el [ Font.size 11, Font.bold, Font.color (rgb255 118 136 160) ] (text "AUTH")
+                    , authToolsButton
+                    ]
+                        ++ List.map entityButton authEntities
 
                 else
-                    [ el [ Font.size 11, Font.bold, Font.color (rgb255 118 136 160) ] (text "AUTH") ]
-                        ++ List.map entityButton authEntities
+                    []
                )
             ++ (if List.isEmpty crudEntities then
                     []
@@ -1362,15 +1739,21 @@ viewSidebar model =
                     ]
                         ++ List.map actionEndpointCard actions
                )
-            ++ [ el
-                    [ paddingEach { top = 10, right = 0, bottom = 0, left = 0 }
-                    , Font.size 11
-                    , Font.bold
-                    , Font.color (rgb255 118 136 160)
+            ++ (if isAdminProfile model then
+                    [ el
+                        [ paddingEach { top = 10, right = 0, bottom = 0, left = 0 }
+                        , Font.size 11
+                        , Font.bold
+                        , Font.color (rgb255 118 136 160)
+                        ]
+                        (text "SYSTEM")
+                    , performanceButton
+                    , databaseButton
                     ]
-                    (text "SYSTEM")
-               , performanceButton
-               ]
+
+                else
+                    []
+               )
         )
 
 
@@ -1382,11 +1765,16 @@ viewContent model =
         , padding 24
         , spacing 16
         ]
-        [ viewTopBar model
-        , viewAuthToolsPanel model
+        [ viewAuthToolsPanel model
         , viewFlash model
-        , if model.performanceMode then
+        , if model.authToolsOpen then
+            none
+
+          else if model.performanceMode then
             viewPerformancePanel model
+
+          else if model.databaseMode then
+            viewDatabasePanel model
 
           else
             case model.selectedAction of
@@ -1400,190 +1788,204 @@ viewContent model =
                         ]
         ]
 
-
-viewTopBar : Model -> Element Msg
-viewTopBar model =
-    let
-        tokenInput attrs =
-            Input.text attrs
-                { onChange = SetToken
-                , text = model.authToken
-                , placeholder = Just (Input.placeholder [] (text "Bearer token"))
-                , label = Input.labelAbove [ Font.size 12 ] (text "Auth token")
-                }
-
-        apiInput =
-            Input.text [ width (fillPortion 3) ]
-                { onChange = SetApiBase
-                , text = model.apiBase
-                , placeholder = Just (Input.placeholder [] (text "API base URL"))
-                , label = Input.labelAbove [ Font.size 12 ] (text "API")
-                }
-
-        reloadSchemaButton =
-            Input.button
-                [ Element.alignBottom
-                , Background.color (rgb255 54 94 217)
-                , Font.color (rgb255 245 248 252)
-                , Border.rounded 10
-                , paddingEach { top = 12, right = 16, bottom = 12, left = 16 }
-                ]
-                { onPress = Just ReloadSchema
-                , label = text "Reload schema"
-                }
-
-        advancedButton =
-            Input.button
-                [ Element.alignBottom
-                , Background.color
-                    (if model.advancedMode then
-                        rgb255 76 111 224
-
-                     else
-                        rgb255 224 231 241
-                    )
-                , Font.color
-                    (if model.advancedMode then
-                        rgb255 245 248 252
-
-                     else
-                        rgb255 41 52 68
-                    )
-                , Border.rounded 10
-                , paddingEach { top = 12, right = 16, bottom = 12, left = 16 }
-                ]
-                { onPress = Just ToggleAdvanced
-                , label =
-                    if model.advancedMode then
-                        text "Hide advanced"
-
-                    else
-                        text "Advanced"
-                }
-
-        backupButton =
-            if isAdminProfile model then
-                [ Input.button
-                    [ Element.alignBottom
-                    , Background.color (rgb255 34 124 95)
-                    , Font.color (rgb255 246 251 248)
-                    , Border.rounded 10
-                    , paddingEach { top = 12, right = 16, bottom = 12, left = 16 }
-                    ]
-                    { onPress = Just TriggerBackup
-                    , label = text "Backup DB"
-                    }
-                ]
-
-            else
-                []
-
-        authToolsButtons =
-            case authInfoFromModel model of
-                Just _ ->
-                    [ Input.button
-                        [ Element.alignBottom
-                        , Background.color (rgb255 224 231 241)
-                        , Border.rounded 10
-                        , paddingEach { top = 12, right = 16, bottom = 12, left = 16 }
-                        ]
-                        { onPress = Just ToggleAuthTools
-                        , label =
-                            if model.authToolsOpen then
-                                text "Hide auth tools"
-
-                            else
-                                text "Auth tools"
-                        }
-                    ]
-
-                Nothing ->
-                    []
-
-        mainControls =
-            if model.advancedMode then
-                [ apiInput
-                , tokenInput [ width (fillPortion 2) ]
-                , reloadSchemaButton
-                ]
-
-            else
-                [ tokenInput [ width fill ] ]
-    in
-    row
-        [ width fill
-        , spacing 12
-        , padding 16
-        , Background.color (rgb255 255 255 255)
-        , Border.rounded 14
-        , Border.width 1
-        , Border.color (rgb255 226 232 239)
-        ]
-        (mainControls ++ [ advancedButton ] ++ backupButton ++ authToolsButtons)
-
-
 viewAuthToolsPanel : Model -> Element Msg
 viewAuthToolsPanel model =
     if not model.authToolsOpen then
         none
 
     else
-        case authInfoFromModel model of
-            Just authInfo ->
-                column
-                    [ width fill
-                    , spacing 10
-                    , padding 16
-                    , Background.color (rgb255 255 255 255)
-                    , Border.rounded 14
-                    , Border.width 1
-                    , Border.color (rgb255 226 232 239)
+        let
+            maybeAppAuth =
+                authInfoFromModel model
+
+            maybeSystemAuth =
+                systemAuthInfoFromModel model
+
+            tabButton tab labelText =
+                let
+                    selected =
+                        authScopeToTab (activeAuthScope model) == tab
+                in
+                Input.button
+                    [ Background.color
+                        (if selected then
+                            rgb255 76 111 224
+
+                         else
+                            rgb255 224 231 241
+                        )
+                    , Font.color
+                        (if selected then
+                            rgb255 246 248 252
+
+                         else
+                            rgb255 41 52 68
+                        )
+                    , Border.rounded 10
+                    , paddingEach { top = 8, right = 12, bottom = 8, left = 12 }
                     ]
-                    [ row [ width fill, spacing 12, centerY ]
-                        [ el [ Font.bold, Font.size 18 ] (text "Authentication")
-                        , el [ Font.size 12, Font.color (rgb255 93 103 120) ]
-                            (text ("Transport: " ++ authInfo.emailTransport ++ " | User entity: " ++ authInfo.userEntity))
-                        ]
-                    , row [ width fill, spacing 8 ]
+                    { onPress = Just (SelectAuthTab tab)
+                    , label = text labelText
+                    }
+
+            activeScope =
+                activeAuthScope model
+
+            activeAuthToken =
+                case activeScope of
+                    AppAuthScope ->
+                        model.authToken
+
+                    SystemAuthScope ->
+                        model.systemAuthToken
+
+            activeBadgeText =
+                case activeScope of
+                    AppAuthScope ->
                         [ badge "POST /auth/request-code"
                         , badge "POST /auth/login"
                         , badge "GET /auth/me"
                         , badge "POST /auth/logout"
                         ]
-                    , row [ width fill, spacing 10 ]
-                        [ Input.text [ width (fillPortion 3) ]
+
+                    SystemAuthScope ->
+                        [ badge "POST /_belm/admin/request-code"
+                        , badge "POST /_belm/admin/login"
+                        , badge "GET /_belm/admin/me"
+                        , badge "POST /_belm/admin/logout"
+                        ]
+
+            transportText =
+                case activeScope of
+                    AppAuthScope ->
+                        case maybeAppAuth of
+                            Just appAuth ->
+                                "Transport: " ++ appAuth.emailTransport ++ " | User entity: " ++ appAuth.userEntity
+
+                            Nothing ->
+                                "User authentication is not enabled."
+
+                    SystemAuthScope ->
+                        case maybeSystemAuth of
+                            Just systemAuth ->
+                                "Transport: " ++ systemAuth.emailTransport ++ " | Scope: admin"
+
+                            Nothing ->
+                                "Admin authentication is not available."
+
+            needsBootstrap =
+                case activeScope of
+                    AppAuthScope ->
+                        case maybeAppAuth of
+                            Just appAuth ->
+                                appAuth.needsBootstrap
+
+                            Nothing ->
+                                False
+
+                    SystemAuthScope ->
+                        case maybeSystemAuth of
+                            Just systemAuth ->
+                                systemAuth.needsBootstrap
+
+                            Nothing ->
+                                False
+
+            tabHint =
+                case activeScope of
+                    AppAuthScope ->
+                        if needsBootstrap then
+                            "No app users found. Create the first app admin, then login with the code."
+
+                        else
+                            "Request code signs in existing users and can auto-create regular users when allowed."
+
+                    SystemAuthScope ->
+                        if needsBootstrap then
+                            "No admins found. Create the first admin, then login with the code."
+
+                        else
+                            "Admin authentication is used only for admin features such as Performance and Database backups."
+        in
+        if not (hasAnyAuthInfo model) then
+            none
+
+        else
+            column
+                [ width fill
+                , spacing 10
+                , padding 16
+                , Background.color (rgb255 255 255 255)
+                , Border.rounded 14
+                , Border.width 1
+                , Border.color (rgb255 226 232 239)
+                ]
+                [ row [ width fill, spacing 12, centerY ]
+                    [ el [ Font.bold, Font.size 18 ] (text "Authentication")
+                    , row [ spacing 8 ]
+                        ((if maybeAppAuth /= Nothing then
+                            [ tabButton AppAuthTab "Users" ]
+
+                          else
+                            []
+                         )
+                            ++ (if maybeSystemAuth /= Nothing then
+                                    [ tabButton SystemAuthTab "Admin" ]
+
+                                else
+                                    []
+                               )
+                        )
+                    ]
+                , el [ Font.size 12, Font.color (rgb255 93 103 120) ] (text transportText)
+                , row [ width fill, spacing 8 ] activeBadgeText
+                , Input.text [ width fill ]
+                    { onChange = SetAuthToken
+                    , text = activeAuthToken
+                    , placeholder = Just (Input.placeholder [] (text "Bearer token"))
+                    , label = Input.labelAbove [ Font.size 12 ] (text "Auth token")
+                    }
+                , row [ width fill, spacing 10 ]
+                    (([ Input.text [ width (fillPortion 3) ]
                             { onChange = SetAuthEmail
                             , text = model.authEmail
                             , placeholder = Just (Input.placeholder [] (text "user@email.com"))
                             , label = Input.labelAbove [ Font.size 12 ] (text "Email")
                             }
-                        , Input.text [ width (fillPortion 2) ]
+                      , Input.text [ width (fillPortion 2) ]
                             { onChange = SetAuthCode
                             , text = model.authCode
                             , placeholder = Just (Input.placeholder [] (text "6-digit code"))
                             , label = Input.labelAbove [ Font.size 12 ] (text "Code")
                             }
-                        , Input.button
-                            [ Element.alignBottom
-                            , Background.color (rgb255 84 121 224)
-                            , Font.color (rgb255 246 248 252)
-                            , Border.rounded 10
-                            , paddingEach { top = 10, right = 12, bottom = 10, left = 12 }
-                            ]
-                            { onPress = Just RequestAuthCode
-                            , label = text "Request code"
-                            }
-                        , Input.button
-                            [ Element.alignBottom
-                            , Background.color (rgb255 242 180 42)
-                            , Font.color (rgb255 40 33 16)
-                            , Border.rounded 10
-                            , paddingEach { top = 10, right = 12, bottom = 10, left = 12 }
-                            ]
-                            { onPress = Just BootstrapFirstAdmin
-                            , label = text "Create first admin"
-                            }
-                        , Input.button
+                      ]
+                        ++ (if needsBootstrap then
+                                [ Input.button
+                                    [ Element.alignBottom
+                                    , Background.color (rgb255 242 180 42)
+                                    , Font.color (rgb255 40 33 16)
+                                    , Border.rounded 10
+                                    , paddingEach { top = 10, right = 12, bottom = 10, left = 12 }
+                                    ]
+                                    { onPress = Just BootstrapFirstAdmin
+                                    , label = text "Create first admin"
+                                    }
+                                ]
+
+                            else
+                                [ Input.button
+                                    [ Element.alignBottom
+                                    , Background.color (rgb255 84 121 224)
+                                    , Font.color (rgb255 246 248 252)
+                                    , Border.rounded 10
+                                    , paddingEach { top = 10, right = 12, bottom = 10, left = 12 }
+                                    ]
+                                    { onPress = Just RequestAuthCode
+                                    , label = text "Request code"
+                                    }
+                                ]
+                           )
+                        ++ [ Input.button
                             [ Element.alignBottom
                             , Background.color (rgb255 34 124 95)
                             , Font.color (rgb255 246 251 248)
@@ -1593,7 +1995,7 @@ viewAuthToolsPanel model =
                             { onPress = Just LoginWithCode
                             , label = text "Login"
                             }
-                        , Input.button
+                         , Input.button
                             [ Element.alignBottom
                             , Background.color (rgb255 224 231 241)
                             , Border.rounded 10
@@ -1602,7 +2004,7 @@ viewAuthToolsPanel model =
                             { onPress = Just LoadAuthMe
                             , label = text "Me"
                             }
-                        , Input.button
+                         , Input.button
                             [ Element.alignBottom
                             , Background.color (rgb255 248 226 226)
                             , Border.rounded 10
@@ -1611,13 +2013,19 @@ viewAuthToolsPanel model =
                             { onPress = Just LogoutSession
                             , label = text "Logout"
                             }
-                        ]
-                    , el [ Font.size 12, Font.color (rgb255 106 84 31) ]
-                        (text "Create first admin only works when there are no users yet.")
-                    ]
+                           ]))
+                , el
+                    [ Font.size 12
+                    , Font.color
+                        (if needsBootstrap then
+                            rgb255 106 84 31
 
-            Nothing ->
-                none
+                         else
+                            rgb255 93 103 120
+                        )
+                    ]
+                    (text tabHint)
+                ]
 
 
 authInfoFromModel : Model -> Maybe AuthInfo
@@ -1630,14 +2038,75 @@ authInfoFromModel model =
             Nothing
 
 
+systemAuthInfoFromModel : Model -> Maybe SystemAuthInfo
+systemAuthInfoFromModel model =
+    case model.schema of
+        Loaded schema ->
+            schema.systemAuth
+
+        _ ->
+            Nothing
+
+
+hasAnyAuthInfo : Model -> Bool
+hasAnyAuthInfo model =
+    (authInfoFromModel model /= Nothing) || (systemAuthInfoFromModel model /= Nothing)
+
+
+activeAuthScope : Model -> AuthScope
+activeAuthScope model =
+    case model.authTab of
+        AppAuthTab ->
+            if authInfoFromModel model /= Nothing then
+                AppAuthScope
+
+            else
+                SystemAuthScope
+
+        SystemAuthTab ->
+            if systemAuthInfoFromModel model /= Nothing then
+                SystemAuthScope
+
+            else
+                AppAuthScope
+
+
+authScopeLabel : AuthScope -> String
+authScopeLabel scope =
+    case scope of
+        AppAuthScope ->
+            "user"
+
+        SystemAuthScope ->
+            "admin"
+
+
+authScopeToTab : AuthScope -> AuthTab
+authScopeToTab scope =
+    case scope of
+        AppAuthScope ->
+            AppAuthTab
+
+        SystemAuthScope ->
+            SystemAuthTab
+
+
 isAdminProfile : Model -> Bool
 isAdminProfile model =
-    case model.currentRole of
+    case model.currentSystemRole of
         Just role ->
             String.toLower (String.trim role) == "admin"
 
         Nothing ->
             False
+
+
+hasActiveSession : Model -> Bool
+hasActiveSession model =
+    (String.trim model.authToken /= "")
+        || (String.trim model.systemAuthToken /= "")
+        || (model.currentEmail /= Nothing)
+        || (model.currentSystemEmail /= Nothing)
 
 
 viewFlash : Model -> Element Msg
@@ -1778,8 +2247,7 @@ viewActionPanel model actionInfo =
                        ]
                     ++ [ case model.actionResult of
                             Nothing ->
-                                paragraph [ Font.size 13, Font.color (rgb255 93 103 120) ]
-                                    [ text "Fill the fields and run the action." ]
+                                none
 
                             Just response ->
                                 column
@@ -1917,30 +2385,205 @@ viewInspector model =
 
 viewPerformancePanel : Model -> Element Msg
 viewPerformancePanel model =
-    let
-        routeRow perfRoute =
-            row
-                [ width fill
-                , spacing 12
-                , Background.color (rgb255 248 250 252)
-                , Border.rounded 10
-                , paddingEach { top = 10, right = 12, bottom = 10, left = 12 }
-                ]
-                [ el [ width (fillPortion 1), Font.bold ] (text perfRoute.method)
-                , el [ width (fillPortion 3) ] (text perfRoute.route)
-                , el [ width (fillPortion 1) ] (text ("count: " ++ String.fromInt perfRoute.count))
-                , el [ width (fillPortion 1) ] (text ("avg: " ++ formatMs perfRoute.avgMs))
-                , el [ width (fillPortion 1), Font.color (rgb255 176 60 46) ] (text ("4xx/5xx: " ++ String.fromInt perfRoute.errors4xx ++ "/" ++ String.fromInt perfRoute.errors5xx))
-                ]
+    if not (isAdminProfile model) then
+        column
+            [ width fill
+            , spacing 14
+            , Background.color (rgb255 255 255 255)
+            , Border.rounded 14
+            , Border.width 1
+            , Border.color (rgb255 226 232 239)
+            , padding 16
+            ]
+            [ el [ Font.bold, Font.size 20 ] (text "Performance")
+            , paragraph [ Font.size 14, Font.color (rgb255 93 103 120) ]
+                [ text "Admin role required to view performance information." ]
+            ]
 
-        cards perf =
-            row [ width fill, spacing 12 ]
-                [ performanceCard "Uptime" (formatSeconds perf.uptimeSeconds)
-                , performanceCard "Memory (heap)" (formatBytes perf.memoryBytes)
-                , performanceCard "SQLite file" (formatBytes perf.sqliteBytes)
-                , performanceCard "Goroutines" (String.fromInt perf.goroutines)
-                , performanceCard "Requests" (String.fromInt perf.http.totalRequests)
+    else
+        let
+            routeRow perfRoute =
+                let
+                    hasErrors =
+                        perfRoute.errors4xx > 0 || perfRoute.errors5xx > 0
+
+                    statusColor =
+                        if hasErrors then
+                            rgb255 176 60 46
+
+                        else
+                            rgb255 34 124 95
+                in
+                row
+                    [ width fill
+                    , spacing 12
+                    , Background.color (rgb255 248 250 252)
+                    , Border.rounded 10
+                    , paddingEach { top = 10, right = 12, bottom = 10, left = 12 }
+                    ]
+                    [ el [ width (fillPortion 1), Font.bold ] (text perfRoute.method)
+                    , el [ width (fillPortion 3) ] (text perfRoute.route)
+                    , el [ width (fillPortion 1) ] (text ("count: " ++ String.fromInt perfRoute.count))
+                    , el [ width (fillPortion 1) ] (text ("avg: " ++ formatMs perfRoute.avgMs))
+                    , el [ width (fillPortion 1), Font.color statusColor ] (text ("4xx/5xx: " ++ String.fromInt perfRoute.errors4xx ++ "/" ++ String.fromInt perfRoute.errors5xx))
+                    ]
+
+            cards perf =
+                row [ width fill, spacing 12 ]
+                    [ performanceCard "Uptime" (formatSeconds perf.uptimeSeconds)
+                    , performanceCard "Memory (heap)" (formatBytes perf.memoryBytes)
+                    , performanceCard "SQLite file" (formatBytes perf.sqliteBytes)
+                    , performanceCard "Goroutines" (String.fromInt perf.goroutines)
+                    , performanceCard "Requests" (String.fromInt perf.http.totalRequests)
+                    ]
+        in
+        column
+            [ width fill
+            , spacing 14
+            , Background.color (rgb255 255 255 255)
+            , Border.rounded 14
+            , Border.width 1
+            , Border.color (rgb255 226 232 239)
+            , padding 16
+            ]
+            [ row [ width fill, spacing 10, centerY ]
+                [ el [ width fill, Font.bold, Font.size 20 ] (text "Performance")
+                , Input.button
+                    [ Background.color (rgb255 224 231 241)
+                    , Border.rounded 10
+                    , paddingEach { top = 10, right = 14, bottom = 10, left = 14 }
+                    ]
+                { onPress = Just ReloadPerformance
+                , label = text "Refresh"
+                }
                 ]
+            , case model.perf of
+                NotAsked ->
+                    paragraph [] [ text "No performance data loaded yet." ]
+
+                Loading ->
+                    paragraph [] [ text "Loading performance data..." ]
+
+                Failed message ->
+                    paragraph [ Font.color (rgb255 176 60 46) ] [ text message ]
+
+                Loaded perf ->
+                    column [ width fill, spacing 12 ]
+                        [ cards perf
+                        , row [ width fill, spacing 12 ]
+                            [ performanceCard "2xx responses" (String.fromInt perf.http.success2xx)
+                            , performanceCard "4xx errors" (String.fromInt perf.http.errors4xx)
+                            , performanceCard "5xx errors" (String.fromInt perf.http.errors5xx)
+                            ]
+                        , column [ width fill, spacing 8 ]
+                            ([ el [ Font.bold, Font.size 18 ] (text "Route metrics") ]
+                                ++ (if List.isEmpty perf.http.routes then
+                                        [ paragraph [] [ text "No requests captured yet." ] ]
+
+                                    else
+                                        List.map routeRow perf.http.routes
+                                   )
+                            )
+                        ]
+            ]
+
+
+viewDatabasePanel : Model -> Element Msg
+viewDatabasePanel model =
+    if not (isAdminProfile model) then
+        column
+            [ width fill
+            , spacing 14
+            , Background.color (rgb255 255 255 255)
+            , Border.rounded 14
+            , Border.width 1
+            , Border.color (rgb255 226 232 239)
+            , padding 16
+            ]
+            [ el [ Font.bold, Font.size 20 ] (text "Database")
+            , paragraph [ Font.size 14, Font.color (rgb255 93 103 120) ]
+                [ text "Admin role required to view database and backup information." ]
+            ]
+
+    else
+        viewDatabasePanelAdmin model
+
+
+viewDatabasePanelAdmin : Model -> Element Msg
+viewDatabasePanelAdmin model =
+    let
+        dbPath =
+            currentDatabasePath model
+
+        backupDirText =
+            databaseBackupDir dbPath
+
+        sqliteSizeText =
+            case model.perf of
+                Loaded perf ->
+                    formatBytes perf.sqliteBytes
+
+                Loading ->
+                    "Loading..."
+
+                Failed _ ->
+                    "-"
+
+                NotAsked ->
+                    "-"
+
+        lastBackupInfo =
+            case model.lastBackup of
+                Just backup ->
+                    column [ width fill, spacing 6 ]
+                        [ el [ Font.bold ] (text "Last backup")
+                        , el [ Font.size 13, Font.color (rgb255 93 103 120) ] (text backup.path)
+                        , el [ Font.size 12, Font.color (rgb255 93 103 120) ]
+                            (text ("Removed old backups: " ++ String.fromInt (List.length backup.removed)))
+                        ]
+
+                Nothing ->
+                    paragraph [ Font.size 13, Font.color (rgb255 93 103 120) ]
+                        [ text "No backup executed in this admin session yet." ]
+
+        backupsSection =
+            case model.backups of
+                NotAsked ->
+                    paragraph [ Font.size 13, Font.color (rgb255 93 103 120) ]
+                        [ text "Backups were not loaded yet." ]
+
+                Loading ->
+                    paragraph [ Font.size 13, Font.color (rgb255 93 103 120) ]
+                        [ text "Loading backups..." ]
+
+                Failed message ->
+                    paragraph [ Font.size 13, Font.color (rgb255 176 60 46) ]
+                        [ text message ]
+
+                Loaded backups ->
+                    if List.isEmpty backups then
+                        paragraph [ Font.size 13, Font.color (rgb255 93 103 120) ]
+                            [ text "No backups found yet." ]
+
+                    else
+                        column
+                            [ width fill
+                            , spacing 8
+                            ]
+                            ([ row
+                                [ width fill
+                                , spacing 12
+                                , paddingEach { top = 6, right = 10, bottom = 6, left = 10 }
+                                , Background.color (rgb255 244 247 252)
+                                , Border.rounded 8
+                                ]
+                                [ el [ width (fillPortion 2), Font.bold ] (text "Backup time")
+                                , el [ width (fillPortion 1), Font.bold ] (text "Size")
+                                , el [ width (fillPortion 4), Font.bold ] (text "File")
+                                ]
+                             ]
+                                ++ List.map backupRow backups
+                            )
     in
     column
         [ width fill
@@ -1952,43 +2595,92 @@ viewPerformancePanel model =
         , padding 16
         ]
         [ row [ width fill, spacing 10, centerY ]
-            [ el [ width fill, Font.bold, Font.size 20 ] (text "Performance")
+            [ el [ width fill, Font.bold, Font.size 20 ] (text "Database")
             , Input.button
                 [ Background.color (rgb255 224 231 241)
                 , Border.rounded 10
                 , paddingEach { top = 10, right = 14, bottom = 10, left = 14 }
                 ]
-                { onPress = Just ReloadPerformance
-                , label = text "Refresh performance"
+                { onPress = Just ReloadDatabase
+                , label = text "Refresh"
+                }
+            , Input.button
+                [ Background.color (rgb255 34 124 95)
+                , Font.color (rgb255 248 252 250)
+                , Border.rounded 10
+                , paddingEach { top = 10, right = 14, bottom = 10, left = 14 }
+                ]
+                { onPress = Just TriggerBackup
+                , label = text "Create backup"
                 }
             ]
-        , case model.perf of
-            NotAsked ->
-                paragraph [] [ text "No performance data loaded yet." ]
+        , row [ width fill, spacing 12 ]
+            [ performanceCard "SQLite file" sqliteSizeText
+            , databaseInfoCard "Path" dbPath
+            , databaseInfoCard "Backups dir" backupDirText
+            ]
+        , lastBackupInfo
+        , el [ Font.bold, Font.size 18 ] (text "Available backups")
+        , backupsSection
+        ]
 
-            Loading ->
-                paragraph [] [ text "Loading performance data..." ]
 
-            Failed message ->
-                paragraph [ Font.color (rgb255 176 60 46) ] [ text message ]
+currentDatabasePath : Model -> String
+currentDatabasePath model =
+    case model.schema of
+        Loaded schema ->
+            schema.database
 
-            Loaded perf ->
-                column [ width fill, spacing 12 ]
-                    [ cards perf
-                    , row [ width fill, spacing 12 ]
-                        [ performanceCard "4xx errors" (String.fromInt perf.http.errors4xx)
-                        , performanceCard "5xx errors" (String.fromInt perf.http.errors5xx)
-                        ]
-                    , column [ width fill, spacing 8 ]
-                        ([ el [ Font.bold, Font.size 18 ] (text "Route metrics") ]
-                            ++ (if List.isEmpty perf.http.routes then
-                                    [ paragraph [] [ text "No requests captured yet." ] ]
+        _ ->
+            "-"
 
-                                else
-                                    List.map routeRow perf.http.routes
-                               )
-                        )
-                    ]
+
+databaseBackupDir : String -> String
+databaseBackupDir databasePath =
+    let
+        cleaned =
+            String.trim databasePath
+
+        slashPath =
+            String.replace "\\" "/" cleaned
+
+        segments =
+            String.split "/" slashPath
+
+        folderSegments =
+            if List.length segments <= 1 then
+                [ "." ]
+
+            else
+                List.take (List.length segments - 1) segments
+
+        folderPath =
+            String.join "/" folderSegments
+    in
+    if cleaned == "" || cleaned == "-" then
+        "-"
+
+    else if folderPath == "" then
+        "./backups"
+
+    else
+        folderPath ++ "/backups"
+
+
+backupRow : BackupFile -> Element Msg
+backupRow backup =
+    row
+        [ width fill
+        , spacing 12
+        , paddingEach { top = 8, right = 10, bottom = 8, left = 10 }
+        , Background.color (rgb255 248 250 252)
+        , Border.rounded 8
+        , Border.width 1
+        , Border.color (rgb255 226 232 239)
+        ]
+        [ el [ width (fillPortion 2) ] (text backup.createdAt)
+        , el [ width (fillPortion 1), Font.bold ] (text (formatBytes backup.sizeBytes))
+        , el [ width (fillPortion 4), Font.size 13, Font.color (rgb255 93 103 120) ] (text backup.path)
         ]
 
 
@@ -2005,6 +2697,22 @@ performanceCard title value =
         ]
         [ el [ Font.size 12, Font.color (rgb255 93 103 120) ] (text title)
         , el [ Font.size 20, Font.bold ] (text value)
+        ]
+
+
+databaseInfoCard : String -> String -> Element Msg
+databaseInfoCard title value =
+    column
+        [ width fill
+        , spacing 6
+        , Background.color (rgb255 248 250 252)
+        , Border.rounded 10
+        , Border.width 1
+        , Border.color (rgb255 226 232 239)
+        , padding 12
+        ]
+        [ el [ Font.size 12, Font.color (rgb255 93 103 120) ] (text title)
+        , paragraph [ Font.size 13, Font.color (rgb255 41 52 68) ] [ text value ]
         ]
 
 
@@ -2235,3 +2943,52 @@ httpErrorToString httpError =
 
         Http.BadBody message ->
             message
+
+
+shouldReloadCrudAfterLogin : Model -> Bool
+shouldReloadCrudAfterLogin model =
+    isCrudScreen model && hasAuthorizationError model.rows
+
+
+isCrudScreen : Model -> Bool
+isCrudScreen model =
+    let
+        hasEntitySelection =
+            case model.selectedEntity of
+                Just _ ->
+                    True
+
+                Nothing ->
+                    False
+
+        hasActionSelection =
+            case model.selectedAction of
+                Just _ ->
+                    True
+
+                Nothing ->
+                    False
+    in
+    (not model.performanceMode)
+        && (not model.databaseMode)
+        && (not hasActionSelection)
+        && hasEntitySelection
+
+
+hasAuthorizationError : Remote (List Row) -> Bool
+hasAuthorizationError rowsRemote =
+    case rowsRemote of
+        Failed message ->
+            let
+                lowered =
+                    String.toLower message
+            in
+            String.contains "401" message
+                || String.contains "403" message
+                || String.contains "authentication required" lowered
+                || String.contains "not authorized" lowered
+                || String.contains "admin role required" lowered
+                || String.contains "forbidden" lowered
+
+        _ ->
+            False

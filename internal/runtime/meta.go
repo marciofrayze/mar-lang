@@ -58,13 +58,28 @@ func (r *Runtime) schemaPayload() map[string]any {
 		payload["actions"] = actions
 	}
 	if r.authEnabled() {
+		needsBootstrap := false
+		if totalUsers, err := r.countAuthUsers(); err == nil {
+			needsBootstrap = totalUsers == 0
+		}
 		payload["auth"] = map[string]any{
 			"enabled":        true,
 			"userEntity":     r.App.Auth.UserEntity,
 			"emailField":     r.App.Auth.EmailField,
 			"roleField":      r.App.Auth.RoleField,
 			"emailTransport": r.App.Auth.EmailTransport,
+			"needsBootstrap": needsBootstrap,
 		}
+	}
+	systemNeedsBootstrap := false
+	if totalAdmins, err := r.countSystemAdminUsers(); err == nil {
+		systemNeedsBootstrap = totalAdmins == 0
+	}
+	systemCfg := r.systemAuthConfig()
+	payload["systemAuth"] = map[string]any{
+		"enabled":        true,
+		"emailTransport": systemCfg.EmailTransport,
+		"needsBootstrap": systemNeedsBootstrap,
 	}
 	return payload
 }

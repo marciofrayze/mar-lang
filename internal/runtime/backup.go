@@ -21,6 +21,15 @@ type BackupResult struct {
 	OccurredAt int64
 }
 
+// BackupFile describes an existing backup file on disk.
+type BackupFile struct {
+	Path        string `json:"path"`
+	Name        string `json:"name"`
+	SizeBytes   int64  `json:"sizeBytes"`
+	CreatedAtMs int64  `json:"createdAtMs"`
+	CreatedAt   string `json:"createdAt"`
+}
+
 // CreateSQLiteBackup creates a timestamped SQLite snapshot and rotates old backups.
 func CreateSQLiteBackup(databasePath string, keepLast int) (BackupResult, error) {
 	if keepLast <= 0 {
@@ -70,6 +79,71 @@ func CreateSQLiteBackup(databasePath string, keepLast int) (BackupResult, error)
 	}, nil
 }
 
+// ListSQLiteBackups lists existing backup files for a SQLite database, newest first.
+func ListSQLiteBackups(databasePath string, limit int) ([]BackupFile, error) {
+	baseName := filepath.Base(databasePath)
+	prefix := strings.TrimSuffix(baseName, filepath.Ext(baseName))
+	if prefix == "" {
+		prefix = "database"
+	}
+	backupDir := filepath.Join(filepath.Dir(databasePath), "backups")
+	entries, err := os.ReadDir(backupDir)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return []BackupFile{}, nil
+		}
+		return nil, err
+	}
+
+	pattern := prefix + "-"
+	files := make([]BackupFile, 0, len(entries))
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if !strings.HasPrefix(name, pattern) || !strings.HasSuffix(name, ".db") {
+			continue
+		}
+
+		fullPath := filepath.Join(backupDir, name)
+		info, err := entry.Info()
+		if err != nil {
+			return nil, err
+		}
+
+		timestamp := backupFileTimestamp(name, info.ModTime())
+		files = append(files, BackupFile{
+			Path:        fullPath,
+			Name:        name,
+			SizeBytes:   info.Size(),
+			CreatedAtMs: timestamp.UnixMilli(),
+			CreatedAt:   timestamp.Format("2006-01-02 15:04:05"),
+		})
+	}
+
+	sort.Slice(files, func(i, j int) bool {
+		return files[i].CreatedAtMs > files[j].CreatedAtMs
+	})
+	if limit > 0 && len(files) > limit {
+		files = files[:limit]
+	}
+	return files, nil
+}
+
+func backupFileTimestamp(fileName string, fallback time.Time) time.Time {
+	trimmed := strings.TrimSuffix(fileName, ".db")
+	parts := strings.Split(trimmed, "-")
+	if len(parts) == 0 {
+		return fallback
+	}
+	raw := parts[len(parts)-1]
+	if ts, err := time.Parse("20060102T150405Z", raw); err == nil {
+		return ts.Local()
+	}
+	return fallback
+}
+
 func rotateBackups(backupDir, prefix string, keepLast int) ([]string, error) {
 	entries, err := os.ReadDir(backupDir)
 	if err != nil {
@@ -88,7 +162,7 @@ func rotateBackups(backupDir, prefix string, keepLast int) ([]string, error) {
 		}
 	}
 	if len(files) <= keepLast {
-		return nil, nil
+		return []string{}, nil
 	}
 
 	sort.Strings(files)

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
 	"os/signal"
 	"regexp"
 	"strings"
@@ -20,17 +19,18 @@ import (
 
 // Runtime hosts the compiled Belm app state and serves its HTTP API on top of SQLite.
 type Runtime struct {
-	App            *model.App
-	DB             *sqlitecli.DB
-	entitiesByRes  map[string]*model.Entity
-	entitiesByName map[string]*model.Entity
-	aliasesByName  map[string]*model.TypeAlias
-	actionsByName  map[string]*model.Action
-	rules          map[string][]compiledRule
-	authorizers    map[string]map[string]expr.Expr
-	authUser       *model.Entity
-	metrics        *metricsCollector
-	authLogOnce    sync.Once
+	App               *model.App
+	DB                *sqlitecli.DB
+	entitiesByRes     map[string]*model.Entity
+	entitiesByName    map[string]*model.Entity
+	aliasesByName     map[string]*model.TypeAlias
+	actionsByName     map[string]*model.Action
+	rules             map[string][]compiledRule
+	authorizers       map[string]map[string]expr.Expr
+	authUser          *model.Entity
+	metrics           *metricsCollector
+	authLogOnce       sync.Once
+	systemAuthLogOnce sync.Once
 }
 
 type compiledRule struct {
@@ -179,14 +179,6 @@ func (r *Runtime) route(w http.ResponseWriter, req *http.Request) error {
 		r.writeJSON(w, http.StatusOK, r.schemaPayload())
 		return nil
 	}
-	if method == http.MethodGet && path == "/_belm/perf" {
-		r.writeJSON(w, http.StatusOK, r.perfPayload())
-		return nil
-	}
-	if method == http.MethodGet && path == "/metrics" {
-		r.writePrometheus(w)
-		return nil
-	}
 	if method == http.MethodPost && path == "/_belm/bootstrap-admin" {
 		payload, err := readJSONBody(req)
 		if err != nil {
@@ -195,19 +187,88 @@ func (r *Runtime) route(w http.ResponseWriter, req *http.Request) error {
 		return r.handleBootstrapAdmin(w, payload)
 	}
 
-	auth, err := r.resolveAuth(req)
+	if path == "/_belm/admin/request-code" {
+		if method != http.MethodPost {
+			return &apiError{Status: http.StatusMethodNotAllowed, Message: "Method not allowed"}
+		}
+		payload, err := readJSONBody(req)
+		if err != nil {
+			return err
+		}
+		return r.handleSystemAuthRequestCode(w, payload)
+	}
+	if path == "/_belm/admin/bootstrap" {
+		if method != http.MethodPost {
+			return &apiError{Status: http.StatusMethodNotAllowed, Message: "Method not allowed"}
+		}
+		payload, err := readJSONBody(req)
+		if err != nil {
+			return err
+		}
+		return r.handleSystemBootstrapAdmin(w, payload)
+	}
+	if path == "/_belm/admin/login" {
+		if method != http.MethodPost {
+			return &apiError{Status: http.StatusMethodNotAllowed, Message: "Method not allowed"}
+		}
+		payload, err := readJSONBody(req)
+		if err != nil {
+			return err
+		}
+		return r.handleSystemAuthLogin(w, payload)
+	}
+	if path == "/_belm/admin/logout" {
+		if method != http.MethodPost {
+			return &apiError{Status: http.StatusMethodNotAllowed, Message: "Method not allowed"}
+		}
+		systemAuth, err := r.resolveSystemAuth(req)
+		if err != nil {
+			return err
+		}
+		return r.handleSystemAuthLogout(w, systemAuth)
+	}
+	if path == "/_belm/admin/me" {
+		if method != http.MethodGet {
+			return &apiError{Status: http.StatusMethodNotAllowed, Message: "Method not allowed"}
+		}
+		systemAuth, err := r.resolveSystemAuth(req)
+		if err != nil {
+			return err
+		}
+		if !systemAuth.Authenticated {
+			return &apiError{Status: http.StatusUnauthorized, Message: "Authentication required"}
+		}
+		r.writeJSON(w, http.StatusOK, map[string]any{
+			"authenticated": true,
+			"email":         systemAuth.Email,
+			"userId":        systemAuth.UserID,
+			"role":          systemAuth.Role,
+			"user":          systemAuth.User,
+		})
+		return nil
+	}
+
+	systemAuth, err := r.resolveSystemAuth(req)
 	if err != nil {
 		return err
 	}
 
-	if method == http.MethodPost && path == "/_belm/backup" {
-		if !r.authEnabled() {
-			return &apiError{Status: http.StatusForbidden, Message: "Backup requires authentication with admin role"}
-		}
-		if !auth.Authenticated {
+	if method == http.MethodGet && path == "/_belm/perf" {
+		if !systemAuth.Authenticated {
 			return &apiError{Status: http.StatusUnauthorized, Message: "Authentication required"}
 		}
-		if !isAdminRole(auth.Role) {
+		if !isAdminRole(systemAuth.Role) {
+			return &apiError{Status: http.StatusForbidden, Message: "Admin role required"}
+		}
+		r.writeJSON(w, http.StatusOK, r.perfPayload())
+		return nil
+	}
+
+	if method == http.MethodPost && path == "/_belm/backup" {
+		if !systemAuth.Authenticated {
+			return &apiError{Status: http.StatusUnauthorized, Message: "Authentication required"}
+		}
+		if !isAdminRole(systemAuth.Role) {
 			return &apiError{Status: http.StatusForbidden, Message: "Admin role required"}
 		}
 		result, err := CreateSQLiteBackup(r.App.Database, 20)
@@ -222,6 +283,28 @@ func (r *Runtime) route(w http.ResponseWriter, req *http.Request) error {
 			"keptLast":  result.KeptLast,
 		})
 		return nil
+	}
+	if method == http.MethodGet && path == "/_belm/backups" {
+		if !systemAuth.Authenticated {
+			return &apiError{Status: http.StatusUnauthorized, Message: "Authentication required"}
+		}
+		if !isAdminRole(systemAuth.Role) {
+			return &apiError{Status: http.StatusForbidden, Message: "Admin role required"}
+		}
+		backups, err := ListSQLiteBackups(r.App.Database, 100)
+		if err != nil {
+			return err
+		}
+		r.writeJSON(w, http.StatusOK, map[string]any{
+			"ok":      true,
+			"backups": backups,
+		})
+		return nil
+	}
+
+	auth, err := r.resolveAuth(req)
+	if err != nil {
+		return err
 	}
 
 	if r.authEnabled() {
@@ -349,13 +432,6 @@ func quoteIdentifier(name string) (string, error) {
 	return `"` + name + `"`, nil
 }
 
-func fatalIfErr(err error) {
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "error:", err)
-		os.Exit(1)
-	}
-}
-
 // setCORSHeaders sets permissive CORS defaults for local development and generated UIs.
 func setCORSHeaders(w http.ResponseWriter) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -394,8 +470,12 @@ func (r *Runtime) metricsRouteLabel(req *http.Request) string {
 	}
 
 	switch path {
-	case "/health", "/_belm/schema", "/_belm/perf", "/_belm/backup", "/_belm/bootstrap-admin", "/metrics":
+	case "/health", "/_belm/schema", "/_belm/perf", "/_belm/backup", "/_belm/backups", "/_belm/bootstrap-admin", "/_belm/admin/request-code", "/_belm/admin/bootstrap", "/_belm/admin/login", "/_belm/admin/logout", "/_belm/admin/me":
 		return path
+	}
+
+	if strings.HasPrefix(path, "/_belm/admin/") {
+		return "/_belm/admin/:unknown"
 	}
 
 	if strings.HasPrefix(path, "/auth/") {

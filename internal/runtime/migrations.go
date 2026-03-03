@@ -47,6 +47,35 @@ func (r *Runtime) runMigrations() error {
 			return err
 		}
 	}
+	if err := r.migrateStaticTable("belm_admin_users", []staticColumn{
+		{Name: "id", Type: "INTEGER", Primary: true, Auto: true},
+		{Name: "email", Type: "TEXT", NotNull: true},
+		{Name: "role", Type: "TEXT", NotNull: true, DefaultSQL: "'admin'"},
+		{Name: "created_at", Type: "INTEGER", NotNull: true},
+	}); err != nil {
+		return err
+	}
+	if err := r.migrateStaticTable("belm_admin_codes", []staticColumn{
+		{Name: "id", Type: "INTEGER", Primary: true, Auto: true},
+		{Name: "email", Type: "TEXT", NotNull: true},
+		{Name: "admin_user_id", Type: "INTEGER", NotNull: true},
+		{Name: "code", Type: "TEXT", NotNull: true},
+		{Name: "expires_at", Type: "INTEGER", NotNull: true},
+		{Name: "used", Type: "INTEGER", NotNull: true, DefaultSQL: "0"},
+		{Name: "created_at", Type: "INTEGER", NotNull: true},
+	}); err != nil {
+		return err
+	}
+	if err := r.migrateStaticTable("belm_admin_sessions", []staticColumn{
+		{Name: "token", Type: "TEXT", Primary: true},
+		{Name: "admin_user_id", Type: "INTEGER", NotNull: true},
+		{Name: "email", Type: "TEXT", NotNull: true},
+		{Name: "expires_at", Type: "INTEGER", NotNull: true},
+		{Name: "revoked", Type: "INTEGER", NotNull: true, DefaultSQL: "0"},
+		{Name: "created_at", Type: "INTEGER", NotNull: true},
+	}); err != nil {
+		return err
+	}
 	return nil
 }
 
