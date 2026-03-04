@@ -57,29 +57,22 @@ func (r *Runtime) schemaPayload() map[string]any {
 		}
 		payload["actions"] = actions
 	}
-	if r.authEnabled() {
-		needsBootstrap := false
-		if totalUsers, err := r.countAuthUsers(); err == nil {
-			needsBootstrap = totalUsers == 0
-		}
-		payload["auth"] = map[string]any{
-			"enabled":        true,
-			"userEntity":     r.App.Auth.UserEntity,
-			"emailField":     r.App.Auth.EmailField,
-			"roleField":      r.App.Auth.RoleField,
-			"emailTransport": r.App.Auth.EmailTransport,
-			"needsBootstrap": needsBootstrap,
-		}
+	cfg := r.authConfig()
+	needsBootstrap := false
+	if totalAdmins, err := r.countAuthUsersByRole("admin"); err == nil {
+		needsBootstrap = totalAdmins == 0
 	}
-	systemNeedsBootstrap := false
-	if totalAdmins, err := r.countSystemAdminUsers(); err == nil {
-		systemNeedsBootstrap = totalAdmins == 0
+	userEntityName := internalAuthUsersTable
+	if r.usesAppAuthEntity() {
+		userEntityName = r.App.Auth.UserEntity
 	}
-	systemCfg := r.systemAuthConfig()
-	payload["systemAuth"] = map[string]any{
+	payload["auth"] = map[string]any{
 		"enabled":        true,
-		"emailTransport": systemCfg.EmailTransport,
-		"needsBootstrap": systemNeedsBootstrap,
+		"userEntity":     userEntityName,
+		"emailField":     cfg.EmailField,
+		"roleField":      cfg.RoleField,
+		"emailTransport": cfg.EmailTransport,
+		"needsBootstrap": needsBootstrap,
 	}
 	return payload
 }

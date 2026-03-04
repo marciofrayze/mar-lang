@@ -216,7 +216,7 @@ func (r *Runtime) validateEntityRules(entity *model.Entity, context map[string]a
 
 // ensureAuthorized evaluates entity authorization for the given action and request context.
 func (r *Runtime) ensureAuthorized(entity *model.Entity, action string, auth authSession, entityContext map[string]any) error {
-	if !r.authEnabled() {
+	if !r.appAuthEnabled() {
 		return nil
 	}
 	authorizers := r.authorizers[entity.Name]

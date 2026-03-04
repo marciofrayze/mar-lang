@@ -49,7 +49,7 @@ func (r *Runtime) compileExpressions() error {
 		r.authorizers[entity.Name] = authorizers
 	}
 
-	if r.authEnabled() && r.authUser == nil {
+	if r.appAuthEnabled() && r.authUser == nil {
 		return fmt.Errorf("auth.user_entity %q not found", r.App.Auth.UserEntity)
 	}
 	return nil

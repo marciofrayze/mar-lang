@@ -46,4 +46,4 @@ cd /Users/marcio/dev/github/belm
 - Sidebar with entities
 - List and inspect rows
 - Create, edit and delete rows
-- Optional bearer token input for protected endpoints
+- Authentication area with `Auth token` for protected endpoints

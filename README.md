@@ -1,6 +1,6 @@
 # Belm
 
-Belm is an Elm-inspired language for backend development, implemented in Go, with a strong focus on readability, simplicity and maintainability.
+Belm is a Elm-inspired DSL for backend development, implemented in Go, with a strong focus on readability, simplicity and maintainability.
 
 ## Goals
 
@@ -9,7 +9,10 @@ Belm is an Elm-inspired language for backend development, implemented in Go, wit
 - SQLite as the database
 - Email code login flow
 - Rule-based authorization
-- Safe automatic migrations
+- Safe automatic schema migrations
+- Integrated admin panel
+- Built-in SQLite backup workflow
+- Built-in monitoring and performance dashboards (with endpoints)
 
 ## Architecture (Go)
 
@@ -19,7 +22,7 @@ Belm is an Elm-inspired language for backend development, implemented in Go, wit
 - [internal/runtime](/Users/marcio/dev/github/belm/internal/runtime): HTTP server, auth/authz, and migrations
 - [internal/sqlitecli/sqlitecli.go](/Users/marcio/dev/github/belm/internal/sqlitecli/sqlitecli.go): SQLite access via `sqlite3` binary (no external dependencies)
 
-## Compiler Command
+## Compiler and Dev Commands
 
 Compile `.belm` into an executable:
 
@@ -27,11 +30,19 @@ Compile `.belm` into an executable:
 ./belm compile examples/store.belm
 ```
 
-Run development mode with hot reload (rebuild/restart on save):
+Run development mode with hot reload:
 
 ```bash
 ./belm dev examples/store.belm
 ```
+
+Dev mode behavior:
+
+- watches the input `.belm` file for changes
+- on save, recompiles and restarts the generated executable automatically
+- opens Belm Admin on the first successful run
+- keeps generated files in `build/<name>/`
+- stop with `Ctrl+C`
 
 Show Belm CLI version and build metadata:
 
@@ -56,6 +67,12 @@ Optional output name:
 ```bash
 ./belm compile examples/store.belm bookstore-dev
 # output: build/bookstore-dev/bookstore-dev
+```
+
+Dev mode also supports custom output name:
+
+```bash
+./belm dev examples/store.belm bookstore-dev
 ```
 
 Run API + Admin panel and open browser (from the compiled executable):
@@ -299,6 +316,9 @@ Built-in email code login flow:
 3. `POST /auth/login` (email + code) returns a bearer token
 4. `POST /auth/logout` revokes the session
 
+Authentication endpoints are always available, even when `auth { ... }` is not defined.
+In that case, Belm uses an internal auth users table (`belm_auth_users`) with `email` and `role`.
+
 For first-login flows, `request-code` can auto-create the auth user when the selected `user_entity`
 only requires inferable fields (for example `email` and `role`).
 
@@ -328,26 +348,15 @@ Recommended framework pattern:
 - `console`: prints code in logs
 - `sendmail`: uses local binary (`sendmail_path`)
 
-## System Admin Authentication
+## System Admin Features
 
-Belm now includes a separate admin authentication flow for system endpoints and Belm Admin tools.
+System features use the same app authentication session (`/auth/*`) and check `role == "admin"`.
 
-System admin endpoints:
-
-- `POST /_belm/admin/request-code`
-- `POST /_belm/admin/login`
-- `POST /_belm/admin/logout`
-- `GET /_belm/admin/me`
-- `POST /_belm/admin/bootstrap` (first system admin only)
-
-System-only admin endpoints:
+System endpoints:
 
 - `GET /_belm/perf`
 - `POST /_belm/backup`
 - `GET /_belm/backups`
-
-This system auth does not depend on your app `User` entity, so apps without `auth { ... }`
-(for example `examples/todo.belm`) can still login as system admin in Belm Admin.
 
 ## Authorization (`authorize`)
 
@@ -388,22 +397,17 @@ Always:
 
 - `GET /health`
 - `GET /_belm/schema`
-- `POST /_belm/admin/request-code`
-- `POST /_belm/admin/login`
-- `POST /_belm/admin/logout`
-- `GET /_belm/admin/me`
-- `POST /_belm/admin/bootstrap` (first system admin only)
-- `GET /_belm/perf` (system admin only)
-- `POST /_belm/backup` (system admin only)
-- `GET /_belm/backups` (system admin only)
 
-With auth enabled:
+Auth endpoints:
 
 - `POST /auth/request-code`
 - `POST /auth/login`
 - `POST /auth/logout`
 - `GET /auth/me`
-- `POST /_belm/bootstrap-admin` (first user only)
+- `POST /_belm/bootstrap-admin` (optional first admin)
+- `GET /_belm/perf` (role admin)
+- `POST /_belm/backup` (role admin)
+- `GET /_belm/backups` (role admin)
 
 For each typed action `myAction`:
 
@@ -417,7 +421,7 @@ Automatic behavior:
 
 - creates missing tables
 - adds new optional columns
-- creates/migrates internal auth tables (app auth + system admin auth)
+- creates/migrates internal auth tables (`belm_auth_codes`, `belm_sessions`, and `belm_auth_users` when no `auth { ... }` block is present)
 - records operations in `belm_schema_migrations`
 
 Blocked (manual migration required):

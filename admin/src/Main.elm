@@ -86,7 +86,6 @@ type Msg
     | TriggerBackup
     | GotBackup (Result Http.Error BackupResponse)
     | SelectAuthTab AuthTab
-    | SetAuthToken String
     | SetAuthEmail String
     | SetAuthCode String
     | SetActionField String String
@@ -197,7 +196,7 @@ init flags =
       , currentRole = Nothing
       , currentSystemEmail = Nothing
       , currentSystemRole = Nothing
-      , authTab = SystemAuthTab
+      , authTab = AppAuthTab
       , authEmail = ""
       , authCode = ""
       , authToolsOpen = True
@@ -419,22 +418,6 @@ update msg model =
                 Err httpError ->
                     ( { model | backups = Failed (httpErrorToString httpError) }, Cmd.none )
 
-        SetAuthToken token ->
-            case activeAuthScope model of
-                AppAuthScope ->
-                    if String.trim token == "" then
-                        ( { model | authToken = token, currentEmail = Nothing, currentRole = Nothing }, Cmd.none )
-
-                    else
-                        ( { model | authToken = token }, Cmd.none )
-
-                SystemAuthScope ->
-                    if String.trim token == "" then
-                        ( { model | systemAuthToken = token, currentSystemEmail = Nothing, currentSystemRole = Nothing }, Cmd.none )
-
-                    else
-                        ( { model | systemAuthToken = token }, Cmd.none )
-
         SetAuthEmail email ->
             ( { model | authEmail = email }, Cmd.none )
 
@@ -522,18 +505,21 @@ update msg model =
                                         | authToken = response.token
                                         , currentRole = response.role
                                         , currentEmail = response.email
-                                        , flash = Just "User login successful. Bearer token filled automatically."
+                                        , flash = Just "Login successful."
                                     }
+
+                                meCmd =
+                                    loadAuthMe AppAuthScope nextModel
                             in
                             if shouldReloadCrudAfterLogin model then
                                 let
                                     loadingModel =
                                         { nextModel | rows = Loading }
                                 in
-                                ( loadingModel, loadRows loadingModel )
+                                ( loadingModel, Cmd.batch [ loadRows loadingModel, meCmd ] )
 
                             else
-                                ( nextModel, Cmd.none )
+                                ( nextModel, meCmd )
 
                         SystemAuthScope ->
                             let
@@ -687,7 +673,28 @@ update msg model =
                     ( { model | flash = Just (httpErrorToString httpError) }, Cmd.none )
 
         ToggleAuthTools ->
-            ( { model | authToolsOpen = not model.authToolsOpen }, Cmd.none )
+            let
+                nextModel =
+                    { model
+                        | authToolsOpen = True
+                        , performanceMode = False
+                        , databaseMode = False
+                        , selectedEntity = Nothing
+                        , selectedAction = Nothing
+                        , rows = NotAsked
+                        , selectedRow = Nothing
+                        , formMode = FormHidden
+                        , formValues = Dict.empty
+                        , actionFormValues = Dict.empty
+                        , actionResult = Nothing
+                        , flash = Nothing
+                    }
+            in
+            if model.authToolsOpen then
+                ( { nextModel | schema = Loading }, loadSchema model.apiBase )
+
+            else
+                ( nextModel, Cmd.none )
 
         SelectRow rowValue ->
             ( { model | selectedRow = Just rowValue }, Cmd.none )
@@ -861,7 +868,7 @@ loadPerformance : Model -> Cmd Msg
 loadPerformance model =
     Http.request
         { method = "GET"
-        , headers = systemAuthHeaders model
+        , headers = appAuthHeaders model
         , url = model.apiBase ++ "/_belm/perf"
         , body = Http.emptyBody
         , expect = expectJsonWithApiError GotPerformance perfPayloadDecoder
@@ -874,7 +881,7 @@ loadBackups : Model -> Cmd Msg
 loadBackups model =
     Http.request
         { method = "GET"
-        , headers = systemAuthHeaders model
+        , headers = appAuthHeaders model
         , url = model.apiBase ++ "/_belm/backups"
         , body = Http.emptyBody
         , expect = expectJsonWithApiError GotBackups backupsDecoder
@@ -887,7 +894,7 @@ triggerBackup : Model -> Cmd Msg
 triggerBackup model =
     Http.request
         { method = "POST"
-        , headers = systemAuthHeaders model
+        , headers = appAuthHeaders model
         , url = model.apiBase ++ "/_belm/backup"
         , body = Http.emptyBody
         , expect = expectJsonWithApiError GotBackup backupResponseDecoder
@@ -944,25 +951,11 @@ appAuthHeaders model =
         [ Http.header "Authorization" ("Bearer " ++ String.trim model.authToken) ]
 
 
-systemAuthHeaders : Model -> List Http.Header
-systemAuthHeaders model =
-    if String.trim model.systemAuthToken == "" then
-        []
-
-    else
-        [ Http.header "Authorization" ("Bearer " ++ String.trim model.systemAuthToken) ]
-
-
 requestAuthCode : AuthScope -> Model -> Cmd Msg
 requestAuthCode scope model =
     let
         endpoint =
-            case scope of
-                AppAuthScope ->
-                    "/auth/request-code"
-
-                SystemAuthScope ->
-                    "/_belm/admin/request-code"
+            "/auth/request-code"
     in
     Http.request
         { method = "POST"
@@ -984,12 +977,7 @@ bootstrapFirstAdmin : AuthScope -> Model -> Cmd Msg
 bootstrapFirstAdmin scope model =
     let
         endpoint =
-            case scope of
-                AppAuthScope ->
-                    "/_belm/bootstrap-admin"
-
-                SystemAuthScope ->
-                    "/_belm/admin/bootstrap"
+            "/_belm/bootstrap-admin"
     in
     Http.request
         { method = "POST"
@@ -1011,12 +999,7 @@ loginWithCode : AuthScope -> Model -> Cmd Msg
 loginWithCode scope model =
     let
         endpoint =
-            case scope of
-                AppAuthScope ->
-                    "/auth/login"
-
-                SystemAuthScope ->
-                    "/_belm/admin/login"
+            "/auth/login"
     in
     Http.request
         { method = "POST"
@@ -1039,20 +1022,10 @@ loadAuthMe : AuthScope -> Model -> Cmd Msg
 loadAuthMe scope model =
     let
         headers =
-            case scope of
-                AppAuthScope ->
-                    appAuthHeaders model
-
-                SystemAuthScope ->
-                    systemAuthHeaders model
+            appAuthHeaders model
 
         endpoint =
-            case scope of
-                AppAuthScope ->
-                    "/auth/me"
-
-                SystemAuthScope ->
-                    "/_belm/admin/me"
+            "/auth/me"
     in
     Http.request
         { method = "GET"
@@ -1069,20 +1042,10 @@ logoutSession : AuthScope -> Model -> Cmd Msg
 logoutSession scope model =
     let
         headers =
-            case scope of
-                AppAuthScope ->
-                    appAuthHeaders model
-
-                SystemAuthScope ->
-                    systemAuthHeaders model
+            appAuthHeaders model
 
         endpoint =
-            case scope of
-                AppAuthScope ->
-                    "/auth/logout"
-
-                SystemAuthScope ->
-                    "/_belm/admin/logout"
+            "/auth/logout"
     in
     Http.request
         { method = "POST"
@@ -1195,13 +1158,17 @@ loginResponseDecoder =
     Decode.map3 LoginResponse
         (Decode.field "token" Decode.string)
         (Decode.oneOf
-            [ Decode.at [ "user", "role" ] (Decode.map Just Decode.string)
+            [ Decode.field "role" (Decode.map Just Decode.string)
+            , Decode.field "role" (Decode.null Nothing)
+            , Decode.at [ "user", "role" ] (Decode.map Just Decode.string)
             , Decode.at [ "user", "role" ] (Decode.null Nothing)
             , Decode.succeed Nothing
             ]
         )
         (Decode.oneOf
-            [ Decode.at [ "user", "email" ] (Decode.map Just Decode.string)
+            [ Decode.field "email" (Decode.map Just Decode.string)
+            , Decode.field "email" (Decode.null Nothing)
+            , Decode.at [ "user", "email" ] (Decode.map Just Decode.string)
             , Decode.at [ "user", "email" ] (Decode.null Nothing)
             , Decode.succeed Nothing
             ]
@@ -1831,14 +1798,6 @@ viewAuthToolsPanel model =
             activeScope =
                 activeAuthScope model
 
-            activeAuthToken =
-                case activeScope of
-                    AppAuthScope ->
-                        model.authToken
-
-                    SystemAuthScope ->
-                        model.systemAuthToken
-
             activeBadgeText =
                 case activeScope of
                     AppAuthScope ->
@@ -1849,10 +1808,10 @@ viewAuthToolsPanel model =
                         ]
 
                     SystemAuthScope ->
-                        [ badge "POST /_belm/admin/request-code"
-                        , badge "POST /_belm/admin/login"
-                        , badge "GET /_belm/admin/me"
-                        , badge "POST /_belm/admin/logout"
+                        [ badge "POST /auth/request-code"
+                        , badge "POST /auth/login"
+                        , badge "GET /auth/me"
+                        , badge "POST /auth/logout"
                         ]
 
             transportText =
@@ -1891,14 +1850,22 @@ viewAuthToolsPanel model =
                             Nothing ->
                                 False
 
+            appHasNoUsers =
+                case maybeAppAuth of
+                    Just appAuth ->
+                        appAuth.needsBootstrap
+
+                    Nothing ->
+                        False
+
             tabHint =
                 case activeScope of
                     AppAuthScope ->
-                        if needsBootstrap then
-                            "No app users found. Create the first app admin, then login with the code."
+                        if appHasNoUsers then
+                            "No admin users found yet. You can request code for regular users and also create the first admin."
 
                         else
-                            "Request code signs in existing users and can auto-create regular users when allowed."
+                            "Request code sends a login code and always tries to auto-create the user when missing."
 
                     SystemAuthScope ->
                         if needsBootstrap then
@@ -1939,12 +1906,6 @@ viewAuthToolsPanel model =
                     ]
                 , el [ Font.size 12, Font.color (rgb255 93 103 120) ] (text transportText)
                 , row [ width fill, spacing 8 ] activeBadgeText
-                , Input.text [ width fill ]
-                    { onChange = SetAuthToken
-                    , text = activeAuthToken
-                    , placeholder = Just (Input.placeholder [] (text "Bearer token"))
-                    , label = Input.labelAbove [ Font.size 12 ] (text "Auth token")
-                    }
                 , row [ width fill, spacing 10 ]
                     (([ Input.text [ width (fillPortion 3) ]
                             { onChange = SetAuthEmail
@@ -1957,6 +1918,16 @@ viewAuthToolsPanel model =
                             , text = model.authCode
                             , placeholder = Just (Input.placeholder [] (text "6-digit code"))
                             , label = Input.labelAbove [ Font.size 12 ] (text "Code")
+                            }
+                      , Input.button
+                            [ Element.alignBottom
+                            , Background.color (rgb255 84 121 224)
+                            , Font.color (rgb255 246 248 252)
+                            , Border.rounded 10
+                            , paddingEach { top = 10, right = 12, bottom = 10, left = 12 }
+                            ]
+                            { onPress = Just RequestAuthCode
+                            , label = text "Request code"
                             }
                       ]
                         ++ (if needsBootstrap then
@@ -1973,17 +1944,7 @@ viewAuthToolsPanel model =
                                 ]
 
                             else
-                                [ Input.button
-                                    [ Element.alignBottom
-                                    , Background.color (rgb255 84 121 224)
-                                    , Font.color (rgb255 246 248 252)
-                                    , Border.rounded 10
-                                    , paddingEach { top = 10, right = 12, bottom = 10, left = 12 }
-                                    ]
-                                    { onPress = Just RequestAuthCode
-                                    , label = text "Request code"
-                                    }
-                                ]
+                                []
                            )
                         ++ [ Input.button
                             [ Element.alignBottom
@@ -2050,25 +2011,12 @@ systemAuthInfoFromModel model =
 
 hasAnyAuthInfo : Model -> Bool
 hasAnyAuthInfo model =
-    (authInfoFromModel model /= Nothing) || (systemAuthInfoFromModel model /= Nothing)
+    authInfoFromModel model /= Nothing
 
 
 activeAuthScope : Model -> AuthScope
-activeAuthScope model =
-    case model.authTab of
-        AppAuthTab ->
-            if authInfoFromModel model /= Nothing then
-                AppAuthScope
-
-            else
-                SystemAuthScope
-
-        SystemAuthTab ->
-            if systemAuthInfoFromModel model /= Nothing then
-                SystemAuthScope
-
-            else
-                AppAuthScope
+activeAuthScope _ =
+    AppAuthScope
 
 
 authScopeLabel : AuthScope -> String
@@ -2082,23 +2030,23 @@ authScopeLabel scope =
 
 
 authScopeToTab : AuthScope -> AuthTab
-authScopeToTab scope =
-    case scope of
-        AppAuthScope ->
-            AppAuthTab
-
-        SystemAuthScope ->
-            SystemAuthTab
+authScopeToTab _ =
+    AppAuthTab
 
 
 isAdminProfile : Model -> Bool
 isAdminProfile model =
-    case model.currentSystemRole of
+    case model.currentRole of
         Just role ->
             String.toLower (String.trim role) == "admin"
 
         Nothing ->
-            False
+            case model.currentSystemRole of
+                Just role ->
+                    String.toLower (String.trim role) == "admin"
+
+                Nothing ->
+                    False
 
 
 hasActiveSession : Model -> Bool
@@ -2680,8 +2628,31 @@ backupRow backup =
         ]
         [ el [ width (fillPortion 2) ] (text backup.createdAt)
         , el [ width (fillPortion 1), Font.bold ] (text (formatBytes backup.sizeBytes))
-        , el [ width (fillPortion 4), Font.size 13, Font.color (rgb255 93 103 120) ] (text backup.path)
+        , el [ width (fillPortion 4), Font.size 13, Font.color (rgb255 93 103 120) ] (text (backupDisplayName backup))
         ]
+
+
+backupDisplayName : BackupFile -> String
+backupDisplayName backup =
+    if String.trim backup.name /= "" then
+        backup.name
+
+    else
+        lastPathSegment backup.path
+
+
+lastPathSegment : String -> String
+lastPathSegment rawPath =
+    let
+        slashPath =
+            String.replace "\\" "/" (String.trim rawPath)
+
+        segments =
+            String.split "/" slashPath
+    in
+    List.reverse segments
+        |> List.head
+        |> Maybe.withDefault rawPath
 
 
 performanceCard : String -> String -> Element Msg

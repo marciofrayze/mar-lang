@@ -30,6 +30,7 @@ func (r *Runtime) printStartupBanner() {
 		fmt.Printf("  %s %s\n", "POST", "/auth/login")
 		fmt.Printf("  %s %s\n", "POST", "/auth/logout")
 		fmt.Printf("  %s %s\n", "GET ", "/auth/me")
+		fmt.Printf("  %s %s\n", "POST", "/_belm/bootstrap-admin (optional first admin)")
 		if r.authUser != nil {
 			fmt.Printf("  %s %s\n", "ALL ", r.authUser.Resource+" (auth users)")
 		}
@@ -62,20 +63,10 @@ func (r *Runtime) printStartupBanner() {
 	fmt.Printf("\n%s\n", colorize(useColor, ansiSection, "System"))
 	fmt.Printf("  %s %s\n", "GET ", "/health")
 	fmt.Printf("  %s %s\n", "GET ", "/_belm/schema")
-	fmt.Printf("  %s %s\n", "GET ", "/_belm/perf (system admin)")
-	fmt.Printf("  %s %s\n", "POST", "/_belm/backup (system admin)")
-	fmt.Printf("  %s %s\n", "GET ", "/_belm/backups (system admin)")
-
-	fmt.Printf("\n%s\n", colorize(useColor, ansiSection, "System auth"))
-	fmt.Printf("  %s %s\n", "POST", "/_belm/admin/request-code")
-	fmt.Printf("  %s %s\n", "POST", "/_belm/admin/login")
-	fmt.Printf("  %s %s\n", "POST", "/_belm/admin/logout")
-	fmt.Printf("  %s %s\n", "GET ", "/_belm/admin/me")
-	fmt.Printf("  %s %s\n", "POST", "/_belm/admin/bootstrap (first admin)")
-
 	if r.authEnabled() {
-		fmt.Printf("\n%s\n", colorize(useColor, ansiSection, "App auth"))
-		fmt.Printf("  %s %s\n", "POST", "/_belm/bootstrap-admin (first user)")
+		fmt.Printf("  %s %s\n", "GET ", "/_belm/perf (role admin)")
+		fmt.Printf("  %s %s\n", "POST", "/_belm/backup (role admin)")
+		fmt.Printf("  %s %s\n", "GET ", "/_belm/backups (role admin)")
 	}
 
 	if shouldShowAdminHint() {

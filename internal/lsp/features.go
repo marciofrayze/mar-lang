@@ -28,6 +28,7 @@ type lspCodeAction struct {
 var (
 	appDeclRe                = regexp.MustCompile(`^\s*app\s+([A-Za-z][A-Za-z0-9_]*)\s*$`)
 	unknownInputTypeErrorRe  = regexp.MustCompile(`action\s+[a-z][A-Za-z0-9_]*\s+references unknown input type\s+"([A-Za-z][A-Za-z0-9_]*)"$`)
+	actionResultErrorTypeRe  = regexp.MustCompile(`^\s*[a-z][A-Za-z0-9_]*\s*:\s*[A-Za-z][A-Za-z0-9_]*\s*->\s*Result\s+([A-Za-z][A-Za-z0-9_]*)\s+Effect\s*$`)
 	keywordHoverDescriptions = map[string]string{
 		"app":         "Declares the app name. Example: `app BookStoreApi`.",
 		"port":        "Sets the HTTP server port. Example: `port 4100`.",
@@ -50,6 +51,12 @@ var (
 		"startsWith":  "Returns true when text starts with a prefix.",
 		"endsWith":    "Returns true when text ends with a suffix.",
 		"matches":     "Returns true when text matches a regex pattern.",
+		"Result":      "Action signature type: `Result <ErrorType> Effect`. Use this when an action may fail with a domain error.",
+		"Effect":      "Action return type. Represents side effects executed by the runtime (for example DB writes in `transaction`).",
+		"Int":         "Belm primitive type for whole numbers.",
+		"String":      "Belm primitive type for text values.",
+		"Bool":        "Belm primitive type for booleans (`true`/`false`).",
+		"Float":       "Belm primitive type for decimal numbers.",
 	}
 )
 
@@ -78,6 +85,18 @@ func (s *server) handleHover(id json.RawMessage, params textDocumentPositionPara
 		s.respond(id, nil)
 		return
 	}
+
+	if hover, hoverRange, ok := resultErrorTypeHover(text, params.Position, word); ok {
+		s.respond(id, map[string]any{
+			"contents": map[string]any{
+				"kind":  "markdown",
+				"value": hover,
+			},
+			"range": hoverRange,
+		})
+		return
+	}
+
 	doc, ok := keywordHoverDescriptions[word]
 	if !ok {
 		s.respond(id, nil)
@@ -90,6 +109,35 @@ func (s *server) handleHover(id json.RawMessage, params textDocumentPositionPara
 		},
 		"range": tokenRange,
 	})
+}
+
+func resultErrorTypeHover(text string, pos lspPosition, word string) (string, lspRange, bool) {
+	lines := splitNormalizedLines(text)
+	if pos.Line < 0 || pos.Line >= len(lines) {
+		return "", lspRange{}, false
+	}
+	line := lines[pos.Line]
+	match := actionResultErrorTypeRe.FindStringSubmatchIndex(line)
+	if match == nil {
+		return "", lspRange{}, false
+	}
+
+	start := match[2]
+	end := match[3]
+	if start < 0 || end <= start || end > len(line) {
+		return "", lspRange{}, false
+	}
+	if pos.Character < start || pos.Character > end {
+		return "", lspRange{}, false
+	}
+
+	errorType := line[start:end]
+	if errorType != word {
+		return "", lspRange{}, false
+	}
+
+	value := fmt.Sprintf("**%s**\n\nCustom error type used by `Result %s Effect` in this action signature.", errorType, errorType)
+	return value, makeRange(pos.Line, start, end), true
 }
 
 func (s *server) handleDocumentSymbols(id json.RawMessage, params documentURIParams) {

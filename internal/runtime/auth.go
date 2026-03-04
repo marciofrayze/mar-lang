@@ -9,17 +9,39 @@ import (
 	"os/exec"
 	"strings"
 	"time"
+
+	"belm/internal/model"
 )
+
+const internalAuthUsersTable = "belm_auth_users"
 
 func normalizeEmail(email string) string {
 	return strings.ToLower(strings.TrimSpace(email))
 }
 
+func (r *Runtime) authConfig() model.AuthConfig {
+	if r.App.Auth != nil {
+		return *r.App.Auth
+	}
+	return model.AuthConfig{
+		EmailField:      "email",
+		RoleField:       "role",
+		CodeTTLMinutes:  10,
+		SessionTTLHours: 24,
+		EmailTransport:  "console",
+		EmailFrom:       "no-reply@belm.local",
+		EmailSubject:    "Your Belm login code",
+		SendmailPath:    "/usr/sbin/sendmail",
+		DevExposeCode:   true,
+	}
+}
+
+func (r *Runtime) usesAppAuthEntity() bool {
+	return r.appAuthEnabled() && r.authUser != nil
+}
+
 // resolveAuth resolves a bearer token into an active session and hydrated auth user.
 func (r *Runtime) resolveAuth(req *http.Request) (authSession, error) {
-	if !r.authEnabled() || r.authUser == nil {
-		return authSession{}, nil
-	}
 	token := parseBearerToken(req.Header.Get("Authorization"))
 	if token == "" {
 		return authSession{}, nil
@@ -52,10 +74,16 @@ func (r *Runtime) resolveAuth(req *http.Request) (authSession, error) {
 	if !ok {
 		return authSession{}, nil
 	}
-	user := decodeEntityRow(r.authUser, userRow)
+	user := userRow
+	cfg := r.authConfig()
 	role := any(nil)
-	if r.App.Auth.RoleField != "" {
-		role = user[r.App.Auth.RoleField]
+	if r.usesAppAuthEntity() {
+		user = decodeEntityRow(r.authUser, userRow)
+		if cfg.RoleField != "" {
+			role = user[cfg.RoleField]
+		}
+	} else {
+		role = userRow["role"]
 	}
 
 	email, _ := row["email"].(string)
@@ -82,25 +110,64 @@ func parseBearerToken(header string) string {
 }
 
 func (r *Runtime) loadAuthUserByEmail(email string) (map[string]any, bool, error) {
-	table, _ := quoteIdentifier(r.authUser.Table)
-	emailField, _ := quoteIdentifier(r.App.Auth.EmailField)
-	query := fmt.Sprintf("SELECT * FROM %s WHERE %s = ? LIMIT 1", table, emailField)
+	cfg := r.authConfig()
+	tableName := internalAuthUsersTable
+	emailFieldName := cfg.EmailField
+	if r.usesAppAuthEntity() {
+		tableName = r.authUser.Table
+	}
+	table, _ := quoteIdentifier(tableName)
+	emailField, _ := quoteIdentifier(emailFieldName)
+	query := fmt.Sprintf("SELECT * FROM %s WHERE %s = ? ORDER BY rowid DESC LIMIT 1", table, emailField)
+	if strings.TrimSpace(cfg.RoleField) != "" {
+		roleField, _ := quoteIdentifier(cfg.RoleField)
+		query = fmt.Sprintf("SELECT * FROM %s WHERE %s = ? ORDER BY CASE WHEN lower(%s) = 'admin' THEN 0 ELSE 1 END, rowid DESC LIMIT 1", table, emailField, roleField)
+	}
 	return queryRow(r.DB, query, email)
 }
 
 func (r *Runtime) loadAuthUserByID(id any) (map[string]any, bool, error) {
-	table, _ := quoteIdentifier(r.authUser.Table)
-	pk, _ := quoteIdentifier(r.authUser.PrimaryKey)
+	tableName := internalAuthUsersTable
+	primaryKey := "id"
+	if r.usesAppAuthEntity() {
+		tableName = r.authUser.Table
+		primaryKey = r.authUser.PrimaryKey
+	}
+	table, _ := quoteIdentifier(tableName)
+	pk, _ := quoteIdentifier(primaryKey)
 	query := fmt.Sprintf("SELECT * FROM %s WHERE %s = ? LIMIT 1", table, pk)
 	return queryRow(r.DB, query, id)
 }
 
 func (r *Runtime) countAuthUsers() (int64, error) {
-	if r.authUser == nil {
+	tableName := internalAuthUsersTable
+	if r.usesAppAuthEntity() {
+		tableName = r.authUser.Table
+	}
+	table, _ := quoteIdentifier(tableName)
+	row, ok, err := queryRow(r.DB, fmt.Sprintf("SELECT COUNT(*) AS total FROM %s", table))
+	if err != nil {
+		return 0, err
+	}
+	if !ok {
 		return 0, nil
 	}
-	table, _ := quoteIdentifier(r.authUser.Table)
-	row, ok, err := queryRow(r.DB, fmt.Sprintf("SELECT COUNT(*) AS total FROM %s", table))
+	total, _ := toInt64(row["total"])
+	return total, nil
+}
+
+func (r *Runtime) countAuthUsersByRole(role string) (int64, error) {
+	cfg := r.authConfig()
+	if strings.TrimSpace(cfg.RoleField) == "" {
+		return r.countAuthUsers()
+	}
+	tableName := internalAuthUsersTable
+	if r.usesAppAuthEntity() {
+		tableName = r.authUser.Table
+	}
+	table, _ := quoteIdentifier(tableName)
+	roleField, _ := quoteIdentifier(cfg.RoleField)
+	row, ok, err := queryRow(r.DB, fmt.Sprintf("SELECT COUNT(*) AS total FROM %s WHERE lower(%s) = lower(?)", table, roleField), role)
 	if err != nil {
 		return 0, err
 	}
@@ -123,11 +190,9 @@ func parseAuthEmail(payload map[string]any) (string, error) {
 	return email, nil
 }
 
-// handleAuthRequestCode creates and delivers a one-time login code for an existing user email.
+// handleAuthRequestCode creates and delivers a one-time login code for an auth user email.
+// If the user does not exist yet, Belm may auto-create it when the auth entity allows it.
 func (r *Runtime) handleAuthRequestCode(w http.ResponseWriter, payload map[string]any) error {
-	if !r.authEnabled() {
-		return &apiError{Status: http.StatusNotFound, Message: "Authentication is not enabled"}
-	}
 	email, err := parseAuthEmail(payload)
 	if err != nil {
 		return err
@@ -141,28 +206,26 @@ func (r *Runtime) handleAuthRequestCode(w http.ResponseWriter, payload map[strin
 		r.writeJSON(w, http.StatusOK, map[string]any{"ok": true, "message": "If this email exists, a code was sent."})
 		return nil
 	}
-	userID := user[r.authUser.PrimaryKey]
+	userID := user["id"]
+	if r.usesAppAuthEntity() {
+		userID = user[r.authUser.PrimaryKey]
+	}
 	return r.issueAuthCode(w, email, userID, "If this email exists, a code was sent.")
 }
 
 // handleBootstrapAdmin creates the first auth user with role admin and sends a login code.
 func (r *Runtime) handleBootstrapAdmin(w http.ResponseWriter, payload map[string]any) error {
-	if !r.authEnabled() {
-		return &apiError{Status: http.StatusNotFound, Message: "Authentication is not enabled"}
-	}
-	if r.authUser == nil {
-		return &apiError{Status: http.StatusInternalServerError, Message: "Auth user entity is not configured"}
-	}
-	if strings.TrimSpace(r.App.Auth.RoleField) == "" {
+	cfg := r.authConfig()
+	if strings.TrimSpace(cfg.RoleField) == "" {
 		return &apiError{Status: http.StatusBadRequest, Message: "auth.role_field is required for admin bootstrap"}
 	}
 
-	totalUsers, err := r.countAuthUsers()
+	totalAdmins, err := r.countAuthUsersByRole("admin")
 	if err != nil {
 		return err
 	}
-	if totalUsers > 0 {
-		return &apiError{Status: http.StatusConflict, Message: "Bootstrap is only allowed when there are no users"}
+	if totalAdmins > 0 {
+		return &apiError{Status: http.StatusConflict, Message: "Bootstrap is only allowed when there are no admin users"}
 	}
 
 	email, err := parseAuthEmail(payload)
@@ -177,17 +240,21 @@ func (r *Runtime) handleBootstrapAdmin(w http.ResponseWriter, payload map[string
 	if !found {
 		return &apiError{Status: http.StatusUnprocessableEntity, Message: "Could not auto-create admin user. Add optional/default fields or create one manually."}
 	}
-	userID := user[r.authUser.PrimaryKey]
+	userID := user["id"]
+	if r.usesAppAuthEntity() {
+		userID = user[r.authUser.PrimaryKey]
+	}
 	return r.issueAuthCode(w, email, userID, "First admin user created. A login code was sent.")
 }
 
 func (r *Runtime) issueAuthCode(w http.ResponseWriter, email string, userID any, message string) error {
+	cfg := r.authConfig()
 	code, err := randomCode6()
 	if err != nil {
 		return err
 	}
 	now := time.Now().UnixMilli()
-	expiresAt := now + int64(r.App.Auth.CodeTTLMinutes)*60_000
+	expiresAt := now + int64(cfg.CodeTTLMinutes)*60_000
 	_, err = r.DB.Exec(`INSERT INTO belm_auth_codes (email, user_id, code, expires_at, used, created_at) VALUES (?, ?, ?, ?, 0, ?)`, email, userID, code, expiresAt, now)
 	if err != nil {
 		return err
@@ -197,7 +264,7 @@ func (r *Runtime) issueAuthCode(w http.ResponseWriter, email string, userID any,
 	}
 
 	resp := map[string]any{"ok": true, "message": message}
-	if r.App.Auth.DevExposeCode {
+	if cfg.DevExposeCode {
 		resp["devCode"] = code
 	}
 	r.writeJSON(w, http.StatusOK, resp)
@@ -205,22 +272,10 @@ func (r *Runtime) issueAuthCode(w http.ResponseWriter, email string, userID any,
 }
 
 // loadOrCreateAuthUserForRequestCode loads an auth user by email or auto-creates it when possible.
-// When no auth users exist yet, bootstrap-admin must be used to create the first admin user.
 func (r *Runtime) loadOrCreateAuthUserForRequestCode(email string) (map[string]any, bool, error) {
 	user, found, err := r.loadAuthUserByEmail(email)
 	if err != nil || found {
 		return user, found, err
-	}
-
-	totalUsers, err := r.countAuthUsers()
-	if err != nil {
-		return nil, false, err
-	}
-	if totalUsers == 0 {
-		return nil, false, &apiError{
-			Status:  http.StatusConflict,
-			Message: "No users exist yet. Create the first admin using /_belm/bootstrap-admin",
-		}
 	}
 	return r.tryAutoCreateAuthUser(email)
 }
@@ -232,8 +287,41 @@ func (r *Runtime) tryAutoCreateAuthUser(email string) (map[string]any, bool, err
 }
 
 func (r *Runtime) tryAutoCreateAuthUserWithRole(email, roleValue string) (map[string]any, bool, error) {
-	if r.authUser == nil {
-		return nil, false, nil
+	cfg := r.authConfig()
+	if !r.usesAppAuthEntity() {
+		user, found, err := r.loadAuthUserByEmail(email)
+		if err != nil {
+			return nil, false, err
+		}
+		if found {
+			if strings.EqualFold(strings.TrimSpace(roleValue), "admin") {
+				promoted, promoteErr := r.promoteAuthUserToAdmin(user)
+				if promoteErr != nil {
+					return nil, false, promoteErr
+				}
+				return promoted, true, nil
+			}
+			return user, true, nil
+		}
+
+		now := time.Now().UnixMilli()
+		table, err := quoteIdentifier(internalAuthUsersTable)
+		if err != nil {
+			return nil, false, err
+		}
+		if _, err := r.DB.Exec(
+			fmt.Sprintf("INSERT INTO %s (email, role, created_at) VALUES (?, ?, ?)", table),
+			email,
+			roleValue,
+			now,
+		); err != nil {
+			user, found, loadErr := r.loadAuthUserByEmail(email)
+			if loadErr == nil && found {
+				return user, true, nil
+			}
+			return nil, false, err
+		}
+		return r.loadAuthUserByEmail(email)
 	}
 
 	columns := make([]string, 0, len(r.authUser.Fields))
@@ -253,13 +341,13 @@ func (r *Runtime) tryAutoCreateAuthUserWithRole(email, roleValue string) (map[st
 		}
 
 		switch {
-		case field.Name == r.App.Auth.EmailField:
+		case field.Name == cfg.EmailField:
 			columns = append(columns, quoted)
 			placeholders = append(placeholders, "?")
 			values = append(values, email)
 			ctx[field.Name] = email
 			hasEmailField = true
-		case r.App.Auth.RoleField != "" && field.Name == r.App.Auth.RoleField:
+		case cfg.RoleField != "" && field.Name == cfg.RoleField:
 			if field.Type != "String" {
 				return nil, false, nil
 			}
@@ -306,9 +394,6 @@ func (r *Runtime) tryAutoCreateAuthUserWithRole(email, roleValue string) (map[st
 
 // handleAuthLogin verifies an email+code pair and issues a session token.
 func (r *Runtime) handleAuthLogin(w http.ResponseWriter, payload map[string]any) error {
-	if !r.authEnabled() {
-		return &apiError{Status: http.StatusNotFound, Message: "Authentication is not enabled"}
-	}
 	emailRaw, ok := payload["email"].(string)
 	if !ok {
 		return &apiError{Status: http.StatusBadRequest, Message: "email is required"}
@@ -353,31 +438,84 @@ func (r *Runtime) handleAuthLogin(w http.ResponseWriter, payload map[string]any)
 	if !found {
 		return &apiError{Status: http.StatusUnauthorized, Message: "Invalid or expired code"}
 	}
-	decodedUser := decodeEntityRow(r.authUser, userRow)
+	decodedUser := userRow
+	if r.usesAppAuthEntity() {
+		decodedUser = decodeEntityRow(r.authUser, userRow)
+	}
 
 	token, err := randomToken(32)
 	if err != nil {
 		return err
 	}
-	sessionExpiresAt := now + int64(r.App.Auth.SessionTTLHours)*60*60*1000
+	cfg := r.authConfig()
+	sessionExpiresAt := now + int64(cfg.SessionTTLHours)*60*60*1000
 	if _, err := r.DB.Exec(`INSERT INTO belm_sessions (token, user_id, email, expires_at, revoked, created_at) VALUES (?, ?, ?, ?, 0, ?)`, token, userID, email, sessionExpiresAt, now); err != nil {
 		return err
 	}
 
+	loginRole := any(nil)
+	if cfg.RoleField != "" {
+		loginRole = decodedUser[cfg.RoleField]
+	}
 	r.writeJSON(w, http.StatusOK, map[string]any{
 		"ok":        true,
 		"token":     token,
 		"expiresAt": sessionExpiresAt,
+		"email":     email,
+		"role":      loginRole,
 		"user":      decodedUser,
 	})
 	return nil
 }
 
+func (r *Runtime) promoteAuthUserToAdmin(user map[string]any) (map[string]any, error) {
+	cfg := r.authConfig()
+	if strings.TrimSpace(cfg.RoleField) == "" {
+		return user, nil
+	}
+
+	tableName := internalAuthUsersTable
+	primaryKey := "id"
+	if r.usesAppAuthEntity() {
+		tableName = r.authUser.Table
+		primaryKey = r.authUser.PrimaryKey
+	}
+	table, err := quoteIdentifier(tableName)
+	if err != nil {
+		return nil, err
+	}
+	pk, err := quoteIdentifier(primaryKey)
+	if err != nil {
+		return nil, err
+	}
+	roleField, err := quoteIdentifier(cfg.RoleField)
+	if err != nil {
+		return nil, err
+	}
+
+	userID := user["id"]
+	if r.usesAppAuthEntity() {
+		userID = user[r.authUser.PrimaryKey]
+	}
+	if userID == nil {
+		return user, nil
+	}
+
+	if _, err := r.DB.Exec(fmt.Sprintf("UPDATE %s SET %s = ? WHERE %s = ?", table, roleField, pk), "admin", userID); err != nil {
+		return nil, err
+	}
+	updated, found, err := r.loadAuthUserByID(userID)
+	if err != nil {
+		return nil, err
+	}
+	if !found {
+		return user, nil
+	}
+	return updated, nil
+}
+
 // handleAuthLogout revokes the caller session token.
 func (r *Runtime) handleAuthLogout(w http.ResponseWriter, auth authSession) error {
-	if !r.authEnabled() {
-		return &apiError{Status: http.StatusNotFound, Message: "Authentication is not enabled"}
-	}
 	if !auth.Authenticated || auth.Token == "" {
 		return &apiError{Status: http.StatusUnauthorized, Message: "Authentication required"}
 	}
@@ -390,7 +528,8 @@ func (r *Runtime) handleAuthLogout(w http.ResponseWriter, auth authSession) erro
 
 // deliverEmailCode dispatches login codes through the configured transport.
 func (r *Runtime) deliverEmailCode(toEmail, code string) error {
-	if r.App.Auth.DevExposeCode {
+	cfg := r.authConfig()
+	if cfg.DevExposeCode {
 		r.printAuthLogHeader()
 		useColor := supportsANSI()
 		fmt.Printf("  %s %s  %s %s\n",
@@ -401,7 +540,7 @@ func (r *Runtime) deliverEmailCode(toEmail, code string) error {
 		)
 	}
 
-	switch r.App.Auth.EmailTransport {
+	switch cfg.EmailTransport {
 	case "console":
 		r.printAuthLogHeader()
 		useColor := supportsANSI()
@@ -415,7 +554,7 @@ func (r *Runtime) deliverEmailCode(toEmail, code string) error {
 		)
 		return nil
 	case "sendmail":
-		if err := sendWithSendmail(r.App.Auth.SendmailPath, r.App.Auth.EmailFrom, r.App.Auth.EmailSubject, toEmail, code, r.App.Auth.CodeTTLMinutes); err != nil {
+		if err := sendWithSendmail(cfg.SendmailPath, cfg.EmailFrom, cfg.EmailSubject, toEmail, code, cfg.CodeTTLMinutes); err != nil {
 			return err
 		}
 		r.printAuthLogHeader()
@@ -430,7 +569,7 @@ func (r *Runtime) deliverEmailCode(toEmail, code string) error {
 		)
 		return nil
 	default:
-		return fmt.Errorf("unsupported email transport %q", r.App.Auth.EmailTransport)
+		return fmt.Errorf("unsupported email transport %q", cfg.EmailTransport)
 	}
 }
 
