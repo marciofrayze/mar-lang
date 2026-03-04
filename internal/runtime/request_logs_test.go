@@ -77,6 +77,7 @@ func TestRequestLogsEndpointRequiresAuthAndReturnsCapturedLogs(t *testing.T) {
 	}
 
 	foundTodoList := false
+	foundNoPlaceholder := false
 	for _, requestLog := range payload.Logs {
 		if requestLog.Path == "/todos" {
 			foundTodoList = true
@@ -89,10 +90,17 @@ func TestRequestLogsEndpointRequiresAuthAndReturnsCapturedLogs(t *testing.T) {
 			if !strings.Contains(strings.ToUpper(requestLog.Queries[0].SQL), "SELECT") {
 				t.Fatalf("expected query trace to include SELECT SQL, got %q", requestLog.Queries[0].SQL)
 			}
+			if strings.Contains(requestLog.Queries[0].SQL, "$1") || strings.Contains(requestLog.Queries[0].SQL, "$2") {
+				t.Fatalf("expected query trace to avoid synthetic placeholders, got %q", requestLog.Queries[0].SQL)
+			}
+			foundNoPlaceholder = true
 		}
 	}
 	if !foundTodoList {
 		t.Fatalf("expected request log for /todos, got logs: %+v", payload.Logs)
+	}
+	if !foundNoPlaceholder {
+		t.Fatalf("expected /todos query trace check to run, got logs: %+v", payload.Logs)
 	}
 }
 

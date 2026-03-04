@@ -7,7 +7,7 @@ This extension adds syntax highlighting, snippets/autocomplete, and LSP features
 - Syntax highlighting for:
 - Belm declarations (`app`, `port`, `database`, `entity`, `auth`, `type alias`)
 - Public assets config (`public`, `dir`, `mount`, `spa_fallback`)
-- System config (`system`, `request_logs_buffer`)
+- System config (`system`, `request_logs_buffer`, `sqlite_*` options)
 - Rule/authz keywords (`rule`, `when`, `authorize`)
 - Action syntax (`action <name> { input: Alias ... create Entity { ... } }`)
 - Auth config keys (`user_entity`, `email_field`, etc.)

@@ -30,7 +30,6 @@ var (
 	jsonTokenPattern       = regexp.MustCompile(`(?i)("token"\s*:\s*")([^"]*)(")`)
 	jsonCodePattern        = regexp.MustCompile(`(?i)("code"\s*:\s*")([^"]*)(")`)
 	jsonEmailPattern       = regexp.MustCompile(`(?i)("email"\s*:\s*")([^"]*)(")`)
-	sqlBindPlaceholder     = regexp.MustCompile(`\?(?:\d+)?`)
 	sqlInsertValuesPattern = regexp.MustCompile(`(?is)\binsert\s+into\s+[^\(]+\(([^)]*)\)\s+values\s*\(([^)]*)\)`)
 )
 
@@ -301,16 +300,7 @@ func sanitizeRequestLogs(entries []requestLogEntry) []requestLogEntry {
 func sanitizeSQLForLogs(sqlText string) string {
 	sanitized := sanitizeSensitiveText(sqlText)
 	sanitized = sanitizeInsertValuesByColumnName(sanitized)
-	sanitized = labelSQLBindPlaceholders(sanitized)
 	return sanitized
-}
-
-func labelSQLBindPlaceholders(sqlText string) string {
-	index := 0
-	return sqlBindPlaceholder.ReplaceAllStringFunc(sqlText, func(_ string) string {
-		index++
-		return fmt.Sprintf("$%d", index)
-	})
 }
 
 func sanitizeInsertValuesByColumnName(sqlText string) string {

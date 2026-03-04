@@ -70,7 +70,7 @@ func New(app *model.App) (*Runtime, error) {
 	if app == nil {
 		return nil, errors.New("app is nil")
 	}
-	db := sqlitecli.Open(app.Database)
+	db := sqlitecli.OpenWithConfig(app.Database, sqliteConfigForApp(app))
 
 	r := &Runtime{
 		App:            app,
@@ -113,6 +113,38 @@ func New(app *model.App) (*Runtime, error) {
 		return nil, err
 	}
 	return r, nil
+}
+
+func sqliteConfigForApp(app *model.App) sqlitecli.Config {
+	cfg := sqlitecli.DefaultConfig()
+	if app == nil || app.System == nil {
+		return cfg
+	}
+
+	if app.System.SQLiteJournalMode != nil {
+		cfg.JournalMode = *app.System.SQLiteJournalMode
+	}
+	if app.System.SQLiteSynchronous != nil {
+		cfg.Synchronous = *app.System.SQLiteSynchronous
+	}
+	if app.System.SQLiteForeignKeys != nil {
+		cfg.ForeignKeys = *app.System.SQLiteForeignKeys
+	}
+	if app.System.SQLiteBusyTimeoutMs != nil {
+		cfg.BusyTimeoutMs = *app.System.SQLiteBusyTimeoutMs
+	}
+	if app.System.SQLiteWALAutoCheckpoint != nil {
+		cfg.WALAutoCheckpoint = *app.System.SQLiteWALAutoCheckpoint
+	}
+	if app.System.SQLiteJournalSizeLimitMB != nil {
+		if *app.System.SQLiteJournalSizeLimitMB < 0 {
+			cfg.JournalSizeLimitB = -1
+		} else {
+			cfg.JournalSizeLimitB = int64(*app.System.SQLiteJournalSizeLimitMB) * 1024 * 1024
+		}
+	}
+
+	return cfg
 }
 
 // Close releases runtime resources.

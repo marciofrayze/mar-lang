@@ -230,3 +230,72 @@ entity Todo {
 		t.Fatalf("unexpected error message: %v", err)
 	}
 }
+
+func TestParseSystemSQLiteSettings(t *testing.T) {
+	src := `
+app FrontApi
+database "./front.db"
+
+system {
+  sqlite_journal_mode wal
+  sqlite_synchronous normal
+  sqlite_foreign_keys true
+  sqlite_busy_timeout_ms 5000
+  sqlite_wal_autocheckpoint 1000
+  sqlite_journal_size_limit_mb 64
+}
+
+entity Todo {
+  title: String
+}
+`
+
+	app, err := Parse(src)
+	if err != nil {
+		t.Fatalf("Parse returned error: %v", err)
+	}
+	if app.System == nil {
+		t.Fatal("expected system block to be parsed")
+	}
+	if app.System.SQLiteJournalMode == nil || *app.System.SQLiteJournalMode != "wal" {
+		t.Fatalf("unexpected sqlite_journal_mode: %+v", app.System.SQLiteJournalMode)
+	}
+	if app.System.SQLiteSynchronous == nil || *app.System.SQLiteSynchronous != "normal" {
+		t.Fatalf("unexpected sqlite_synchronous: %+v", app.System.SQLiteSynchronous)
+	}
+	if app.System.SQLiteForeignKeys == nil || !*app.System.SQLiteForeignKeys {
+		t.Fatalf("unexpected sqlite_foreign_keys: %+v", app.System.SQLiteForeignKeys)
+	}
+	if app.System.SQLiteBusyTimeoutMs == nil || *app.System.SQLiteBusyTimeoutMs != 5000 {
+		t.Fatalf("unexpected sqlite_busy_timeout_ms: %+v", app.System.SQLiteBusyTimeoutMs)
+	}
+	if app.System.SQLiteWALAutoCheckpoint == nil || *app.System.SQLiteWALAutoCheckpoint != 1000 {
+		t.Fatalf("unexpected sqlite_wal_autocheckpoint: %+v", app.System.SQLiteWALAutoCheckpoint)
+	}
+	if app.System.SQLiteJournalSizeLimitMB == nil || *app.System.SQLiteJournalSizeLimitMB != 64 {
+		t.Fatalf("unexpected sqlite_journal_size_limit_mb: %+v", app.System.SQLiteJournalSizeLimitMB)
+	}
+}
+
+func TestParseSystemSQLiteBusyTimeoutRejectsOutOfRange(t *testing.T) {
+	src := `
+app FrontApi
+database "./front.db"
+
+system {
+  sqlite_busy_timeout_ms 700000
+}
+
+entity Todo {
+  title: String
+}
+`
+
+	_, err := Parse(src)
+	if err == nil {
+		t.Fatal("expected parse error for out-of-range sqlite_busy_timeout_ms")
+	}
+	if !strings.Contains(err.Error(), "system.sqlite_busy_timeout_ms must be between") {
+		t.Fatalf("unexpected error message: %v", err)
+	}
+}

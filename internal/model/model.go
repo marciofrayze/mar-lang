@@ -19,7 +19,13 @@ type PublicConfig struct {
 }
 
 type SystemConfig struct {
-	RequestLogsBuffer int `json:"requestLogsBuffer"`
+	RequestLogsBuffer        int     `json:"requestLogsBuffer"`
+	SQLiteJournalMode        *string `json:"sqliteJournalMode,omitempty"`
+	SQLiteSynchronous        *string `json:"sqliteSynchronous,omitempty"`
+	SQLiteForeignKeys        *bool   `json:"sqliteForeignKeys,omitempty"`
+	SQLiteBusyTimeoutMs      *int    `json:"sqliteBusyTimeoutMs,omitempty"`
+	SQLiteWALAutoCheckpoint  *int    `json:"sqliteWalAutoCheckpoint,omitempty"`
+	SQLiteJournalSizeLimitMB *int    `json:"sqliteJournalSizeLimitMb,omitempty"`
 }
 
 type AuthConfig struct {

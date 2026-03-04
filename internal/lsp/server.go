@@ -431,6 +431,12 @@ func keywordCompletionItems() []map[string]any {
 		"mount",
 		"spa_fallback",
 		"request_logs_buffer",
+		"sqlite_journal_mode",
+		"sqlite_synchronous",
+		"sqlite_foreign_keys",
+		"sqlite_busy_timeout_ms",
+		"sqlite_wal_autocheckpoint",
+		"sqlite_journal_size_limit_mb",
 	}
 	out := make([]map[string]any, 0, len(keywords))
 	for _, kw := range keywords {

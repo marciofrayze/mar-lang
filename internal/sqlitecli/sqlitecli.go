@@ -3,7 +3,11 @@ package sqlitecli
 import (
 	"context"
 	"database/sql"
+	"encoding/hex"
 	"fmt"
+	"math"
+	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -37,6 +41,38 @@ type QueryEvent struct {
 	Error      string
 }
 
+// Config controls SQLite PRAGMA settings used on database open.
+type Config struct {
+	JournalMode       string
+	Synchronous       string
+	ForeignKeys       bool
+	BusyTimeoutMs     int
+	WALAutoCheckpoint int
+	JournalSizeLimitB int64
+}
+
+const (
+	defaultJournalMode       = "wal"
+	defaultSynchronous       = "normal"
+	defaultForeignKeys       = true
+	defaultBusyTimeoutMs     = 5000
+	defaultWALAutoCheckpoint = 1000
+	defaultJournalSizeLimitB = int64(64 * 1024 * 1024)
+)
+
+// DefaultConfig returns Belm's default SQLite settings focused on local performance.
+func DefaultConfig() Config {
+	return Config{
+		JournalMode:       defaultJournalMode,
+		Synchronous:       defaultSynchronous,
+		ForeignKeys:       defaultForeignKeys,
+		BusyTimeoutMs:     defaultBusyTimeoutMs,
+		WALAutoCheckpoint: defaultWALAutoCheckpoint,
+		JournalSizeLimitB: defaultJournalSizeLimitB,
+	}
+}
+
+// Open creates a SQLite connection with default driver behavior.
 func Open(path string) *DB {
 	sqlDB, err := sql.Open("sqlite", path)
 	db := &DB{
@@ -61,6 +97,75 @@ func Open(path string) *DB {
 	return db
 }
 
+// OpenWithConfig creates a SQLite connection and applies PRAGMA settings from cfg.
+func OpenWithConfig(path string, cfg Config) *DB {
+	db := Open(path)
+	if db.openErr != nil {
+		return db
+	}
+	normalizedCfg, cfgErr := normalizeConfig(cfg)
+	if cfgErr != nil {
+		db.openErr = cfgErr
+		return db
+	}
+	if applyErr := applyPragmas(db.sqlDB, normalizedCfg); applyErr != nil {
+		db.openErr = applyErr
+		return db
+	}
+	return db
+}
+
+func normalizeConfig(cfg Config) (Config, error) {
+	cfg.JournalMode = strings.ToLower(strings.TrimSpace(cfg.JournalMode))
+	switch cfg.JournalMode {
+	case "wal", "delete", "truncate", "persist", "memory", "off":
+	default:
+		return Config{}, fmt.Errorf("invalid sqlite journal mode %q", cfg.JournalMode)
+	}
+
+	cfg.Synchronous = strings.ToLower(strings.TrimSpace(cfg.Synchronous))
+	switch cfg.Synchronous {
+	case "off", "normal", "full", "extra":
+	default:
+		return Config{}, fmt.Errorf("invalid sqlite synchronous mode %q", cfg.Synchronous)
+	}
+
+	if cfg.BusyTimeoutMs < 0 || cfg.BusyTimeoutMs > 600000 {
+		return Config{}, fmt.Errorf("invalid sqlite busy timeout %dms", cfg.BusyTimeoutMs)
+	}
+	if cfg.WALAutoCheckpoint < 0 || cfg.WALAutoCheckpoint > 1000000 {
+		return Config{}, fmt.Errorf("invalid sqlite wal_autocheckpoint %d", cfg.WALAutoCheckpoint)
+	}
+	if cfg.JournalSizeLimitB < -1 {
+		return Config{}, fmt.Errorf("invalid sqlite journal_size_limit %d", cfg.JournalSizeLimitB)
+	}
+	return cfg, nil
+}
+
+func applyPragmas(db *sql.DB, cfg Config) error {
+	statements := []string{
+		fmt.Sprintf("PRAGMA journal_mode = %s", strings.ToUpper(cfg.JournalMode)),
+		fmt.Sprintf("PRAGMA synchronous = %s", strings.ToUpper(cfg.Synchronous)),
+		fmt.Sprintf("PRAGMA foreign_keys = %s", boolToOnOff(cfg.ForeignKeys)),
+		fmt.Sprintf("PRAGMA busy_timeout = %d", cfg.BusyTimeoutMs),
+		fmt.Sprintf("PRAGMA wal_autocheckpoint = %d", cfg.WALAutoCheckpoint),
+		fmt.Sprintf("PRAGMA journal_size_limit = %d", cfg.JournalSizeLimitB),
+	}
+	for _, stmt := range statements {
+		if _, err := db.Exec(stmt); err != nil {
+			return fmt.Errorf("failed to apply sqlite setting (%s): %w", stmt, err)
+		}
+	}
+	return nil
+}
+
+func boolToOnOff(v bool) string {
+	if v {
+		return "ON"
+	}
+	return "OFF"
+}
+
 func (db *DB) Close() error {
 	if db == nil || db.sqlDB == nil {
 		return nil
@@ -75,9 +180,10 @@ func (db *DB) SetQueryHook(hook func(QueryEvent)) {
 }
 
 func (db *DB) Exec(query string, args ...any) (Result, error) {
+	logSQL := interpolateSQLForLog(query, args)
 	if err := db.ensureOpen(); err != nil {
 		db.emitQueryEvent(QueryEvent{
-			SQL:        query,
+			SQL:        logSQL,
 			DurationMs: 0,
 			RowCount:   0,
 			Error:      err.Error(),
@@ -89,7 +195,7 @@ func (db *DB) Exec(query string, args ...any) (Result, error) {
 	res, err := db.sqlDB.Exec(query, args...)
 	if err != nil {
 		db.emitQueryEvent(QueryEvent{
-			SQL:        query,
+			SQL:        logSQL,
 			DurationMs: elapsedMs(startedAt),
 			RowCount:   0,
 			Error:      err.Error(),
@@ -100,7 +206,7 @@ func (db *DB) Exec(query string, args ...any) (Result, error) {
 	changes, _ := res.RowsAffected()
 	lastInsertRow, _ := res.LastInsertId()
 	db.emitQueryEvent(QueryEvent{
-		SQL:        query,
+		SQL:        logSQL,
 		DurationMs: elapsedMs(startedAt),
 		RowCount:   0,
 		Error:      "",
@@ -112,9 +218,10 @@ func (db *DB) Exec(query string, args ...any) (Result, error) {
 }
 
 func (db *DB) QueryRows(query string, args ...any) ([]map[string]any, error) {
+	logSQL := interpolateSQLForLog(query, args)
 	if err := db.ensureOpen(); err != nil {
 		db.emitQueryEvent(QueryEvent{
-			SQL:        query,
+			SQL:        logSQL,
 			DurationMs: 0,
 			RowCount:   0,
 			Error:      err.Error(),
@@ -126,7 +233,7 @@ func (db *DB) QueryRows(query string, args ...any) ([]map[string]any, error) {
 	rows, err := db.sqlDB.Query(query, args...)
 	if err != nil {
 		db.emitQueryEvent(QueryEvent{
-			SQL:        query,
+			SQL:        logSQL,
 			DurationMs: elapsedMs(startedAt),
 			RowCount:   0,
 			Error:      err.Error(),
@@ -138,7 +245,7 @@ func (db *DB) QueryRows(query string, args ...any) ([]map[string]any, error) {
 	columns, err := rows.Columns()
 	if err != nil {
 		db.emitQueryEvent(QueryEvent{
-			SQL:        query,
+			SQL:        logSQL,
 			DurationMs: elapsedMs(startedAt),
 			RowCount:   0,
 			Error:      err.Error(),
@@ -156,7 +263,7 @@ func (db *DB) QueryRows(query string, args ...any) ([]map[string]any, error) {
 
 		if err := rows.Scan(scanTargets...); err != nil {
 			db.emitQueryEvent(QueryEvent{
-				SQL:        query,
+				SQL:        logSQL,
 				DurationMs: elapsedMs(startedAt),
 				RowCount:   len(result),
 				Error:      err.Error(),
@@ -173,7 +280,7 @@ func (db *DB) QueryRows(query string, args ...any) ([]map[string]any, error) {
 
 	if err := rows.Err(); err != nil {
 		db.emitQueryEvent(QueryEvent{
-			SQL:        query,
+			SQL:        logSQL,
 			DurationMs: elapsedMs(startedAt),
 			RowCount:   len(result),
 			Error:      err.Error(),
@@ -182,7 +289,7 @@ func (db *DB) QueryRows(query string, args ...any) ([]map[string]any, error) {
 	}
 
 	db.emitQueryEvent(QueryEvent{
-		SQL:        query,
+		SQL:        logSQL,
 		DurationMs: elapsedMs(startedAt),
 		RowCount:   len(result),
 		Error:      "",
@@ -202,12 +309,13 @@ func (db *DB) QueryRow(query string, args ...any) (map[string]any, bool, error) 
 }
 
 func (db *DB) ExecTx(statements []Statement) error {
+	logSQL := txStatementSummary(statements)
 	if len(statements) == 0 {
 		return nil
 	}
 	if err := db.ensureOpen(); err != nil {
 		db.emitQueryEvent(QueryEvent{
-			SQL:        txStatementSummary(statements),
+			SQL:        logSQL,
 			DurationMs: 0,
 			RowCount:   0,
 			Error:      err.Error(),
@@ -219,7 +327,7 @@ func (db *DB) ExecTx(statements []Statement) error {
 	tx, err := db.sqlDB.BeginTx(context.Background(), nil)
 	if err != nil {
 		db.emitQueryEvent(QueryEvent{
-			SQL:        txStatementSummary(statements),
+			SQL:        logSQL,
 			DurationMs: elapsedMs(startedAt),
 			RowCount:   0,
 			Error:      err.Error(),
@@ -231,7 +339,7 @@ func (db *DB) ExecTx(statements []Statement) error {
 		if _, err := tx.Exec(stmt.Query, stmt.Args...); err != nil {
 			_ = tx.Rollback()
 			db.emitQueryEvent(QueryEvent{
-				SQL:        txStatementSummary(statements),
+				SQL:        logSQL,
 				DurationMs: elapsedMs(startedAt),
 				RowCount:   0,
 				Error:      fmt.Sprintf("statement %d: %v", i+1, err),
@@ -242,7 +350,7 @@ func (db *DB) ExecTx(statements []Statement) error {
 
 	if err := tx.Commit(); err != nil {
 		db.emitQueryEvent(QueryEvent{
-			SQL:        txStatementSummary(statements),
+			SQL:        logSQL,
 			DurationMs: elapsedMs(startedAt),
 			RowCount:   0,
 			Error:      err.Error(),
@@ -251,7 +359,7 @@ func (db *DB) ExecTx(statements []Statement) error {
 	}
 
 	db.emitQueryEvent(QueryEvent{
-		SQL:        txStatementSummary(statements),
+		SQL:        logSQL,
 		DurationMs: elapsedMs(startedAt),
 		RowCount:   0,
 		Error:      "",
@@ -311,8 +419,116 @@ func txStatementSummary(statements []Statement) string {
 		if i > 0 {
 			b.WriteString("; ")
 		}
-		b.WriteString(stmt.Query)
+		b.WriteString(interpolateSQLForLog(stmt.Query, stmt.Args))
 	}
 	b.WriteString("; COMMIT;")
 	return b.String()
+}
+
+func interpolateSQLForLog(query string, args []any) string {
+	if strings.TrimSpace(query) == "" || len(args) == 0 {
+		return query
+	}
+
+	var b strings.Builder
+	argIndex := 0
+	inSingleQuote := false
+	inDoubleQuote := false
+	runes := []rune(query)
+
+	for i := 0; i < len(runes); i++ {
+		ch := runes[i]
+
+		if ch == '\'' && !inDoubleQuote {
+			if inSingleQuote && i+1 < len(runes) && runes[i+1] == '\'' {
+				b.WriteRune(ch)
+				b.WriteRune(runes[i+1])
+				i++
+				continue
+			}
+			inSingleQuote = !inSingleQuote
+			b.WriteRune(ch)
+			continue
+		}
+		if ch == '"' && !inSingleQuote {
+			inDoubleQuote = !inDoubleQuote
+			b.WriteRune(ch)
+			continue
+		}
+
+		if ch == '?' && !inSingleQuote && !inDoubleQuote {
+			j := i + 1
+			for j < len(runes) && runes[j] >= '0' && runes[j] <= '9' {
+				j++
+			}
+			if argIndex < len(args) {
+				b.WriteString(formatSQLArgForLog(args[argIndex]))
+				argIndex++
+			} else {
+				b.WriteRune('?')
+				if j > i+1 {
+					b.WriteString(string(runes[i+1 : j]))
+				}
+			}
+			i = j - 1
+			continue
+		}
+
+		b.WriteRune(ch)
+	}
+
+	return b.String()
+}
+
+func formatSQLArgForLog(arg any) string {
+	switch typed := arg.(type) {
+	case nil:
+		return "NULL"
+	case string:
+		return quoteSQLString(typed)
+	case []byte:
+		return "x'" + hex.EncodeToString(typed) + "'"
+	case bool:
+		if typed {
+			return "1"
+		}
+		return "0"
+	case time.Time:
+		return quoteSQLString(typed.Format(time.RFC3339Nano))
+	case fmt.Stringer:
+		return quoteSQLString(typed.String())
+	}
+
+	value := reflect.ValueOf(arg)
+	if !value.IsValid() {
+		return "NULL"
+	}
+
+	switch value.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return strconv.FormatInt(value.Int(), 10)
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		return strconv.FormatUint(value.Uint(), 10)
+	case reflect.Float32:
+		return strconv.FormatFloat(value.Float(), 'f', -1, 32)
+	case reflect.Float64:
+		f := value.Float()
+		if math.IsNaN(f) || math.IsInf(f, 0) {
+			return quoteSQLString(fmt.Sprintf("%v", f))
+		}
+		return strconv.FormatFloat(f, 'f', -1, 64)
+	case reflect.String:
+		return quoteSQLString(value.String())
+	case reflect.Bool:
+		if value.Bool() {
+			return "1"
+		}
+		return "0"
+	default:
+		return quoteSQLString(fmt.Sprintf("%v", arg))
+	}
+}
+
+func quoteSQLString(v string) string {
+	return "'" + strings.ReplaceAll(v, "'", "''") + "'"
 }

@@ -19,6 +19,15 @@ const (
 	defaultRequestLogsBuffer = 200
 	minRequestLogsBuffer     = 10
 	maxRequestLogsBuffer     = 5000
+
+	minSQLiteBusyTimeoutMs = 0
+	maxSQLiteBusyTimeoutMs = 600000
+
+	minSQLiteWALAutoCheckpoint = 0
+	maxSQLiteWALAutoCheckpoint = 1000000
+
+	minSQLiteJournalSizeLimitMB = -1
+	maxSQLiteJournalSizeLimitMB = 4096
 )
 
 type line struct {
@@ -348,11 +357,80 @@ func parseSystemBlock(lines []line, idx *int) (*model.SystemConfig, error) {
 			(*idx)++
 			continue
 		}
+		if m := match(`^sqlite_journal_mode\s+(wal|delete|truncate|persist|memory|off)$`, trimmed); m != nil {
+			cfg.SQLiteJournalMode = stringPtr(m[1])
+			(*idx)++
+			continue
+		}
+		if m := match(`^sqlite_synchronous\s+(off|normal|full|extra)$`, trimmed); m != nil {
+			cfg.SQLiteSynchronous = stringPtr(m[1])
+			(*idx)++
+			continue
+		}
+		if m := match(`^sqlite_foreign_keys\s+(true|false)$`, trimmed); m != nil {
+			cfg.SQLiteForeignKeys = boolPtr(m[1] == "true")
+			(*idx)++
+			continue
+		}
+		if m := match(`^sqlite_busy_timeout_ms\s+([0-9]{1,7})$`, trimmed); m != nil {
+			value := mustInt(m[1])
+			if value < minSQLiteBusyTimeoutMs || value > maxSQLiteBusyTimeoutMs {
+				return nil, fmt.Errorf(
+					"line %d: system.sqlite_busy_timeout_ms must be between %d and %d",
+					ln.number,
+					minSQLiteBusyTimeoutMs,
+					maxSQLiteBusyTimeoutMs,
+				)
+			}
+			cfg.SQLiteBusyTimeoutMs = intPtr(value)
+			(*idx)++
+			continue
+		}
+		if m := match(`^sqlite_wal_autocheckpoint\s+([0-9]{1,7})$`, trimmed); m != nil {
+			value := mustInt(m[1])
+			if value < minSQLiteWALAutoCheckpoint || value > maxSQLiteWALAutoCheckpoint {
+				return nil, fmt.Errorf(
+					"line %d: system.sqlite_wal_autocheckpoint must be between %d and %d",
+					ln.number,
+					minSQLiteWALAutoCheckpoint,
+					maxSQLiteWALAutoCheckpoint,
+				)
+			}
+			cfg.SQLiteWALAutoCheckpoint = intPtr(value)
+			(*idx)++
+			continue
+		}
+		if m := match(`^sqlite_journal_size_limit_mb\s+(-?[0-9]{1,4})$`, trimmed); m != nil {
+			value := mustInt(m[1])
+			if value < minSQLiteJournalSizeLimitMB || value > maxSQLiteJournalSizeLimitMB {
+				return nil, fmt.Errorf(
+					"line %d: system.sqlite_journal_size_limit_mb must be between %d and %d",
+					ln.number,
+					minSQLiteJournalSizeLimitMB,
+					maxSQLiteJournalSizeLimitMB,
+				)
+			}
+			cfg.SQLiteJournalSizeLimitMB = intPtr(value)
+			(*idx)++
+			continue
+		}
 
 		return nil, fmt.Errorf("line %d: unknown system statement %q", ln.number, trimmed)
 	}
 
 	return nil, fmt.Errorf("system block is missing closing }")
+}
+
+func stringPtr(v string) *string {
+	return &v
+}
+
+func intPtr(v int) *int {
+	return &v
+}
+
+func boolPtr(v bool) *bool {
+	return &v
 }
 
 // parseEntityBlock parses a single entity body including fields, rules, and authorize clauses.

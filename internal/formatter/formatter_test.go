@@ -175,6 +175,12 @@ app FrontApi
 database "./front.db"
 system {
 request_logs_buffer    500
+sqlite_journal_mode   wal
+sqlite_synchronous normal
+sqlite_foreign_keys   true
+sqlite_busy_timeout_ms  5000
+sqlite_wal_autocheckpoint 1000
+sqlite_journal_size_limit_mb 64
 }
 entity Todo{
 title:String
@@ -191,6 +197,12 @@ title:String
 		"database \"./front.db\"\n" +
 		"system {\n" +
 		"  request_logs_buffer 500\n" +
+		"  sqlite_journal_mode wal\n" +
+		"  sqlite_synchronous normal\n" +
+		"  sqlite_foreign_keys true\n" +
+		"  sqlite_busy_timeout_ms 5000\n" +
+		"  sqlite_wal_autocheckpoint 1000\n" +
+		"  sqlite_journal_size_limit_mb 64\n" +
 		"}\n" +
 		"entity Todo {\n" +
 		"  title: String\n" +

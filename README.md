@@ -370,6 +370,12 @@ Use `system` for runtime-level controls.
 ```belm
 system {
   request_logs_buffer 500
+  sqlite_journal_mode wal
+  sqlite_synchronous normal
+  sqlite_foreign_keys true
+  sqlite_busy_timeout_ms 5000
+  sqlite_wal_autocheckpoint 1000
+  sqlite_journal_size_limit_mb 64
 }
 ```
 
@@ -378,6 +384,23 @@ system {
 - default: `200`
 - minimum: `10`
 - maximum: `5000`
+
+SQLite settings are performance-first by default and can be overridden per app in `system`.
+
+- `sqlite_journal_mode` (default `wal`): `wal | delete | truncate | persist | memory | off`
+- `sqlite_synchronous` (default `normal`): `off | normal | full | extra`
+- `sqlite_foreign_keys` (default `true`): `true | false`
+- `sqlite_busy_timeout_ms` (default `5000`): range `0..600000`
+- `sqlite_wal_autocheckpoint` (default `1000`): range `0..1000000` pages
+- `sqlite_journal_size_limit_mb` (default `64`): range `-1..4096` (`-1` means unlimited)
+
+If you need a safer write profile, override only what you want, for example:
+
+```belm
+system {
+  sqlite_synchronous full
+}
+```
 
 ### Public Static Frontend
 
