@@ -7633,7 +7633,7 @@ var $author$project$Main$update = F2(
 						_Utils_update(
 							model,
 							{
-								flash: $elm$core$Maybe$Just('Admin role required to access performance tools.')
+								flash: $elm$core$Maybe$Just('Admin role required to access monitoring tools.')
 							}),
 						$elm$core$Platform$Cmd$none);
 				} else {
@@ -15606,7 +15606,7 @@ var $author$project$Main$viewAuthToolsPanel = function (model) {
 			if (activeScope.$ === 'AppAuthScope') {
 				return firstAdminMode ? 'Complete first admin setup with the same email and login code.' : 'The request sends a login code and automatically creates the user if it does not exist.';
 			} else {
-				return needsBootstrap ? 'No admins found. Create the first admin, then login with the code.' : 'Admin authentication is used only for admin features such as Performance and Database backups.';
+				return needsBootstrap ? 'No admins found. Create the first admin, then login with the code.' : 'Admin authentication is used only for admin features such as Monitoring and Database backups.';
 			}
 		}();
 		var transportText = function () {
@@ -17622,7 +17622,7 @@ var $author$project$Main$viewPerformancePanel = function (model) {
 							$mdgriffith$elm_ui$Element$Font$bold,
 							$mdgriffith$elm_ui$Element$Font$size(20)
 						]),
-					$mdgriffith$elm_ui$Element$text('Performance')),
+					$mdgriffith$elm_ui$Element$text('Monitoring')),
 					A2(
 					$mdgriffith$elm_ui$Element$paragraph,
 					_List_fromArray(
@@ -17633,7 +17633,7 @@ var $author$project$Main$viewPerformancePanel = function (model) {
 						]),
 					_List_fromArray(
 						[
-							$mdgriffith$elm_ui$Element$text('Admin role required to view performance information.')
+							$mdgriffith$elm_ui$Element$text('Admin role required to view monitoring information.')
 						]))
 				]));
 	} else {
@@ -17767,7 +17767,7 @@ var $author$project$Main$viewPerformancePanel = function (model) {
 									$mdgriffith$elm_ui$Element$Font$bold,
 									$mdgriffith$elm_ui$Element$Font$size(20)
 								]),
-							$mdgriffith$elm_ui$Element$text('Performance')),
+							$mdgriffith$elm_ui$Element$text('Monitoring')),
 							A2(
 							$mdgriffith$elm_ui$Element$Input$button,
 							_List_fromArray(
@@ -17792,7 +17792,7 @@ var $author$project$Main$viewPerformancePanel = function (model) {
 								_List_Nil,
 								_List_fromArray(
 									[
-										$mdgriffith$elm_ui$Element$text('No performance data loaded yet.')
+										$mdgriffith$elm_ui$Element$text('No monitoring data loaded yet.')
 									]));
 						case 'Loading':
 							return A2(
@@ -17800,7 +17800,7 @@ var $author$project$Main$viewPerformancePanel = function (model) {
 								_List_Nil,
 								_List_fromArray(
 									[
-										$mdgriffith$elm_ui$Element$text('Loading performance data...')
+										$mdgriffith$elm_ui$Element$text('Loading monitoring data...')
 									]));
 						case 'Failed':
 							var message = _v0.a;
@@ -18583,7 +18583,7 @@ var $author$project$Main$viewSidebar = function (model) {
 					{bottom: 12, left: 12, right: 12, top: 12})
 				]),
 			{
-				label: A2(sidebarItemLabel, 'Performance', '/_belm/perf'),
+				label: A2(sidebarItemLabel, 'Monitoring', '/_belm/perf'),
 				onPress: $elm$core$Maybe$Just($author$project$Main$SelectPerformance)
 			});
 	}();

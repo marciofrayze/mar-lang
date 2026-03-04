@@ -65,7 +65,7 @@ Full examples:
 - Integrated admin panel
 - Embedded static frontend support (`public` block)
 - Built-in SQLite backup workflow
-- Built-in monitoring and performance dashboards
+- Built-in monitoring dashboards
 - In-memory request log dashboard with SQL query traces
 
 ## Architecture (Go)
@@ -74,7 +74,7 @@ Full examples:
 - [internal/parser/parser.go](/Users/marcio/dev/github/belm/internal/parser/parser.go): `.belm` language parser
 - [internal/expr/parser.go](/Users/marcio/dev/github/belm/internal/expr/parser.go): expression parser (`rule`/`authorize`)
 - [internal/runtime](/Users/marcio/dev/github/belm/internal/runtime): HTTP server, auth/authz, and migrations
-- [internal/sqlitecli/sqlitecli.go](/Users/marcio/dev/github/belm/internal/sqlitecli/sqlitecli.go): SQLite access via `sqlite3` binary (no external dependencies)
+- [internal/sqlitecli/sqlitecli.go](/Users/marcio/dev/github/belm/internal/sqlitecli/sqlitecli.go): embedded SQLite access via Go driver (`modernc.org/sqlite`)
 
 ## Compiler Architecture
 
@@ -98,7 +98,7 @@ flowchart LR
     B --> F["internal/generator/elmclient"]
     B --> G["internal/generator/tsclient"]
     B --> H["internal/runtime"]
-    H --> I["internal/sqlitecli (sqlite3 process)"]
+    H --> I["internal/sqlitecli (embedded SQLite driver)"]
     B --> J["internal/formatter"]
     B --> K["internal/lsp"]
 ```
@@ -369,7 +369,7 @@ system {
 }
 ```
 
-`request_logs_buffer` controls how many recent requests stay in memory for the admin performance dashboard and `GET /_belm/request-logs`.
+`request_logs_buffer` controls how many recent requests stay in memory for the admin monitoring dashboard and `GET /_belm/request-logs`.
 
 - default: `200`
 - minimum: `10`

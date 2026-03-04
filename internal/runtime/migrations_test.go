@@ -2,7 +2,6 @@ package runtime
 
 import (
 	"fmt"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -141,9 +140,6 @@ entity Book {
 
 func requireSQLite3(t *testing.T) {
 	t.Helper()
-	if _, err := exec.LookPath("sqlite3"); err != nil {
-		t.Skip("sqlite3 binary not found in PATH")
-	}
 }
 
 func mustParseApp(t *testing.T, src string) *model.App {

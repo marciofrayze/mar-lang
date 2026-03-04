@@ -4,11 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
 	"time"
+
+	"belm/internal/sqlitecli"
 )
 
 // BackupResult describes the generated backup file and rotated files.
@@ -35,9 +36,6 @@ func CreateSQLiteBackup(databasePath string, keepLast int) (BackupResult, error)
 	if keepLast <= 0 {
 		keepLast = 20
 	}
-	if _, err := exec.LookPath("sqlite3"); err != nil {
-		return BackupResult{}, errors.New("sqlite3 is required to create backups")
-	}
 
 	resolvedDatabasePath := resolveAbsolutePath(databasePath)
 	baseName := filepath.Base(resolvedDatabasePath)
@@ -54,15 +52,10 @@ func CreateSQLiteBackup(databasePath string, keepLast int) (BackupResult, error)
 	timestamp := time.Now().UTC().Format("20060102T150405Z")
 	backupPath := filepath.Join(backupDir, prefix+"-"+timestamp+".db")
 	quotedPath := strings.ReplaceAll(backupPath, "'", "''")
-
-	cmd := exec.Command("sqlite3", databasePath, "VACUUM INTO '"+quotedPath+"';")
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		msg := strings.TrimSpace(string(out))
-		if msg == "" {
-			msg = err.Error()
-		}
-		return BackupResult{}, fmt.Errorf("backup failed: %s", msg)
+	db := sqlitecli.Open(databasePath)
+	defer db.Close()
+	if _, err := db.Exec("VACUUM INTO '" + quotedPath + "'"); err != nil {
+		return BackupResult{}, fmt.Errorf("backup failed: %w", err)
 	}
 
 	removed, err := rotateBackups(backupDir, prefix, keepLast)

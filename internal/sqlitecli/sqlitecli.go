@@ -1,17 +1,21 @@
 package sqlitecli
 
 import (
-	"bytes"
-	"encoding/json"
+	"context"
+	"database/sql"
 	"fmt"
-	"os/exec"
 	"strings"
 	"sync"
 	"time"
+
+	_ "modernc.org/sqlite"
 )
 
 type DB struct {
 	Path    string
+	sqlDB   *sql.DB
+	openErr error
+
 	hookMu  sync.RWMutex
 	onQuery func(QueryEvent)
 }
@@ -34,7 +38,34 @@ type QueryEvent struct {
 }
 
 func Open(path string) *DB {
-	return &DB{Path: path}
+	sqlDB, err := sql.Open("sqlite", path)
+	db := &DB{
+		Path:    path,
+		sqlDB:   sqlDB,
+		openErr: err,
+	}
+	if err != nil {
+		return db
+	}
+
+	// Keep a single connection to preserve SQLite transactional behavior and
+	// avoid surprising lock interactions in this runtime.
+	sqlDB.SetMaxOpenConns(1)
+	sqlDB.SetMaxIdleConns(1)
+	sqlDB.SetConnMaxLifetime(0)
+
+	// Ensure the database is reachable early, so failures are clearer.
+	if pingErr := sqlDB.Ping(); pingErr != nil {
+		db.openErr = pingErr
+	}
+	return db
+}
+
+func (db *DB) Close() error {
+	if db == nil || db.sqlDB == nil {
+		return nil
+	}
+	return db.sqlDB.Close()
 }
 
 func (db *DB) SetQueryHook(hook func(QueryEvent)) {
@@ -44,31 +75,119 @@ func (db *DB) SetQueryHook(hook func(QueryEvent)) {
 }
 
 func (db *DB) Exec(query string, args ...any) (Result, error) {
-	expanded, err := expandQuery(query, args)
-	if err != nil {
+	if err := db.ensureOpen(); err != nil {
+		db.emitQueryEvent(QueryEvent{
+			SQL:        query,
+			DurationMs: 0,
+			RowCount:   0,
+			Error:      err.Error(),
+		})
 		return Result{}, err
 	}
-	wrapper := "BEGIN; " + expanded + "; SELECT changes() AS changes, last_insert_rowid() AS last_insert_rowid; COMMIT;"
-	rows, err := db.queryJSON(wrapper)
+
+	startedAt := time.Now()
+	res, err := db.sqlDB.Exec(query, args...)
 	if err != nil {
+		db.emitQueryEvent(QueryEvent{
+			SQL:        query,
+			DurationMs: elapsedMs(startedAt),
+			RowCount:   0,
+			Error:      err.Error(),
+		})
 		return Result{}, err
 	}
-	if len(rows) == 0 {
-		return Result{}, nil
-	}
-	last := rows[len(rows)-1]
+
+	changes, _ := res.RowsAffected()
+	lastInsertRow, _ := res.LastInsertId()
+	db.emitQueryEvent(QueryEvent{
+		SQL:        query,
+		DurationMs: elapsedMs(startedAt),
+		RowCount:   0,
+		Error:      "",
+	})
 	return Result{
-		Changes:       toInt64(last["changes"]),
-		LastInsertRow: toInt64(last["last_insert_rowid"]),
+		Changes:       changes,
+		LastInsertRow: lastInsertRow,
 	}, nil
 }
 
 func (db *DB) QueryRows(query string, args ...any) ([]map[string]any, error) {
-	expanded, err := expandQuery(query, args)
-	if err != nil {
+	if err := db.ensureOpen(); err != nil {
+		db.emitQueryEvent(QueryEvent{
+			SQL:        query,
+			DurationMs: 0,
+			RowCount:   0,
+			Error:      err.Error(),
+		})
 		return nil, err
 	}
-	return db.queryJSON(expanded)
+
+	startedAt := time.Now()
+	rows, err := db.sqlDB.Query(query, args...)
+	if err != nil {
+		db.emitQueryEvent(QueryEvent{
+			SQL:        query,
+			DurationMs: elapsedMs(startedAt),
+			RowCount:   0,
+			Error:      err.Error(),
+		})
+		return nil, err
+	}
+	defer rows.Close()
+
+	columns, err := rows.Columns()
+	if err != nil {
+		db.emitQueryEvent(QueryEvent{
+			SQL:        query,
+			DurationMs: elapsedMs(startedAt),
+			RowCount:   0,
+			Error:      err.Error(),
+		})
+		return nil, err
+	}
+
+	result := make([]map[string]any, 0, 16)
+	for rows.Next() {
+		rawValues := make([]any, len(columns))
+		scanTargets := make([]any, len(columns))
+		for i := range rawValues {
+			scanTargets[i] = &rawValues[i]
+		}
+
+		if err := rows.Scan(scanTargets...); err != nil {
+			db.emitQueryEvent(QueryEvent{
+				SQL:        query,
+				DurationMs: elapsedMs(startedAt),
+				RowCount:   len(result),
+				Error:      err.Error(),
+			})
+			return nil, err
+		}
+
+		record := make(map[string]any, len(columns))
+		for i, col := range columns {
+			record[col] = normalizeColumnValue(rawValues[i])
+		}
+		result = append(result, record)
+	}
+
+	if err := rows.Err(); err != nil {
+		db.emitQueryEvent(QueryEvent{
+			SQL:        query,
+			DurationMs: elapsedMs(startedAt),
+			RowCount:   len(result),
+			Error:      err.Error(),
+		})
+		return nil, err
+	}
+
+	db.emitQueryEvent(QueryEvent{
+		SQL:        query,
+		DurationMs: elapsedMs(startedAt),
+		RowCount:   len(result),
+		Error:      "",
+	})
+	return result, nil
 }
 
 func (db *DB) QueryRow(query string, args ...any) (map[string]any, bool, error) {
@@ -86,68 +205,58 @@ func (db *DB) ExecTx(statements []Statement) error {
 	if len(statements) == 0 {
 		return nil
 	}
-	var b strings.Builder
-	b.WriteString("BEGIN IMMEDIATE; ")
+	if err := db.ensureOpen(); err != nil {
+		db.emitQueryEvent(QueryEvent{
+			SQL:        txStatementSummary(statements),
+			DurationMs: 0,
+			RowCount:   0,
+			Error:      err.Error(),
+		})
+		return err
+	}
+
+	startedAt := time.Now()
+	tx, err := db.sqlDB.BeginTx(context.Background(), nil)
+	if err != nil {
+		db.emitQueryEvent(QueryEvent{
+			SQL:        txStatementSummary(statements),
+			DurationMs: elapsedMs(startedAt),
+			RowCount:   0,
+			Error:      err.Error(),
+		})
+		return err
+	}
+
 	for i, stmt := range statements {
-		expanded, err := expandQuery(stmt.Query, stmt.Args)
-		if err != nil {
+		if _, err := tx.Exec(stmt.Query, stmt.Args...); err != nil {
+			_ = tx.Rollback()
+			db.emitQueryEvent(QueryEvent{
+				SQL:        txStatementSummary(statements),
+				DurationMs: elapsedMs(startedAt),
+				RowCount:   0,
+				Error:      fmt.Sprintf("statement %d: %v", i+1, err),
+			})
 			return fmt.Errorf("statement %d: %w", i+1, err)
 		}
-		b.WriteString(expanded)
-		b.WriteString("; ")
 	}
-	b.WriteString("COMMIT;")
-	_, err := db.queryJSON(b.String())
-	return err
-}
 
-func (db *DB) queryJSON(sqlText string) ([]map[string]any, error) {
-	startedAt := time.Now()
-	cmd := exec.Command("sqlite3", "-json", db.Path, sqlText)
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		msg := strings.TrimSpace(stderr.String())
-		if msg == "" {
-			msg = err.Error()
-		}
+	if err := tx.Commit(); err != nil {
 		db.emitQueryEvent(QueryEvent{
-			SQL:        sqlText,
-			DurationMs: time.Since(startedAt).Seconds() * 1000,
+			SQL:        txStatementSummary(statements),
+			DurationMs: elapsedMs(startedAt),
 			RowCount:   0,
-			Error:      msg,
+			Error:      err.Error(),
 		})
-		return nil, fmt.Errorf("sqlite3: %s", msg)
+		return err
 	}
-	raw := strings.TrimSpace(stdout.String())
-	if raw == "" {
-		db.emitQueryEvent(QueryEvent{
-			SQL:        sqlText,
-			DurationMs: time.Since(startedAt).Seconds() * 1000,
-			RowCount:   0,
-			Error:      "",
-		})
-		return []map[string]any{}, nil
-	}
-	var rows []map[string]any
-	if err := json.Unmarshal([]byte(raw), &rows); err != nil {
-		db.emitQueryEvent(QueryEvent{
-			SQL:        sqlText,
-			DurationMs: time.Since(startedAt).Seconds() * 1000,
-			RowCount:   0,
-			Error:      fmt.Sprintf("decode sqlite json: %v", err),
-		})
-		return nil, fmt.Errorf("decode sqlite json: %w", err)
-	}
+
 	db.emitQueryEvent(QueryEvent{
-		SQL:        sqlText,
-		DurationMs: time.Since(startedAt).Seconds() * 1000,
-		RowCount:   len(rows),
+		SQL:        txStatementSummary(statements),
+		DurationMs: elapsedMs(startedAt),
+		RowCount:   0,
 		Error:      "",
 	})
-	return rows, nil
+	return nil
 }
 
 func (db *DB) emitQueryEvent(event QueryEvent) {
@@ -159,53 +268,51 @@ func (db *DB) emitQueryEvent(event QueryEvent) {
 	}
 }
 
-func expandQuery(query string, args []any) (string, error) {
-	parts := strings.Split(query, "?")
-	if len(parts)-1 != len(args) {
-		return "", fmt.Errorf("placeholder count mismatch: %d placeholders for %d args", len(parts)-1, len(args))
+func (db *DB) ensureOpen() error {
+	if db == nil {
+		return fmt.Errorf("sqlite database handle is nil")
+	}
+	if db.openErr != nil {
+		return db.openErr
+	}
+	if db.sqlDB == nil {
+		return fmt.Errorf("sqlite database connection is not initialized")
+	}
+	return nil
+}
+
+func elapsedMs(start time.Time) float64 {
+	return time.Since(start).Seconds() * 1000
+}
+
+func normalizeColumnValue(value any) any {
+	switch typed := value.(type) {
+	case nil:
+		return nil
+	case []byte:
+		return string(typed)
+	case bool:
+		if typed {
+			return int64(1)
+		}
+		return int64(0)
+	default:
+		return typed
+	}
+}
+
+func txStatementSummary(statements []Statement) string {
+	if len(statements) == 0 {
+		return ""
 	}
 	var b strings.Builder
-	for i := 0; i < len(args); i++ {
-		b.WriteString(parts[i])
-		b.WriteString(sqlLiteral(args[i]))
-	}
-	b.WriteString(parts[len(parts)-1])
-	return b.String(), nil
-}
-
-func sqlLiteral(v any) string {
-	switch t := v.(type) {
-	case nil:
-		return "NULL"
-	case bool:
-		if t {
-			return "1"
+	b.WriteString("BEGIN; ")
+	for i, stmt := range statements {
+		if i > 0 {
+			b.WriteString("; ")
 		}
-		return "0"
-	case int:
-		return fmt.Sprintf("%d", t)
-	case int64:
-		return fmt.Sprintf("%d", t)
-	case float64:
-		return fmt.Sprintf("%g", t)
-	case float32:
-		return fmt.Sprintf("%g", t)
-	case string:
-		return "'" + strings.ReplaceAll(t, "'", "''") + "'"
-	default:
-		return "'" + strings.ReplaceAll(fmt.Sprintf("%v", t), "'", "''") + "'"
+		b.WriteString(stmt.Query)
 	}
-}
-
-func toInt64(v any) int64 {
-	switch t := v.(type) {
-	case int64:
-		return t
-	case int:
-		return int64(t)
-	case float64:
-		return int64(t)
-	default:
-		return 0
-	}
+	b.WriteString("; COMMIT;")
+	return b.String()
 }

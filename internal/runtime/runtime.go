@@ -116,7 +116,10 @@ func New(app *model.App) (*Runtime, error) {
 
 // Close releases runtime resources.
 func (r *Runtime) Close() error {
-	return nil
+	if r == nil || r.DB == nil {
+		return nil
+	}
+	return r.DB.Close()
 }
 
 // Serve starts the HTTP server and blocks until shutdown or an unrecoverable server error.

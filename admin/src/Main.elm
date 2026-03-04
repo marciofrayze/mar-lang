@@ -390,7 +390,7 @@ update msg model =
 
         SelectPerformance ->
             if not (isAdminProfile model) then
-                ( { model | flash = Just "Admin role required to access performance tools." }, Cmd.none )
+                ( { model | flash = Just "Admin role required to access monitoring tools." }, Cmd.none )
 
             else
                 let
@@ -1801,7 +1801,7 @@ viewSidebar model =
                 ]
                 { onPress = Just SelectPerformance
                 , label =
-                    sidebarItemLabel "Performance" "/_belm/perf"
+                    sidebarItemLabel "Monitoring" "/_belm/perf"
                 }
 
         requestLogsButton : Element Msg
@@ -2106,7 +2106,7 @@ viewAuthToolsPanel model =
                             "No admins found. Create the first admin, then login with the code."
 
                         else
-                            "Admin authentication is used only for admin features such as Performance and Database backups."
+                            "Admin authentication is used only for admin features such as Monitoring and Database backups."
         in
         if not (hasAnyAuthInfo model) then
             none
@@ -2612,9 +2612,9 @@ viewPerformancePanel model =
             , Border.color (rgb255 226 232 239)
             , padding 16
             ]
-            [ el [ Font.bold, Font.size 20 ] (text "Performance")
+            [ el [ Font.bold, Font.size 20 ] (text "Monitoring")
             , paragraph [ Font.size 14, Font.color (rgb255 93 103 120) ]
-                [ text "Admin role required to view performance information." ]
+                [ text "Admin role required to view monitoring information." ]
             ]
 
     else
@@ -2664,7 +2664,7 @@ viewPerformancePanel model =
             , padding 16
             ]
             [ row [ width fill, spacing 10, centerY ]
-                [ el [ width fill, Font.bold, Font.size 20 ] (text "Performance")
+                [ el [ width fill, Font.bold, Font.size 20 ] (text "Monitoring")
                 , Input.button
                     [ Background.color (rgb255 224 231 241)
                     , Border.rounded 10
@@ -2676,10 +2676,10 @@ viewPerformancePanel model =
                 ]
             , case model.perf of
                 NotAsked ->
-                    paragraph [] [ text "No performance data loaded yet." ]
+                    paragraph [] [ text "No monitoring data loaded yet." ]
 
                 Loading ->
-                    paragraph [] [ text "Loading performance data..." ]
+                    paragraph [] [ text "Loading monitoring data..." ]
 
                 Failed message ->
                     paragraph [ Font.color (rgb255 176 60 46) ] [ text message ]
