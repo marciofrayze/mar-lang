@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os/signal"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -30,6 +31,8 @@ type Runtime struct {
 	authorizers    map[string]map[string]expr.Expr
 	authUser       *model.Entity
 	metrics        *metricsCollector
+	requestLogs    *requestLogStore
+	dbQueries      *dbQueryCollector
 	authLogOnce    sync.Once
 	publicFS       fs.FS
 }
@@ -77,7 +80,12 @@ func New(app *model.App) (*Runtime, error) {
 		rules:          map[string][]compiledRule{},
 		authorizers:    map[string]map[string]expr.Expr{},
 		metrics:        newMetricsCollector(),
+		requestLogs:    newRequestLogStore(requestLogsBufferSize(app)),
+		dbQueries:      newDBQueryCollector(requestLogsBufferSize(app)),
 	}
+	db.SetQueryHook(func(event sqlitecli.QueryEvent) {
+		r.dbQueries.record(event)
+	})
 
 	for i := range app.Entities {
 		ent := &app.Entities[i]
@@ -145,23 +153,36 @@ func (r *Runtime) Serve(ctx context.Context) error {
 func (r *Runtime) handleHTTP(w http.ResponseWriter, req *http.Request) {
 	startedAt := time.Now()
 	routeLabel := r.metricsRouteLabel(req)
+	querySeqStart := r.dbQueries.latestSeq()
 	writer := &statusRecorder{ResponseWriter: w}
+	requestError := ""
+
+	finishRequest := func() {
+		status := writer.statusCode()
+		if status == 0 {
+			status = http.StatusOK
+		}
+		duration := time.Since(startedAt)
+		r.metrics.recordRequest(req.Method, routeLabel, status, duration)
+		r.captureRequestLog(req, routeLabel, status, duration, requestError, querySeqStart)
+	}
 
 	setCORSHeaders(writer)
 	if req.Method == http.MethodOptions {
 		writer.WriteHeader(http.StatusNoContent)
-		r.metrics.recordRequest(req.Method, routeLabel, writer.statusCode(), time.Since(startedAt))
+		finishRequest()
 		return
 	}
 
 	if err := r.route(writer, req); err != nil {
+		requestError = err.Error()
 		r.writeError(writer, err)
 	}
 
 	if writer.statusCode() == 0 {
 		writer.WriteHeader(http.StatusOK)
 	}
-	r.metrics.recordRequest(req.Method, routeLabel, writer.statusCode(), time.Since(startedAt))
+	finishRequest()
 }
 
 // route resolves Belm endpoints for health, schema, auth, and entity CRUD operations.
@@ -207,6 +228,31 @@ func (r *Runtime) route(w http.ResponseWriter, req *http.Request) error {
 		return nil
 	}
 
+	if method == http.MethodGet && path == "/_belm/request-logs" {
+		if !r.authEnabled() {
+			return &apiError{Status: http.StatusNotFound, Message: "Authentication is not enabled"}
+		}
+		if !auth.Authenticated {
+			return &apiError{Status: http.StatusUnauthorized, Message: "Authentication required"}
+		}
+		if !isAdminRole(auth.Role) {
+			return &apiError{Status: http.StatusForbidden, Message: "Admin role required"}
+		}
+
+		limit := parsePositiveInt(req.URL.Query().Get("limit"), 50)
+		if limit < 1 {
+			limit = 1
+		}
+		logs := sanitizeRequestLogs(r.requestLogs.list(limit))
+		r.writeJSON(w, http.StatusOK, map[string]any{
+			"ok":            true,
+			"buffer":        r.requestLogs.bufferSize(),
+			"totalCaptured": r.requestLogs.totalCaptured(),
+			"logs":          logs,
+		})
+		return nil
+	}
+
 	if method == http.MethodPost && (path == "/_belm/backups" || path == "/_belm/backup") {
 		if !r.authEnabled() {
 			return &apiError{Status: http.StatusNotFound, Message: "Authentication is not enabled"}
@@ -245,8 +291,9 @@ func (r *Runtime) route(w http.ResponseWriter, req *http.Request) error {
 			return err
 		}
 		r.writeJSON(w, http.StatusOK, map[string]any{
-			"ok":      true,
-			"backups": backups,
+			"ok":        true,
+			"backupDir": backupDirectory(r.App.Database),
+			"backups":   backups,
 		})
 		return nil
 	}
@@ -424,6 +471,8 @@ func (r *Runtime) metricsRouteLabel(req *http.Request) string {
 	switch path {
 	case "/health", "/_belm/schema", "/_belm/perf", "/_belm/backups", "/_belm/bootstrap-admin":
 		return path
+	case "/_belm/request-logs":
+		return path
 	case "/_belm/backup":
 		// Backward compatibility alias kept for one version.
 		return "/_belm/backups"
@@ -467,4 +516,16 @@ func isAdminRole(role any) bool {
 		return false
 	}
 	return strings.EqualFold(strings.TrimSpace(roleText), "admin")
+}
+
+func parsePositiveInt(raw string, fallback int) int {
+	text := strings.TrimSpace(raw)
+	if text == "" {
+		return fallback
+	}
+	value, err := strconv.Atoi(text)
+	if err != nil || value <= 0 {
+		return fallback
+	}
+	return value
 }

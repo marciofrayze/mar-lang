@@ -5,6 +5,7 @@ type App struct {
 	Port         int           `json:"port"`
 	Database     string        `json:"database"`
 	Public       *PublicConfig `json:"public,omitempty"`
+	System       *SystemConfig `json:"system,omitempty"`
 	Entities     []Entity      `json:"entities"`
 	Auth         *AuthConfig   `json:"auth,omitempty"`
 	InputAliases []TypeAlias   `json:"inputAliases,omitempty"`
@@ -15,6 +16,10 @@ type PublicConfig struct {
 	Dir         string `json:"dir"`
 	Mount       string `json:"mount"`
 	SPAFallback string `json:"spaFallback,omitempty"`
+}
+
+type SystemConfig struct {
+	RequestLogsBuffer int `json:"requestLogsBuffer"`
 }
 
 type AuthConfig struct {

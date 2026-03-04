@@ -168,3 +168,35 @@ title:String
 		t.Fatalf("unexpected formatted output\n--- expected ---\n%s\n--- got ---\n%s", expected, formatted)
 	}
 }
+
+func TestFormatSystemBlockCanonicalOutput(t *testing.T) {
+	src := `
+app FrontApi
+database "./front.db"
+system {
+request_logs_buffer    500
+}
+entity Todo{
+title:String
+}
+`
+
+	formatted, err := Format(src)
+	if err != nil {
+		t.Fatalf("format failed: %v", err)
+	}
+
+	expected := "" +
+		"app FrontApi\n" +
+		"database \"./front.db\"\n" +
+		"system {\n" +
+		"  request_logs_buffer 500\n" +
+		"}\n" +
+		"entity Todo {\n" +
+		"  title: String\n" +
+		"}\n"
+
+	if formatted != expected {
+		t.Fatalf("unexpected formatted output\n--- expected ---\n%s\n--- got ---\n%s", expected, formatted)
+	}
+}

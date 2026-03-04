@@ -66,6 +66,7 @@ Full examples:
 - Embedded static frontend support (`public` block)
 - Built-in SQLite backup workflow
 - Built-in monitoring and performance dashboards
+- In-memory request log dashboard with SQL query traces
 
 ## Architecture (Go)
 
@@ -117,8 +118,8 @@ flowchart TD
     TMP --> GS["Generate small Go main with //go:embed manifest + admin assets"]
     GS --> GB["go build -o build/<name>/<name> <temp-workdir>"]
     GB --> BIN["Compiled executable"]
-    EC --> OUT["build/<name>/<AppName>Client.elm"]
-    TC --> OUT2["build/<name>/<AppName>Client.ts"]
+    EC --> OUT["build/<name>/clients/<AppName>Client.elm"]
+    TC --> OUT2["build/<name>/clients/<AppName>Client.ts"]
 ```
 
 ### What Is Inside the Generated Executable
@@ -221,10 +222,10 @@ cat examples/store.belm | ./belm format --stdin
 
 ## Auto-generated Clients
 
-Belm generates client files in the same output folder as the executable:
+Belm generates client files under `clients/` inside the app build folder:
 
-- Elm: `<AppName>Client.elm`
-- TypeScript: `<AppName>Client.ts`
+- Elm: `build/<name>/clients/<AppName>Client.elm`
+- TypeScript: `build/<name>/clients/<AppName>Client.ts`
 
 Both clients include:
 
@@ -301,6 +302,13 @@ An Admin panel (built with [Elm](https://elm-lang.org) and [elm-ui](https://gith
 
 It uses `GET /_belm/schema` to discover entities and lets you list/create/update/delete records.
 
+For admin users, the System area includes:
+
+- performance metrics
+- recent request logs (method, route, status, duration)
+- SQL query traces per request (query text, rows, duration, errors)
+- backup creation and backup listing
+
 ## VS Code Extension (Syntax + LSP + Format)
 
 A VS Code language extension for `.belm` files is available in:
@@ -344,12 +352,29 @@ entity Todo {
 - `port <number>`
 - `database "<sqlite_path>"`
 - `public { ... }`
+- `system { ... }`
 - `auth { ... }`
 - `entity <Name> { ... }`
 - `type alias <Name> = { ... }`
 - `action <actionName> { ... }`
 - `input: <InputAlias>`
 - `create <Entity> { field: value }`
+
+### System Configuration
+
+Use `system` for runtime-level controls.
+
+```belm
+system {
+  request_logs_buffer 500
+}
+```
+
+`request_logs_buffer` controls how many recent requests stay in memory for the admin performance dashboard and `GET /_belm/request-logs`.
+
+- default: `200`
+- minimum: `10`
+- maximum: `5000`
 
 ### Public Static Frontend
 
@@ -512,6 +537,7 @@ System features use the same app authentication session (`/auth/*`) and check `r
 System endpoints:
 
 - `GET /_belm/perf`
+- `GET /_belm/request-logs`
 - `POST /_belm/backups`
 - `GET /_belm/backups`
 
@@ -563,8 +589,12 @@ Auth endpoints:
 - `GET /auth/me`
 - `POST /_belm/bootstrap-admin` (optional first admin)
 - `GET /_belm/perf` (role admin)
+- `GET /_belm/request-logs` (role admin)
 - `POST /_belm/backups` (role admin)
 - `GET /_belm/backups` (role admin)
+
+`POST /_belm/bootstrap-admin` sends a verification code for the first user setup.
+The user gets admin role only after a successful `POST /auth/login` with that code.
 
 For each typed action `myAction`:
 

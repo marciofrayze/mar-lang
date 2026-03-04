@@ -6355,7 +6355,7 @@ var $author$project$Main$loadSchema = function (apiBase) {
 };
 var $author$project$Main$init = function (flags) {
 	return _Utils_Tuple2(
-		{actionFormValues: $elm$core$Dict$empty, actionResult: $elm$core$Maybe$Nothing, apiBase: flags.apiBase, authCode: '', authEmail: '', authTab: $author$project$Main$AppAuthTab, authToken: '', authToolsOpen: true, backups: $author$project$Main$NotAsked, currentEmail: $elm$core$Maybe$Nothing, currentRole: $elm$core$Maybe$Nothing, currentSystemEmail: $elm$core$Maybe$Nothing, currentSystemRole: $elm$core$Maybe$Nothing, databaseMode: false, flash: $elm$core$Maybe$Nothing, formMode: $author$project$Main$FormHidden, formValues: $elm$core$Dict$empty, lastBackup: $elm$core$Maybe$Nothing, perf: $author$project$Main$NotAsked, performanceMode: false, rows: $author$project$Main$NotAsked, schema: $author$project$Main$Loading, selectedAction: $elm$core$Maybe$Nothing, selectedEntity: $elm$core$Maybe$Nothing, selectedRow: $elm$core$Maybe$Nothing, systemAuthToken: ''},
+		{actionFormValues: $elm$core$Dict$empty, actionResult: $elm$core$Maybe$Nothing, apiBase: flags.apiBase, authCode: '', authEmail: '', authTab: $author$project$Main$AppAuthTab, authToken: '', authToolsOpen: true, backups: $author$project$Main$NotAsked, currentEmail: $elm$core$Maybe$Nothing, currentRole: $elm$core$Maybe$Nothing, currentSystemEmail: $elm$core$Maybe$Nothing, currentSystemRole: $elm$core$Maybe$Nothing, databaseMode: false, flash: $elm$core$Maybe$Nothing, formMode: $author$project$Main$FormHidden, formValues: $elm$core$Dict$empty, lastBackup: $elm$core$Maybe$Nothing, perf: $author$project$Main$NotAsked, performanceMode: false, requestLogs: $author$project$Main$NotAsked, requestLogsMode: false, rows: $author$project$Main$NotAsked, schema: $author$project$Main$Loading, selectedAction: $elm$core$Maybe$Nothing, selectedEntity: $elm$core$Maybe$Nothing, selectedRow: $elm$core$Maybe$Nothing, systemAuthToken: ''},
 		$author$project$Main$loadSchema(flags.apiBase));
 };
 var $elm$core$Platform$Sub$batch = _Platform_batch;
@@ -7003,6 +7003,10 @@ var $author$project$Main$loadAuthMe = F2(
 var $author$project$Main$GotBackups = function (a) {
 	return {$: 'GotBackups', a: a};
 };
+var $author$project$Main$BackupsPayload = F2(
+	function (backupDir, backups) {
+		return {backupDir: backupDir, backups: backups};
+	});
 var $author$project$Main$BackupFile = F4(
 	function (path, name, sizeBytes, createdAt) {
 		return {createdAt: createdAt, name: name, path: path, sizeBytes: sizeBytes};
@@ -7015,10 +7019,19 @@ var $author$project$Main$backupFileDecoder = A5(
 	A2($elm$json$Json$Decode$field, 'name', $elm$json$Json$Decode$string),
 	A2($elm$json$Json$Decode$field, 'sizeBytes', $elm$json$Json$Decode$float),
 	A2($elm$json$Json$Decode$field, 'createdAt', $elm$json$Json$Decode$string));
-var $author$project$Main$backupsDecoder = A2(
-	$elm$json$Json$Decode$field,
-	'backups',
-	$elm$json$Json$Decode$list($author$project$Main$backupFileDecoder));
+var $author$project$Main$backupsDecoder = A3(
+	$elm$json$Json$Decode$map2,
+	$author$project$Main$BackupsPayload,
+	$elm$json$Json$Decode$oneOf(
+		_List_fromArray(
+			[
+				A2($elm$json$Json$Decode$field, 'backupDir', $elm$json$Json$Decode$string),
+				$elm$json$Json$Decode$succeed('')
+			])),
+	A2(
+		$elm$json$Json$Decode$field,
+		'backups',
+		$elm$json$Json$Decode$list($author$project$Main$backupFileDecoder)));
 var $author$project$Main$loadBackups = function (model) {
 	return $elm$http$Http$request(
 		{
@@ -7089,6 +7102,94 @@ var $author$project$Main$loadPerformance = function (model) {
 			timeout: $elm$core$Maybe$Nothing,
 			tracker: $elm$core$Maybe$Nothing,
 			url: model.apiBase + '/_belm/perf'
+		});
+};
+var $author$project$Main$GotRequestLogs = function (a) {
+	return {$: 'GotRequestLogs', a: a};
+};
+var $author$project$Main$RequestLogsPayload = F3(
+	function (buffer, totalCaptured, logs) {
+		return {buffer: buffer, logs: logs, totalCaptured: totalCaptured};
+	});
+var $author$project$Main$RequestLogQuery = F4(
+	function (sql, durationMs, rowCount, error) {
+		return {durationMs: durationMs, error: error, rowCount: rowCount, sql: sql};
+	});
+var $author$project$Main$requestLogQueryDecoder = A5(
+	$elm$json$Json$Decode$map4,
+	$author$project$Main$RequestLogQuery,
+	A2($elm$json$Json$Decode$field, 'sql', $elm$json$Json$Decode$string),
+	A2($elm$json$Json$Decode$field, 'durationMs', $elm$json$Json$Decode$float),
+	A2($elm$json$Json$Decode$field, 'rowCount', $elm$json$Json$Decode$int),
+	$elm$json$Json$Decode$oneOf(
+		_List_fromArray(
+			[
+				A2(
+				$elm$json$Json$Decode$field,
+				'error',
+				A2($elm$json$Json$Decode$map, $elm$core$Maybe$Just, $elm$json$Json$Decode$string)),
+				A2(
+				$elm$json$Json$Decode$field,
+				'error',
+				$elm$json$Json$Decode$null($elm$core$Maybe$Nothing)),
+				$elm$json$Json$Decode$succeed($elm$core$Maybe$Nothing)
+			])));
+var $author$project$Main$requestLogEntryDecoder = A2(
+	$elm$json$Json$Decode$andThen,
+	function (base) {
+		return A4(
+			$elm$json$Json$Decode$map3,
+			F3(
+				function (queryTimeMs, errorMessage, queries) {
+					return _Utils_update(
+						base,
+						{errorMessage: errorMessage, queries: queries, queryTimeMs: queryTimeMs});
+				}),
+			A2($elm$json$Json$Decode$field, 'queryTimeMs', $elm$json$Json$Decode$float),
+			$elm$json$Json$Decode$oneOf(
+				_List_fromArray(
+					[
+						A2($elm$json$Json$Decode$field, 'errorMessage', $elm$json$Json$Decode$string),
+						$elm$json$Json$Decode$succeed('')
+					])),
+			A2(
+				$elm$json$Json$Decode$field,
+				'queries',
+				$elm$json$Json$Decode$list($author$project$Main$requestLogQueryDecoder)));
+	},
+	A9(
+		$elm$json$Json$Decode$map8,
+		F8(
+			function (id, method, path, route, status, durationMs, timestamp, queryCount) {
+				return {durationMs: durationMs, errorMessage: '', id: id, method: method, path: path, queries: _List_Nil, queryCount: queryCount, queryTimeMs: 0, route: route, status: status, timestamp: timestamp};
+			}),
+		A2($elm$json$Json$Decode$field, 'id', $elm$json$Json$Decode$string),
+		A2($elm$json$Json$Decode$field, 'method', $elm$json$Json$Decode$string),
+		A2($elm$json$Json$Decode$field, 'path', $elm$json$Json$Decode$string),
+		A2($elm$json$Json$Decode$field, 'route', $elm$json$Json$Decode$string),
+		A2($elm$json$Json$Decode$field, 'status', $elm$json$Json$Decode$int),
+		A2($elm$json$Json$Decode$field, 'durationMs', $elm$json$Json$Decode$float),
+		A2($elm$json$Json$Decode$field, 'timestamp', $elm$json$Json$Decode$string),
+		A2($elm$json$Json$Decode$field, 'queryCount', $elm$json$Json$Decode$int)));
+var $author$project$Main$requestLogsPayloadDecoder = A4(
+	$elm$json$Json$Decode$map3,
+	$author$project$Main$RequestLogsPayload,
+	A2($elm$json$Json$Decode$field, 'buffer', $elm$json$Json$Decode$int),
+	A2($elm$json$Json$Decode$field, 'totalCaptured', $elm$json$Json$Decode$int),
+	A2(
+		$elm$json$Json$Decode$field,
+		'logs',
+		$elm$json$Json$Decode$list($author$project$Main$requestLogEntryDecoder)));
+var $author$project$Main$loadRequestLogs = function (model) {
+	return $elm$http$Http$request(
+		{
+			body: $elm$http$Http$emptyBody,
+			expect: A2($author$project$Main$expectJsonWithApiError, $author$project$Main$GotRequestLogs, $author$project$Main$requestLogsPayloadDecoder),
+			headers: $author$project$Main$appAuthHeaders(model),
+			method: 'GET',
+			timeout: $elm$core$Maybe$Nothing,
+			tracker: $elm$core$Maybe$Nothing,
+			url: model.apiBase + '/_belm/request-logs?limit=30'
 		});
 };
 var $author$project$Main$GotRows = function (a) {
@@ -7352,7 +7453,7 @@ var $author$project$Main$isCrudScreen = function (model) {
 			return false;
 		}
 	}();
-	return (!model.performanceMode) && ((!model.databaseMode) && ((!hasActionSelection) && hasEntitySelection));
+	return (!model.performanceMode) && ((!model.requestLogsMode) && ((!model.databaseMode) && ((!hasActionSelection) && hasEntitySelection)));
 };
 var $author$project$Main$shouldReloadCrudAfterLogin = function (model) {
 	return $author$project$Main$isCrudScreen(model) && $author$project$Main$hasAuthorizationError(model.rows);
@@ -7431,6 +7532,8 @@ var $author$project$Main$update = F2(
 							formMode: $author$project$Main$FormHidden,
 							formValues: $elm$core$Dict$empty,
 							performanceMode: false,
+							requestLogs: $author$project$Main$NotAsked,
+							requestLogsMode: false,
 							rows: shouldLoadRows ? $author$project$Main$Loading : $author$project$Main$NotAsked,
 							schema: $author$project$Main$Loaded(schema),
 							selectedAction: $elm$core$Maybe$Nothing,
@@ -7457,7 +7560,7 @@ var $author$project$Main$update = F2(
 				var nextEntity = A2($author$project$Main$findEntity, entityName, model);
 				var nextModel = _Utils_update(
 					model,
-					{actionResult: $elm$core$Maybe$Nothing, authToolsOpen: false, databaseMode: false, flash: $elm$core$Maybe$Nothing, formMode: $author$project$Main$FormHidden, formValues: $elm$core$Dict$empty, performanceMode: false, rows: $author$project$Main$Loading, selectedAction: $elm$core$Maybe$Nothing, selectedEntity: nextEntity, selectedRow: $elm$core$Maybe$Nothing});
+					{actionResult: $elm$core$Maybe$Nothing, authToolsOpen: false, databaseMode: false, flash: $elm$core$Maybe$Nothing, formMode: $author$project$Main$FormHidden, formValues: $elm$core$Dict$empty, performanceMode: false, requestLogsMode: false, rows: $author$project$Main$Loading, selectedAction: $elm$core$Maybe$Nothing, selectedEntity: nextEntity, selectedRow: $elm$core$Maybe$Nothing});
 				return _Utils_Tuple2(
 					nextModel,
 					$author$project$Main$loadRows(nextModel));
@@ -7486,6 +7589,7 @@ var $author$project$Main$update = F2(
 								formMode: $author$project$Main$FormHidden,
 								formValues: $elm$core$Dict$empty,
 								performanceMode: false,
+								requestLogsMode: false,
 								rows: $author$project$Main$NotAsked,
 								selectedAction: $elm$core$Maybe$Just(actionInfo),
 								selectedEntity: $elm$core$Maybe$Nothing,
@@ -7534,10 +7638,27 @@ var $author$project$Main$update = F2(
 				} else {
 					var nextModel = _Utils_update(
 						model,
-						{actionResult: $elm$core$Maybe$Nothing, authToolsOpen: false, databaseMode: false, flash: $elm$core$Maybe$Nothing, formMode: $author$project$Main$FormHidden, formValues: $elm$core$Dict$empty, perf: $author$project$Main$Loading, performanceMode: true, rows: $author$project$Main$NotAsked, selectedAction: $elm$core$Maybe$Nothing, selectedEntity: $elm$core$Maybe$Nothing, selectedRow: $elm$core$Maybe$Nothing});
+						{actionResult: $elm$core$Maybe$Nothing, authToolsOpen: false, databaseMode: false, flash: $elm$core$Maybe$Nothing, formMode: $author$project$Main$FormHidden, formValues: $elm$core$Dict$empty, perf: $author$project$Main$Loading, performanceMode: true, requestLogsMode: false, rows: $author$project$Main$NotAsked, selectedAction: $elm$core$Maybe$Nothing, selectedEntity: $elm$core$Maybe$Nothing, selectedRow: $elm$core$Maybe$Nothing});
 					return _Utils_Tuple2(
 						nextModel,
 						$author$project$Main$loadPerformance(nextModel));
+				}
+			case 'SelectRequestLogs':
+				if (!$author$project$Main$isAdminProfile(model)) {
+					return _Utils_Tuple2(
+						_Utils_update(
+							model,
+							{
+								flash: $elm$core$Maybe$Just('Admin role required to access request logs.')
+							}),
+						$elm$core$Platform$Cmd$none);
+				} else {
+					var nextModel = _Utils_update(
+						model,
+						{actionResult: $elm$core$Maybe$Nothing, authToolsOpen: false, databaseMode: false, flash: $elm$core$Maybe$Nothing, formMode: $author$project$Main$FormHidden, formValues: $elm$core$Dict$empty, performanceMode: false, requestLogs: $author$project$Main$Loading, requestLogsMode: true, rows: $author$project$Main$NotAsked, selectedAction: $elm$core$Maybe$Nothing, selectedEntity: $elm$core$Maybe$Nothing, selectedRow: $elm$core$Maybe$Nothing});
+					return _Utils_Tuple2(
+						nextModel,
+						$author$project$Main$loadRequestLogs(nextModel));
 				}
 			case 'SelectDatabase':
 				if (!$author$project$Main$isAdminProfile(model)) {
@@ -7551,7 +7672,7 @@ var $author$project$Main$update = F2(
 				} else {
 					var nextModel = _Utils_update(
 						model,
-						{actionResult: $elm$core$Maybe$Nothing, authToolsOpen: false, backups: $author$project$Main$Loading, databaseMode: true, flash: $elm$core$Maybe$Nothing, formMode: $author$project$Main$FormHidden, formValues: $elm$core$Dict$empty, perf: $author$project$Main$Loading, performanceMode: false, rows: $author$project$Main$NotAsked, selectedAction: $elm$core$Maybe$Nothing, selectedEntity: $elm$core$Maybe$Nothing, selectedRow: $elm$core$Maybe$Nothing});
+						{actionResult: $elm$core$Maybe$Nothing, authToolsOpen: false, backups: $author$project$Main$Loading, databaseMode: true, flash: $elm$core$Maybe$Nothing, formMode: $author$project$Main$FormHidden, formValues: $elm$core$Dict$empty, perf: $author$project$Main$Loading, performanceMode: false, requestLogsMode: false, rows: $author$project$Main$NotAsked, selectedAction: $elm$core$Maybe$Nothing, selectedEntity: $elm$core$Maybe$Nothing, selectedRow: $elm$core$Maybe$Nothing});
 					return _Utils_Tuple2(
 						nextModel,
 						$elm$core$Platform$Cmd$batch(
@@ -7590,6 +7711,13 @@ var $author$project$Main$update = F2(
 				return _Utils_Tuple2(
 					nextModel,
 					$author$project$Main$loadPerformance(nextModel));
+			case 'ReloadRequestLogs':
+				var nextModel = _Utils_update(
+					model,
+					{flash: $elm$core$Maybe$Nothing, requestLogs: $author$project$Main$Loading});
+				return _Utils_Tuple2(
+					nextModel,
+					$author$project$Main$loadRequestLogs(nextModel));
 			case 'GotPerformance':
 				var result = msg.a;
 				if (result.$ === 'Ok') {
@@ -7608,6 +7736,28 @@ var $author$project$Main$update = F2(
 							model,
 							{
 								perf: $author$project$Main$Failed(
+									$author$project$Main$httpErrorToString(httpError))
+							}),
+						$elm$core$Platform$Cmd$none);
+				}
+			case 'GotRequestLogs':
+				var result = msg.a;
+				if (result.$ === 'Ok') {
+					var payload = result.a;
+					return _Utils_Tuple2(
+						_Utils_update(
+							model,
+							{
+								requestLogs: $author$project$Main$Loaded(payload)
+							}),
+						$elm$core$Platform$Cmd$none);
+				} else {
+					var httpError = result.a;
+					return _Utils_Tuple2(
+						_Utils_update(
+							model,
+							{
+								requestLogs: $author$project$Main$Failed(
 									$author$project$Main$httpErrorToString(httpError))
 							}),
 						$elm$core$Platform$Cmd$none);
@@ -7680,9 +7830,9 @@ var $author$project$Main$update = F2(
 				var result = msg.b;
 				if (result.$ === 'Ok') {
 					var response = result.a;
-					var _v7 = response.devCode;
-					if (_v7.$ === 'Just') {
-						var code = _v7.a;
+					var _v8 = response.devCode;
+					if (_v8.$ === 'Just') {
+						var code = _v8.a;
 						return _Utils_Tuple2(
 							_Utils_update(
 								model,
@@ -7734,24 +7884,19 @@ var $author$project$Main$update = F2(
 				var result = msg.b;
 				if (result.$ === 'Ok') {
 					var response = result.a;
-					var _v9 = response.devCode;
-					if (_v9.$ === 'Just') {
-						var code = _v9.a;
+					var _v10 = response.devCode;
+					if (_v10.$ === 'Just') {
+						var code = _v10.a;
 						var nextModel = _Utils_update(
 							model,
 							{
 								authCode: code,
 								flash: $elm$core$Maybe$Just(
-									'First ' + ($author$project$Main$authScopeLabel(scope) + ' admin created. Logging in...'))
+									'First ' + ($author$project$Main$authScopeLabel(scope) + ' admin code sent. Enter the code and click Login.'))
 							});
 						return _Utils_Tuple2(
 							nextModel,
-							$elm$core$Platform$Cmd$batch(
-								_List_fromArray(
-									[
-										$author$project$Main$loadSchema(model.apiBase),
-										A2($author$project$Main$loginWithCode, scope, nextModel)
-									])));
+							$author$project$Main$loadSchema(model.apiBase));
 					} else {
 						return _Utils_Tuple2(
 							_Utils_update(
@@ -7828,12 +7973,12 @@ var $author$project$Main$update = F2(
 								flash: $elm$core$Maybe$Just('Admin login successful.'),
 								systemAuthToken: response.token
 							});
-						var refreshCmd = model.performanceMode ? $author$project$Main$loadPerformance(nextModel) : (model.databaseMode ? $elm$core$Platform$Cmd$batch(
+						var refreshCmd = model.performanceMode ? $author$project$Main$loadPerformance(nextModel) : (model.requestLogsMode ? $author$project$Main$loadRequestLogs(nextModel) : (model.databaseMode ? $elm$core$Platform$Cmd$batch(
 							_List_fromArray(
 								[
 									$author$project$Main$loadPerformance(nextModel),
 									$author$project$Main$loadBackups(nextModel)
-								])) : $elm$core$Platform$Cmd$none);
+								])) : $elm$core$Platform$Cmd$none));
 						return _Utils_Tuple2(nextModel, refreshCmd);
 					}
 				} else {
@@ -7873,9 +8018,9 @@ var $author$project$Main$update = F2(
 				if (result.$ === 'Ok') {
 					var response = result.a;
 					var roleText = function () {
-						var _v15 = response.role;
-						if (_v15.$ === 'Just') {
-							var role = _v15.a;
+						var _v16 = response.role;
+						if (_v16.$ === 'Just') {
+							var role = _v16.a;
 							return ' (role: ' + (role + ')');
 						} else {
 							return '';
@@ -8035,7 +8180,7 @@ var $author$project$Main$update = F2(
 			case 'ToggleAuthTools':
 				var nextModel = _Utils_update(
 					model,
-					{actionFormValues: $elm$core$Dict$empty, actionResult: $elm$core$Maybe$Nothing, authToolsOpen: true, databaseMode: false, flash: $elm$core$Maybe$Nothing, formMode: $author$project$Main$FormHidden, formValues: $elm$core$Dict$empty, performanceMode: false, rows: $author$project$Main$NotAsked, selectedAction: $elm$core$Maybe$Nothing, selectedEntity: $elm$core$Maybe$Nothing, selectedRow: $elm$core$Maybe$Nothing});
+					{actionFormValues: $elm$core$Dict$empty, actionResult: $elm$core$Maybe$Nothing, authToolsOpen: true, databaseMode: false, flash: $elm$core$Maybe$Nothing, formMode: $author$project$Main$FormHidden, formValues: $elm$core$Dict$empty, performanceMode: false, requestLogsMode: false, rows: $author$project$Main$NotAsked, selectedAction: $elm$core$Maybe$Nothing, selectedEntity: $elm$core$Maybe$Nothing, selectedRow: $elm$core$Maybe$Nothing});
 				return model.authToolsOpen ? _Utils_Tuple2(
 					_Utils_update(
 						nextModel,
@@ -8087,8 +8232,8 @@ var $author$project$Main$update = F2(
 						}),
 					$elm$core$Platform$Cmd$none);
 			case 'SubmitForm':
-				var _v20 = model.selectedEntity;
-				if (_v20.$ === 'Nothing') {
+				var _v21 = model.selectedEntity;
+				if (_v21.$ === 'Nothing') {
 					return _Utils_Tuple2(
 						_Utils_update(
 							model,
@@ -8097,22 +8242,22 @@ var $author$project$Main$update = F2(
 							}),
 						$elm$core$Platform$Cmd$none);
 				} else {
-					var entity = _v20.a;
+					var entity = _v21.a;
 					var forUpdate = function () {
-						var _v24 = model.formMode;
-						if (_v24.$ === 'FormEdit') {
+						var _v25 = model.formMode;
+						if (_v25.$ === 'FormEdit') {
 							return true;
 						} else {
 							return false;
 						}
 					}();
-					var _v21 = A3(
+					var _v22 = A3(
 						$author$project$Belm$Api$encodePayload,
 						{forUpdate: forUpdate},
 						entity.fields,
 						model.formValues);
-					if (_v21.$ === 'Err') {
-						var message = _v21.a;
+					if (_v22.$ === 'Err') {
+						var message = _v22.a;
 						return _Utils_Tuple2(
 							_Utils_update(
 								model,
@@ -8121,17 +8266,17 @@ var $author$project$Main$update = F2(
 								}),
 							$elm$core$Platform$Cmd$none);
 					} else {
-						var payload = _v21.a;
-						var _v22 = model.formMode;
-						switch (_v22.$) {
+						var payload = _v22.a;
+						var _v23 = model.formMode;
+						switch (_v23.$) {
 							case 'FormCreate':
 								return _Utils_Tuple2(
 									model,
 									A3($author$project$Main$createRow, model, entity, payload));
 							case 'FormEdit':
-								var rowValue = _v22.a;
-								var _v23 = A2($author$project$Main$rowId, entity, rowValue);
-								if (_v23.$ === 'Nothing') {
+								var rowValue = _v23.a;
+								var _v24 = A2($author$project$Main$rowId, entity, rowValue);
+								if (_v24.$ === 'Nothing') {
 									return _Utils_Tuple2(
 										_Utils_update(
 											model,
@@ -8140,7 +8285,7 @@ var $author$project$Main$update = F2(
 											}),
 										$elm$core$Platform$Cmd$none);
 								} else {
-									var idValue = _v23.a;
+									var idValue = _v24.a;
 									return _Utils_Tuple2(
 										model,
 										A4($author$project$Main$updateRow, model, entity, idValue, payload));
@@ -8161,9 +8306,9 @@ var $author$project$Main$update = F2(
 				if (result.$ === 'Ok') {
 					var createdRow = result.a;
 					var nextRows = function () {
-						var _v26 = model.rows;
-						if (_v26.$ === 'Loaded') {
-							var items = _v26.a;
+						var _v27 = model.rows;
+						if (_v27.$ === 'Loaded') {
+							var items = _v27.a;
 							return $author$project$Main$Loaded(
 								A2($elm$core$List$cons, createdRow, items));
 						} else {
@@ -8196,10 +8341,10 @@ var $author$project$Main$update = F2(
 				if (result.$ === 'Ok') {
 					var updatedRow = result.a;
 					var nextRows = function () {
-						var _v28 = _Utils_Tuple2(model.selectedEntity, model.rows);
-						if ((_v28.a.$ === 'Just') && (_v28.b.$ === 'Loaded')) {
-							var entity = _v28.a.a;
-							var items = _v28.b.a;
+						var _v29 = _Utils_Tuple2(model.selectedEntity, model.rows);
+						if ((_v29.a.$ === 'Just') && (_v29.b.$ === 'Loaded')) {
+							var entity = _v29.a.a;
+							var items = _v29.b.a;
 							return $author$project$Main$Loaded(
 								A3($author$project$Main$replaceRow, entity, updatedRow, items));
 						} else {
@@ -8230,8 +8375,8 @@ var $author$project$Main$update = F2(
 				}
 			case 'DeleteRow':
 				var rowValue = msg.a;
-				var _v29 = model.selectedEntity;
-				if (_v29.$ === 'Nothing') {
+				var _v30 = model.selectedEntity;
+				if (_v30.$ === 'Nothing') {
 					return _Utils_Tuple2(
 						_Utils_update(
 							model,
@@ -8240,9 +8385,9 @@ var $author$project$Main$update = F2(
 							}),
 						$elm$core$Platform$Cmd$none);
 				} else {
-					var entity = _v29.a;
-					var _v30 = A2($author$project$Main$rowId, entity, rowValue);
-					if (_v30.$ === 'Nothing') {
+					var entity = _v30.a;
+					var _v31 = A2($author$project$Main$rowId, entity, rowValue);
+					if (_v31.$ === 'Nothing') {
 						return _Utils_Tuple2(
 							_Utils_update(
 								model,
@@ -8251,7 +8396,7 @@ var $author$project$Main$update = F2(
 								}),
 							$elm$core$Platform$Cmd$none);
 					} else {
-						var idValue = _v30.a;
+						var idValue = _v31.a;
 						return _Utils_Tuple2(
 							model,
 							A3($author$project$Main$deleteRowRequest, model, entity, idValue));
@@ -8285,8 +8430,8 @@ var $author$project$Main$update = F2(
 						$elm$core$Platform$Cmd$none);
 				}
 			case 'RunAction':
-				var _v32 = model.selectedAction;
-				if (_v32.$ === 'Nothing') {
+				var _v33 = model.selectedAction;
+				if (_v33.$ === 'Nothing') {
 					return _Utils_Tuple2(
 						_Utils_update(
 							model,
@@ -8295,10 +8440,10 @@ var $author$project$Main$update = F2(
 							}),
 						$elm$core$Platform$Cmd$none);
 				} else {
-					var actionInfo = _v32.a;
-					var _v33 = A2($author$project$Main$actionPayloadFromForm, model, actionInfo);
-					if (_v33.$ === 'Err') {
-						var message = _v33.a;
+					var actionInfo = _v33.a;
+					var _v34 = A2($author$project$Main$actionPayloadFromForm, model, actionInfo);
+					if (_v34.$ === 'Err') {
+						var message = _v34.a;
 						return _Utils_Tuple2(
 							_Utils_update(
 								model,
@@ -8307,7 +8452,7 @@ var $author$project$Main$update = F2(
 								}),
 							$elm$core$Platform$Cmd$none);
 					} else {
-						var payload = _v33.a;
+						var payload = _v34.a;
 						return _Utils_Tuple2(
 							_Utils_update(
 								model,
@@ -11963,8 +12108,8 @@ var $mdgriffith$elm_ui$Internal$Model$toStyleSheetString = F2(
 			combine,
 			{rules: _List_Nil, topLevel: _List_Nil},
 			stylesheet);
-		var topLevel = _v0.topLevel;
 		var rules = _v0.rules;
+		var topLevel = _v0.topLevel;
 		return _Utils_ap(
 			$mdgriffith$elm_ui$Internal$Model$renderTopLevelValues(topLevel),
 			$elm$core$String$concat(rules));
@@ -13956,8 +14101,8 @@ var $mdgriffith$elm_ui$Internal$Model$toHtml = F2(
 				var html = el.a;
 				return html($mdgriffith$elm_ui$Internal$Model$asEl);
 			case 'Styled':
-				var styles = el.a.styles;
 				var html = el.a.html;
+				var styles = el.a.styles;
 				return A2(
 					html,
 					mode(styles),
@@ -14173,16 +14318,12 @@ var $author$project$Main$LoadAuthMe = {$: 'LoadAuthMe'};
 var $author$project$Main$LoginWithCode = {$: 'LoginWithCode'};
 var $author$project$Main$LogoutSession = {$: 'LogoutSession'};
 var $author$project$Main$RequestAuthCode = {$: 'RequestAuthCode'};
-var $author$project$Main$SelectAuthTab = function (a) {
-	return {$: 'SelectAuthTab', a: a};
-};
 var $author$project$Main$SetAuthCode = function (a) {
 	return {$: 'SetAuthCode', a: a};
 };
 var $author$project$Main$SetAuthEmail = function (a) {
 	return {$: 'SetAuthEmail', a: a};
 };
-var $author$project$Main$SystemAuthTab = {$: 'SystemAuthTab'};
 var $mdgriffith$elm_ui$Internal$Model$AlignY = function (a) {
 	return {$: 'AlignY', a: a};
 };
@@ -14196,9 +14337,6 @@ var $author$project$Main$authInfoFromModel = function (model) {
 	} else {
 		return $elm$core$Maybe$Nothing;
 	}
-};
-var $author$project$Main$authScopeToTab = function (_v0) {
-	return $author$project$Main$AppAuthTab;
 };
 var $mdgriffith$elm_ui$Element$el = F2(
 	function (attrs, child) {
@@ -14222,10 +14360,10 @@ var $mdgriffith$elm_ui$Internal$Model$paddingName = F4(
 		return 'pad-' + ($elm$core$String$fromInt(top) + ('-' + ($elm$core$String$fromInt(right) + ('-' + ($elm$core$String$fromInt(bottom) + ('-' + $elm$core$String$fromInt(left)))))));
 	});
 var $mdgriffith$elm_ui$Element$paddingEach = function (_v0) {
-	var top = _v0.top;
-	var right = _v0.right;
-	var bottom = _v0.bottom;
 	var left = _v0.left;
+	var bottom = _v0.bottom;
+	var right = _v0.right;
+	var top = _v0.top;
 	if (_Utils_eq(top, right) && (_Utils_eq(top, bottom) && _Utils_eq(top, left))) {
 		var topFloat = top;
 		return A2(
@@ -14385,8 +14523,8 @@ var $elm$html$Html$Attributes$tabindex = function (n) {
 };
 var $mdgriffith$elm_ui$Element$Input$button = F2(
 	function (attrs, _v0) {
-		var onPress = _v0.onPress;
 		var label = _v0.label;
+		var onPress = _v0.onPress;
 		return A4(
 			$mdgriffith$elm_ui$Internal$Model$element,
 			$mdgriffith$elm_ui$Internal$Model$asEl,
@@ -15038,10 +15176,10 @@ var $mdgriffith$elm_ui$Element$Input$redistribute = F3(
 				attrs));
 	});
 var $mdgriffith$elm_ui$Element$Input$renderBox = function (_v0) {
-	var top = _v0.top;
-	var right = _v0.right;
-	var bottom = _v0.bottom;
 	var left = _v0.left;
+	var bottom = _v0.bottom;
+	var right = _v0.right;
+	var top = _v0.top;
 	return $elm$core$String$fromInt(top) + ('px ' + ($elm$core$String$fromInt(right) + ('px ' + ($elm$core$String$fromInt(bottom) + ('px ' + ($elm$core$String$fromInt(left) + 'px'))))));
 };
 var $mdgriffith$elm_ui$Internal$Model$Transparency = F2(
@@ -15359,30 +15497,6 @@ var $author$project$Main$viewAuthToolsPanel = function (model) {
 	if (!model.authToolsOpen) {
 		return $mdgriffith$elm_ui$Element$none;
 	} else {
-		var tabButton = F2(
-			function (tab, labelText) {
-				var selected = _Utils_eq(
-					$author$project$Main$authScopeToTab(
-						$author$project$Main$activeAuthScope(model)),
-					tab);
-				return A2(
-					$mdgriffith$elm_ui$Element$Input$button,
-					_List_fromArray(
-						[
-							$mdgriffith$elm_ui$Element$Background$color(
-							selected ? A3($mdgriffith$elm_ui$Element$rgb255, 76, 111, 224) : A3($mdgriffith$elm_ui$Element$rgb255, 224, 231, 241)),
-							$mdgriffith$elm_ui$Element$Font$color(
-							selected ? A3($mdgriffith$elm_ui$Element$rgb255, 246, 248, 252) : A3($mdgriffith$elm_ui$Element$rgb255, 41, 52, 68)),
-							$mdgriffith$elm_ui$Element$Border$rounded(10),
-							$mdgriffith$elm_ui$Element$paddingEach(
-							{bottom: 8, left: 12, right: 12, top: 8})
-						]),
-					{
-						label: $mdgriffith$elm_ui$Element$text(labelText),
-						onPress: $elm$core$Maybe$Just(
-							$author$project$Main$SelectAuthTab(tab))
-					});
-			});
 		var maybeSystemAuth = $author$project$Main$systemAuthInfoFromModel(model);
 		var maybeAppAuth = $author$project$Main$authInfoFromModel(model);
 		var appHasNoUsers = function () {
@@ -15413,7 +15527,7 @@ var $author$project$Main$viewAuthToolsPanel = function (model) {
 		}();
 		var tabHint = function () {
 			if (activeScope.$ === 'AppAuthScope') {
-				return appHasNoUsers ? 'No users found yet. Create the first admin to initialize authentication.' : 'Request code sends a login code and always tries to auto-create the user when missing.';
+				return appHasNoUsers ? 'No users found yet. Create the first admin to initialize authentication.' : 'The request sends a login code and automatically creates the user if it does not exist.';
 			} else {
 				return needsBootstrap ? 'No admins found. Create the first admin, then login with the code.' : 'Admin authentication is used only for admin features such as Performance and Database backups.';
 			}
@@ -15487,22 +15601,7 @@ var $author$project$Main$viewAuthToolsPanel = function (model) {
 									$mdgriffith$elm_ui$Element$Font$bold,
 									$mdgriffith$elm_ui$Element$Font$size(18)
 								]),
-							$mdgriffith$elm_ui$Element$text('Authentication')),
-							A2(
-							$mdgriffith$elm_ui$Element$row,
-							_List_fromArray(
-								[
-									$mdgriffith$elm_ui$Element$spacing(8)
-								]),
-							_Utils_ap(
-								(!_Utils_eq(maybeAppAuth, $elm$core$Maybe$Nothing)) ? _List_fromArray(
-									[
-										A2(tabButton, $author$project$Main$AppAuthTab, 'Users')
-									]) : _List_Nil,
-								(!_Utils_eq(maybeSystemAuth, $elm$core$Maybe$Nothing)) ? _List_fromArray(
-									[
-										A2(tabButton, $author$project$Main$SystemAuthTab, 'Admin')
-									]) : _List_Nil))
+							$mdgriffith$elm_ui$Element$text('Authentication'))
 						])),
 					A2(
 					$mdgriffith$elm_ui$Element$el,
@@ -16545,10 +16644,10 @@ var $author$project$Main$performanceCard = F2(
 	});
 var $author$project$Main$viewDatabasePanelAdmin = function (model) {
 	var sqliteSizeText = function () {
-		var _v2 = model.perf;
-		switch (_v2.$) {
+		var _v3 = model.perf;
+		switch (_v3.$) {
 			case 'Loaded':
-				var perf = _v2.a;
+				var perf = _v3.a;
 				return $author$project$Main$formatBytes(perf.sqliteBytes);
 			case 'Loading':
 				return 'Loading...';
@@ -16559,9 +16658,9 @@ var $author$project$Main$viewDatabasePanelAdmin = function (model) {
 		}
 	}();
 	var lastBackupInfo = function () {
-		var _v1 = model.lastBackup;
-		if (_v1.$ === 'Just') {
-			var backup = _v1.a;
+		var _v2 = model.lastBackup;
+		if (_v2.$ === 'Just') {
+			var backup = _v2.a;
 			return A2(
 				$mdgriffith$elm_ui$Element$column,
 				_List_fromArray(
@@ -16614,8 +16713,8 @@ var $author$project$Main$viewDatabasePanelAdmin = function (model) {
 	}();
 	var dbPath = $author$project$Main$currentDatabasePath(model);
 	var backupsSection = function () {
-		var _v0 = model.backups;
-		switch (_v0.$) {
+		var _v1 = model.backups;
+		switch (_v1.$) {
 			case 'NotAsked':
 				return A2(
 					$mdgriffith$elm_ui$Element$paragraph,
@@ -16643,7 +16742,7 @@ var $author$project$Main$viewDatabasePanelAdmin = function (model) {
 							$mdgriffith$elm_ui$Element$text('Loading backups...')
 						]));
 			case 'Failed':
-				var message = _v0.a;
+				var message = _v1.a;
 				return A2(
 					$mdgriffith$elm_ui$Element$paragraph,
 					_List_fromArray(
@@ -16657,8 +16756,8 @@ var $author$project$Main$viewDatabasePanelAdmin = function (model) {
 							$mdgriffith$elm_ui$Element$text(message)
 						]));
 			default:
-				var backups = _v0.a;
-				return $elm$core$List$isEmpty(backups) ? A2(
+				var payload = _v1.a;
+				return $elm$core$List$isEmpty(payload.backups) ? A2(
 					$mdgriffith$elm_ui$Element$paragraph,
 					_List_fromArray(
 						[
@@ -16722,10 +16821,18 @@ var $author$project$Main$viewDatabasePanelAdmin = function (model) {
 										$mdgriffith$elm_ui$Element$text('File'))
 									]))
 							]),
-						A2($elm$core$List$map, $author$project$Main$backupRow, backups)));
+						A2($elm$core$List$map, $author$project$Main$backupRow, payload.backups)));
 		}
 	}();
-	var backupDirText = $author$project$Main$databaseBackupDir(dbPath);
+	var backupDirText = function () {
+		var _v0 = model.backups;
+		if (_v0.$ === 'Loaded') {
+			var payload = _v0.a;
+			return ($elm$core$String$trim(payload.backupDir) === '') ? $author$project$Main$databaseBackupDir(dbPath) : payload.backupDir;
+		} else {
+			return $author$project$Main$databaseBackupDir(dbPath);
+		}
+	}();
 	return A2(
 		$mdgriffith$elm_ui$Element$column,
 		_List_fromArray(
@@ -17652,6 +17759,542 @@ var $author$project$Main$viewPerformancePanel = function (model) {
 				]));
 	}
 };
+var $author$project$Main$ReloadRequestLogs = {$: 'ReloadRequestLogs'};
+var $author$project$Main$monthLabel = function (month) {
+	switch (month) {
+		case '01':
+			return 'Jan';
+		case '02':
+			return 'Feb';
+		case '03':
+			return 'Mar';
+		case '04':
+			return 'Apr';
+		case '05':
+			return 'May';
+		case '06':
+			return 'Jun';
+		case '07':
+			return 'Jul';
+		case '08':
+			return 'Aug';
+		case '09':
+			return 'Sep';
+		case '10':
+			return 'Oct';
+		case '11':
+			return 'Nov';
+		case '12':
+			return 'Dec';
+		default:
+			return month;
+	}
+};
+var $author$project$Main$formatLogDate = function (rawDate) {
+	var _v0 = A2(
+		$elm$core$String$split,
+		'-',
+		$elm$core$String$trim(rawDate));
+	if (((_v0.b && _v0.b.b) && _v0.b.b.b) && (!_v0.b.b.b.b)) {
+		var year = _v0.a;
+		var _v1 = _v0.b;
+		var month = _v1.a;
+		var _v2 = _v1.b;
+		var day = _v2.a;
+		return $author$project$Main$monthLabel(month) + (' ' + (day + (', ' + year)));
+	} else {
+		return rawDate;
+	}
+};
+var $author$project$Main$splitLogTimestamp = function (rawTimestamp) {
+	var _v0 = $elm$core$String$words(
+		$elm$core$String$trim(rawTimestamp));
+	if (_v0.b) {
+		if (_v0.b.b) {
+			var datePart = _v0.a;
+			var _v1 = _v0.b;
+			var timePart = _v1.a;
+			return _Utils_Tuple2(
+				$author$project$Main$formatLogDate(datePart),
+				timePart);
+		} else {
+			var datePart = _v0.a;
+			return _Utils_Tuple2(
+				$author$project$Main$formatLogDate(datePart),
+				'-');
+		}
+	} else {
+		return _Utils_Tuple2('-', '-');
+	}
+};
+var $mdgriffith$elm_ui$Internal$Model$Monospace = {$: 'Monospace'};
+var $mdgriffith$elm_ui$Element$Font$monospace = $mdgriffith$elm_ui$Internal$Model$Monospace;
+var $author$project$Main$viewRequestLogQuery = function (query) {
+	var metricsText = $author$project$Main$formatMs(query.durationMs) + (' | rows: ' + $elm$core$String$fromInt(query.rowCount));
+	return A2(
+		$mdgriffith$elm_ui$Element$column,
+		_List_fromArray(
+			[
+				$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+				$mdgriffith$elm_ui$Element$spacing(4),
+				$mdgriffith$elm_ui$Element$Background$color(
+				A3($mdgriffith$elm_ui$Element$rgb255, 243, 247, 252)),
+				$mdgriffith$elm_ui$Element$Border$rounded(8),
+				$mdgriffith$elm_ui$Element$padding(8)
+			]),
+		_Utils_ap(
+			_List_fromArray(
+				[
+					A2(
+					$mdgriffith$elm_ui$Element$paragraph,
+					_List_fromArray(
+						[
+							$mdgriffith$elm_ui$Element$Font$size(12),
+							$mdgriffith$elm_ui$Element$Font$family(
+							_List_fromArray(
+								[$mdgriffith$elm_ui$Element$Font$monospace])),
+							$mdgriffith$elm_ui$Element$Font$color(
+							A3($mdgriffith$elm_ui$Element$rgb255, 44, 56, 72))
+						]),
+					_List_fromArray(
+						[
+							$mdgriffith$elm_ui$Element$text(query.sql)
+						])),
+					A2(
+					$mdgriffith$elm_ui$Element$el,
+					_List_fromArray(
+						[
+							$mdgriffith$elm_ui$Element$Font$size(12),
+							$mdgriffith$elm_ui$Element$Font$color(
+							A3($mdgriffith$elm_ui$Element$rgb255, 93, 103, 120))
+						]),
+					$mdgriffith$elm_ui$Element$text(metricsText))
+				]),
+			function () {
+				var _v0 = query.error;
+				if (_v0.$ === 'Just') {
+					var errText = _v0.a;
+					return ($elm$core$String$trim(errText) === '') ? _List_Nil : _List_fromArray(
+						[
+							A2(
+							$mdgriffith$elm_ui$Element$paragraph,
+							_List_fromArray(
+								[
+									$mdgriffith$elm_ui$Element$Font$size(12),
+									$mdgriffith$elm_ui$Element$Font$color(
+									A3($mdgriffith$elm_ui$Element$rgb255, 176, 60, 46))
+								]),
+							_List_fromArray(
+								[
+									$mdgriffith$elm_ui$Element$text('Error: ' + errText)
+								]))
+						]);
+				} else {
+					return _List_Nil;
+				}
+			}()));
+};
+var $author$project$Main$viewRequestLogEntry = function (entry) {
+	var statusColor = (entry.status >= 500) ? A3($mdgriffith$elm_ui$Element$rgb255, 176, 60, 46) : ((entry.status >= 400) ? A3($mdgriffith$elm_ui$Element$rgb255, 204, 102, 35) : A3($mdgriffith$elm_ui$Element$rgb255, 34, 124, 95));
+	var querySummary = $elm$core$String$fromInt(entry.queryCount) + (' query(ies), ' + $author$project$Main$formatMs(entry.queryTimeMs));
+	var _v0 = $author$project$Main$splitLogTimestamp(entry.timestamp);
+	var dateText = _v0.a;
+	var timeText = _v0.b;
+	return A2(
+		$mdgriffith$elm_ui$Element$column,
+		_List_fromArray(
+			[
+				$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+				$mdgriffith$elm_ui$Element$spacing(8),
+				$mdgriffith$elm_ui$Element$Background$color(
+				A3($mdgriffith$elm_ui$Element$rgb255, 248, 250, 252)),
+				$mdgriffith$elm_ui$Element$Border$rounded(10),
+				$mdgriffith$elm_ui$Element$Border$width(1),
+				$mdgriffith$elm_ui$Element$Border$color(
+				A3($mdgriffith$elm_ui$Element$rgb255, 226, 232, 239)),
+				$mdgriffith$elm_ui$Element$padding(12)
+			]),
+		_Utils_ap(
+			_List_fromArray(
+				[
+					A2(
+					$mdgriffith$elm_ui$Element$row,
+					_List_fromArray(
+						[
+							$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+							$mdgriffith$elm_ui$Element$spacing(10)
+						]),
+					_List_fromArray(
+						[
+							A2(
+							$mdgriffith$elm_ui$Element$el,
+							_List_fromArray(
+								[
+									$mdgriffith$elm_ui$Element$Font$size(12),
+									$mdgriffith$elm_ui$Element$Font$bold,
+									$mdgriffith$elm_ui$Element$Font$color(
+									A3($mdgriffith$elm_ui$Element$rgb255, 70, 80, 96))
+								]),
+							$mdgriffith$elm_ui$Element$text('Date: ' + dateText)),
+							A2(
+							$mdgriffith$elm_ui$Element$el,
+							_List_fromArray(
+								[
+									$mdgriffith$elm_ui$Element$Font$size(12),
+									$mdgriffith$elm_ui$Element$Font$bold,
+									$mdgriffith$elm_ui$Element$Font$color(
+									A3($mdgriffith$elm_ui$Element$rgb255, 70, 80, 96))
+								]),
+							$mdgriffith$elm_ui$Element$text('Time: ' + timeText))
+						])),
+					A2(
+					$mdgriffith$elm_ui$Element$row,
+					_List_fromArray(
+						[
+							$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+							$mdgriffith$elm_ui$Element$spacing(10)
+						]),
+					_List_fromArray(
+						[
+							A2(
+							$mdgriffith$elm_ui$Element$el,
+							_List_fromArray(
+								[$mdgriffith$elm_ui$Element$Font$bold]),
+							$mdgriffith$elm_ui$Element$text(entry.method + (' ' + entry.path))),
+							A2(
+							$mdgriffith$elm_ui$Element$el,
+							_List_fromArray(
+								[
+									$mdgriffith$elm_ui$Element$Font$color(statusColor),
+									$mdgriffith$elm_ui$Element$Font$bold
+								]),
+							$mdgriffith$elm_ui$Element$text(
+								$elm$core$String$fromInt(entry.status))),
+							A2(
+							$mdgriffith$elm_ui$Element$el,
+							_List_fromArray(
+								[
+									$mdgriffith$elm_ui$Element$Font$size(12),
+									$mdgriffith$elm_ui$Element$Font$color(
+									A3($mdgriffith$elm_ui$Element$rgb255, 93, 103, 120))
+								]),
+							$mdgriffith$elm_ui$Element$text(
+								$author$project$Main$formatMs(entry.durationMs)))
+						])),
+					A2(
+					$mdgriffith$elm_ui$Element$row,
+					_List_fromArray(
+						[
+							$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+							$mdgriffith$elm_ui$Element$spacing(10)
+						]),
+					_List_fromArray(
+						[
+							A2(
+							$mdgriffith$elm_ui$Element$el,
+							_List_fromArray(
+								[
+									$mdgriffith$elm_ui$Element$Font$size(12),
+									$mdgriffith$elm_ui$Element$Font$color(
+									A3($mdgriffith$elm_ui$Element$rgb255, 93, 103, 120))
+								]),
+							$mdgriffith$elm_ui$Element$text('Route: ' + entry.route)),
+							A2(
+							$mdgriffith$elm_ui$Element$el,
+							_List_fromArray(
+								[
+									$mdgriffith$elm_ui$Element$Font$size(12),
+									$mdgriffith$elm_ui$Element$Font$color(
+									A3($mdgriffith$elm_ui$Element$rgb255, 93, 103, 120))
+								]),
+							$mdgriffith$elm_ui$Element$text(querySummary))
+						]))
+				]),
+			_Utils_ap(
+				($elm$core$String$trim(entry.errorMessage) !== '') ? _List_fromArray(
+					[
+						A2(
+						$mdgriffith$elm_ui$Element$paragraph,
+						_List_fromArray(
+							[
+								$mdgriffith$elm_ui$Element$Font$size(12),
+								$mdgriffith$elm_ui$Element$Font$color(
+								A3($mdgriffith$elm_ui$Element$rgb255, 176, 60, 46))
+							]),
+						_List_fromArray(
+							[
+								$mdgriffith$elm_ui$Element$text('Error: ' + entry.errorMessage)
+							]))
+					]) : _List_Nil,
+				$elm$core$List$isEmpty(entry.queries) ? _List_Nil : _List_fromArray(
+					[
+						A2(
+						$mdgriffith$elm_ui$Element$column,
+						_List_fromArray(
+							[
+								$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+								$mdgriffith$elm_ui$Element$spacing(6)
+							]),
+						_Utils_ap(
+							_List_fromArray(
+								[
+									A2(
+									$mdgriffith$elm_ui$Element$el,
+									_List_fromArray(
+										[
+											$mdgriffith$elm_ui$Element$Font$size(12),
+											$mdgriffith$elm_ui$Element$Font$bold,
+											$mdgriffith$elm_ui$Element$Font$color(
+											A3($mdgriffith$elm_ui$Element$rgb255, 70, 80, 96))
+										]),
+									$mdgriffith$elm_ui$Element$text('Queries'))
+								]),
+							A2($elm$core$List$map, $author$project$Main$viewRequestLogQuery, entry.queries)))
+					]))));
+};
+var $author$project$Main$viewRequestLogsSection = function (requestLogsRemote) {
+	var sectionHeading = F2(
+		function (title, subtitle) {
+			return A2(
+				$mdgriffith$elm_ui$Element$row,
+				_List_fromArray(
+					[
+						$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+						$mdgriffith$elm_ui$Element$spacing(8),
+						$mdgriffith$elm_ui$Element$centerY
+					]),
+				_List_fromArray(
+					[
+						A2(
+						$mdgriffith$elm_ui$Element$el,
+						_List_fromArray(
+							[
+								$mdgriffith$elm_ui$Element$Font$bold,
+								$mdgriffith$elm_ui$Element$Font$size(18)
+							]),
+						$mdgriffith$elm_ui$Element$text(title)),
+						A2(
+						$mdgriffith$elm_ui$Element$el,
+						_List_fromArray(
+							[
+								$mdgriffith$elm_ui$Element$Font$size(12),
+								$mdgriffith$elm_ui$Element$Font$color(
+								A3($mdgriffith$elm_ui$Element$rgb255, 93, 103, 120))
+							]),
+						$mdgriffith$elm_ui$Element$text(subtitle))
+					]));
+		});
+	switch (requestLogsRemote.$) {
+		case 'NotAsked':
+			return A2(
+				$mdgriffith$elm_ui$Element$column,
+				_List_fromArray(
+					[
+						$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+						$mdgriffith$elm_ui$Element$spacing(8)
+					]),
+				_List_fromArray(
+					[
+						A2(sectionHeading, 'Recent request logs', ''),
+						A2(
+						$mdgriffith$elm_ui$Element$paragraph,
+						_List_fromArray(
+							[
+								$mdgriffith$elm_ui$Element$Font$size(13),
+								$mdgriffith$elm_ui$Element$Font$color(
+								A3($mdgriffith$elm_ui$Element$rgb255, 93, 103, 120))
+							]),
+						_List_fromArray(
+							[
+								$mdgriffith$elm_ui$Element$text('No request logs loaded yet.')
+							]))
+					]));
+		case 'Loading':
+			return A2(
+				$mdgriffith$elm_ui$Element$column,
+				_List_fromArray(
+					[
+						$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+						$mdgriffith$elm_ui$Element$spacing(8)
+					]),
+				_List_fromArray(
+					[
+						A2(sectionHeading, 'Recent request logs', ''),
+						A2(
+						$mdgriffith$elm_ui$Element$paragraph,
+						_List_fromArray(
+							[
+								$mdgriffith$elm_ui$Element$Font$size(13),
+								$mdgriffith$elm_ui$Element$Font$color(
+								A3($mdgriffith$elm_ui$Element$rgb255, 93, 103, 120))
+							]),
+						_List_fromArray(
+							[
+								$mdgriffith$elm_ui$Element$text('Loading request logs...')
+							]))
+					]));
+		case 'Failed':
+			var message = requestLogsRemote.a;
+			return A2(
+				$mdgriffith$elm_ui$Element$column,
+				_List_fromArray(
+					[
+						$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+						$mdgriffith$elm_ui$Element$spacing(8)
+					]),
+				_List_fromArray(
+					[
+						A2(sectionHeading, 'Recent request logs', ''),
+						A2(
+						$mdgriffith$elm_ui$Element$paragraph,
+						_List_fromArray(
+							[
+								$mdgriffith$elm_ui$Element$Font$size(13),
+								$mdgriffith$elm_ui$Element$Font$color(
+								A3($mdgriffith$elm_ui$Element$rgb255, 176, 60, 46))
+							]),
+						_List_fromArray(
+							[
+								$mdgriffith$elm_ui$Element$text(message)
+							]))
+					]));
+		default:
+			var payload = requestLogsRemote.a;
+			return A2(
+				$mdgriffith$elm_ui$Element$column,
+				_List_fromArray(
+					[
+						$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+						$mdgriffith$elm_ui$Element$spacing(8)
+					]),
+				_Utils_ap(
+					_List_fromArray(
+						[
+							A2(
+							sectionHeading,
+							'Recent request logs',
+							'Showing ' + ($elm$core$String$fromInt(
+								$elm$core$List$length(payload.logs)) + (' entries (buffer size: ' + ($elm$core$String$fromInt(payload.buffer) + ')'))))
+						]),
+					$elm$core$List$isEmpty(payload.logs) ? _List_fromArray(
+						[
+							A2(
+							$mdgriffith$elm_ui$Element$paragraph,
+							_List_fromArray(
+								[
+									$mdgriffith$elm_ui$Element$Font$size(13),
+									$mdgriffith$elm_ui$Element$Font$color(
+									A3($mdgriffith$elm_ui$Element$rgb255, 93, 103, 120))
+								]),
+							_List_fromArray(
+								[
+									$mdgriffith$elm_ui$Element$text('No requests captured yet.')
+								]))
+						]) : A2($elm$core$List$map, $author$project$Main$viewRequestLogEntry, payload.logs)));
+	}
+};
+var $author$project$Main$viewRequestLogsPanel = function (model) {
+	return (!$author$project$Main$isAdminProfile(model)) ? A2(
+		$mdgriffith$elm_ui$Element$column,
+		_List_fromArray(
+			[
+				$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+				$mdgriffith$elm_ui$Element$spacing(14),
+				$mdgriffith$elm_ui$Element$Background$color(
+				A3($mdgriffith$elm_ui$Element$rgb255, 255, 255, 255)),
+				$mdgriffith$elm_ui$Element$Border$rounded(14),
+				$mdgriffith$elm_ui$Element$Border$width(1),
+				$mdgriffith$elm_ui$Element$Border$color(
+				A3($mdgriffith$elm_ui$Element$rgb255, 226, 232, 239)),
+				$mdgriffith$elm_ui$Element$padding(16)
+			]),
+		_List_fromArray(
+			[
+				A2(
+				$mdgriffith$elm_ui$Element$el,
+				_List_fromArray(
+					[
+						$mdgriffith$elm_ui$Element$Font$bold,
+						$mdgriffith$elm_ui$Element$Font$size(20)
+					]),
+				$mdgriffith$elm_ui$Element$text('Request logs')),
+				A2(
+				$mdgriffith$elm_ui$Element$paragraph,
+				_List_fromArray(
+					[
+						$mdgriffith$elm_ui$Element$Font$size(14),
+						$mdgriffith$elm_ui$Element$Font$color(
+						A3($mdgriffith$elm_ui$Element$rgb255, 93, 103, 120))
+					]),
+				_List_fromArray(
+					[
+						$mdgriffith$elm_ui$Element$text('Admin role required to view request logs.')
+					]))
+			])) : A2(
+		$mdgriffith$elm_ui$Element$column,
+		_List_fromArray(
+			[
+				$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+				$mdgriffith$elm_ui$Element$spacing(14),
+				$mdgriffith$elm_ui$Element$Background$color(
+				A3($mdgriffith$elm_ui$Element$rgb255, 255, 255, 255)),
+				$mdgriffith$elm_ui$Element$Border$rounded(14),
+				$mdgriffith$elm_ui$Element$Border$width(1),
+				$mdgriffith$elm_ui$Element$Border$color(
+				A3($mdgriffith$elm_ui$Element$rgb255, 226, 232, 239)),
+				$mdgriffith$elm_ui$Element$padding(16)
+			]),
+		_List_fromArray(
+			[
+				A2(
+				$mdgriffith$elm_ui$Element$row,
+				_List_fromArray(
+					[
+						$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+						$mdgriffith$elm_ui$Element$spacing(10),
+						$mdgriffith$elm_ui$Element$centerY
+					]),
+				_List_fromArray(
+					[
+						A2(
+						$mdgriffith$elm_ui$Element$el,
+						_List_fromArray(
+							[
+								$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+								$mdgriffith$elm_ui$Element$Font$bold,
+								$mdgriffith$elm_ui$Element$Font$size(20)
+							]),
+						$mdgriffith$elm_ui$Element$text('Request logs')),
+						A2(
+						$mdgriffith$elm_ui$Element$Input$button,
+						_List_fromArray(
+							[
+								$mdgriffith$elm_ui$Element$Background$color(
+								A3($mdgriffith$elm_ui$Element$rgb255, 224, 231, 241)),
+								$mdgriffith$elm_ui$Element$Border$rounded(10),
+								$mdgriffith$elm_ui$Element$paddingEach(
+								{bottom: 10, left: 14, right: 14, top: 10})
+							]),
+						{
+							label: $mdgriffith$elm_ui$Element$text('Refresh'),
+							onPress: $elm$core$Maybe$Just($author$project$Main$ReloadRequestLogs)
+						})
+					])),
+				A2(
+				$mdgriffith$elm_ui$Element$paragraph,
+				_List_fromArray(
+					[
+						$mdgriffith$elm_ui$Element$Font$size(12),
+						$mdgriffith$elm_ui$Element$Font$color(
+						A3($mdgriffith$elm_ui$Element$rgb255, 93, 103, 120))
+					]),
+				_List_fromArray(
+					[
+						$mdgriffith$elm_ui$Element$text('Sensitive values are masked by the server in this view (tokens, login codes, and emails).')
+					])),
+				$author$project$Main$viewRequestLogsSection(model.requestLogs)
+			]));
+};
 var $author$project$Main$viewContent = function (model) {
 	return A2(
 		$mdgriffith$elm_ui$Element$column,
@@ -17674,26 +18317,30 @@ var $author$project$Main$viewContent = function (model) {
 					if (model.performanceMode) {
 						return $author$project$Main$viewPerformancePanel(model);
 					} else {
-						if (model.databaseMode) {
-							return $author$project$Main$viewDatabasePanel(model);
+						if (model.requestLogsMode) {
+							return $author$project$Main$viewRequestLogsPanel(model);
 						} else {
-							var _v0 = model.selectedAction;
-							if (_v0.$ === 'Just') {
-								return $author$project$Main$viewDataPanel(model);
+							if (model.databaseMode) {
+								return $author$project$Main$viewDatabasePanel(model);
 							} else {
-								return A2(
-									$mdgriffith$elm_ui$Element$row,
-									_List_fromArray(
-										[
-											$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
-											$mdgriffith$elm_ui$Element$height($mdgriffith$elm_ui$Element$fill),
-											$mdgriffith$elm_ui$Element$spacing(16)
-										]),
-									_List_fromArray(
-										[
-											$author$project$Main$viewDataPanel(model),
-											$author$project$Main$viewInspector(model)
-										]));
+								var _v0 = model.selectedAction;
+								if (_v0.$ === 'Just') {
+									return $author$project$Main$viewDataPanel(model);
+								} else {
+									return A2(
+										$mdgriffith$elm_ui$Element$row,
+										_List_fromArray(
+											[
+												$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+												$mdgriffith$elm_ui$Element$height($mdgriffith$elm_ui$Element$fill),
+												$mdgriffith$elm_ui$Element$spacing(16)
+											]),
+										_List_fromArray(
+											[
+												$author$project$Main$viewDataPanel(model),
+												$author$project$Main$viewInspector(model)
+											]));
+								}
 							}
 						}
 					}
@@ -17709,6 +18356,7 @@ var $author$project$Main$SelectEntity = function (a) {
 	return {$: 'SelectEntity', a: a};
 };
 var $author$project$Main$SelectPerformance = {$: 'SelectPerformance'};
+var $author$project$Main$SelectRequestLogs = {$: 'SelectRequestLogs'};
 var $author$project$Main$ToggleAuthTools = {$: 'ToggleAuthTools'};
 var $mdgriffith$elm_ui$Internal$Model$AlignX = function (a) {
 	return {$: 'AlignX', a: a};
@@ -17742,6 +18390,50 @@ var $author$project$Main$splitEntitiesForSidebar = F2(
 		}
 	});
 var $author$project$Main$viewSidebar = function (model) {
+	var requestLogsButton = function () {
+		var backgroundColor = (model.requestLogsMode && (!model.authToolsOpen)) ? A3($mdgriffith$elm_ui$Element$rgb255, 54, 94, 217) : A3($mdgriffith$elm_ui$Element$rgb255, 24, 29, 36);
+		return A2(
+			$mdgriffith$elm_ui$Element$Input$button,
+			_List_fromArray(
+				[
+					$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+					$mdgriffith$elm_ui$Element$Border$rounded(10),
+					$mdgriffith$elm_ui$Element$Background$color(backgroundColor),
+					$mdgriffith$elm_ui$Element$Font$color(
+					A3($mdgriffith$elm_ui$Element$rgb255, 244, 246, 248)),
+					$mdgriffith$elm_ui$Element$paddingEach(
+					{bottom: 12, left: 12, right: 12, top: 12})
+				]),
+			{
+				label: A2(
+					$mdgriffith$elm_ui$Element$row,
+					_List_fromArray(
+						[
+							$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill)
+						]),
+					_List_fromArray(
+						[
+							A2(
+							$mdgriffith$elm_ui$Element$paragraph,
+							_List_fromArray(
+								[$mdgriffith$elm_ui$Element$alignLeft]),
+							_List_fromArray(
+								[
+									$mdgriffith$elm_ui$Element$text('Logs')
+								])),
+							A2(
+							$mdgriffith$elm_ui$Element$el,
+							_List_fromArray(
+								[
+									$mdgriffith$elm_ui$Element$Font$size(12),
+									$mdgriffith$elm_ui$Element$Font$color(
+									A3($mdgriffith$elm_ui$Element$rgb255, 170, 181, 196))
+								]),
+							$mdgriffith$elm_ui$Element$text('/_belm/request-logs'))
+						])),
+				onPress: $elm$core$Maybe$Just($author$project$Main$SelectRequestLogs)
+			});
+	}();
 	var performanceButton = function () {
 		var backgroundColor = (model.performanceMode && (!model.authToolsOpen)) ? A3($mdgriffith$elm_ui$Element$rgb255, 54, 94, 217) : A3($mdgriffith$elm_ui$Element$rgb255, 24, 29, 36);
 		return A2(
@@ -17787,7 +18479,7 @@ var $author$project$Main$viewSidebar = function (model) {
 			});
 	}();
 	var entityButton = function (entity) {
-		var selected = (!model.authToolsOpen) && ((!model.performanceMode) && ((!model.databaseMode) && function () {
+		var selected = (!model.authToolsOpen) && ((!model.performanceMode) && ((!model.requestLogsMode) && ((!model.databaseMode) && function () {
 			var _v5 = model.selectedEntity;
 			if (_v5.$ === 'Just') {
 				var current = _v5.a;
@@ -17795,7 +18487,7 @@ var $author$project$Main$viewSidebar = function (model) {
 			} else {
 				return false;
 			}
-		}()));
+		}())));
 		var backgroundColor = selected ? A3($mdgriffith$elm_ui$Element$rgb255, 54, 94, 217) : A3($mdgriffith$elm_ui$Element$rgb255, 24, 29, 36);
 		return A2(
 			$mdgriffith$elm_ui$Element$Input$button,
@@ -17929,7 +18621,7 @@ var $author$project$Main$viewSidebar = function (model) {
 			});
 	}();
 	var actionEndpointCard = function (actionInfo) {
-		var selected = (!model.authToolsOpen) && ((!model.performanceMode) && ((!model.databaseMode) && function () {
+		var selected = (!model.authToolsOpen) && ((!model.performanceMode) && ((!model.requestLogsMode) && ((!model.databaseMode) && function () {
 			var _v4 = model.selectedAction;
 			if (_v4.$ === 'Just') {
 				var current = _v4.a;
@@ -17937,7 +18629,7 @@ var $author$project$Main$viewSidebar = function (model) {
 			} else {
 				return false;
 			}
-		}()));
+		}())));
 		var backgroundColor = selected ? A3($mdgriffith$elm_ui$Element$rgb255, 54, 94, 217) : A3($mdgriffith$elm_ui$Element$rgb255, 24, 29, 36);
 		return A2(
 			$mdgriffith$elm_ui$Element$Input$button,
@@ -18110,6 +18802,7 @@ var $author$project$Main$viewSidebar = function (model) {
 									]),
 								$mdgriffith$elm_ui$Element$text('SYSTEM')),
 								performanceButton,
+								requestLogsButton,
 								databaseButton
 							]) : _List_Nil)))));
 };

@@ -210,10 +210,11 @@ func (r *Runtime) handleAuthRequestCode(w http.ResponseWriter, payload map[strin
 	if r.usesAppAuthEntity() {
 		userID = user[r.authUser.PrimaryKey]
 	}
-	return r.issueAuthCode(w, email, userID, "If this email exists, a code was sent.")
+	return r.issueAuthCode(w, email, userID, "If this email exists, a code was sent.", "")
 }
 
-// handleBootstrapAdmin creates the first auth user with role admin and sends a login code.
+// handleBootstrapAdmin creates the first auth user and sends a verification code.
+// The user is promoted to admin only after a successful login with that code.
 func (r *Runtime) handleBootstrapAdmin(w http.ResponseWriter, payload map[string]any) error {
 	cfg := r.authConfig()
 	if strings.TrimSpace(cfg.RoleField) == "" {
@@ -233,21 +234,21 @@ func (r *Runtime) handleBootstrapAdmin(w http.ResponseWriter, payload map[string
 		return err
 	}
 
-	user, found, err := r.tryAutoCreateAuthUserWithRole(email, "admin")
+	user, found, err := r.tryAutoCreateAuthUser(email)
 	if err != nil {
 		return err
 	}
 	if !found {
-		return &apiError{Status: http.StatusUnprocessableEntity, Message: "Could not auto-create admin user. Add optional/default fields or create one manually."}
+		return &apiError{Status: http.StatusUnprocessableEntity, Message: "Could not create first user. Add optional/default fields or create one manually."}
 	}
 	userID := user["id"]
 	if r.usesAppAuthEntity() {
 		userID = user[r.authUser.PrimaryKey]
 	}
-	return r.issueAuthCode(w, email, userID, "First admin user created. A login code was sent.")
+	return r.issueAuthCode(w, email, userID, "First admin verification code sent. Complete login with this code to finish setup.", "admin")
 }
 
-func (r *Runtime) issueAuthCode(w http.ResponseWriter, email string, userID any, message string) error {
+func (r *Runtime) issueAuthCode(w http.ResponseWriter, email string, userID any, message string, grantRole string) error {
 	cfg := r.authConfig()
 	code, err := randomCode6()
 	if err != nil {
@@ -255,7 +256,16 @@ func (r *Runtime) issueAuthCode(w http.ResponseWriter, email string, userID any,
 	}
 	now := time.Now().UnixMilli()
 	expiresAt := now + int64(cfg.CodeTTLMinutes)*60_000
-	_, err = r.DB.Exec(`INSERT INTO belm_auth_codes (email, user_id, code, expires_at, used, created_at) VALUES (?, ?, ?, ?, 0, ?)`, email, userID, code, expiresAt, now)
+	grantRole = strings.TrimSpace(grantRole)
+	_, err = r.DB.Exec(
+		`INSERT INTO belm_auth_codes (email, user_id, code, grant_role, expires_at, used, created_at) VALUES (?, ?, ?, ?, ?, 0, ?)`,
+		email,
+		userID,
+		code,
+		grantRole,
+		expiresAt,
+		now,
+	)
 	if err != nil {
 		return err
 	}
@@ -418,7 +428,7 @@ func (r *Runtime) handleAuthLogin(w http.ResponseWriter, payload map[string]any)
 		return &apiError{Status: http.StatusBadRequest, Message: "code is required"}
 	}
 
-	row, ok, err := queryRow(r.DB, `SELECT id, user_id, code, expires_at, used FROM belm_auth_codes WHERE email = ? ORDER BY id DESC LIMIT 1`, email)
+	row, ok, err := queryRow(r.DB, `SELECT id, user_id, code, grant_role, expires_at, used FROM belm_auth_codes WHERE email = ? ORDER BY id DESC LIMIT 1`, email)
 	if err != nil {
 		return err
 	}
@@ -434,6 +444,7 @@ func (r *Runtime) handleAuthLogin(w http.ResponseWriter, payload map[string]any)
 	}
 	codeID, _ := toInt64(row["id"])
 	userID := row["user_id"]
+	grantRole, _ := row["grant_role"].(string)
 
 	if _, err := r.DB.Exec(`UPDATE belm_auth_codes SET used = 1 WHERE id = ?`, codeID); err != nil {
 		return err
@@ -445,6 +456,15 @@ func (r *Runtime) handleAuthLogin(w http.ResponseWriter, payload map[string]any)
 	if !found {
 		return &apiError{Status: http.StatusUnauthorized, Message: "Invalid or expired code"}
 	}
+
+	if strings.EqualFold(strings.TrimSpace(grantRole), "admin") {
+		promotedUser, promoteErr := r.promoteAuthUserToAdmin(userRow)
+		if promoteErr != nil {
+			return promoteErr
+		}
+		userRow = promotedUser
+	}
+
 	decodedUser := userRow
 	if r.usesAppAuthEntity() {
 		decodedUser = decodeEntityRow(r.authUser, userRow)

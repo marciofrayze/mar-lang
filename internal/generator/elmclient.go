@@ -321,10 +321,15 @@ func GenerateElmClient(app *model.App) (*ElmClientOutput, error) {
 	return out, nil
 }
 
-// ElmOutputPath resolves the generated Elm client location next to the manifest.
-func ElmOutputPath(manifestPath, fileName string) string {
+// ClientOutputPath resolves the generated client location under build/<app>/clients.
+func ClientOutputPath(manifestPath, fileName string) string {
 	dir := filepath.Dir(manifestPath)
-	return filepath.Join(dir, fileName)
+	return filepath.Join(dir, "clients", fileName)
+}
+
+// ElmOutputPath keeps backward compatibility with previous callers.
+func ElmOutputPath(manifestPath, fileName string) string {
+	return ClientOutputPath(manifestPath, fileName)
 }
 
 func writeLine(buf *bytes.Buffer, line string) {

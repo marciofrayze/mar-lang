@@ -29,6 +29,7 @@ func (r *Runtime) runMigrations() error {
 		{Name: "email", Type: "TEXT", NotNull: true},
 		{Name: "user_id", Type: "INTEGER", NotNull: true},
 		{Name: "code", Type: "TEXT", NotNull: true},
+		{Name: "grant_role", Type: "TEXT"},
 		{Name: "expires_at", Type: "INTEGER", NotNull: true},
 		{Name: "used", Type: "INTEGER", NotNull: true, DefaultSQL: "0"},
 		{Name: "created_at", Type: "INTEGER", NotNull: true},

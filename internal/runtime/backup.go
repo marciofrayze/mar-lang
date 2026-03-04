@@ -39,13 +39,14 @@ func CreateSQLiteBackup(databasePath string, keepLast int) (BackupResult, error)
 		return BackupResult{}, errors.New("sqlite3 is required to create backups")
 	}
 
-	baseName := filepath.Base(databasePath)
+	resolvedDatabasePath := resolveAbsolutePath(databasePath)
+	baseName := filepath.Base(resolvedDatabasePath)
 	prefix := strings.TrimSuffix(baseName, filepath.Ext(baseName))
 	if prefix == "" {
 		prefix = "database"
 	}
 
-	backupDir := filepath.Join(filepath.Dir(databasePath), "backups")
+	backupDir := backupDirectory(databasePath)
 	if err := os.MkdirAll(backupDir, 0o755); err != nil {
 		return BackupResult{}, err
 	}
@@ -74,19 +75,20 @@ func CreateSQLiteBackup(databasePath string, keepLast int) (BackupResult, error)
 		BackupDir:  backupDir,
 		Removed:    removed,
 		KeptLast:   keepLast,
-		Database:   databasePath,
+		Database:   resolvedDatabasePath,
 		OccurredAt: time.Now().UnixMilli(),
 	}, nil
 }
 
 // ListSQLiteBackups lists existing backup files for a SQLite database, newest first.
 func ListSQLiteBackups(databasePath string, limit int) ([]BackupFile, error) {
-	baseName := filepath.Base(databasePath)
+	resolvedDatabasePath := resolveAbsolutePath(databasePath)
+	baseName := filepath.Base(resolvedDatabasePath)
 	prefix := strings.TrimSuffix(baseName, filepath.Ext(baseName))
 	if prefix == "" {
 		prefix = "database"
 	}
-	backupDir := filepath.Join(filepath.Dir(databasePath), "backups")
+	backupDir := backupDirectory(databasePath)
 	entries, err := os.ReadDir(backupDir)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -129,6 +131,30 @@ func ListSQLiteBackups(databasePath string, limit int) ([]BackupFile, error) {
 		files = files[:limit]
 	}
 	return files, nil
+}
+
+func backupDirectory(databasePath string) string {
+	resolvedDatabasePath := resolveAbsolutePath(databasePath)
+	return filepath.Join(filepath.Dir(resolvedDatabasePath), "backups")
+}
+
+func resolveAbsolutePath(path string) string {
+	cleaned := strings.TrimSpace(path)
+	if cleaned == "" {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return "."
+		}
+		return cwd
+	}
+	if filepath.IsAbs(cleaned) {
+		return filepath.Clean(cleaned)
+	}
+	abs, err := filepath.Abs(cleaned)
+	if err != nil {
+		return filepath.Clean(cleaned)
+	}
+	return filepath.Clean(abs)
 }
 
 func backupFileTimestamp(fileName string, fallback time.Time) time.Time {

@@ -1,6 +1,8 @@
 package runtime
 
 import (
+	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"path/filepath"
 	"strings"
@@ -9,7 +11,7 @@ import (
 	"belm/internal/parser"
 )
 
-func TestBootstrapAdminCreatesSingleAdminWhenNoUsers(t *testing.T) {
+func TestBootstrapAdminRequiresCodeLoginToPromoteFirstUser(t *testing.T) {
 	requireSQLite3(t)
 
 	r := mustNewAuthRuntime(t, filepath.Join(t.TempDir(), "bootstrap-empty.db"))
@@ -39,8 +41,40 @@ func TestBootstrapAdminCreatesSingleAdminWhenNoUsers(t *testing.T) {
 		t.Fatal("expected bootstrap user to exist")
 	}
 	role, _ := user["role"].(string)
+	if strings.ToLower(strings.TrimSpace(role)) != "user" {
+		t.Fatalf("expected role user before login, got %q", role)
+	}
+
+	var bootstrapResp struct {
+		DevCode string `json:"devCode"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &bootstrapResp); err != nil {
+		t.Fatalf("decode bootstrap response failed: %v body=%s", err, rec.Body.String())
+	}
+	if strings.TrimSpace(bootstrapResp.DevCode) == "" {
+		t.Fatalf("expected bootstrap response to include devCode, got body=%s", rec.Body.String())
+	}
+
+	token := loginWithCodeAndReadToken(t, r, "owner@example.com", bootstrapResp.DevCode)
+	if strings.TrimSpace(token) == "" {
+		t.Fatal("expected token after login")
+	}
+
+	user, found, err = r.loadAuthUserByEmail("owner@example.com")
+	if err != nil {
+		t.Fatalf("load user after login failed: %v", err)
+	}
+	if !found {
+		t.Fatal("expected user to exist after login")
+	}
+	role, _ = user["role"].(string)
 	if strings.ToLower(strings.TrimSpace(role)) != "admin" {
-		t.Fatalf("expected role admin, got %q", role)
+		t.Fatalf("expected role admin after login, got %q", role)
+	}
+
+	meRec := doRuntimeRequest(r, http.MethodGet, "/auth/me", "", token)
+	if meRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 from /auth/me, got %d body=%s", meRec.Code, meRec.Body.String())
 	}
 }
 

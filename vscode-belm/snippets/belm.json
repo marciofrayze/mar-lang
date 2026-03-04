@@ -101,6 +101,15 @@
       "}"
     ]
   },
+  "Belm System Block": {
+    "prefix": "system",
+    "description": "Create a system runtime configuration block",
+    "body": [
+      "system {",
+      "  request_logs_buffer ${1:200}",
+      "}"
+    ]
+  },
   "Belm Authorize Pack": {
     "prefix": "authzcrud",
     "description": "Create full CRUD authorization rules",

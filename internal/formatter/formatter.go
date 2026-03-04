@@ -12,6 +12,7 @@ var (
 	appRe          = regexp.MustCompile(`^app\s+([A-Za-z][A-Za-z0-9_]*)$`)
 	portRe         = regexp.MustCompile(`^port\s+([0-9]{1,5})$`)
 	dbRe           = regexp.MustCompile(`^database\s+"([^"]+)"$`)
+	systemStartRe  = regexp.MustCompile(`^system\s*\{$`)
 	publicStartRe  = regexp.MustCompile(`^public\s*\{$`)
 	authStartRe    = regexp.MustCompile(`^auth\s*\{$`)
 	entityStartRe  = regexp.MustCompile(`^entity\s+([A-Za-z][A-Za-z0-9_]*)\s*\{$`)
@@ -23,6 +24,7 @@ var (
 	entityFieldRe = regexp.MustCompile(`^([a-z][A-Za-z0-9_]*)\s*:\s*(Int|String|Bool|Float)(?:\s+(.*))?$`)
 	ruleRe        = regexp.MustCompile(`^rule\s+"([^"]+)"\s+when\s+(.+)$`)
 	authorizeRe   = regexp.MustCompile(`^authorize\s+(list|get|create|update|delete)\s+when\s+(.+)$`)
+	systemIntRe   = regexp.MustCompile(`^(request_logs_buffer)\s+([0-9]{1,6})$`)
 	publicQuoteRe = regexp.MustCompile(`^(dir|mount|spa_fallback)\s+"([^"]+)"$`)
 	authStmtRe    = regexp.MustCompile(`^(user_entity|email_field|role_field|code_ttl_minutes|session_ttl_hours|email_transport|dev_expose_code)\s+(.+)$`)
 	authQuoteRe   = regexp.MustCompile(`^(email_from|email_subject|sendmail_path)\s+"([^"]+)"$`)
@@ -89,6 +91,7 @@ func Format(source string) (string, error) {
 
 type formatState struct {
 	inEntity       bool
+	inSystem       bool
 	inPublic       bool
 	inAuth         bool
 	inTypeAlias    bool
@@ -104,6 +107,8 @@ func (s *formatState) update(line string) {
 		s.inEntity = true
 	case authStartRe.MatchString(line):
 		s.inAuth = true
+	case systemStartRe.MatchString(line):
+		s.inSystem = true
 	case publicStartRe.MatchString(line):
 		s.inPublic = true
 	case typeAliasRe.MatchString(line):
@@ -127,6 +132,8 @@ func (s *formatState) update(line string) {
 			s.inActionCreate = false
 		case s.inEntity:
 			s.inEntity = false
+		case s.inSystem:
+			s.inSystem = false
 		case s.inPublic:
 			s.inPublic = false
 		case s.inAuth:
@@ -149,6 +156,9 @@ func normalizeLine(trimmed string, state *formatState) string {
 	if m := dbRe.FindStringSubmatch(trimmed); m != nil {
 		return `database "` + m[1] + `"`
 	}
+	if systemStartRe.MatchString(trimmed) {
+		return "system {"
+	}
 	if publicStartRe.MatchString(trimmed) {
 		return "public {"
 	}
@@ -168,6 +178,12 @@ func normalizeLine(trimmed string, state *formatState) string {
 	}
 	if m := actionStartRe.FindStringSubmatch(trimmed); m != nil {
 		return "action " + m[1] + " {"
+	}
+
+	if state.inSystem {
+		if m := systemIntRe.FindStringSubmatch(trimmed); m != nil {
+			return m[1] + " " + m[2]
+		}
 	}
 
 	if state.inPublic {

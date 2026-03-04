@@ -64,8 +64,10 @@ type alias Model =
     , actionFormValues : Dict String String
     , actionResult : Maybe Row
     , perf : Remote PerfPayload
-    , backups : Remote (List BackupFile)
+    , requestLogs : Remote RequestLogsPayload
+    , backups : Remote BackupsPayload
     , performanceMode : Bool
+    , requestLogsMode : Bool
     , databaseMode : Bool
     , lastBackup : Maybe BackupResponse
     , flash : Maybe String
@@ -79,11 +81,14 @@ type Msg
     | ReloadRows
     | GotRows (Result Http.Error (List Row))
     | SelectPerformance
+    | SelectRequestLogs
     | SelectDatabase
     | ReloadDatabase
     | ReloadPerformance
+    | ReloadRequestLogs
     | GotPerformance (Result Http.Error PerfPayload)
-    | GotBackups (Result Http.Error (List BackupFile))
+    | GotRequestLogs (Result Http.Error RequestLogsPayload)
+    | GotBackups (Result Http.Error BackupsPayload)
     | TriggerBackup
     | GotBackup (Result Http.Error BackupResponse)
     | SelectAuthTab AuthTab
@@ -150,6 +155,12 @@ type alias BackupFile =
     }
 
 
+type alias BackupsPayload =
+    { backupDir : String
+    , backups : List BackupFile
+    }
+
+
 type alias PerfPayload =
     { uptimeSeconds : Float
     , goroutines : Int
@@ -175,6 +186,36 @@ type alias PerfRoute =
     , errors4xx : Int
     , errors5xx : Int
     , avgMs : Float
+    }
+
+
+type alias RequestLogsPayload =
+    { buffer : Int
+    , totalCaptured : Int
+    , logs : List RequestLogEntry
+    }
+
+
+type alias RequestLogEntry =
+    { id : String
+    , method : String
+    , path : String
+    , route : String
+    , status : Int
+    , durationMs : Float
+    , timestamp : String
+    , queryCount : Int
+    , queryTimeMs : Float
+    , errorMessage : String
+    , queries : List RequestLogQuery
+    }
+
+
+type alias RequestLogQuery =
+    { sql : String
+    , durationMs : Float
+    , rowCount : Int
+    , error : Maybe String
     }
 
 
@@ -211,8 +252,10 @@ init flags =
       , actionFormValues = Dict.empty
       , actionResult = Nothing
       , perf = NotAsked
+      , requestLogs = NotAsked
       , backups = NotAsked
       , performanceMode = False
+      , requestLogsMode = False
       , databaseMode = False
       , lastBackup = Nothing
       , flash = Nothing
@@ -245,6 +288,7 @@ update msg model =
                             { model
                                 | schema = Loaded schema
                                 , performanceMode = False
+                                , requestLogsMode = False
                                 , databaseMode = False
                                 , authToolsOpen = keepAuthToolsOpen
                                 , selectedEntity = maybeEntity
@@ -260,6 +304,7 @@ update msg model =
                                 , formValues = Dict.empty
                                 , actionFormValues = Dict.empty
                                 , actionResult = Nothing
+                                , requestLogs = NotAsked
                                 , backups = NotAsked
                             }
                     in
@@ -280,6 +325,7 @@ update msg model =
                 nextModel =
                     { model
                         | performanceMode = False
+                        , requestLogsMode = False
                         , databaseMode = False
                         , authToolsOpen = False
                         , selectedEntity = nextEntity
@@ -306,6 +352,7 @@ update msg model =
                 Just actionInfo ->
                     ( { model
                         | performanceMode = False
+                        , requestLogsMode = False
                         , databaseMode = False
                         , authToolsOpen = False
                         , selectedAction = Just actionInfo
@@ -345,6 +392,7 @@ update msg model =
                     nextModel =
                         { model
                             | performanceMode = True
+                            , requestLogsMode = False
                             , databaseMode = False
                             , authToolsOpen = False
                             , selectedEntity = Nothing
@@ -360,6 +408,31 @@ update msg model =
                 in
                 ( nextModel, loadPerformance nextModel )
 
+        SelectRequestLogs ->
+            if not (isAdminProfile model) then
+                ( { model | flash = Just "Admin role required to access request logs." }, Cmd.none )
+
+            else
+                let
+                    nextModel =
+                        { model
+                            | performanceMode = False
+                            , requestLogsMode = True
+                            , databaseMode = False
+                            , authToolsOpen = False
+                            , selectedEntity = Nothing
+                            , selectedAction = Nothing
+                            , selectedRow = Nothing
+                            , rows = NotAsked
+                            , formMode = FormHidden
+                            , formValues = Dict.empty
+                            , actionResult = Nothing
+                            , requestLogs = Loading
+                            , flash = Nothing
+                        }
+                in
+                ( nextModel, loadRequestLogs nextModel )
+
         SelectDatabase ->
             if not (isAdminProfile model) then
                 ( { model | flash = Just "Admin role required to access database tools." }, Cmd.none )
@@ -369,6 +442,7 @@ update msg model =
                     nextModel =
                         { model
                             | performanceMode = False
+                            , requestLogsMode = False
                             , databaseMode = True
                             , authToolsOpen = False
                             , selectedEntity = Nothing
@@ -403,6 +477,13 @@ update msg model =
             in
             ( nextModel, loadPerformance nextModel )
 
+        ReloadRequestLogs ->
+            let
+                nextModel =
+                    { model | requestLogs = Loading, flash = Nothing }
+            in
+            ( nextModel, loadRequestLogs nextModel )
+
         GotPerformance result ->
             case result of
                 Ok perf ->
@@ -410,6 +491,14 @@ update msg model =
 
                 Err httpError ->
                     ( { model | perf = Failed (httpErrorToString httpError) }, Cmd.none )
+
+        GotRequestLogs result ->
+            case result of
+                Ok payload ->
+                    ( { model | requestLogs = Loaded payload }, Cmd.none )
+
+                Err httpError ->
+                    ( { model | requestLogs = Failed (httpErrorToString httpError) }, Cmd.none )
 
         GotBackups result ->
             case result of
@@ -480,14 +569,11 @@ update msg model =
                                 nextModel =
                                     { model
                                         | authCode = code
-                                        , flash = Just ("First " ++ authScopeLabel scope ++ " admin created. Logging in...")
+                                        , flash = Just ("First " ++ authScopeLabel scope ++ " admin code sent. Enter the code and click Login.")
                                     }
                             in
                             ( nextModel
-                            , Cmd.batch
-                                [ loadSchema model.apiBase
-                                , loginWithCode scope nextModel
-                                ]
+                            , loadSchema model.apiBase
                             )
 
                         Nothing ->
@@ -547,6 +633,9 @@ update msg model =
                                 refreshCmd =
                                     if model.performanceMode then
                                         loadPerformance nextModel
+
+                                    else if model.requestLogsMode then
+                                        loadRequestLogs nextModel
 
                                     else if model.databaseMode then
                                         Cmd.batch [ loadPerformance nextModel, loadBackups nextModel ]
@@ -691,6 +780,7 @@ update msg model =
                     { model
                         | authToolsOpen = True
                         , performanceMode = False
+                        , requestLogsMode = False
                         , databaseMode = False
                         , selectedEntity = Nothing
                         , selectedAction = Nothing
@@ -885,6 +975,19 @@ loadPerformance model =
         , url = model.apiBase ++ "/_belm/perf"
         , body = Http.emptyBody
         , expect = expectJsonWithApiError GotPerformance perfPayloadDecoder
+        , timeout = Nothing
+        , tracker = Nothing
+        }
+
+
+loadRequestLogs : Model -> Cmd Msg
+loadRequestLogs model =
+    Http.request
+        { method = "GET"
+        , headers = appAuthHeaders model
+        , url = model.apiBase ++ "/_belm/request-logs?limit=30"
+        , body = Http.emptyBody
+        , expect = expectJsonWithApiError GotRequestLogs requestLogsPayloadDecoder
         , timeout = Nothing
         , tracker = Nothing
         }
@@ -1235,6 +1338,73 @@ perfRouteDecoder =
         (Decode.field "avgMs" Decode.float)
 
 
+requestLogsPayloadDecoder : Decode.Decoder RequestLogsPayload
+requestLogsPayloadDecoder =
+    Decode.map3 RequestLogsPayload
+        (Decode.field "buffer" Decode.int)
+        (Decode.field "totalCaptured" Decode.int)
+        (Decode.field "logs" (Decode.list requestLogEntryDecoder))
+
+
+requestLogEntryDecoder : Decode.Decoder RequestLogEntry
+requestLogEntryDecoder =
+    Decode.map8
+        (\id method path route status durationMs timestamp queryCount ->
+            { id = id
+            , method = method
+            , path = path
+            , route = route
+            , status = status
+            , durationMs = durationMs
+            , timestamp = timestamp
+            , queryCount = queryCount
+            , queryTimeMs = 0
+            , errorMessage = ""
+            , queries = []
+            }
+        )
+        (Decode.field "id" Decode.string)
+        (Decode.field "method" Decode.string)
+        (Decode.field "path" Decode.string)
+        (Decode.field "route" Decode.string)
+        (Decode.field "status" Decode.int)
+        (Decode.field "durationMs" Decode.float)
+        (Decode.field "timestamp" Decode.string)
+        (Decode.field "queryCount" Decode.int)
+        |> Decode.andThen
+            (\base ->
+                Decode.map3
+                    (\queryTimeMs errorMessage queries ->
+                        { base
+                            | queryTimeMs = queryTimeMs
+                            , errorMessage = errorMessage
+                            , queries = queries
+                        }
+                    )
+                    (Decode.field "queryTimeMs" Decode.float)
+                    (Decode.oneOf
+                        [ Decode.field "errorMessage" Decode.string
+                        , Decode.succeed ""
+                        ]
+                    )
+                    (Decode.field "queries" (Decode.list requestLogQueryDecoder))
+            )
+
+
+requestLogQueryDecoder : Decode.Decoder RequestLogQuery
+requestLogQueryDecoder =
+    Decode.map4 RequestLogQuery
+        (Decode.field "sql" Decode.string)
+        (Decode.field "durationMs" Decode.float)
+        (Decode.field "rowCount" Decode.int)
+        (Decode.oneOf
+            [ Decode.field "error" (Decode.map Just Decode.string)
+            , Decode.field "error" (Decode.null Nothing)
+            , Decode.succeed Nothing
+            ]
+        )
+
+
 backupResponseDecoder : Decode.Decoder BackupResponse
 backupResponseDecoder =
     Decode.map3 BackupResponse
@@ -1248,9 +1418,15 @@ backupResponseDecoder =
         )
 
 
-backupsDecoder : Decode.Decoder (List BackupFile)
+backupsDecoder : Decode.Decoder BackupsPayload
 backupsDecoder =
-    Decode.field "backups" (Decode.list backupFileDecoder)
+    Decode.map2 BackupsPayload
+        (Decode.oneOf
+            [ Decode.field "backupDir" Decode.string
+            , Decode.succeed ""
+            ]
+        )
+        (Decode.field "backups" (Decode.list backupFileDecoder))
 
 
 backupFileDecoder : Decode.Decoder BackupFile
@@ -1523,6 +1699,7 @@ viewSidebar model =
                 selected =
                     (not model.authToolsOpen)
                         && (not model.performanceMode)
+                        && (not model.requestLogsMode)
                         && (not model.databaseMode)
                         &&
                             (case model.selectedEntity of
@@ -1561,6 +1738,7 @@ viewSidebar model =
                 selected =
                     (not model.authToolsOpen)
                         && (not model.performanceMode)
+                        && (not model.requestLogsMode)
                         && (not model.databaseMode)
                         &&
                             (case model.selectedAction of
@@ -1615,6 +1793,31 @@ viewSidebar model =
                     row [ width fill ]
                         [ paragraph [ alignLeft ] [ text "Performance" ]
                         , el [ Font.size 12, Font.color (rgb255 170 181 196) ] (text "/_belm/perf")
+                        ]
+                }
+
+        requestLogsButton : Element Msg
+        requestLogsButton =
+            let
+                backgroundColor =
+                    if model.requestLogsMode && (not model.authToolsOpen) then
+                        rgb255 54 94 217
+
+                    else
+                        rgb255 24 29 36
+            in
+            Input.button
+                [ width fill
+                , Border.rounded 10
+                , Background.color backgroundColor
+                , Font.color (rgb255 244 246 248)
+                , paddingEach { top = 12, right = 12, bottom = 12, left = 12 }
+                ]
+                { onPress = Just SelectRequestLogs
+                , label =
+                    row [ width fill ]
+                        [ paragraph [ alignLeft ] [ text "Logs" ]
+                        , el [ Font.size 12, Font.color (rgb255 170 181 196) ] (text "/_belm/request-logs")
                         ]
                 }
 
@@ -1734,6 +1937,7 @@ viewSidebar model =
                         ]
                         (text "SYSTEM")
                     , performanceButton
+                    , requestLogsButton
                     , databaseButton
                     ]
 
@@ -1759,6 +1963,9 @@ viewContent model =
 
           else if model.performanceMode then
             viewPerformancePanel model
+
+          else if model.requestLogsMode then
+            viewRequestLogsPanel model
 
           else if model.databaseMode then
             viewDatabasePanel model
@@ -1787,33 +1994,6 @@ viewAuthToolsPanel model =
 
             maybeSystemAuth =
                 systemAuthInfoFromModel model
-
-            tabButton tab labelText =
-                let
-                    selected =
-                        authScopeToTab (activeAuthScope model) == tab
-                in
-                Input.button
-                    [ Background.color
-                        (if selected then
-                            rgb255 76 111 224
-
-                         else
-                            rgb255 224 231 241
-                        )
-                    , Font.color
-                        (if selected then
-                            rgb255 246 248 252
-
-                         else
-                            rgb255 41 52 68
-                        )
-                    , Border.rounded 10
-                    , paddingEach { top = 8, right = 12, bottom = 8, left = 12 }
-                    ]
-                    { onPress = Just (SelectAuthTab tab)
-                    , label = text labelText
-                    }
 
             activeScope =
                 activeAuthScope model
@@ -1885,7 +2065,7 @@ viewAuthToolsPanel model =
                             "No users found yet. Create the first admin to initialize authentication."
 
                         else
-                            "Request code sends a login code and always tries to auto-create the user when missing."
+                            "The request sends a login code and automatically creates the user if it does not exist."
 
                     SystemAuthScope ->
                         if needsBootstrap then
@@ -1908,22 +2088,7 @@ viewAuthToolsPanel model =
                 , Border.color (rgb255 226 232 239)
                 ]
                 [ row [ width fill, spacing 12, centerY ]
-                    [ el [ Font.bold, Font.size 18 ] (text "Authentication")
-                    , row [ spacing 8 ]
-                        ((if maybeAppAuth /= Nothing then
-                            [ tabButton AppAuthTab "Users" ]
-
-                          else
-                            []
-                         )
-                            ++ (if maybeSystemAuth /= Nothing then
-                                    [ tabButton SystemAuthTab "Admin" ]
-
-                                else
-                                    []
-                               )
-                        )
-                    ]
+                    [ el [ Font.bold, Font.size 18 ] (text "Authentication") ]
                 , el [ Font.size 12, Font.color (rgb255 93 103 120) ] (text transportText)
                 , row [ width fill, spacing 8 ] activeBadgeText
                 , if needsBootstrap then
@@ -2466,6 +2631,196 @@ viewPerformancePanel model =
             ]
 
 
+viewRequestLogsPanel : Model -> Element Msg
+viewRequestLogsPanel model =
+    if not (isAdminProfile model) then
+        column
+            [ width fill
+            , spacing 14
+            , Background.color (rgb255 255 255 255)
+            , Border.rounded 14
+            , Border.width 1
+            , Border.color (rgb255 226 232 239)
+            , padding 16
+            ]
+            [ el [ Font.bold, Font.size 20 ] (text "Request logs")
+            , paragraph [ Font.size 14, Font.color (rgb255 93 103 120) ]
+                [ text "Admin role required to view request logs." ]
+            ]
+
+    else
+        column
+            [ width fill
+            , spacing 14
+            , Background.color (rgb255 255 255 255)
+            , Border.rounded 14
+            , Border.width 1
+            , Border.color (rgb255 226 232 239)
+            , padding 16
+            ]
+            [ row [ width fill, spacing 10, centerY ]
+                [ el [ width fill, Font.bold, Font.size 20 ] (text "Request logs")
+                , Input.button
+                    [ Background.color (rgb255 224 231 241)
+                    , Border.rounded 10
+                    , paddingEach { top = 10, right = 14, bottom = 10, left = 14 }
+                    ]
+                    { onPress = Just ReloadRequestLogs
+                    , label = text "Refresh"
+                    }
+                ]
+            , paragraph [ Font.size 12, Font.color (rgb255 93 103 120) ]
+                [ text "Sensitive values are masked by the server in this view (tokens, login codes, and emails)." ]
+            , viewRequestLogsSection model.requestLogs
+            ]
+
+
+viewRequestLogsSection : Remote RequestLogsPayload -> Element Msg
+viewRequestLogsSection requestLogsRemote =
+    let
+        sectionHeading title subtitle =
+            row [ width fill, spacing 8, centerY ]
+                [ el [ Font.bold, Font.size 18 ] (text title)
+                , el [ Font.size 12, Font.color (rgb255 93 103 120) ] (text subtitle)
+                ]
+    in
+    case requestLogsRemote of
+        NotAsked ->
+            column [ width fill, spacing 8 ]
+                [ sectionHeading "Recent request logs" ""
+                , paragraph [ Font.size 13, Font.color (rgb255 93 103 120) ] [ text "No request logs loaded yet." ]
+                ]
+
+        Loading ->
+            column [ width fill, spacing 8 ]
+                [ sectionHeading "Recent request logs" ""
+                , paragraph [ Font.size 13, Font.color (rgb255 93 103 120) ] [ text "Loading request logs..." ]
+                ]
+
+        Failed message ->
+            column [ width fill, spacing 8 ]
+                [ sectionHeading "Recent request logs" ""
+                , paragraph [ Font.size 13, Font.color (rgb255 176 60 46) ] [ text message ]
+                ]
+
+        Loaded payload ->
+            column [ width fill, spacing 8 ]
+                ([ sectionHeading
+                    "Recent request logs"
+                    ("Showing "
+                        ++ String.fromInt (List.length payload.logs)
+                        ++ " entries (buffer size: "
+                        ++ String.fromInt payload.buffer
+                        ++ ")"
+                    )
+                 ]
+                    ++ (if List.isEmpty payload.logs then
+                            [ paragraph [ Font.size 13, Font.color (rgb255 93 103 120) ]
+                                [ text "No requests captured yet." ]
+                            ]
+
+                        else
+                            List.map viewRequestLogEntry payload.logs
+                       )
+                )
+
+
+viewRequestLogEntry : RequestLogEntry -> Element Msg
+viewRequestLogEntry entry =
+    let
+        ( dateText, timeText ) =
+            splitLogTimestamp entry.timestamp
+
+        statusColor =
+            if entry.status >= 500 then
+                rgb255 176 60 46
+
+            else if entry.status >= 400 then
+                rgb255 204 102 35
+
+            else
+                rgb255 34 124 95
+
+        querySummary =
+            String.fromInt entry.queryCount ++ " query(ies), " ++ formatMs entry.queryTimeMs
+    in
+    column
+        [ width fill
+        , spacing 8
+        , Background.color (rgb255 248 250 252)
+        , Border.rounded 10
+        , Border.width 1
+        , Border.color (rgb255 226 232 239)
+        , padding 12
+        ]
+        ([ row [ width fill, spacing 10 ]
+            [ el [ Font.size 12, Font.bold, Font.color (rgb255 70 80 96) ] (text ("Date: " ++ dateText))
+            , el [ Font.size 12, Font.bold, Font.color (rgb255 70 80 96) ] (text ("Time: " ++ timeText))
+            ]
+         , row [ width fill, spacing 10 ]
+            [ el [ Font.bold ] (text (entry.method ++ " " ++ entry.path))
+            , el [ Font.color statusColor, Font.bold ] (text (String.fromInt entry.status))
+            , el [ Font.size 12, Font.color (rgb255 93 103 120) ] (text (formatMs entry.durationMs))
+            ]
+         , row [ width fill, spacing 10 ]
+            [ el [ Font.size 12, Font.color (rgb255 93 103 120) ] (text ("Route: " ++ entry.route))
+            , el [ Font.size 12, Font.color (rgb255 93 103 120) ] (text querySummary)
+            ]
+         ]
+            ++ (if String.trim entry.errorMessage /= "" then
+                    [ paragraph [ Font.size 12, Font.color (rgb255 176 60 46) ] [ text ("Error: " ++ entry.errorMessage) ] ]
+
+                else
+                    []
+               )
+            ++ (if List.isEmpty entry.queries then
+                    []
+
+                else
+                    [ column [ width fill, spacing 6 ]
+                        ([ el [ Font.size 12, Font.bold, Font.color (rgb255 70 80 96) ] (text "Queries") ]
+                            ++ List.map viewRequestLogQuery entry.queries
+                        )
+                    ]
+               )
+        )
+
+
+viewRequestLogQuery : RequestLogQuery -> Element Msg
+viewRequestLogQuery query =
+    let
+        metricsText =
+            formatMs query.durationMs ++ " | rows: " ++ String.fromInt query.rowCount
+    in
+    column
+        [ width fill
+        , spacing 4
+        , Background.color (rgb255 243 247 252)
+        , Border.rounded 8
+        , padding 8
+        ]
+        ([ paragraph
+            [ Font.size 12
+            , Font.family [ Font.monospace ]
+            , Font.color (rgb255 44 56 72)
+            ]
+            [ text query.sql ]
+         , el [ Font.size 12, Font.color (rgb255 93 103 120) ] (text metricsText)
+         ]
+            ++ (case query.error of
+                    Just errText ->
+                        if String.trim errText == "" then
+                            []
+
+                        else
+                            [ paragraph [ Font.size 12, Font.color (rgb255 176 60 46) ] [ text ("Error: " ++ errText) ] ]
+
+                    Nothing ->
+                        []
+               )
+        )
+
+
 viewDatabasePanel : Model -> Element Msg
 viewDatabasePanel model =
     if not (isAdminProfile model) then
@@ -2494,7 +2849,16 @@ viewDatabasePanelAdmin model =
             currentDatabasePath model
 
         backupDirText =
-            databaseBackupDir dbPath
+            case model.backups of
+                Loaded payload ->
+                    if String.trim payload.backupDir == "" then
+                        databaseBackupDir dbPath
+
+                    else
+                        payload.backupDir
+
+                _ ->
+                    databaseBackupDir dbPath
 
         sqliteSizeText =
             case model.perf of
@@ -2538,8 +2902,8 @@ viewDatabasePanelAdmin model =
                     paragraph [ Font.size 13, Font.color (rgb255 176 60 46) ]
                         [ text message ]
 
-                Loaded backups ->
-                    if List.isEmpty backups then
+                Loaded payload ->
+                    if List.isEmpty payload.backups then
                         paragraph [ Font.size 13, Font.color (rgb255 93 103 120) ]
                             [ text "No backups found yet." ]
 
@@ -2560,7 +2924,7 @@ viewDatabasePanelAdmin model =
                                 , el [ width (fillPortion 4), Font.bold ] (text "File")
                                 ]
                              ]
-                                ++ List.map backupRow backups
+                                ++ List.map backupRow payload.backups
                             )
     in
     column
@@ -2715,6 +3079,72 @@ databaseInfoCard title value =
         [ el [ Font.size 12, Font.color (rgb255 93 103 120) ] (text title)
         , paragraph [ Font.size 13, Font.color (rgb255 41 52 68) ] [ text value ]
         ]
+
+
+splitLogTimestamp : String -> ( String, String )
+splitLogTimestamp rawTimestamp =
+    case String.words (String.trim rawTimestamp) of
+        datePart :: timePart :: _ ->
+            ( formatLogDate datePart, timePart )
+
+        [ datePart ] ->
+            ( formatLogDate datePart, "-" )
+
+        _ ->
+            ( "-", "-" )
+
+
+formatLogDate : String -> String
+formatLogDate rawDate =
+    case String.split "-" (String.trim rawDate) of
+        [ year, month, day ] ->
+            monthLabel month ++ " " ++ day ++ ", " ++ year
+
+        _ ->
+            rawDate
+
+
+monthLabel : String -> String
+monthLabel month =
+    case month of
+        "01" ->
+            "Jan"
+
+        "02" ->
+            "Feb"
+
+        "03" ->
+            "Mar"
+
+        "04" ->
+            "Apr"
+
+        "05" ->
+            "May"
+
+        "06" ->
+            "Jun"
+
+        "07" ->
+            "Jul"
+
+        "08" ->
+            "Aug"
+
+        "09" ->
+            "Sep"
+
+        "10" ->
+            "Oct"
+
+        "11" ->
+            "Nov"
+
+        "12" ->
+            "Dec"
+
+        _ ->
+            month
 
 
 formatMs : Float -> String
@@ -2971,6 +3401,7 @@ isCrudScreen model =
                     False
     in
     (not model.performanceMode)
+        && (not model.requestLogsMode)
         && (not model.databaseMode)
         && (not hasActionSelection)
         && hasEntitySelection

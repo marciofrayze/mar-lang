@@ -417,6 +417,7 @@ func keywordCompletionItems() []map[string]any {
 		"app",
 		"port",
 		"database",
+		"system",
 		"public",
 		"entity",
 		"auth",
@@ -429,6 +430,7 @@ func keywordCompletionItems() []map[string]any {
 		"dir",
 		"mount",
 		"spa_fallback",
+		"request_logs_buffer",
 	}
 	out := make([]map[string]any, 0, len(keywords))
 	for _, kw := range keywords {

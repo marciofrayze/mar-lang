@@ -571,7 +571,7 @@ func openBrowser(target string) error {
 	if err != nil {
 		return err
 	}
-	elmPath := generator.ElmOutputPath(outputPath, elmClient.FileName)
+	elmPath := generator.ClientOutputPath(outputPath, elmClient.FileName)
 	if err := os.MkdirAll(filepath.Dir(elmPath), 0o755); err != nil {
 		return err
 	}
@@ -582,7 +582,7 @@ func openBrowser(target string) error {
 	if err != nil {
 		return err
 	}
-	tsPath := generator.ElmOutputPath(outputPath, tsClient.FileName)
+	tsPath := generator.ClientOutputPath(outputPath, tsClient.FileName)
 	if err := os.MkdirAll(filepath.Dir(tsPath), 0o755); err != nil {
 		return err
 	}

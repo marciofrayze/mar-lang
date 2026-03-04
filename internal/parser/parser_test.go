@@ -181,3 +181,52 @@ entity Todo {
 		t.Fatalf("unexpected error message: %v", err)
 	}
 }
+
+func TestParseSystemRequestLogsBuffer(t *testing.T) {
+	src := `
+app FrontApi
+database "./front.db"
+
+system {
+  request_logs_buffer 512
+}
+
+entity Todo {
+  title: String
+}
+`
+
+	app, err := Parse(src)
+	if err != nil {
+		t.Fatalf("Parse returned error: %v", err)
+	}
+	if app.System == nil {
+		t.Fatal("expected system block to be parsed")
+	}
+	if app.System.RequestLogsBuffer != 512 {
+		t.Fatalf("unexpected request_logs_buffer: %d", app.System.RequestLogsBuffer)
+	}
+}
+
+func TestParseSystemRequestLogsBufferRejectsOutOfRange(t *testing.T) {
+	src := `
+app FrontApi
+database "./front.db"
+
+system {
+  request_logs_buffer 999999
+}
+
+entity Todo {
+  title: String
+}
+`
+
+	_, err := Parse(src)
+	if err == nil {
+		t.Fatal("expected parse error for out-of-range request_logs_buffer")
+	}
+	if !strings.Contains(err.Error(), "system.request_logs_buffer must be between") {
+		t.Fatalf("unexpected error message: %v", err)
+	}
+}

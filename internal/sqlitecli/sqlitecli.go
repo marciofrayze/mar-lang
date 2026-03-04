@@ -6,10 +6,14 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+	"sync"
+	"time"
 )
 
 type DB struct {
-	Path string
+	Path    string
+	hookMu  sync.RWMutex
+	onQuery func(QueryEvent)
 }
 
 type Result struct {
@@ -22,8 +26,21 @@ type Statement struct {
 	Args  []any
 }
 
+type QueryEvent struct {
+	SQL        string
+	DurationMs float64
+	RowCount   int
+	Error      string
+}
+
 func Open(path string) *DB {
 	return &DB{Path: path}
+}
+
+func (db *DB) SetQueryHook(hook func(QueryEvent)) {
+	db.hookMu.Lock()
+	defer db.hookMu.Unlock()
+	db.onQuery = hook
 }
 
 func (db *DB) Exec(query string, args ...any) (Result, error) {
@@ -85,6 +102,7 @@ func (db *DB) ExecTx(statements []Statement) error {
 }
 
 func (db *DB) queryJSON(sqlText string) ([]map[string]any, error) {
+	startedAt := time.Now()
 	cmd := exec.Command("sqlite3", "-json", db.Path, sqlText)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
@@ -95,17 +113,50 @@ func (db *DB) queryJSON(sqlText string) ([]map[string]any, error) {
 		if msg == "" {
 			msg = err.Error()
 		}
+		db.emitQueryEvent(QueryEvent{
+			SQL:        sqlText,
+			DurationMs: time.Since(startedAt).Seconds() * 1000,
+			RowCount:   0,
+			Error:      msg,
+		})
 		return nil, fmt.Errorf("sqlite3: %s", msg)
 	}
 	raw := strings.TrimSpace(stdout.String())
 	if raw == "" {
+		db.emitQueryEvent(QueryEvent{
+			SQL:        sqlText,
+			DurationMs: time.Since(startedAt).Seconds() * 1000,
+			RowCount:   0,
+			Error:      "",
+		})
 		return []map[string]any{}, nil
 	}
 	var rows []map[string]any
 	if err := json.Unmarshal([]byte(raw), &rows); err != nil {
+		db.emitQueryEvent(QueryEvent{
+			SQL:        sqlText,
+			DurationMs: time.Since(startedAt).Seconds() * 1000,
+			RowCount:   0,
+			Error:      fmt.Sprintf("decode sqlite json: %v", err),
+		})
 		return nil, fmt.Errorf("decode sqlite json: %w", err)
 	}
+	db.emitQueryEvent(QueryEvent{
+		SQL:        sqlText,
+		DurationMs: time.Since(startedAt).Seconds() * 1000,
+		RowCount:   len(rows),
+		Error:      "",
+	})
 	return rows, nil
+}
+
+func (db *DB) emitQueryEvent(event QueryEvent) {
+	db.hookMu.RLock()
+	hook := db.onQuery
+	db.hookMu.RUnlock()
+	if hook != nil {
+		hook(event)
+	}
 }
 
 func expandQuery(query string, args []any) (string, error) {

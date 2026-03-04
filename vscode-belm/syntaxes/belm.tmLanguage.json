@@ -105,6 +105,18 @@
           }
         },
         {
+          "name": "meta.system.declaration.belm",
+          "match": "\\b(system)\\s*(\\{)",
+          "captures": {
+            "1": {
+              "name": "keyword.control.declaration.belm"
+            },
+            "2": {
+              "name": "punctuation.section.block.begin.belm"
+            }
+          }
+        },
+        {
           "name": "meta.typealias.declaration.belm",
           "match": "\\b(type)\\s+(alias)\\s+([A-Z][A-Za-z0-9_]*)\\s*(=)",
           "captures": {
@@ -236,7 +248,7 @@
       "patterns": [
         {
           "name": "keyword.control.declaration.belm",
-          "match": "\\b(app|port|database|public|entity|auth|type|alias)\\b"
+          "match": "\\b(app|port|database|system|public|entity|auth|type|alias)\\b"
         },
         {
           "name": "keyword.control.rule.belm",
@@ -249,6 +261,10 @@
         {
           "name": "keyword.other.public.belm",
           "match": "\\b(dir|mount|spa_fallback)\\b"
+        },
+        {
+          "name": "keyword.other.system.belm",
+          "match": "\\b(request_logs_buffer)\\b"
         },
         {
           "name": "storage.modifier.belm",

@@ -15,6 +15,12 @@ var (
 	fieldNameRe = regexp.MustCompile(`^[a-z][A-Za-z0-9_]*$`)
 )
 
+const (
+	defaultRequestLogsBuffer = 200
+	minRequestLogsBuffer     = 10
+	maxRequestLogsBuffer     = 5000
+)
+
 type line struct {
 	number int
 	text   string
@@ -70,6 +76,18 @@ func Parse(source string) (*model.App, error) {
 		if m := match(`^database\s+"([^"]+)"$`, trimmed); m != nil {
 			app.Database = m[1]
 			advance()
+			continue
+		}
+
+		if trimmed == "system {" {
+			if app.System != nil {
+				return nil, fmt.Errorf("line %d: system block already declared", cur.number)
+			}
+			systemCfg, err := parseSystemBlock(lines, &idx)
+			if err != nil {
+				return nil, err
+			}
+			app.System = systemCfg
 			continue
 		}
 
@@ -295,6 +313,46 @@ func normalizePublicMount(mount string) string {
 		return "/"
 	}
 	return value
+}
+
+// parseSystemBlock parses system-level runtime options.
+func parseSystemBlock(lines []line, idx *int) (*model.SystemConfig, error) {
+	cfg := &model.SystemConfig{
+		RequestLogsBuffer: defaultRequestLogsBuffer,
+	}
+
+	(*idx)++
+	for *idx < len(lines) {
+		ln := lines[*idx]
+		trimmed := strings.TrimSpace(ln.text)
+		if isCommentOrBlank(trimmed) {
+			(*idx)++
+			continue
+		}
+		if trimmed == "}" {
+			(*idx)++
+			return cfg, nil
+		}
+
+		if m := match(`^request_logs_buffer\s+([0-9]{1,6})$`, trimmed); m != nil {
+			value := mustInt(m[1])
+			if value < minRequestLogsBuffer || value > maxRequestLogsBuffer {
+				return nil, fmt.Errorf(
+					"line %d: system.request_logs_buffer must be between %d and %d",
+					ln.number,
+					minRequestLogsBuffer,
+					maxRequestLogsBuffer,
+				)
+			}
+			cfg.RequestLogsBuffer = value
+			(*idx)++
+			continue
+		}
+
+		return nil, fmt.Errorf("line %d: unknown system statement %q", ln.number, trimmed)
+	}
+
+	return nil, fmt.Errorf("system block is missing closing }")
 }
 
 // parseEntityBlock parses a single entity body including fields, rules, and authorize clauses.
