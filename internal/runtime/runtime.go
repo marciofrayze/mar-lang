@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"net/http"
 	"os/signal"
 	"regexp"
@@ -30,6 +31,7 @@ type Runtime struct {
 	authUser       *model.Entity
 	metrics        *metricsCollector
 	authLogOnce    sync.Once
+	publicFS       fs.FS
 }
 
 type compiledRule struct {
@@ -335,6 +337,10 @@ func (r *Runtime) route(w http.ResponseWriter, req *http.Request) error {
 				return r.handleDelete(w, entity, auth, id)
 			}
 		}
+	}
+
+	if served, err := r.servePublicAsset(w, req, path); served {
+		return err
 	}
 
 	return &apiError{Status: http.StatusNotFound, Message: "Route not found"}

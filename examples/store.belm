@@ -64,7 +64,7 @@ entity Book {
 }
 
 -- Order and OrderItem are linked by orderRef.
--- This fits the current action model, where we write multiple inserts atomically.
+-- This fits the current action model, where we write multiple creates atomically.
 entity Order {
   id: Int primary auto
   orderRef: String
@@ -124,7 +124,7 @@ entity AuditLog {
 -- Actions
 -- =========================================
 
--- placeBookOrder writes to multiple entities in one transaction:
+-- placeBookOrder writes to multiple entities in one atomic action:
 -- 1) create an Order
 -- 2) create one OrderItem
 -- 3) write an AuditLog event
@@ -139,10 +139,30 @@ type alias PlaceBookOrderInput =
   , notes : String
 }
 
-placeBookOrder : PlaceBookOrderInput -> Result DomainError Effect
-placeBookOrder =
-  transaction
-    [ insert Order { orderRef = input.orderRef, userId = input.userId, status = "confirmed", total = input.orderTotal, currency = "BRL", notes = input.notes }
-    , insert OrderItem { orderRef = input.orderRef, userId = input.userId, bookId = input.bookId, quantity = input.quantity, unitPrice = input.unitPrice, lineTotal = input.lineTotal }
-    , insert AuditLog { userId = input.userId, event = "book order created", orderRef = input.orderRef }
-    ]
+action placeBookOrder {
+  input: PlaceBookOrderInput
+
+  create Order {
+    orderRef: input.orderRef
+    userId: input.userId
+    status: "confirmed"
+    total: input.orderTotal
+    currency: "BRL"
+    notes: input.notes
+  }
+
+  create OrderItem {
+    orderRef: input.orderRef
+    userId: input.userId
+    bookId: input.bookId
+    quantity: input.quantity
+    unitPrice: input.unitPrice
+    lineTotal: input.lineTotal
+  }
+
+  create AuditLog {
+    userId: input.userId
+    event: "book order created"
+    orderRef: input.orderRef
+  }
+}

@@ -6,11 +6,12 @@ This extension adds syntax highlighting, snippets/autocomplete, and LSP features
 
 - Syntax highlighting for:
 - Belm declarations (`app`, `port`, `database`, `entity`, `auth`, `type alias`)
+- Public assets config (`public`, `dir`, `mount`, `spa_fallback`)
 - Rule/authz keywords (`rule`, `when`, `authorize`)
-- Action syntax (`name : Input -> Result DomainError Effect`, `transaction`, `insert`)
+- Action syntax (`action <name> { input: Alias ... create Entity { ... } }`)
 - Auth config keys (`user_entity`, `email_field`, etc.)
 - Field modifiers (`primary`, `auto`, `optional`)
-- Built-in types (`Int`, `String`, `Bool`, `Float`, `Effect`, `Result`)
+- Built-in types (`Int`, `String`, `Bool`, `Float`)
 - Built-in functions (`contains`, `startsWith`, `endsWith`, `len`, `matches`, `isRole`)
 - Context variables (`input`, `input.field`, `auth_authenticated`, `auth_email`, `auth_user_id`, `auth_role`)
 - Comments (`--` and `#`), strings, numbers, booleans, null, operators, and punctuation
@@ -21,12 +22,12 @@ This extension adds syntax highlighting, snippets/autocomplete, and LSP features
 - `rule`
 - `authorize`
 - `auth`
+- `public`
 - `authzcrud`
 - `typealias`
-- `actionsig`
-- `actiondef`
-- `insertstep`
-- `actiontransaction`
+- `action`
+- `create`
+- `actioncreate`
 - LSP (via `belm lsp`):
 - Parse diagnostics while editing
 - Keyword completions

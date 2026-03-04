@@ -9,24 +9,26 @@ import (
 )
 
 var (
-	appRe         = regexp.MustCompile(`^app\s+([A-Za-z][A-Za-z0-9_]*)$`)
-	portRe        = regexp.MustCompile(`^port\s+([0-9]{1,5})$`)
-	dbRe          = regexp.MustCompile(`^database\s+"([^"]+)"$`)
-	authStartRe   = regexp.MustCompile(`^auth\s*\{$`)
-	entityStartRe = regexp.MustCompile(`^entity\s+([A-Za-z][A-Za-z0-9_]*)\s*\{$`)
-	typeAliasRe   = regexp.MustCompile(`^type\s+alias\s+([A-Za-z][A-Za-z0-9_]*)\s*=\s*(.*)$`)
-	actionSigRe   = regexp.MustCompile(`^([a-z][A-Za-z0-9_]*)\s*:\s*([A-Za-z][A-Za-z0-9_]*)\s*->\s*(.+)$`)
-	actionDefRe   = regexp.MustCompile(`^([a-z][A-Za-z0-9_]*)\s*=$`)
+	appRe          = regexp.MustCompile(`^app\s+([A-Za-z][A-Za-z0-9_]*)$`)
+	portRe         = regexp.MustCompile(`^port\s+([0-9]{1,5})$`)
+	dbRe           = regexp.MustCompile(`^database\s+"([^"]+)"$`)
+	publicStartRe  = regexp.MustCompile(`^public\s*\{$`)
+	authStartRe    = regexp.MustCompile(`^auth\s*\{$`)
+	entityStartRe  = regexp.MustCompile(`^entity\s+([A-Za-z][A-Za-z0-9_]*)\s*\{$`)
+	typeAliasRe    = regexp.MustCompile(`^type\s+alias\s+([A-Za-z][A-Za-z0-9_]*)\s*=\s*(.*)$`)
+	actionStartRe  = regexp.MustCompile(`^action\s+([a-z][A-Za-z0-9_]*)\s*\{$`)
+	actionInputRe  = regexp.MustCompile(`^input\s*:\s*([A-Za-z][A-Za-z0-9_]*)$`)
+	actionCreateRe = regexp.MustCompile(`^create\s+([A-Za-z][A-Za-z0-9_]*)\s*\{$`)
 
 	entityFieldRe = regexp.MustCompile(`^([a-z][A-Za-z0-9_]*)\s*:\s*(Int|String|Bool|Float)(?:\s+(.*))?$`)
 	ruleRe        = regexp.MustCompile(`^rule\s+"([^"]+)"\s+when\s+(.+)$`)
 	authorizeRe   = regexp.MustCompile(`^authorize\s+(list|get|create|update|delete)\s+when\s+(.+)$`)
+	publicQuoteRe = regexp.MustCompile(`^(dir|mount|spa_fallback)\s+"([^"]+)"$`)
 	authStmtRe    = regexp.MustCompile(`^(user_entity|email_field|role_field|code_ttl_minutes|session_ttl_hours|email_transport|dev_expose_code)\s+(.+)$`)
 	authQuoteRe   = regexp.MustCompile(`^(email_from|email_subject|sendmail_path)\s+"([^"]+)"$`)
 
-	aliasFieldRe = regexp.MustCompile(`^([a-z][A-Za-z0-9_]*)\s*:\s*(Int|String|Bool|Float)\s*$`)
-	insertStepRe = regexp.MustCompile(`^insert\s+([A-Za-z][A-Za-z0-9_]*)\s*\{(.*)\}$`)
-	assignRe     = regexp.MustCompile(`^([a-z][A-Za-z0-9_]*)\s*=\s*(.+)$`)
+	aliasFieldRe        = regexp.MustCompile(`^([a-z][A-Za-z0-9_]*)\s*:\s*(Int|String|Bool|Float)\s*$`)
+	actionFieldAssignRe = regexp.MustCompile(`^([a-z][A-Za-z0-9_]*)\s*:\s*(.+)$`)
 )
 
 // Format rewrites Belm source into a canonical style and returns formatted text.
@@ -63,15 +65,6 @@ func Format(source string) (string, error) {
 		if state.inTypeAlias || (state.pendingAlias && strings.HasPrefix(strings.TrimSpace(line), "{")) {
 			indentBefore = 1
 		}
-		if state.awaitingTxDef && strings.TrimSpace(line) == "transaction" {
-			indentBefore = 1
-		}
-		if state.inTx {
-			trimLine := strings.TrimSpace(line)
-			if strings.HasPrefix(trimLine, "[") || trimLine == "]" || state.inTxList {
-				indentBefore = 2
-			}
-		}
 
 		outLine := strings.Repeat(" ", indentBefore*2) + line
 		out = append(out, outLine)
@@ -95,13 +88,13 @@ func Format(source string) (string, error) {
 }
 
 type formatState struct {
-	inEntity      bool
-	inAuth        bool
-	inTypeAlias   bool
-	pendingAlias  bool
-	inTx          bool
-	inTxList      bool
-	awaitingTxDef bool
+	inEntity       bool
+	inPublic       bool
+	inAuth         bool
+	inTypeAlias    bool
+	pendingAlias   bool
+	inAction       bool
+	inActionCreate bool
 }
 
 func (s *formatState) update(line string) {
@@ -111,6 +104,8 @@ func (s *formatState) update(line string) {
 		s.inEntity = true
 	case authStartRe.MatchString(line):
 		s.inAuth = true
+	case publicStartRe.MatchString(line):
+		s.inPublic = true
 	case typeAliasRe.MatchString(line):
 		m := typeAliasRe.FindStringSubmatch(line)
 		rest := strings.TrimSpace(m[2])
@@ -122,34 +117,24 @@ func (s *formatState) update(line string) {
 	case s.pendingAlias && line == "{":
 		s.pendingAlias = false
 		s.inTypeAlias = true
-	case actionDefRe.MatchString(line):
-		s.awaitingTxDef = true
-		s.inTx = false
-		s.inTxList = false
-	case trimLine == "transaction":
-		if s.awaitingTxDef {
-			s.awaitingTxDef = false
-		}
-		s.inTx = true
-	case strings.HasPrefix(trimLine, "["):
-		if s.inTx {
-			s.inTxList = true
-			if strings.Contains(trimLine, "]") {
-				s.inTxList = false
-				s.inTx = false
-			}
-		}
-	case trimLine == "]":
-		s.inTxList = false
-		s.inTx = false
+	case actionStartRe.MatchString(line):
+		s.inAction = true
+	case s.inAction && actionCreateRe.MatchString(trimLine):
+		s.inActionCreate = true
 	case trimLine == "}":
 		switch {
+		case s.inActionCreate:
+			s.inActionCreate = false
 		case s.inEntity:
 			s.inEntity = false
+		case s.inPublic:
+			s.inPublic = false
 		case s.inAuth:
 			s.inAuth = false
 		case s.inTypeAlias:
 			s.inTypeAlias = false
+		case s.inAction:
+			s.inAction = false
 		}
 	}
 }
@@ -163,6 +148,9 @@ func normalizeLine(trimmed string, state *formatState) string {
 	}
 	if m := dbRe.FindStringSubmatch(trimmed); m != nil {
 		return `database "` + m[1] + `"`
+	}
+	if publicStartRe.MatchString(trimmed) {
+		return "public {"
 	}
 	if authStartRe.MatchString(trimmed) {
 		return "auth {"
@@ -178,11 +166,14 @@ func normalizeLine(trimmed string, state *formatState) string {
 		}
 		return "type alias " + name + " = " + rest
 	}
-	if m := actionSigRe.FindStringSubmatch(trimmed); m != nil {
-		return m[1] + " : " + m[2] + " -> " + collapseSpaces(m[3])
+	if m := actionStartRe.FindStringSubmatch(trimmed); m != nil {
+		return "action " + m[1] + " {"
 	}
-	if m := actionDefRe.FindStringSubmatch(trimmed); m != nil {
-		return m[1] + " ="
+
+	if state.inPublic {
+		if m := publicQuoteRe.FindStringSubmatch(trimmed); m != nil {
+			return m[1] + ` "` + m[2] + `"`
+		}
 	}
 
 	if state.inAuth {
@@ -225,80 +216,21 @@ func normalizeLine(trimmed string, state *formatState) string {
 		}
 	}
 
-	if strings.TrimSpace(trimmed) == "transaction" {
-		return "transaction"
-	}
-	if strings.TrimSpace(trimmed) == "[" || strings.TrimSpace(trimmed) == "]" {
-		return strings.TrimSpace(trimmed)
-	}
-	if state.inTxList {
-		prefix := ""
-		token := strings.TrimSpace(trimmed)
-		if strings.HasPrefix(token, ",") {
-			prefix = ", "
-			token = strings.TrimSpace(strings.TrimPrefix(token, ","))
+	if state.inAction {
+		if m := actionInputRe.FindStringSubmatch(trimmed); m != nil {
+			return "input: " + m[1]
 		}
-		return prefix + normalizeActionStep(token)
+		if m := actionCreateRe.FindStringSubmatch(trimmed); m != nil {
+			return "create " + m[1] + " {"
+		}
+		if state.inActionCreate {
+			if m := actionFieldAssignRe.FindStringSubmatch(trimmed); m != nil {
+				return m[1] + ": " + strings.TrimSpace(m[2])
+			}
+		}
 	}
 
 	return collapseSpaces(trimmed)
-}
-
-func normalizeActionStep(token string) string {
-	if m := insertStepRe.FindStringSubmatch(strings.TrimSpace(token)); m != nil {
-		entity := m[1]
-		values := strings.TrimSpace(m[2])
-		parts := splitCSV(values)
-		normalized := make([]string, 0, len(parts))
-		for _, part := range parts {
-			part = strings.TrimSpace(part)
-			if part == "" {
-				continue
-			}
-			if mm := assignRe.FindStringSubmatch(part); mm != nil {
-				normalized = append(normalized, mm[1]+" = "+strings.TrimSpace(mm[2]))
-			} else {
-				normalized = append(normalized, part)
-			}
-		}
-		return "insert " + entity + " { " + strings.Join(normalized, ", ") + " }"
-	}
-	return collapseSpaces(strings.TrimSpace(token))
-}
-
-func splitCSV(value string) []string {
-	if strings.TrimSpace(value) == "" {
-		return []string{}
-	}
-	parts := make([]string, 0, 8)
-	var b strings.Builder
-	inString := false
-	escaped := false
-	for _, ch := range value {
-		if escaped {
-			b.WriteRune(ch)
-			escaped = false
-			continue
-		}
-		if inString && ch == '\\' {
-			b.WriteRune(ch)
-			escaped = true
-			continue
-		}
-		if ch == '"' {
-			inString = !inString
-			b.WriteRune(ch)
-			continue
-		}
-		if ch == ',' && !inString {
-			parts = append(parts, b.String())
-			b.Reset()
-			continue
-		}
-		b.WriteRune(ch)
-	}
-	parts = append(parts, b.String())
-	return parts
 }
 
 func normalizeNewlines(source string) string {

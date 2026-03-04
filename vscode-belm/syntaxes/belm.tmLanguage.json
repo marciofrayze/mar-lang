@@ -93,6 +93,18 @@
           }
         },
         {
+          "name": "meta.public.declaration.belm",
+          "match": "\\b(public)\\s*(\\{)",
+          "captures": {
+            "1": {
+              "name": "keyword.control.declaration.belm"
+            },
+            "2": {
+              "name": "punctuation.section.block.begin.belm"
+            }
+          }
+        },
+        {
           "name": "meta.typealias.declaration.belm",
           "match": "\\b(type)\\s+(alias)\\s+([A-Z][A-Za-z0-9_]*)\\s*(=)",
           "captures": {
@@ -123,62 +135,44 @@
           }
         },
         {
-          "name": "meta.action.signature.result.belm",
-          "match": "\\b([a-z][A-Za-z0-9_]*)\\s*(:)\\s*([A-Z][A-Za-z0-9_]*)\\s*(->)\\s*(Result)\\s+([A-Z][A-Za-z0-9_]*)\\s+(Effect)\\b",
+          "name": "meta.action.declaration.belm",
+          "match": "\\b(action)\\s+([a-z][A-Za-z0-9_]*)\\s*(\\{)",
           "captures": {
             "1": {
+              "name": "keyword.control.declaration.belm"
+            },
+            "2": {
               "name": "entity.name.function.belm"
+            },
+            "3": {
+              "name": "punctuation.section.block.begin.belm"
+            }
+          }
+        },
+        {
+          "name": "meta.action.input.belm",
+          "match": "\\b(input)\\s*(:)\\s*([A-Z][A-Za-z0-9_]*)\\b",
+          "captures": {
+            "1": {
+              "name": "variable.language.belm"
             },
             "2": {
               "name": "punctuation.separator.key-value.belm"
             },
             "3": {
               "name": "entity.name.type.belm"
-            },
-            "4": {
-              "name": "keyword.operator.arrow.belm"
-            },
-            "5": {
-              "name": "storage.type.belm"
-            },
-            "6": {
-              "name": "entity.name.type.belm"
-            },
-            "7": {
-              "name": "storage.type.belm"
             }
           }
         },
         {
-          "name": "meta.action.signature.effect.belm",
-          "match": "\\b([a-z][A-Za-z0-9_]*)\\s*(:)\\s*([A-Z][A-Za-z0-9_]*)\\s*(->)\\s*(Effect)\\b",
+          "name": "meta.action.create.belm",
+          "match": "\\b(create)\\s+([A-Z][A-Za-z0-9_]*)\\b",
           "captures": {
             "1": {
-              "name": "entity.name.function.belm"
+              "name": "keyword.control.rule.belm"
             },
             "2": {
-              "name": "punctuation.separator.key-value.belm"
-            },
-            "3": {
               "name": "entity.name.type.belm"
-            },
-            "4": {
-              "name": "keyword.operator.arrow.belm"
-            },
-            "5": {
-              "name": "storage.type.belm"
-            }
-          }
-        },
-        {
-          "name": "meta.action.definition.belm",
-          "match": "^\\s*([a-z][A-Za-z0-9_]*)\\s*(=)\\s*$",
-          "captures": {
-            "1": {
-              "name": "entity.name.function.belm"
-            },
-            "2": {
-              "name": "keyword.operator.assignment.belm"
             }
           }
         },
@@ -225,14 +219,14 @@
           }
         },
         {
-          "name": "meta.action.step.insert.belm",
-          "match": "\\b(insert)\\s+([A-Z][A-Za-z0-9_]*)\\b",
+          "name": "meta.action.field.assignment.belm",
+          "match": "\\b([a-z][A-Za-z0-9_]*)\\s*(:)",
           "captures": {
             "1": {
-              "name": "keyword.control.rule.belm"
+              "name": "variable.other.member.belm"
             },
             "2": {
-              "name": "entity.name.type.belm"
+              "name": "punctuation.separator.key-value.belm"
             }
           }
         }
@@ -242,19 +236,19 @@
       "patterns": [
         {
           "name": "keyword.control.declaration.belm",
-          "match": "\\b(app|port|database|entity|auth|type|alias)\\b"
+          "match": "\\b(app|port|database|public|entity|auth|type|alias)\\b"
         },
         {
           "name": "keyword.control.rule.belm",
-          "match": "\\b(rule|when|authorize|transaction|insert)\\b"
-        },
-        {
-          "name": "storage.type.belm",
-          "match": "\\b(Effect|Result)\\b"
+          "match": "\\b(rule|when|authorize|action|create)\\b"
         },
         {
           "name": "keyword.other.auth.belm",
           "match": "\\b(user_entity|email_field|role_field|code_ttl_minutes|session_ttl_hours|email_transport|email_from|email_subject|sendmail_path|dev_expose_code)\\b"
+        },
+        {
+          "name": "keyword.other.public.belm",
+          "match": "\\b(dir|mount|spa_fallback)\\b"
         },
         {
           "name": "storage.modifier.belm",

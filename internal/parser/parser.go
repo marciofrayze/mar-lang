@@ -73,6 +73,18 @@ func Parse(source string) (*model.App, error) {
 			continue
 		}
 
+		if trimmed == "public {" {
+			if app.Public != nil {
+				return nil, fmt.Errorf("line %d: public block already declared", cur.number)
+			}
+			publicCfg, err := parsePublicBlock(lines, &idx)
+			if err != nil {
+				return nil, err
+			}
+			app.Public = publicCfg
+			continue
+		}
+
 		if trimmed == "auth {" {
 			if app.Auth != nil {
 				return nil, fmt.Errorf("line %d: auth block already declared", cur.number)
@@ -104,8 +116,8 @@ func Parse(source string) (*model.App, error) {
 			continue
 		}
 
-		if m := match(`^([a-z][A-Za-z0-9_]*)\s*:\s*([A-Za-z][A-Za-z0-9_]*)\s*->\s*(?:Effect|Result\s+[A-Za-z][A-Za-z0-9_]*\s+Effect)$`, trimmed); m != nil {
-			action, err := parseAction(lines, &idx, m[1], m[2])
+		if m := match(`^action\s+([a-z][A-Za-z0-9_]*)\s*\{$`, trimmed); m != nil {
+			action, err := parseActionBlock(lines, &idx, m[1])
 			if err != nil {
 				return nil, err
 			}
@@ -211,6 +223,78 @@ func parseAuthBlock(lines []line, idx *int) (*model.AuthConfig, error) {
 	}
 
 	return nil, fmt.Errorf("auth block is missing closing }")
+}
+
+// parsePublicBlock parses static frontend embedding config.
+func parsePublicBlock(lines []line, idx *int) (*model.PublicConfig, error) {
+	publicCfg := &model.PublicConfig{
+		Mount: "/",
+	}
+
+	(*idx)++
+	for *idx < len(lines) {
+		ln := lines[*idx]
+		trimmed := strings.TrimSpace(ln.text)
+		if isCommentOrBlank(trimmed) {
+			(*idx)++
+			continue
+		}
+		if trimmed == "}" {
+			(*idx)++
+			if strings.TrimSpace(publicCfg.Dir) == "" {
+				return nil, fmt.Errorf("line %d: public.dir is required", ln.number)
+			}
+
+			publicCfg.Mount = normalizePublicMount(publicCfg.Mount)
+			if !strings.HasPrefix(publicCfg.Mount, "/") {
+				return nil, fmt.Errorf("line %d: public.mount must start with '/'", ln.number)
+			}
+			if publicCfg.SPAFallback != "" {
+				if strings.HasPrefix(publicCfg.SPAFallback, "/") {
+					return nil, fmt.Errorf("line %d: public.spa_fallback must be a relative file path", ln.number)
+				}
+				if strings.Contains(publicCfg.SPAFallback, "..") {
+					return nil, fmt.Errorf("line %d: public.spa_fallback cannot contain '..'", ln.number)
+				}
+			}
+			return publicCfg, nil
+		}
+
+		var matched bool
+		if m := match(`^dir\s+"([^"]+)"$`, trimmed); m != nil {
+			publicCfg.Dir = m[1]
+			matched = true
+		}
+		if m := match(`^mount\s+"([^"]+)"$`, trimmed); m != nil {
+			publicCfg.Mount = m[1]
+			matched = true
+		}
+		if m := match(`^spa_fallback\s+"([^"]+)"$`, trimmed); m != nil {
+			publicCfg.SPAFallback = m[1]
+			matched = true
+		}
+
+		if !matched {
+			return nil, fmt.Errorf("line %d: unknown public statement %q", ln.number, trimmed)
+		}
+		(*idx)++
+	}
+
+	return nil, fmt.Errorf("public block is missing closing }")
+}
+
+func normalizePublicMount(mount string) string {
+	value := strings.TrimSpace(mount)
+	if value == "" {
+		return "/"
+	}
+	if value != "/" {
+		value = strings.TrimSuffix(value, "/")
+	}
+	if value == "" {
+		return "/"
+	}
+	return value
 }
 
 // parseEntityBlock parses a single entity body including fields, rules, and authorize clauses.
@@ -447,54 +531,11 @@ func parseAliasFieldToken(alias *model.TypeAlias, seen map[string]bool, token st
 	return nil
 }
 
-func parseAction(lines []line, idx *int, name, inputAlias string) (*model.Action, error) {
-	action := &model.Action{Name: name, InputAlias: inputAlias, Steps: []model.ActionStep{}}
-	startListOpen := false
+func parseActionBlock(lines []line, idx *int, name string) (*model.Action, error) {
+	action := &model.Action{Name: name, Steps: []model.ActionStep{}}
+	hasInput := false
 
 	(*idx)++
-	for *idx < len(lines) {
-		trimmed := strings.TrimSpace(lines[*idx].text)
-		if isCommentOrBlank(trimmed) {
-			(*idx)++
-			continue
-		}
-		expected := name + " ="
-		if trimmed != expected {
-			return nil, fmt.Errorf("line %d: expected action definition `%s` after signature", lines[*idx].number, expected)
-		}
-		break
-	}
-	if *idx >= len(lines) {
-		return nil, fmt.Errorf("action %s is missing definition body", name)
-	}
-
-	(*idx)++
-	for *idx < len(lines) {
-		trimmed := strings.TrimSpace(lines[*idx].text)
-		if isCommentOrBlank(trimmed) {
-			(*idx)++
-			continue
-		}
-		if trimmed == "transaction" {
-			(*idx)++
-			break
-		}
-		if strings.HasPrefix(trimmed, "transaction ") {
-			rest := strings.TrimSpace(strings.TrimPrefix(trimmed, "transaction"))
-			if rest == "[" {
-				// transaction [ on one line
-				startListOpen = true
-				(*idx)++
-				break
-			}
-		}
-		return nil, fmt.Errorf("line %d: action %s body must start with `transaction`", lines[*idx].number, name)
-	}
-	if *idx >= len(lines) {
-		return nil, fmt.Errorf("action %s is missing transaction steps", name)
-	}
-
-	startedList := startListOpen
 	for *idx < len(lines) {
 		ln := lines[*idx]
 		trimmed := strings.TrimSpace(ln.text)
@@ -502,86 +543,82 @@ func parseAction(lines []line, idx *int, name, inputAlias string) (*model.Action
 			(*idx)++
 			continue
 		}
-
-		if !startedList {
-			if trimmed == "[" {
-				startedList = true
-				(*idx)++
-				continue
-			}
-			if strings.HasPrefix(trimmed, "[") {
-				startedList = true
-				trimmed = strings.TrimSpace(strings.TrimPrefix(trimmed, "["))
-			} else {
-				return nil, fmt.Errorf("line %d: action %s transaction block must use list syntax `[ ... ]`", ln.number, name)
-			}
-		}
-
-		if trimmed == "]" {
+		if trimmed == "}" {
 			(*idx)++
-			break
+			if !hasInput {
+				return nil, fmt.Errorf("line %d: action %s is missing `input: TypeAlias`", ln.number, name)
+			}
+			if len(action.Steps) == 0 {
+				return nil, fmt.Errorf("line %d: action %s must contain at least one `create` block", ln.number, name)
+			}
+			return action, nil
 		}
 
-		endNow := false
-		if strings.HasSuffix(trimmed, "]") {
-			trimmed = strings.TrimSpace(strings.TrimSuffix(trimmed, "]"))
-			endNow = true
+		if m := match(`^input\s*:\s*([A-Za-z][A-Za-z0-9_]*)$`, trimmed); m != nil {
+			if hasInput {
+				return nil, fmt.Errorf("line %d: action %s already declares input", ln.number, name)
+			}
+			action.InputAlias = m[1]
+			hasInput = true
+			(*idx)++
+			continue
 		}
-		trimmed = strings.TrimSpace(strings.TrimPrefix(trimmed, ","))
-		if trimmed != "" {
-			step, err := parseActionStep(trimmed, ln.number)
+
+		if m := match(`^create\s+([A-Za-z][A-Za-z0-9_]*)\s*\{$`, trimmed); m != nil {
+			step, err := parseCreateBlock(lines, idx, name, m[1])
 			if err != nil {
 				return nil, err
 			}
 			action.Steps = append(action.Steps, *step)
-		}
-		(*idx)++
-		if endNow {
-			break
-		}
-	}
-
-	if len(action.Steps) == 0 {
-		return nil, fmt.Errorf("action %s must contain at least one step inside transaction", name)
-	}
-	return action, nil
-}
-
-func parseActionStep(token string, lineNo int) (*model.ActionStep, error) {
-	m := match(`^insert\s+([A-Za-z][A-Za-z0-9_]*)\s*\{(.+)\}$`, token)
-	if m == nil {
-		return nil, fmt.Errorf("line %d: unsupported action step. Expected `insert Entity { field = value }`", lineNo)
-	}
-
-	step := &model.ActionStep{Kind: "insert", Entity: m[1], Values: []model.ActionFieldExpr{}}
-	parts, err := splitCSV(m[2])
-	if err != nil {
-		return nil, fmt.Errorf("line %d: invalid field assignments in action step: %w", lineNo, err)
-	}
-	seen := map[string]bool{}
-	for _, part := range parts {
-		part = strings.TrimSpace(part)
-		if part == "" {
 			continue
 		}
-		assign := match(`^([a-z][A-Za-z0-9_]*)\s*=\s*(.+)$`, part)
+
+		return nil, fmt.Errorf("line %d: invalid action statement %q", ln.number, trimmed)
+	}
+
+	return nil, fmt.Errorf("action %s is missing closing }", name)
+}
+
+func parseCreateBlock(lines []line, idx *int, actionName, entityName string) (*model.ActionStep, error) {
+	step := &model.ActionStep{Kind: "create", Entity: entityName, Values: []model.ActionFieldExpr{}}
+	seen := map[string]bool{}
+
+	(*idx)++
+	for *idx < len(lines) {
+		ln := lines[*idx]
+		trimmed := strings.TrimSpace(ln.text)
+		if isCommentOrBlank(trimmed) {
+			(*idx)++
+			continue
+		}
+		if trimmed == "}" {
+			(*idx)++
+			if len(step.Values) == 0 {
+				return nil, fmt.Errorf("line %d: create %s in action %s must define at least one field", ln.number, entityName, actionName)
+			}
+			return step, nil
+		}
+
+		assign := match(`^([a-z][A-Za-z0-9_]*)\s*:\s*(.+)$`, trimmed)
 		if assign == nil {
-			return nil, fmt.Errorf("line %d: invalid assignment %q. Expected `field = value`", lineNo, part)
+			return nil, fmt.Errorf("line %d: invalid create field %q. Expected `field: value`", ln.number, trimmed)
 		}
 		field := assign[1]
 		if seen[field] {
-			return nil, fmt.Errorf("line %d: duplicate assignment for field %q", lineNo, field)
+			return nil, fmt.Errorf("line %d: duplicate field %q in create %s", ln.number, field, entityName)
 		}
 		seen[field] = true
 
-		expr, err := parseActionFieldExpr(strings.TrimSpace(assign[2]), lineNo)
+		expr, err := parseActionFieldExpr(strings.TrimSpace(assign[2]), ln.number)
 		if err != nil {
 			return nil, err
 		}
 		expr.Field = field
 		step.Values = append(step.Values, *expr)
+		(*idx)++
 	}
-	return step, nil
+
+	return nil, fmt.Errorf("create %s in action %s is missing closing }", entityName, actionName)
 }
 
 func parseActionFieldExpr(raw string, lineNo int) (*model.ActionFieldExpr, error) {
@@ -733,10 +770,10 @@ func validateActions(app *model.App) error {
 		}
 
 		if len(action.Steps) == 0 {
-			return fmt.Errorf("action %s must have at least one transaction step", action.Name)
+			return fmt.Errorf("action %s must have at least one create step", action.Name)
 		}
 		for _, step := range action.Steps {
-			if step.Kind != "insert" {
+			if step.Kind != "create" {
 				return fmt.Errorf("action %s has unsupported step kind %q", action.Name, step.Kind)
 			}
 			entity := entityByName[step.Entity]

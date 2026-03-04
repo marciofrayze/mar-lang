@@ -49,7 +49,10 @@ func Run(binaryName string, args []string) error {
 		if len(args) == 3 {
 			outputPath = defaultOutputPath(args[1], args[2])
 		}
-		return buildExecutable(app, outputPath)
+		return buildExecutableWithOptions(app, outputPath, buildOptions{
+			PrintSummary: true,
+			SourcePath:   args[1],
+		})
 	case "dev":
 		if len(args) != 2 && len(args) != 3 {
 			return fmt.Errorf("usage: %s dev <input.belm> [output-name]", binaryName)
@@ -194,6 +197,7 @@ func parseBelmFile(path string) (*model.App, error) {
 
 type buildOptions struct {
 	PrintSummary bool
+	SourcePath   string
 }
 
 func buildExecutable(app *model.App, outputPath string) error {
@@ -223,6 +227,15 @@ func buildExecutableWithOptions(app *model.App, outputPath string, options build
 		return err
 	}
 
+	sourceBaseDir := "."
+	if trimmed := strings.TrimSpace(options.SourcePath); trimmed != "" {
+		absSourcePath, err := filepath.Abs(trimmed)
+		if err != nil {
+			return err
+		}
+		sourceBaseDir = filepath.Dir(absSourcePath)
+	}
+
 	adminAssetsReady := false
 	adminSourceDir := filepath.Join(".", "admin")
 	if fileExists(filepath.Join(adminSourceDir, "index.html")) {
@@ -250,6 +263,37 @@ func buildExecutableWithOptions(app *model.App, outputPath string, options build
 		return errors.New("cannot compile executable without admin assets: missing ./admin/index.html")
 	}
 
+	publicAssetsReady := app.Public != nil
+	if err := ensureEmbeddedPublicPlaceholder(workDir); err != nil {
+		return err
+	}
+	if app.Public != nil {
+		publicSourceDir := strings.TrimSpace(app.Public.Dir)
+		if publicSourceDir == "" {
+			return errors.New("public.dir cannot be empty")
+		}
+		if !filepath.IsAbs(publicSourceDir) {
+			publicSourceDir = filepath.Join(sourceBaseDir, publicSourceDir)
+		}
+		publicSourceDir = filepath.Clean(publicSourceDir)
+		info, err := os.Stat(publicSourceDir)
+		if err != nil {
+			return fmt.Errorf("public.dir not found: %s", publicSourceDir)
+		}
+		if !info.IsDir() {
+			return fmt.Errorf("public.dir must be a directory: %s", publicSourceDir)
+		}
+		if err := copyDirContents(publicSourceDir, filepath.Join(workDir, "public")); err != nil {
+			return err
+		}
+		if app.Public.SPAFallback != "" {
+			fallback := filepath.Join(workDir, "public", filepath.FromSlash(app.Public.SPAFallback))
+			if !fileExists(fallback) {
+				return fmt.Errorf("public.spa_fallback not found in public.dir: %s", app.Public.SPAFallback)
+			}
+		}
+	}
+
 	mainSource := fmt.Sprintf(strings.TrimSpace(`
 package main
 
@@ -275,10 +319,11 @@ import (
 	belmruntime "belm/internal/runtime"
 )
 
-//go:embed manifest.json admin/index.html admin/dist/app.js
+//go:embed manifest.json admin/index.html admin/dist/app.js all:public
 var files embed.FS
 
 const adminEnabled = %t
+const publicEnabled = %t
 const backupKeepLast = 20
 
 func main() {
@@ -382,6 +427,9 @@ func runServe(app *model.App) error {
 		return err
 	}
 	defer r.Close()
+	if err := configurePublicFiles(r); err != nil {
+		return err
+	}
 	return r.Serve(context.Background())
 }
 
@@ -394,6 +442,9 @@ func runAdmin(app *model.App) error {
 		return err
 	}
 	defer r.Close()
+	if err := configurePublicFiles(r); err != nil {
+		return err
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -444,6 +495,18 @@ func runBackup(app *model.App) error {
 		}
 	}
 	fmt.Printf("\nBackups directory:\n  %%s\n\n", result.BackupDir)
+	return nil
+}
+
+func configurePublicFiles(r *belmruntime.Runtime) error {
+	if !publicEnabled {
+		return nil
+	}
+	publicSub, err := fs.Sub(files, "public")
+	if err != nil {
+		return err
+	}
+	r.SetPublicFiles(publicSub)
 	return nil
 }
 
@@ -499,7 +562,7 @@ func openBrowser(target string) error {
 	}
 	return cmd.Start()
 }
-`), adminAssetsReady) + "\n"
+`), adminAssetsReady, publicAssetsReady) + "\n"
 	if err := os.WriteFile(filepath.Join(workDir, "main.go"), []byte(mainSource), 0o644); err != nil {
 		return err
 	}
@@ -562,6 +625,42 @@ func copyFile(srcPath, dstPath string) error {
 		return err
 	}
 	return dst.Close()
+}
+
+func ensureEmbeddedPublicPlaceholder(workDir string) error {
+	publicDir := filepath.Join(workDir, "public")
+	if err := os.MkdirAll(publicDir, 0o755); err != nil {
+		return err
+	}
+	keepFile := filepath.Join(publicDir, ".keep")
+	return os.WriteFile(keepFile, []byte("embedded public assets placeholder\n"), 0o644)
+}
+
+func copyDirContents(srcDir, dstDir string) error {
+	return filepath.WalkDir(srcDir, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(srcDir, path)
+		if err != nil {
+			return err
+		}
+		if rel == "." {
+			return nil
+		}
+		dstPath := filepath.Join(dstDir, rel)
+		if entry.IsDir() {
+			return os.MkdirAll(dstPath, 0o755)
+		}
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+		if !info.Mode().IsRegular() {
+			return nil
+		}
+		return copyFile(path, dstPath)
+	})
 }
 
 func ensureAdminBundle(projectRoot, adminDir string) error {

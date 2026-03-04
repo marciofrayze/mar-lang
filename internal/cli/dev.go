@@ -66,7 +66,10 @@ func runDev(binaryName, inputPath, outputPath string) error {
 			fmt.Printf("%s %s\n", colorizeCLI(useColor, "\033[1;31m", "Build failed:"), parseErr)
 			return
 		}
-		if buildErr := buildExecutableWithOptions(app, absOutput, buildOptions{PrintSummary: false}); buildErr != nil {
+		if buildErr := buildExecutableWithOptions(app, absOutput, buildOptions{
+			PrintSummary: false,
+			SourcePath:   absInput,
+		}); buildErr != nil {
 			fmt.Printf("%s %s\n", colorizeCLI(useColor, "\033[1;31m", "Build failed:"), buildErr)
 			return
 		}

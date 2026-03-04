@@ -8,7 +8,7 @@ import (
 	"belm/internal/sqlitecli"
 )
 
-// handleAction executes a typed action in a single SQL transaction.
+// handleAction executes a typed action (with create steps) in a single SQL transaction.
 func (r *Runtime) handleAction(w http.ResponseWriter, actionName string, auth authSession, payload map[string]any) error {
 	action := r.actionsByName[actionName]
 	if action == nil {
@@ -38,7 +38,7 @@ func (r *Runtime) handleAction(w http.ResponseWriter, actionName string, auth au
 
 		insert, err := buildInsert(entity, stepPayload)
 		if err != nil {
-			return &apiError{Status: http.StatusBadRequest, Message: fmt.Sprintf("Action %s step insert %s: %s", action.Name, entity.Name, err.Error())}
+			return &apiError{Status: http.StatusBadRequest, Message: fmt.Sprintf("Action %s step create %s: %s", action.Name, entity.Name, err.Error())}
 		}
 		if err := r.ensureAuthorized(entity, "create", auth, insert.Context); err != nil {
 			return err

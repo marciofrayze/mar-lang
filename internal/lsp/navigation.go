@@ -68,12 +68,11 @@ var (
 	typeAliasDeclRe  = regexp.MustCompile(`^\s*type\s+alias\s+([A-Za-z][A-Za-z0-9_]*)\s*=\s*(.*)$`)
 	aliasFieldDeclRe = regexp.MustCompile(`([a-z][A-Za-z0-9_]*)\s*:\s*(Int|String|Bool|Float)\b`)
 
-	actionSigRe = regexp.MustCompile(`^\s*([a-z][A-Za-z0-9_]*)\s*:\s*([A-Za-z][A-Za-z0-9_]*)\s*->\s*(?:Effect|Result\s+[A-Za-z][A-Za-z0-9_]*\s+Effect)\s*$`)
-	actionDefRe = regexp.MustCompile(`^\s*([a-z][A-Za-z0-9_]*)\s*=\s*$`)
-
-	insertStepRe  = regexp.MustCompile(`insert\s+([A-Za-z][A-Za-z0-9_]*)\s*\{([^}]*)\}`)
-	assignFieldRe = regexp.MustCompile(`([a-z][A-Za-z0-9_]*)\s*=`)
-	inputFieldRe  = regexp.MustCompile(`\binput\.([a-z][A-Za-z0-9_]*)\b`)
+	actionDeclRe        = regexp.MustCompile(`^\s*action\s+([a-z][A-Za-z0-9_]*)\s*\{\s*$`)
+	actionInputRe       = regexp.MustCompile(`^\s*input\s*:\s*([A-Za-z][A-Za-z0-9_]*)\s*$`)
+	createDeclRe        = regexp.MustCompile(`^\s*create\s+([A-Za-z][A-Za-z0-9_]*)\s*\{\s*$`)
+	actionFieldAssignRe = regexp.MustCompile(`^\s*([a-z][A-Za-z0-9_]*)\s*:\s*(.+)$`)
+	actionInputRefRe    = regexp.MustCompile(`\binput\.([a-z][A-Za-z0-9_]*)\b`)
 
 	ruleLineRe      = regexp.MustCompile(`^\s*rule\s+"[^"]+"\s+when\s+(.+)$`)
 	authorizeLineRe = regexp.MustCompile(`^\s*authorize\s+(?:list|get|create|update|delete)\s+when\s+(.+)$`)
@@ -277,6 +276,8 @@ func indexDeclarations(uri, text string, catalog *symbolCatalog, index *workspac
 	lines := splitNormalizedLines(text)
 	currentEntity := ""
 	currentAlias := ""
+	currentAction := ""
+	actionInCreate := false
 
 	for lineNo, line := range lines {
 		trimmed := strings.TrimSpace(line)
@@ -308,6 +309,29 @@ func indexDeclarations(uri, text string, catalog *symbolCatalog, index *workspac
 			indexAliasFieldDeclarations(uri, lineNo, line, currentAlias, catalog, index)
 			if strings.Contains(line, "}") {
 				currentAlias = ""
+			}
+			continue
+		}
+
+		if currentAction != "" {
+			if actionInCreate {
+				if trimmed == "}" {
+					actionInCreate = false
+				}
+				continue
+			}
+			if match := actionInputRe.FindStringSubmatchIndex(line); match != nil {
+				inputAlias := line[match[2]:match[3]]
+				catalog.actionInputs[currentAction] = inputAlias
+				continue
+			}
+			if createDeclRe.MatchString(line) {
+				actionInCreate = true
+				continue
+			}
+			if trimmed == "}" {
+				currentAction = ""
+				continue
 			}
 			continue
 		}
@@ -346,11 +370,9 @@ func indexDeclarations(uri, text string, catalog *symbolCatalog, index *workspac
 			continue
 		}
 
-		if match := actionSigRe.FindStringSubmatchIndex(line); match != nil {
+		if match := actionDeclRe.FindStringSubmatchIndex(line); match != nil {
 			actionName := line[match[2]:match[3]]
-			inputAlias := line[match[4]:match[5]]
 			key := catalog.actionKey(actionName)
-			catalog.actionInputs[actionName] = inputAlias
 			index.add(symbolOccurrence{
 				URI:         uri,
 				Range:       makeRange(lineNo, match[2], match[3]),
@@ -359,6 +381,7 @@ func indexDeclarations(uri, text string, catalog *symbolCatalog, index *workspac
 				Kind:        symbolAction,
 				Declaration: true,
 			})
+			currentAction = actionName
 		}
 	}
 }
@@ -386,7 +409,9 @@ func indexReferences(uri, text string, catalog *symbolCatalog, index *workspaceS
 	inAuth := false
 	authUserEntity := ""
 	activeAction := ""
-	inTx := false
+	activeActionInputAlias := ""
+	activeCreateEntity := ""
+	inCreate := false
 
 	for lineNo, line := range lines {
 		trimmed := strings.TrimSpace(line)
@@ -468,24 +493,12 @@ func indexReferences(uri, text string, catalog *symbolCatalog, index *workspaceS
 			continue
 		}
 
-		if match := actionSigRe.FindStringSubmatchIndex(line); match != nil {
-			aliasName := line[match[4]:match[5]]
-			if key, ok := catalog.aliases[aliasName]; ok {
-				index.add(symbolOccurrence{
-					URI:   uri,
-					Range: makeRange(lineNo, match[4], match[5]),
-					Key:   key,
-					Name:  aliasName,
-					Kind:  symbolAlias,
-				})
-			}
-			continue
-		}
-
-		if match := actionDefRe.FindStringSubmatchIndex(line); match != nil {
+		if match := actionDeclRe.FindStringSubmatchIndex(line); match != nil {
 			actionName := line[match[2]:match[3]]
 			activeAction = actionName
-			inTx = false
+			activeActionInputAlias = catalog.actionInputs[actionName]
+			activeCreateEntity = ""
+			inCreate = false
 			if key, ok := catalog.actions[actionName]; ok {
 				index.add(symbolOccurrence{
 					URI:   uri,
@@ -502,32 +515,78 @@ func indexReferences(uri, text string, catalog *symbolCatalog, index *workspaceS
 			continue
 		}
 
-		contentStart := 0
-		if !inTx {
-			openIdx := strings.Index(line, "[")
-			if openIdx < 0 {
+		if inCreate {
+			if trimmed == "}" {
+				inCreate = false
+				activeCreateEntity = ""
 				continue
 			}
-			inTx = true
-			contentStart = openIdx + 1
+
+			if match := actionFieldAssignRe.FindStringSubmatchIndex(line); match != nil {
+				fieldName := line[match[2]:match[3]]
+				if key, ok := catalog.lookupEntityField(activeCreateEntity, fieldName); ok {
+					index.add(symbolOccurrence{
+						URI:   uri,
+						Range: makeRange(lineNo, match[2], match[3]),
+						Key:   key,
+						Name:  fieldName,
+						Kind:  symbolEntityField,
+					})
+				}
+			}
+
+			inputMatches := actionInputRefRe.FindAllStringSubmatchIndex(line, -1)
+			for _, inputMatch := range inputMatches {
+				fieldName := line[inputMatch[2]:inputMatch[3]]
+				if key, ok := catalog.lookupAliasField(activeActionInputAlias, fieldName); ok {
+					index.add(symbolOccurrence{
+						URI:   uri,
+						Range: makeRange(lineNo, inputMatch[2], inputMatch[3]),
+						Key:   key,
+						Name:  fieldName,
+						Kind:  symbolAliasField,
+					})
+				}
+			}
+			continue
 		}
 
-		contentEnd := len(line)
-		closeIdx := strings.Index(line[contentStart:], "]")
-		closeNow := false
-		if closeIdx >= 0 {
-			contentEnd = contentStart + closeIdx
-			closeNow = true
+		if match := actionInputRe.FindStringSubmatchIndex(line); match != nil {
+			aliasName := line[match[2]:match[3]]
+			activeActionInputAlias = aliasName
+			if key, ok := catalog.aliases[aliasName]; ok {
+				index.add(symbolOccurrence{
+					URI:   uri,
+					Range: makeRange(lineNo, match[2], match[3]),
+					Key:   key,
+					Name:  aliasName,
+					Kind:  symbolAlias,
+				})
+			}
+			continue
 		}
 
-		if contentStart < contentEnd {
-			content := line[contentStart:contentEnd]
-			indexActionStepReferences(uri, lineNo, contentStart, content, activeAction, catalog, index)
+		if match := createDeclRe.FindStringSubmatchIndex(line); match != nil {
+			entityName := line[match[2]:match[3]]
+			activeCreateEntity = entityName
+			inCreate = true
+			if key, ok := catalog.entities[entityName]; ok {
+				index.add(symbolOccurrence{
+					URI:   uri,
+					Range: makeRange(lineNo, match[2], match[3]),
+					Key:   key,
+					Name:  entityName,
+					Kind:  symbolEntity,
+				})
+			}
+			continue
 		}
 
-		if closeNow {
-			inTx = false
+		if trimmed == "}" {
 			activeAction = ""
+			activeActionInputAlias = ""
+			activeCreateEntity = ""
+			inCreate = false
 		}
 	}
 }
@@ -553,66 +612,6 @@ func indexExpressionFieldReferences(uri string, lineNo int, line string, exprSta
 			Name:  name,
 			Kind:  symbolEntityField,
 		})
-	}
-}
-
-func indexActionStepReferences(uri string, lineNo int, baseOffset int, content string, actionName string, catalog *symbolCatalog, index *workspaceSymbolIndex) {
-	matches := insertStepRe.FindAllStringSubmatchIndex(content, -1)
-	if len(matches) == 0 {
-		return
-	}
-	aliasName := catalog.actionInputs[actionName]
-
-	for _, match := range matches {
-		entityName := content[match[2]:match[3]]
-		entityStart := baseOffset + match[2]
-		entityEnd := baseOffset + match[3]
-		if key, ok := catalog.entities[entityName]; ok {
-			index.add(symbolOccurrence{
-				URI:   uri,
-				Range: makeRange(lineNo, entityStart, entityEnd),
-				Key:   key,
-				Name:  entityName,
-				Kind:  symbolEntity,
-			})
-		}
-
-		body := content[match[4]:match[5]]
-		bodyOffset := baseOffset + match[4]
-		fieldMatches := assignFieldRe.FindAllStringSubmatchIndex(body, -1)
-		for _, fieldMatch := range fieldMatches {
-			fieldName := body[fieldMatch[2]:fieldMatch[3]]
-			if key, ok := catalog.lookupEntityField(entityName, fieldName); ok {
-				start := bodyOffset + fieldMatch[2]
-				end := bodyOffset + fieldMatch[3]
-				index.add(symbolOccurrence{
-					URI:   uri,
-					Range: makeRange(lineNo, start, end),
-					Key:   key,
-					Name:  fieldName,
-					Kind:  symbolEntityField,
-				})
-			}
-		}
-
-		if aliasName == "" {
-			continue
-		}
-		inputMatches := inputFieldRe.FindAllStringSubmatchIndex(body, -1)
-		for _, inputMatch := range inputMatches {
-			fieldName := body[inputMatch[2]:inputMatch[3]]
-			if key, ok := catalog.lookupAliasField(aliasName, fieldName); ok {
-				start := bodyOffset + inputMatch[2]
-				end := bodyOffset + inputMatch[3]
-				index.add(symbolOccurrence{
-					URI:   uri,
-					Range: makeRange(lineNo, start, end),
-					Key:   key,
-					Name:  fieldName,
-					Kind:  symbolAliasField,
-				})
-			}
-		}
 	}
 }
 

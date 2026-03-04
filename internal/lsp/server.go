@@ -417,13 +417,18 @@ func keywordCompletionItems() []map[string]any {
 		"app",
 		"port",
 		"database",
+		"public",
 		"entity",
 		"auth",
 		"type alias",
 		"rule",
 		"authorize",
-		"transaction",
-		"insert",
+		"action",
+		"input",
+		"create",
+		"dir",
+		"mount",
+		"spa_fallback",
 	}
 	out := make([]map[string]any, 0, len(keywords))
 	for _, kw := range keywords {

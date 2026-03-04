@@ -72,3 +72,99 @@ entity Todo {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+func TestFormatActionBlockCanonicalOutput(t *testing.T) {
+	src := `
+app Demo
+entity Todo{
+title:String
+}
+type alias CreateTodoInput=
+{title:Int}
+action createTodo{
+input:CreateTodoInput
+create Todo{
+title: input.title
+}
+}
+`
+
+	_, err := Format(src)
+	if err == nil {
+		t.Fatal("expected format to fail for invalid action payload type")
+	}
+
+	valid := `
+app Demo
+entity Todo{
+title:String
+}
+type alias CreateTodoInput=
+{title:String}
+action createTodo{
+input:CreateTodoInput
+create Todo{
+title:input.title
+}
+}
+`
+
+	formatted, err := Format(valid)
+	if err != nil {
+		t.Fatalf("format failed: %v", err)
+	}
+
+	expected := "" +
+		"app Demo\n" +
+		"entity Todo {\n" +
+		"  title: String\n" +
+		"}\n" +
+		"type alias CreateTodoInput =\n" +
+		"  {title:String}\n" +
+		"action createTodo {\n" +
+		"  input: CreateTodoInput\n" +
+		"  create Todo {\n" +
+		"    title: input.title\n" +
+		"  }\n" +
+		"}\n"
+
+	if formatted != expected {
+		t.Fatalf("unexpected formatted output\n--- expected ---\n%s\n--- got ---\n%s", expected, formatted)
+	}
+}
+
+func TestFormatPublicBlockCanonicalOutput(t *testing.T) {
+	src := `
+app FrontApi
+database "./front.db"
+public {
+dir    "./frontend/dist"
+mount   "/"
+spa_fallback   "index.html"
+}
+entity Todo{
+title:String
+}
+`
+
+	formatted, err := Format(src)
+	if err != nil {
+		t.Fatalf("format failed: %v", err)
+	}
+
+	expected := "" +
+		"app FrontApi\n" +
+		"database \"./front.db\"\n" +
+		"public {\n" +
+		"  dir \"./frontend/dist\"\n" +
+		"  mount \"/\"\n" +
+		"  spa_fallback \"index.html\"\n" +
+		"}\n" +
+		"entity Todo {\n" +
+		"  title: String\n" +
+		"}\n"
+
+	if formatted != expected {
+		t.Fatalf("unexpected formatted output\n--- expected ---\n%s\n--- got ---\n%s", expected, formatted)
+	}
+}

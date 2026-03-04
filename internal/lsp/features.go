@@ -28,35 +28,36 @@ type lspCodeAction struct {
 var (
 	appDeclRe                = regexp.MustCompile(`^\s*app\s+([A-Za-z][A-Za-z0-9_]*)\s*$`)
 	unknownInputTypeErrorRe  = regexp.MustCompile(`action\s+[a-z][A-Za-z0-9_]*\s+references unknown input type\s+"([A-Za-z][A-Za-z0-9_]*)"$`)
-	actionResultErrorTypeRe  = regexp.MustCompile(`^\s*[a-z][A-Za-z0-9_]*\s*:\s*[A-Za-z][A-Za-z0-9_]*\s*->\s*Result\s+([A-Za-z][A-Za-z0-9_]*)\s+Effect\s*$`)
 	keywordHoverDescriptions = map[string]string{
-		"app":         "Declares the app name. Example: `app BookStoreApi`.",
-		"port":        "Sets the HTTP server port. Example: `port 4100`.",
-		"database":    "Sets the SQLite file path. Example: `database \"./app.db\"`.",
-		"entity":      "Declares an entity. Belm generates CRUD endpoints for it.",
-		"auth":        "Configures email-code authentication for the app.",
-		"rule":        "Adds validation logic for entity records.",
-		"authorize":   "Adds authorization rules for CRUD actions.",
-		"type":        "Used with `type alias` to define an action input record.",
-		"alias":       "Used with `type alias` to define an action input record.",
-		"transaction": "Starts a transaction block inside an action definition.",
-		"insert":      "Inserts a record in a transaction step.",
-		"optional":    "Marks a field as nullable.",
-		"primary":     "Marks a field as primary key.",
-		"auto":        "Marks a field as auto-generated.",
-		"input":       "References the action input record (e.g. `input.userId`).",
-		"isRole":      "Authorization helper: `isRole(\"admin\")`.",
-		"len":         "Returns the string length.",
-		"contains":    "Returns true when text contains a substring.",
-		"startsWith":  "Returns true when text starts with a prefix.",
-		"endsWith":    "Returns true when text ends with a suffix.",
-		"matches":     "Returns true when text matches a regex pattern.",
-		"Result":      "Action signature type: `Result <ErrorType> Effect`. Use this when an action may fail with a domain error.",
-		"Effect":      "Action return type. Represents side effects executed by the runtime (for example DB writes in `transaction`).",
-		"Int":         "Belm primitive type for whole numbers.",
-		"String":      "Belm primitive type for text values.",
-		"Bool":        "Belm primitive type for booleans (`true`/`false`).",
-		"Float":       "Belm primitive type for decimal numbers.",
+		"app":          "Declares the app name. Example: `app BookStoreApi`.",
+		"port":         "Sets the HTTP server port. Example: `port 4100`.",
+		"database":     "Sets the SQLite file path. Example: `database \"./app.db\"`.",
+		"public":       "Declares embedded static frontend files and optional SPA fallback.",
+		"dir":          "Sets the source directory for embedded static files. Example: `dir \"./frontend/dist\"`.",
+		"mount":        "Sets where static files are served. Example: `mount \"/\"` or `mount \"/app\"`.",
+		"spa_fallback": "Sets a fallback file for SPA routes when no static file matches.",
+		"entity":       "Declares an entity. Belm generates CRUD endpoints for it.",
+		"auth":         "Configures email-code authentication for the app.",
+		"rule":         "Adds validation logic for entity records.",
+		"authorize":    "Adds authorization rules for CRUD actions.",
+		"type":         "Used with `type alias` to define an action input record.",
+		"alias":        "Used with `type alias` to define an action input record.",
+		"action":       "Declares an action endpoint with `input` and one or more `create` steps.",
+		"create":       "Adds one create step inside an action block.",
+		"optional":     "Marks a field as nullable.",
+		"primary":      "Marks a field as primary key.",
+		"auto":         "Marks a field as auto-generated.",
+		"input":        "References the action input record (e.g. `input.userId`).",
+		"isRole":       "Authorization helper: `isRole(\"admin\")`.",
+		"len":          "Returns the string length.",
+		"contains":     "Returns true when text contains a substring.",
+		"startsWith":   "Returns true when text starts with a prefix.",
+		"endsWith":     "Returns true when text ends with a suffix.",
+		"matches":      "Returns true when text matches a regex pattern.",
+		"Int":          "Belm primitive type for whole numbers.",
+		"String":       "Belm primitive type for text values.",
+		"Bool":         "Belm primitive type for booleans (`true`/`false`).",
+		"Float":        "Belm primitive type for decimal numbers.",
 	}
 )
 
@@ -86,17 +87,6 @@ func (s *server) handleHover(id json.RawMessage, params textDocumentPositionPara
 		return
 	}
 
-	if hover, hoverRange, ok := resultErrorTypeHover(text, params.Position, word); ok {
-		s.respond(id, map[string]any{
-			"contents": map[string]any{
-				"kind":  "markdown",
-				"value": hover,
-			},
-			"range": hoverRange,
-		})
-		return
-	}
-
 	doc, ok := keywordHoverDescriptions[word]
 	if !ok {
 		s.respond(id, nil)
@@ -109,35 +99,6 @@ func (s *server) handleHover(id json.RawMessage, params textDocumentPositionPara
 		},
 		"range": tokenRange,
 	})
-}
-
-func resultErrorTypeHover(text string, pos lspPosition, word string) (string, lspRange, bool) {
-	lines := splitNormalizedLines(text)
-	if pos.Line < 0 || pos.Line >= len(lines) {
-		return "", lspRange{}, false
-	}
-	line := lines[pos.Line]
-	match := actionResultErrorTypeRe.FindStringSubmatchIndex(line)
-	if match == nil {
-		return "", lspRange{}, false
-	}
-
-	start := match[2]
-	end := match[3]
-	if start < 0 || end <= start || end > len(line) {
-		return "", lspRange{}, false
-	}
-	if pos.Character < start || pos.Character > end {
-		return "", lspRange{}, false
-	}
-
-	errorType := line[start:end]
-	if errorType != word {
-		return "", lspRange{}, false
-	}
-
-	value := fmt.Sprintf("**%s**\n\nCustom error type used by `Result %s Effect` in this action signature.", errorType, errorType)
-	return value, makeRange(pos.Line, start, end), true
 }
 
 func (s *server) handleDocumentSymbols(id json.RawMessage, params documentURIParams) {
@@ -206,20 +167,46 @@ func buildDocumentSymbols(text string) []lspDocumentSymbol {
 			continue
 		}
 
-		if match := actionSigRe.FindStringSubmatchIndex(line); match != nil {
-			name := line[match[2]:match[3]]
-			inputAlias := line[match[4]:match[5]]
-			out = append(out, lspDocumentSymbol{
-				Name:           name,
-				Detail:         "action: " + inputAlias + " -> Effect",
-				Kind:           12, // Function
-				Range:          makeRange(lineNo, 0, len(line)),
-				SelectionRange: makeRange(lineNo, match[2], match[3]),
-			})
+		if match := actionDeclRe.FindStringSubmatchIndex(line); match != nil {
+			action, next := parseActionDocumentSymbol(lines, lineNo, match)
+			out = append(out, action)
+			lineNo = next
 		}
 	}
 
 	return out
+}
+
+func parseActionDocumentSymbol(lines []string, startLine int, match []int) (lspDocumentSymbol, int) {
+	name := lines[startLine][match[2]:match[3]]
+	endLine := startLine
+	inputAlias := ""
+	depth := 1
+
+	for i := startLine + 1; i < len(lines); i++ {
+		line := lines[i]
+		if m := actionInputRe.FindStringSubmatchIndex(line); m != nil && inputAlias == "" {
+			inputAlias = line[m[2]:m[3]]
+		}
+		depth += strings.Count(line, "{")
+		depth -= strings.Count(line, "}")
+		endLine = i
+		if depth <= 0 {
+			break
+		}
+	}
+
+	detail := "action"
+	if inputAlias != "" {
+		detail = "action input: " + inputAlias
+	}
+	return lspDocumentSymbol{
+		Name:           name,
+		Detail:         detail,
+		Kind:           12, // Function
+		Range:          lspRange{Start: lspPosition{Line: startLine, Character: 0}, End: lspPosition{Line: endLine, Character: len(lines[endLine])}},
+		SelectionRange: makeRange(startLine, match[2], match[3]),
+	}, endLine
 }
 
 func parseEntityDocumentSymbol(lines []string, startLine int, match []int) (lspDocumentSymbol, int) {
@@ -409,7 +396,7 @@ func hoverForSymbol(index *workspaceSymbolIndex, symbol symbolOccurrence) string
 		}
 	case symbolAction:
 		header = "Action `" + symbol.Name + "`"
-		detail = "Executes a typed transaction (`transaction`) and is exposed as `/actions/<name>`."
+		detail = "Executes typed `create` steps atomically and is exposed as `/actions/<name>`."
 	default:
 		header = "Symbol `" + symbol.Name + "`"
 	}

@@ -32,12 +32,20 @@ type alias PlaceOrderInput =
   , total : Float
   }
 
-placeOrder : PlaceOrderInput -> Result DomainError Effect
-placeOrder =
-  transaction
-    [ insert Order { userId = input.userId, total = input.total, status = "created" }
-    , insert AuditLog { userId = input.userId, event = "order created" }
-    ]
+action placeOrder {
+  input: PlaceOrderInput
+
+  create Order {
+    userId: input.userId
+    total: input.total
+    status: "created"
+  }
+
+  create AuditLog {
+    userId: input.userId
+    event: "order created"
+  }
+}
 ```
 
 Full examples:
@@ -53,7 +61,9 @@ Full examples:
 - Email code login flow
 - Rule-based authorization
 - Safe automatic schema migrations
+- Version-control friendly by design (source-first app definitions instead of visual-only configuration)
 - Integrated admin panel
+- Embedded static frontend support (`public` block)
 - Built-in SQLite backup workflow
 - Built-in monitoring and performance dashboards
 
@@ -118,6 +128,7 @@ At compile time, Belm embeds:
 - `manifest.json` (compiled app model)
 - `admin/index.html`
 - `admin/dist/app.js`
+- files from configured `public.dir` (when `public { ... }` is declared)
 
 At runtime, the executable:
 
@@ -332,11 +343,43 @@ entity Todo {
 - `app <Name>`
 - `port <number>`
 - `database "<sqlite_path>"`
+- `public { ... }`
 - `auth { ... }`
 - `entity <Name> { ... }`
 - `type alias <Name> = { ... }`
-- `<actionName> : <InputAlias> -> Effect`
-- `<actionName> = transaction [ insert Entity { field = input.value } ]`
+- `action <actionName> { ... }`
+- `input: <InputAlias>`
+- `create <Entity> { field: value }`
+
+### Public Static Frontend
+
+Belm can embed frontend static files into the compiled executable.
+
+```belm
+public {
+  dir "./frontend/dist"
+  mount "/"
+  spa_fallback "index.html"
+}
+```
+
+Fields:
+
+- `dir`: required directory containing static files
+- `mount`: optional URL mount point (`"/"` by default)
+- `spa_fallback`: optional fallback file for SPA routes (for example `index.html`)
+
+Notes:
+
+- `dir` is resolved relative to the `.belm` file location (or can be absolute).
+- Public files are embedded into the compiled executable for simpler deployment.
+
+Routing behavior:
+
+1. API routes are resolved first.
+2. If no API route matches, Belm tries static files from `public`.
+3. If no static file matches and `spa_fallback` is configured, Belm serves the fallback for route-like paths (no file extension).
+4. Otherwise, it returns `404`.
 
 ### Fields
 
@@ -361,7 +404,7 @@ If no primary key is provided, Belm automatically adds:
 
 ## Typed Actions (Elm-style)
 
-Belm supports Elm-inspired typed actions for multi-entity writes in a single transaction.
+Belm supports Elm-inspired typed actions for multi-entity writes in a single atomic transaction.
 
 ```belm
 type alias PlaceOrderInput =
@@ -370,12 +413,21 @@ type alias PlaceOrderInput =
   , note : String
   }
 
-placeOrder : PlaceOrderInput -> Result DomainError Effect
-placeOrder =
-  transaction
-    [ insert Order { userId = input.userId, status = "created", total = input.total, note = input.note }
-    , insert AuditLog { userId = input.userId, message = "order created" }
-    ]
+action placeOrder {
+  input: PlaceOrderInput
+
+  create Order {
+    userId: input.userId
+    status: "created"
+    total: input.total
+    note: input.note
+  }
+
+  create AuditLog {
+    userId: input.userId
+    message: "order created"
+  }
+}
 ```
 
 Behavior:

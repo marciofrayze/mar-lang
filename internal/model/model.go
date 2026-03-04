@@ -1,13 +1,20 @@
 package model
 
 type App struct {
-	AppName      string      `json:"appName"`
-	Port         int         `json:"port"`
-	Database     string      `json:"database"`
-	Entities     []Entity    `json:"entities"`
-	Auth         *AuthConfig `json:"auth,omitempty"`
-	InputAliases []TypeAlias `json:"inputAliases,omitempty"`
-	Actions      []Action    `json:"actions,omitempty"`
+	AppName      string        `json:"appName"`
+	Port         int           `json:"port"`
+	Database     string        `json:"database"`
+	Public       *PublicConfig `json:"public,omitempty"`
+	Entities     []Entity      `json:"entities"`
+	Auth         *AuthConfig   `json:"auth,omitempty"`
+	InputAliases []TypeAlias   `json:"inputAliases,omitempty"`
+	Actions      []Action      `json:"actions,omitempty"`
+}
+
+type PublicConfig struct {
+	Dir         string `json:"dir"`
+	Mount       string `json:"mount"`
+	SPAFallback string `json:"spaFallback,omitempty"`
 }
 
 type AuthConfig struct {

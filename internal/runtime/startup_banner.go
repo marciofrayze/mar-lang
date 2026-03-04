@@ -60,6 +60,16 @@ func (r *Runtime) printStartupBanner() {
 		}
 	}
 
+	if r.App.Public != nil {
+		fmt.Printf("\n%s\n", colorize(useColor, ansiSection, "Public"))
+		mount := normalizeMount(r.App.Public.Mount)
+		fmt.Printf("  %s %s\n", "DIR ", r.App.Public.Dir+" (embedded)")
+		fmt.Printf("  %s %s\n", "GET ", mount+"*")
+		if r.App.Public.SPAFallback != "" {
+			fmt.Printf("  %s %s\n", "SPA ", r.App.Public.SPAFallback)
+		}
+	}
+
 	fmt.Printf("\n%s\n", colorize(useColor, ansiSection, "System"))
 	fmt.Printf("  %s %s\n", "GET ", "/health")
 	fmt.Printf("  %s %s\n", "GET ", "/_belm/schema")

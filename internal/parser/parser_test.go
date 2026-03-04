@@ -103,12 +103,14 @@ type alias CreateBookInput =
   , price: String
   }
 
-createBook : CreateBookInput -> Effect
-createBook =
-  transaction
-  [
-    insert Book { title = input.title, price = input.price }
-  ]
+action createBook {
+  input: CreateBookInput
+
+  create Book {
+    title: input.title
+    price: input.price
+  }
+}
 `
 
 	_, err := Parse(src)
@@ -117,6 +119,65 @@ createBook =
 	}
 
 	if !strings.Contains(err.Error(), "action createBook field Book.price expects Float but got String") {
+		t.Fatalf("unexpected error message: %v", err)
+	}
+}
+
+func TestParsePublicBlock(t *testing.T) {
+	src := `
+app FrontApi
+port 4200
+database "./front.db"
+
+public {
+  dir "./frontend/dist"
+  mount "/"
+  spa_fallback "index.html"
+}
+
+entity Todo {
+  title: String
+}
+`
+
+	app, err := Parse(src)
+	if err != nil {
+		t.Fatalf("Parse returned error: %v", err)
+	}
+	if app.Public == nil {
+		t.Fatal("expected public block to be parsed")
+	}
+	if app.Public.Dir != "./frontend/dist" {
+		t.Fatalf("unexpected public dir: %q", app.Public.Dir)
+	}
+	if app.Public.Mount != "/" {
+		t.Fatalf("unexpected public mount: %q", app.Public.Mount)
+	}
+	if app.Public.SPAFallback != "index.html" {
+		t.Fatalf("unexpected spa fallback: %q", app.Public.SPAFallback)
+	}
+}
+
+func TestParsePublicBlockRejectsAbsoluteFallback(t *testing.T) {
+	src := `
+app FrontApi
+database "./front.db"
+
+public {
+  dir "./frontend/dist"
+  spa_fallback "/index.html"
+}
+
+entity Todo {
+  title: String
+}
+`
+
+	_, err := Parse(src)
+	if err == nil {
+		t.Fatal("expected parse error for invalid public.spa_fallback")
+	}
+	if !strings.Contains(err.Error(), "public.spa_fallback must be a relative file path") {
 		t.Fatalf("unexpected error message: %v", err)
 	}
 }
