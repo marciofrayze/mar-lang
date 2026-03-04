@@ -6355,7 +6355,7 @@ var $author$project$Main$loadSchema = function (apiBase) {
 };
 var $author$project$Main$init = function (flags) {
 	return _Utils_Tuple2(
-		{actionFormValues: $elm$core$Dict$empty, actionResult: $elm$core$Maybe$Nothing, apiBase: flags.apiBase, authCode: '', authEmail: '', authTab: $author$project$Main$AppAuthTab, authToken: '', authToolsOpen: true, backups: $author$project$Main$NotAsked, currentEmail: $elm$core$Maybe$Nothing, currentRole: $elm$core$Maybe$Nothing, currentSystemEmail: $elm$core$Maybe$Nothing, currentSystemRole: $elm$core$Maybe$Nothing, databaseMode: false, flash: $elm$core$Maybe$Nothing, formMode: $author$project$Main$FormHidden, formValues: $elm$core$Dict$empty, lastBackup: $elm$core$Maybe$Nothing, perf: $author$project$Main$NotAsked, performanceMode: false, requestLogs: $author$project$Main$NotAsked, requestLogsMode: false, rows: $author$project$Main$NotAsked, schema: $author$project$Main$Loading, selectedAction: $elm$core$Maybe$Nothing, selectedEntity: $elm$core$Maybe$Nothing, selectedRow: $elm$core$Maybe$Nothing, systemAuthToken: ''},
+		{actionFormValues: $elm$core$Dict$empty, actionResult: $elm$core$Maybe$Nothing, apiBase: flags.apiBase, authCode: '', authEmail: '', authTab: $author$project$Main$AppAuthTab, authToken: '', authToolsOpen: true, backups: $author$project$Main$NotAsked, currentEmail: $elm$core$Maybe$Nothing, currentRole: $elm$core$Maybe$Nothing, currentSystemEmail: $elm$core$Maybe$Nothing, currentSystemRole: $elm$core$Maybe$Nothing, databaseMode: false, firstAdminCodeRequested: false, flash: $elm$core$Maybe$Nothing, formMode: $author$project$Main$FormHidden, formValues: $elm$core$Dict$empty, lastBackup: $elm$core$Maybe$Nothing, perf: $author$project$Main$NotAsked, performanceMode: false, requestLogs: $author$project$Main$NotAsked, requestLogsMode: false, rows: $author$project$Main$NotAsked, schema: $author$project$Main$Loading, selectedAction: $elm$core$Maybe$Nothing, selectedEntity: $elm$core$Maybe$Nothing, selectedRow: $elm$core$Maybe$Nothing, systemAuthToken: ''},
 		$author$project$Main$loadSchema(flags.apiBase));
 };
 var $elm$core$Platform$Sub$batch = _Platform_batch;
@@ -7529,6 +7529,7 @@ var $author$project$Main$update = F2(
 							authToolsOpen: keepAuthToolsOpen,
 							backups: $author$project$Main$NotAsked,
 							databaseMode: false,
+							firstAdminCodeRequested: model.firstAdminCodeRequested && ($elm$core$String$trim(model.authToken) === ''),
 							formMode: $author$project$Main$FormHidden,
 							formValues: $elm$core$Dict$empty,
 							performanceMode: false,
@@ -7891,6 +7892,7 @@ var $author$project$Main$update = F2(
 							model,
 							{
 								authCode: code,
+								firstAdminCodeRequested: true,
 								flash: $elm$core$Maybe$Just(
 									'First ' + ($author$project$Main$authScopeLabel(scope) + ' admin code sent. Enter the code and click Login.'))
 							});
@@ -7902,6 +7904,7 @@ var $author$project$Main$update = F2(
 							_Utils_update(
 								model,
 								{
+									firstAdminCodeRequested: true,
 									flash: $elm$core$Maybe$Just(response.message)
 								}),
 							$author$project$Main$loadSchema(model.apiBase));
@@ -7940,12 +7943,14 @@ var $author$project$Main$update = F2(
 				if (result.$ === 'Ok') {
 					var response = result.a;
 					if (scope.$ === 'AppAuthScope') {
+						var schemaCmd = $author$project$Main$loadSchema(model.apiBase);
 						var nextModel = _Utils_update(
 							model,
 							{
 								authToken: response.token,
 								currentEmail: response.email,
 								currentRole: response.role,
+								firstAdminCodeRequested: false,
 								flash: $elm$core$Maybe$Just('Login successful.')
 							});
 						var meCmd = A2($author$project$Main$loadAuthMe, $author$project$Main$AppAuthScope, nextModel);
@@ -7959,10 +7964,15 @@ var $author$project$Main$update = F2(
 									_List_fromArray(
 										[
 											$author$project$Main$loadRows(loadingModel),
-											meCmd
+											meCmd,
+											schemaCmd
 										])));
 						} else {
-							return _Utils_Tuple2(nextModel, meCmd);
+							return _Utils_Tuple2(
+								nextModel,
+								$elm$core$Platform$Cmd$batch(
+									_List_fromArray(
+										[meCmd, schemaCmd])));
 						}
 					} else {
 						var nextModel = _Utils_update(
@@ -14601,6 +14611,25 @@ var $mdgriffith$elm_ui$Element$Input$Label = F3(
 		return {$: 'Label', a: a, b: b, c: c};
 	});
 var $mdgriffith$elm_ui$Element$Input$labelAbove = $mdgriffith$elm_ui$Element$Input$Label($mdgriffith$elm_ui$Element$Input$Above);
+var $mdgriffith$elm_ui$Internal$Model$Paragraph = {$: 'Paragraph'};
+var $mdgriffith$elm_ui$Element$paragraph = F2(
+	function (attrs, children) {
+		return A4(
+			$mdgriffith$elm_ui$Internal$Model$element,
+			$mdgriffith$elm_ui$Internal$Model$asParagraph,
+			$mdgriffith$elm_ui$Internal$Model$div,
+			A2(
+				$elm$core$List$cons,
+				$mdgriffith$elm_ui$Internal$Model$Describe($mdgriffith$elm_ui$Internal$Model$Paragraph),
+				A2(
+					$elm$core$List$cons,
+					$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+					A2(
+						$elm$core$List$cons,
+						$mdgriffith$elm_ui$Element$spacing(5),
+						attrs))),
+			$mdgriffith$elm_ui$Internal$Model$Unkeyed(children));
+	});
 var $mdgriffith$elm_ui$Element$Input$Placeholder = F2(
 	function (a, b) {
 		return {$: 'Placeholder', a: a, b: b};
@@ -15499,6 +15528,43 @@ var $author$project$Main$viewAuthToolsPanel = function (model) {
 	} else {
 		var maybeSystemAuth = $author$project$Main$systemAuthInfoFromModel(model);
 		var maybeAppAuth = $author$project$Main$authInfoFromModel(model);
+		var authFlowStepRow = F2(
+			function (index, description) {
+				return A2(
+					$mdgriffith$elm_ui$Element$row,
+					_List_fromArray(
+						[
+							$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+							$mdgriffith$elm_ui$Element$spacing(8)
+						]),
+					_List_fromArray(
+						[
+							A2(
+							$mdgriffith$elm_ui$Element$el,
+							_List_fromArray(
+								[
+									$mdgriffith$elm_ui$Element$Font$bold,
+									$mdgriffith$elm_ui$Element$Font$size(12),
+									$mdgriffith$elm_ui$Element$Font$color(
+									A3($mdgriffith$elm_ui$Element$rgb255, 70, 89, 120))
+								]),
+							$mdgriffith$elm_ui$Element$text(
+								$elm$core$String$fromInt(index + 1) + '.')),
+							A2(
+							$mdgriffith$elm_ui$Element$paragraph,
+							_List_fromArray(
+								[
+									$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+									$mdgriffith$elm_ui$Element$Font$size(12),
+									$mdgriffith$elm_ui$Element$Font$color(
+									A3($mdgriffith$elm_ui$Element$rgb255, 93, 103, 120))
+								]),
+							_List_fromArray(
+								[
+									$mdgriffith$elm_ui$Element$text(description)
+								]))
+						]));
+			});
 		var appHasNoUsers = function () {
 			if (maybeAppAuth.$ === 'Just') {
 				var appAuth = maybeAppAuth.a;
@@ -15525,9 +15591,20 @@ var $author$project$Main$viewAuthToolsPanel = function (model) {
 				}
 			}
 		}();
+		var firstAdminMode = function () {
+			if (activeScope.$ === 'AppAuthScope') {
+				return appHasNoUsers || model.firstAdminCodeRequested;
+			} else {
+				return needsBootstrap;
+			}
+		}();
+		var authFlowSteps = firstAdminMode ? _List_fromArray(
+			['Enter the email for the first administrator.', 'Click Create first admin to send a 6-digit login code.', 'When the code is received, enter it and click Login.']) : _List_fromArray(
+			['Enter your email.', 'Click Request code to receive a 6-digit login code.', 'Enter the code and click Login.']);
+		var authFlowTitle = firstAdminMode ? 'First access' : 'Login flow';
 		var tabHint = function () {
 			if (activeScope.$ === 'AppAuthScope') {
-				return appHasNoUsers ? 'No users found yet. Create the first admin to initialize authentication.' : 'The request sends a login code and automatically creates the user if it does not exist.';
+				return firstAdminMode ? 'Complete first admin setup with the same email and login code.' : 'The request sends a login code and automatically creates the user if it does not exist.';
 			} else {
 				return needsBootstrap ? 'No admins found. Create the first admin, then login with the code.' : 'Admin authentication is used only for admin features such as Performance and Database backups.';
 			}
@@ -15620,7 +15697,34 @@ var $author$project$Main$viewAuthToolsPanel = function (model) {
 							$mdgriffith$elm_ui$Element$spacing(8)
 						]),
 					activeBadgeText),
-					needsBootstrap ? A2(
+					A2(
+					$mdgriffith$elm_ui$Element$column,
+					_List_fromArray(
+						[
+							$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+							$mdgriffith$elm_ui$Element$spacing(6),
+							$mdgriffith$elm_ui$Element$Background$color(
+							firstAdminMode ? A3($mdgriffith$elm_ui$Element$rgb255, 255, 249, 234) : A3($mdgriffith$elm_ui$Element$rgb255, 245, 248, 255)),
+							$mdgriffith$elm_ui$Element$Border$rounded(10),
+							$mdgriffith$elm_ui$Element$Border$width(1),
+							$mdgriffith$elm_ui$Element$Border$color(
+							firstAdminMode ? A3($mdgriffith$elm_ui$Element$rgb255, 243, 221, 156) : A3($mdgriffith$elm_ui$Element$rgb255, 199, 214, 242)),
+							$mdgriffith$elm_ui$Element$padding(10)
+						]),
+					A2(
+						$elm$core$List$cons,
+						A2(
+							$mdgriffith$elm_ui$Element$el,
+							_List_fromArray(
+								[
+									$mdgriffith$elm_ui$Element$Font$bold,
+									$mdgriffith$elm_ui$Element$Font$size(13),
+									$mdgriffith$elm_ui$Element$Font$color(
+									A3($mdgriffith$elm_ui$Element$rgb255, 70, 89, 120))
+								]),
+							$mdgriffith$elm_ui$Element$text(authFlowTitle)),
+						A2($elm$core$List$indexedMap, authFlowStepRow, authFlowSteps))),
+					firstAdminMode ? A2(
 					$mdgriffith$elm_ui$Element$row,
 					_List_fromArray(
 						[
@@ -15653,6 +15757,29 @@ var $author$project$Main$viewAuthToolsPanel = function (model) {
 								text: model.authEmail
 							}),
 							A2(
+							$mdgriffith$elm_ui$Element$Input$text,
+							_List_fromArray(
+								[
+									$mdgriffith$elm_ui$Element$width(
+									$mdgriffith$elm_ui$Element$fillPortion(2))
+								]),
+							{
+								label: A2(
+									$mdgriffith$elm_ui$Element$Input$labelAbove,
+									_List_fromArray(
+										[
+											$mdgriffith$elm_ui$Element$Font$size(12)
+										]),
+									$mdgriffith$elm_ui$Element$text('Code')),
+								onChange: $author$project$Main$SetAuthCode,
+								placeholder: $elm$core$Maybe$Just(
+									A2(
+										$mdgriffith$elm_ui$Element$Input$placeholder,
+										_List_Nil,
+										$mdgriffith$elm_ui$Element$text('6-digit code'))),
+								text: model.authCode
+							}),
+							A2(
 							$mdgriffith$elm_ui$Element$Input$button,
 							_List_fromArray(
 								[
@@ -15668,6 +15795,23 @@ var $author$project$Main$viewAuthToolsPanel = function (model) {
 							{
 								label: $mdgriffith$elm_ui$Element$text('Create first admin'),
 								onPress: $elm$core$Maybe$Just($author$project$Main$BootstrapFirstAdmin)
+							}),
+							A2(
+							$mdgriffith$elm_ui$Element$Input$button,
+							_List_fromArray(
+								[
+									$mdgriffith$elm_ui$Element$alignBottom,
+									$mdgriffith$elm_ui$Element$Background$color(
+									A3($mdgriffith$elm_ui$Element$rgb255, 34, 124, 95)),
+									$mdgriffith$elm_ui$Element$Font$color(
+									A3($mdgriffith$elm_ui$Element$rgb255, 246, 251, 248)),
+									$mdgriffith$elm_ui$Element$Border$rounded(10),
+									$mdgriffith$elm_ui$Element$paddingEach(
+									{bottom: 10, left: 12, right: 12, top: 10})
+								]),
+							{
+								label: $mdgriffith$elm_ui$Element$text('Login'),
+								onPress: $elm$core$Maybe$Just($author$project$Main$LoginWithCode)
 							})
 						])) : A2(
 					$mdgriffith$elm_ui$Element$row,
@@ -15807,25 +15951,6 @@ var $author$project$Main$RunAction = {$: 'RunAction'};
 var $author$project$Main$SetActionField = F2(
 	function (a, b) {
 		return {$: 'SetActionField', a: a, b: b};
-	});
-var $mdgriffith$elm_ui$Internal$Model$Paragraph = {$: 'Paragraph'};
-var $mdgriffith$elm_ui$Element$paragraph = F2(
-	function (attrs, children) {
-		return A4(
-			$mdgriffith$elm_ui$Internal$Model$element,
-			$mdgriffith$elm_ui$Internal$Model$asParagraph,
-			$mdgriffith$elm_ui$Internal$Model$div,
-			A2(
-				$elm$core$List$cons,
-				$mdgriffith$elm_ui$Internal$Model$Describe($mdgriffith$elm_ui$Internal$Model$Paragraph),
-				A2(
-					$elm$core$List$cons,
-					$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
-					A2(
-						$elm$core$List$cons,
-						$mdgriffith$elm_ui$Element$spacing(5),
-						attrs))),
-			$mdgriffith$elm_ui$Internal$Model$Unkeyed(children));
 	});
 var $author$project$Main$viewActionPanel = F2(
 	function (model, actionInfo) {

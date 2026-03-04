@@ -558,42 +558,28 @@ func (r *Runtime) deliverEmailCode(toEmail, code string) error {
 	cfg := r.authConfig()
 	if cfg.DevExposeCode {
 		r.printAuthLogHeader()
-		useColor := supportsANSI()
-		fmt.Printf("  %s %s  %s %s\n",
-			colorize(useColor, ansiLabel, "Dev code:"),
-			colorize(useColor, ansiCommand, code),
-			colorize(useColor, ansiLabel, "Email:"),
-			toEmail,
-		)
+		r.printAuthLogSection("Code generated")
+		r.printAuthLogFieldCommand("Dev code", code)
+		r.printAuthLogField("Email", toEmail)
 	}
 
 	switch cfg.EmailTransport {
 	case "console":
 		r.printAuthLogHeader()
-		useColor := supportsANSI()
-		fmt.Printf("  %s %s  %s %s  %s %s\n",
-			colorize(useColor, ansiLabel, "Email:"),
-			colorize(useColor, ansiCommand, "sent"),
-			colorize(useColor, ansiLabel, "Transport:"),
-			"console",
-			colorize(useColor, ansiLabel, "To:"),
-			toEmail,
-		)
+		r.printAuthLogSection("Email delivery")
+		r.printAuthLogFieldCommand("Status", "sent")
+		r.printAuthLogField("Transport", "console")
+		r.printAuthLogField("To", toEmail)
 		return nil
 	case "sendmail":
 		if err := sendWithSendmail(cfg.SendmailPath, cfg.EmailFrom, cfg.EmailSubject, toEmail, code, cfg.CodeTTLMinutes); err != nil {
 			return err
 		}
 		r.printAuthLogHeader()
-		useColor := supportsANSI()
-		fmt.Printf("  %s %s  %s %s  %s %s\n",
-			colorize(useColor, ansiLabel, "Email:"),
-			colorize(useColor, ansiCommand, "sent"),
-			colorize(useColor, ansiLabel, "Transport:"),
-			"sendmail",
-			colorize(useColor, ansiLabel, "To:"),
-			toEmail,
-		)
+		r.printAuthLogSection("Email delivery")
+		r.printAuthLogFieldCommand("Status", "sent")
+		r.printAuthLogField("Transport", "sendmail")
+		r.printAuthLogField("To", toEmail)
 		return nil
 	default:
 		return fmt.Errorf("unsupported email transport %q", cfg.EmailTransport)
@@ -606,6 +592,33 @@ func (r *Runtime) printAuthLogHeader() {
 		fmt.Println()
 		fmt.Printf("%s\n", colorize(useColor, ansiSection, "Auth logs"))
 	})
+}
+
+func (r *Runtime) printAuthLogSection(title string) {
+	useColor := supportsANSI()
+	fmt.Printf("  %s\n", colorize(useColor, ansiSection, title))
+}
+
+func (r *Runtime) printAuthLogField(label, value string) {
+	r.printAuthLogFieldWithColor(label, value, "")
+}
+
+func (r *Runtime) printAuthLogFieldCommand(label, value string) {
+	r.printAuthLogFieldWithColor(label, value, ansiCommand)
+}
+
+func (r *Runtime) printAuthLogFieldWithColor(label, value, valueColor string) {
+	useColor := supportsANSI()
+	key := label + ":"
+	const keyWidth = 12
+	if len(key) < keyWidth {
+		key += strings.Repeat(" ", keyWidth-len(key))
+	}
+	displayValue := value
+	if valueColor != "" {
+		displayValue = colorize(useColor, valueColor, value)
+	}
+	fmt.Printf("    %s %s\n", colorize(useColor, ansiLabel, key), displayValue)
 }
 
 // sendWithSendmail sends plain-text email by invoking the local sendmail binary.

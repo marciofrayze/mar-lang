@@ -53,6 +53,7 @@ type alias Model =
     , authTab : AuthTab
     , authEmail : String
     , authCode : String
+    , firstAdminCodeRequested : Bool
     , authToolsOpen : Bool
     , schema : Remote Schema
     , selectedEntity : Maybe Entity
@@ -241,6 +242,7 @@ init flags =
       , authTab = AppAuthTab
       , authEmail = ""
       , authCode = ""
+      , firstAdminCodeRequested = False
       , authToolsOpen = True
       , schema = Loading
       , selectedEntity = Nothing
@@ -306,6 +308,9 @@ update msg model =
                                 , actionResult = Nothing
                                 , requestLogs = NotAsked
                                 , backups = NotAsked
+                                , firstAdminCodeRequested =
+                                    model.firstAdminCodeRequested
+                                        && String.trim model.authToken == ""
                             }
                     in
                     if shouldLoadRows then
@@ -569,6 +574,7 @@ update msg model =
                                 nextModel =
                                     { model
                                         | authCode = code
+                                        , firstAdminCodeRequested = True
                                         , flash = Just ("First " ++ authScopeLabel scope ++ " admin code sent. Enter the code and click Login.")
                                     }
                             in
@@ -577,7 +583,7 @@ update msg model =
                             )
 
                         Nothing ->
-                            ( { model | flash = Just response.message }, loadSchema model.apiBase )
+                            ( { model | firstAdminCodeRequested = True, flash = Just response.message }, loadSchema model.apiBase )
 
                 Err httpError ->
                     ( { model | flash = Just (httpErrorToString httpError) }, Cmd.none )
@@ -604,21 +610,25 @@ update msg model =
                                         | authToken = response.token
                                         , currentRole = response.role
                                         , currentEmail = response.email
+                                        , firstAdminCodeRequested = False
                                         , flash = Just "Login successful."
                                     }
 
                                 meCmd =
                                     loadAuthMe AppAuthScope nextModel
+
+                                schemaCmd =
+                                    loadSchema model.apiBase
                             in
                             if shouldReloadCrudAfterLogin model then
                                 let
                                     loadingModel =
                                         { nextModel | rows = Loading }
                                 in
-                                ( loadingModel, Cmd.batch [ loadRows loadingModel, meCmd ] )
+                                ( loadingModel, Cmd.batch [ loadRows loadingModel, meCmd, schemaCmd ] )
 
                             else
-                                ( nextModel, meCmd )
+                                ( nextModel, Cmd.batch [ meCmd, schemaCmd ] )
 
                         SystemAuthScope ->
                             let
@@ -2047,11 +2057,46 @@ viewAuthToolsPanel model =
                     Nothing ->
                         False
 
+            firstAdminMode =
+                case activeScope of
+                    AppAuthScope ->
+                        appHasNoUsers || model.firstAdminCodeRequested
+
+                    SystemAuthScope ->
+                        needsBootstrap
+
+            authFlowTitle =
+                if firstAdminMode then
+                    "First access"
+
+                else
+                    "Login flow"
+
+            authFlowSteps =
+                if firstAdminMode then
+                    [ "Enter the email for the first administrator."
+                    , "Click Create first admin to send a 6-digit login code."
+                    , "When the code is received, enter it and click Login."
+                    ]
+
+                else
+                    [ "Enter your email."
+                    , "Click Request code to receive a 6-digit login code."
+                    , "Enter the code and click Login."
+                    ]
+
+            authFlowStepRow : Int -> String -> Element Msg
+            authFlowStepRow index description =
+                row [ width fill, spacing 8 ]
+                    [ el [ Font.bold, Font.size 12, Font.color (rgb255 70 89 120) ] (text (String.fromInt (index + 1) ++ "."))
+                    , paragraph [ width fill, Font.size 12, Font.color (rgb255 93 103 120) ] [ text description ]
+                    ]
+
             tabHint =
                 case activeScope of
                     AppAuthScope ->
-                        if appHasNoUsers then
-                            "No users found yet. Create the first admin to initialize authentication."
+                        if firstAdminMode then
+                            "Complete first admin setup with the same email and login code."
 
                         else
                             "The request sends a login code and automatically creates the user if it does not exist."
@@ -2080,13 +2125,43 @@ viewAuthToolsPanel model =
                     [ el [ Font.bold, Font.size 18 ] (text "Authentication") ]
                 , el [ Font.size 12, Font.color (rgb255 93 103 120) ] (text transportText)
                 , row [ width fill, spacing 8 ] activeBadgeText
-                , if needsBootstrap then
+                , column
+                    [ width fill
+                    , spacing 6
+                    , Background.color
+                        (if firstAdminMode then
+                            rgb255 255 249 234
+
+                         else
+                            rgb255 245 248 255
+                        )
+                    , Border.rounded 10
+                    , Border.width 1
+                    , Border.color
+                        (if firstAdminMode then
+                            rgb255 243 221 156
+
+                         else
+                            rgb255 199 214 242
+                        )
+                    , padding 10
+                    ]
+                    (el [ Font.bold, Font.size 13, Font.color (rgb255 70 89 120) ] (text authFlowTitle)
+                        :: List.indexedMap authFlowStepRow authFlowSteps
+                    )
+                , if firstAdminMode then
                     row [ width fill, spacing 10 ]
                         [ Input.text [ width (fillPortion 3) ]
                             { onChange = SetAuthEmail
                             , text = model.authEmail
                             , placeholder = Just (Input.placeholder [] (text "admin@email.com"))
                             , label = Input.labelAbove [ Font.size 12 ] (text "Email")
+                            }
+                        , Input.text [ width (fillPortion 2) ]
+                            { onChange = SetAuthCode
+                            , text = model.authCode
+                            , placeholder = Just (Input.placeholder [] (text "6-digit code"))
+                            , label = Input.labelAbove [ Font.size 12 ] (text "Code")
                             }
                         , Input.button
                             [ Element.alignBottom
@@ -2097,6 +2172,16 @@ viewAuthToolsPanel model =
                             ]
                             { onPress = Just BootstrapFirstAdmin
                             , label = text "Create first admin"
+                            }
+                        , Input.button
+                            [ Element.alignBottom
+                            , Background.color (rgb255 34 124 95)
+                            , Font.color (rgb255 246 251 248)
+                            , Border.rounded 10
+                            , paddingEach { top = 10, right = 12, bottom = 10, left = 12 }
+                            ]
+                            { onPress = Just LoginWithCode
+                            , label = text "Login"
                             }
                         ]
 
