@@ -7737,15 +7737,21 @@ var $author$project$Main$update = F2(
 					var _v9 = response.devCode;
 					if (_v9.$ === 'Just') {
 						var code = _v9.a;
+						var nextModel = _Utils_update(
+							model,
+							{
+								authCode: code,
+								flash: $elm$core$Maybe$Just(
+									'First ' + ($author$project$Main$authScopeLabel(scope) + ' admin created. Logging in...'))
+							});
 						return _Utils_Tuple2(
-							_Utils_update(
-								model,
-								{
-									authCode: code,
-									flash: $elm$core$Maybe$Just(
-										'First ' + ($author$project$Main$authScopeLabel(scope) + (' admin created. devCode: ' + code)))
-								}),
-							$author$project$Main$loadSchema(model.apiBase));
+							nextModel,
+							$elm$core$Platform$Cmd$batch(
+								_List_fromArray(
+									[
+										$author$project$Main$loadSchema(model.apiBase),
+										A2($author$project$Main$loginWithCode, scope, nextModel)
+									])));
 					} else {
 						return _Utils_Tuple2(
 							_Utils_update(
@@ -14068,6 +14074,7 @@ var $mdgriffith$elm_ui$Internal$Model$Height = function (a) {
 	return {$: 'Height', a: a};
 };
 var $mdgriffith$elm_ui$Element$height = $mdgriffith$elm_ui$Internal$Model$Height;
+var $mdgriffith$elm_ui$Element$htmlAttribute = $mdgriffith$elm_ui$Internal$Model$Attr;
 var $mdgriffith$elm_ui$Internal$Model$AsRow = {$: 'AsRow'};
 var $mdgriffith$elm_ui$Internal$Model$asRow = $mdgriffith$elm_ui$Internal$Model$AsRow;
 var $mdgriffith$elm_ui$Internal$Model$Content = {$: 'Content'};
@@ -14094,6 +14101,8 @@ var $mdgriffith$elm_ui$Element$row = F2(
 						attrs))),
 			$mdgriffith$elm_ui$Internal$Model$Unkeyed(children));
 	});
+var $elm$virtual_dom$VirtualDom$style = _VirtualDom_style;
+var $elm$html$Html$Attributes$style = $elm$virtual_dom$VirtualDom$style;
 var $mdgriffith$elm_ui$Internal$Model$AsColumn = {$: 'AsColumn'};
 var $mdgriffith$elm_ui$Internal$Model$asColumn = $mdgriffith$elm_ui$Internal$Model$AsColumn;
 var $mdgriffith$elm_ui$Element$column = F2(
@@ -14134,6 +14143,12 @@ var $mdgriffith$elm_ui$Element$padding = function (x) {
 			f,
 			f));
 };
+var $mdgriffith$elm_ui$Internal$Model$Class = F2(
+	function (a, b) {
+		return {$: 'Class', a: a, b: b};
+	});
+var $mdgriffith$elm_ui$Internal$Flag$overflow = $mdgriffith$elm_ui$Internal$Flag$flag(20);
+var $mdgriffith$elm_ui$Element$scrollbarY = A2($mdgriffith$elm_ui$Internal$Model$Class, $mdgriffith$elm_ui$Internal$Flag$overflow, $mdgriffith$elm_ui$Internal$Style$classes.scrollbarsY);
 var $mdgriffith$elm_ui$Internal$Model$SpacingStyle = F3(
 	function (a, b, c) {
 		return {$: 'SpacingStyle', a: a, b: b, c: c};
@@ -14273,10 +14288,6 @@ var $author$project$Main$badge = function (labelText) {
 			]),
 		$mdgriffith$elm_ui$Element$text(labelText));
 };
-var $mdgriffith$elm_ui$Internal$Model$Class = F2(
-	function (a, b) {
-		return {$: 'Class', a: a, b: b};
-	});
 var $mdgriffith$elm_ui$Internal$Flag$fontWeight = $mdgriffith$elm_ui$Internal$Flag$flag(13);
 var $mdgriffith$elm_ui$Element$Font$bold = A2($mdgriffith$elm_ui$Internal$Model$Class, $mdgriffith$elm_ui$Internal$Flag$fontWeight, $mdgriffith$elm_ui$Internal$Style$classes.bold);
 var $mdgriffith$elm_ui$Internal$Model$Button = {$: 'Button'};
@@ -14608,7 +14619,6 @@ var $mdgriffith$elm_ui$Element$Input$calcMoveToCompensateForPadding = function (
 			$elm$core$Basics$floor(vSpace / 2));
 	}
 };
-var $mdgriffith$elm_ui$Internal$Flag$overflow = $mdgriffith$elm_ui$Internal$Flag$flag(20);
 var $mdgriffith$elm_ui$Element$clip = A2($mdgriffith$elm_ui$Internal$Model$Class, $mdgriffith$elm_ui$Internal$Flag$overflow, $mdgriffith$elm_ui$Internal$Style$classes.clip);
 var $mdgriffith$elm_ui$Element$rgb = F3(
 	function (r, g, b) {
@@ -14772,7 +14782,6 @@ var $elm$html$Html$Events$onInput = function (tagger) {
 			$elm$html$Html$Events$alwaysStop,
 			A2($elm$json$Json$Decode$map, tagger, $elm$html$Html$Events$targetValue)));
 };
-var $mdgriffith$elm_ui$Element$htmlAttribute = $mdgriffith$elm_ui$Internal$Model$Attr;
 var $mdgriffith$elm_ui$Element$Input$isFill = function (len) {
 	isFill:
 	while (true) {
@@ -14823,8 +14832,6 @@ var $mdgriffith$elm_ui$Internal$Model$paddingNameFloat = F4(
 	function (top, right, bottom, left) {
 		return 'pad-' + ($mdgriffith$elm_ui$Internal$Model$floatClass(top) + ('-' + ($mdgriffith$elm_ui$Internal$Model$floatClass(right) + ('-' + ($mdgriffith$elm_ui$Internal$Model$floatClass(bottom) + ('-' + $mdgriffith$elm_ui$Internal$Model$floatClass(left)))))));
 	});
-var $elm$virtual_dom$VirtualDom$style = _VirtualDom_style;
-var $elm$html$Html$Attributes$style = $elm$virtual_dom$VirtualDom$style;
 var $mdgriffith$elm_ui$Element$Input$redistributeOver = F4(
 	function (isMultiline, stacked, attr, els) {
 		switch (attr.$) {
@@ -15086,7 +15093,6 @@ var $mdgriffith$elm_ui$Element$Input$renderPlaceholder = F3(
 					placeholderAttrs)),
 			placeholderEl);
 	});
-var $mdgriffith$elm_ui$Element$scrollbarY = A2($mdgriffith$elm_ui$Internal$Model$Class, $mdgriffith$elm_ui$Internal$Flag$overflow, $mdgriffith$elm_ui$Internal$Style$classes.scrollbarsY);
 var $elm$html$Html$span = _VirtualDom_node('span');
 var $elm$html$Html$Attributes$spellcheck = $elm$html$Html$Attributes$boolProperty('spellcheck');
 var $mdgriffith$elm_ui$Element$Input$spellcheck = A2($elm$core$Basics$composeL, $mdgriffith$elm_ui$Internal$Model$Attr, $elm$html$Html$Attributes$spellcheck);
@@ -15407,7 +15413,7 @@ var $author$project$Main$viewAuthToolsPanel = function (model) {
 		}();
 		var tabHint = function () {
 			if (activeScope.$ === 'AppAuthScope') {
-				return appHasNoUsers ? 'No admin users found yet. You can request code for regular users and also create the first admin.' : 'Request code sends a login code and always tries to auto-create the user when missing.';
+				return appHasNoUsers ? 'No users found yet. Create the first admin to initialize authentication.' : 'Request code sends a login code and always tries to auto-create the user when missing.';
 			} else {
 				return needsBootstrap ? 'No admins found. Create the first admin, then login with the code.' : 'Admin authentication is used only for admin features such as Performance and Database backups.';
 			}
@@ -15515,151 +15521,175 @@ var $author$project$Main$viewAuthToolsPanel = function (model) {
 							$mdgriffith$elm_ui$Element$spacing(8)
 						]),
 					activeBadgeText),
-					A2(
+					needsBootstrap ? A2(
 					$mdgriffith$elm_ui$Element$row,
 					_List_fromArray(
 						[
 							$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
 							$mdgriffith$elm_ui$Element$spacing(10)
 						]),
-					_Utils_ap(
-						_List_fromArray(
-							[
-								A2(
-								$mdgriffith$elm_ui$Element$Input$text,
-								_List_fromArray(
-									[
-										$mdgriffith$elm_ui$Element$width(
-										$mdgriffith$elm_ui$Element$fillPortion(3))
-									]),
-								{
-									label: A2(
-										$mdgriffith$elm_ui$Element$Input$labelAbove,
-										_List_fromArray(
-											[
-												$mdgriffith$elm_ui$Element$Font$size(12)
-											]),
-										$mdgriffith$elm_ui$Element$text('Email')),
-									onChange: $author$project$Main$SetAuthEmail,
-									placeholder: $elm$core$Maybe$Just(
-										A2(
-											$mdgriffith$elm_ui$Element$Input$placeholder,
-											_List_Nil,
-											$mdgriffith$elm_ui$Element$text('user@email.com'))),
-									text: model.authEmail
-								}),
-								A2(
-								$mdgriffith$elm_ui$Element$Input$text,
-								_List_fromArray(
-									[
-										$mdgriffith$elm_ui$Element$width(
-										$mdgriffith$elm_ui$Element$fillPortion(2))
-									]),
-								{
-									label: A2(
-										$mdgriffith$elm_ui$Element$Input$labelAbove,
-										_List_fromArray(
-											[
-												$mdgriffith$elm_ui$Element$Font$size(12)
-											]),
-										$mdgriffith$elm_ui$Element$text('Code')),
-									onChange: $author$project$Main$SetAuthCode,
-									placeholder: $elm$core$Maybe$Just(
-										A2(
-											$mdgriffith$elm_ui$Element$Input$placeholder,
-											_List_Nil,
-											$mdgriffith$elm_ui$Element$text('6-digit code'))),
-									text: model.authCode
-								}),
-								A2(
-								$mdgriffith$elm_ui$Element$Input$button,
-								_List_fromArray(
-									[
-										$mdgriffith$elm_ui$Element$alignBottom,
-										$mdgriffith$elm_ui$Element$Background$color(
-										A3($mdgriffith$elm_ui$Element$rgb255, 84, 121, 224)),
-										$mdgriffith$elm_ui$Element$Font$color(
-										A3($mdgriffith$elm_ui$Element$rgb255, 246, 248, 252)),
-										$mdgriffith$elm_ui$Element$Border$rounded(10),
-										$mdgriffith$elm_ui$Element$paddingEach(
-										{bottom: 10, left: 12, right: 12, top: 10})
-									]),
-								{
-									label: $mdgriffith$elm_ui$Element$text('Request code'),
-									onPress: $elm$core$Maybe$Just($author$project$Main$RequestAuthCode)
-								})
-							]),
-						_Utils_ap(
-							needsBootstrap ? _List_fromArray(
-								[
-									A2(
-									$mdgriffith$elm_ui$Element$Input$button,
-									_List_fromArray(
-										[
-											$mdgriffith$elm_ui$Element$alignBottom,
-											$mdgriffith$elm_ui$Element$Background$color(
-											A3($mdgriffith$elm_ui$Element$rgb255, 242, 180, 42)),
-											$mdgriffith$elm_ui$Element$Font$color(
-											A3($mdgriffith$elm_ui$Element$rgb255, 40, 33, 16)),
-											$mdgriffith$elm_ui$Element$Border$rounded(10),
-											$mdgriffith$elm_ui$Element$paddingEach(
-											{bottom: 10, left: 12, right: 12, top: 10})
-										]),
-									{
-										label: $mdgriffith$elm_ui$Element$text('Create first admin'),
-										onPress: $elm$core$Maybe$Just($author$project$Main$BootstrapFirstAdmin)
-									})
-								]) : _List_Nil,
+					_List_fromArray(
+						[
+							A2(
+							$mdgriffith$elm_ui$Element$Input$text,
 							_List_fromArray(
 								[
-									A2(
-									$mdgriffith$elm_ui$Element$Input$button,
+									$mdgriffith$elm_ui$Element$width(
+									$mdgriffith$elm_ui$Element$fillPortion(3))
+								]),
+							{
+								label: A2(
+									$mdgriffith$elm_ui$Element$Input$labelAbove,
 									_List_fromArray(
 										[
-											$mdgriffith$elm_ui$Element$alignBottom,
-											$mdgriffith$elm_ui$Element$Background$color(
-											A3($mdgriffith$elm_ui$Element$rgb255, 34, 124, 95)),
-											$mdgriffith$elm_ui$Element$Font$color(
-											A3($mdgriffith$elm_ui$Element$rgb255, 246, 251, 248)),
-											$mdgriffith$elm_ui$Element$Border$rounded(10),
-											$mdgriffith$elm_ui$Element$paddingEach(
-											{bottom: 10, left: 12, right: 12, top: 10})
+											$mdgriffith$elm_ui$Element$Font$size(12)
 										]),
-									{
-										label: $mdgriffith$elm_ui$Element$text('Login'),
-										onPress: $elm$core$Maybe$Just($author$project$Main$LoginWithCode)
-									}),
+									$mdgriffith$elm_ui$Element$text('Email')),
+								onChange: $author$project$Main$SetAuthEmail,
+								placeholder: $elm$core$Maybe$Just(
 									A2(
-									$mdgriffith$elm_ui$Element$Input$button,
+										$mdgriffith$elm_ui$Element$Input$placeholder,
+										_List_Nil,
+										$mdgriffith$elm_ui$Element$text('admin@email.com'))),
+								text: model.authEmail
+							}),
+							A2(
+							$mdgriffith$elm_ui$Element$Input$button,
+							_List_fromArray(
+								[
+									$mdgriffith$elm_ui$Element$alignBottom,
+									$mdgriffith$elm_ui$Element$Background$color(
+									A3($mdgriffith$elm_ui$Element$rgb255, 242, 180, 42)),
+									$mdgriffith$elm_ui$Element$Font$color(
+									A3($mdgriffith$elm_ui$Element$rgb255, 40, 33, 16)),
+									$mdgriffith$elm_ui$Element$Border$rounded(10),
+									$mdgriffith$elm_ui$Element$paddingEach(
+									{bottom: 10, left: 12, right: 12, top: 10})
+								]),
+							{
+								label: $mdgriffith$elm_ui$Element$text('Create first admin'),
+								onPress: $elm$core$Maybe$Just($author$project$Main$BootstrapFirstAdmin)
+							})
+						])) : A2(
+					$mdgriffith$elm_ui$Element$row,
+					_List_fromArray(
+						[
+							$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+							$mdgriffith$elm_ui$Element$spacing(10)
+						]),
+					_List_fromArray(
+						[
+							A2(
+							$mdgriffith$elm_ui$Element$Input$text,
+							_List_fromArray(
+								[
+									$mdgriffith$elm_ui$Element$width(
+									$mdgriffith$elm_ui$Element$fillPortion(3))
+								]),
+							{
+								label: A2(
+									$mdgriffith$elm_ui$Element$Input$labelAbove,
 									_List_fromArray(
 										[
-											$mdgriffith$elm_ui$Element$alignBottom,
-											$mdgriffith$elm_ui$Element$Background$color(
-											A3($mdgriffith$elm_ui$Element$rgb255, 224, 231, 241)),
-											$mdgriffith$elm_ui$Element$Border$rounded(10),
-											$mdgriffith$elm_ui$Element$paddingEach(
-											{bottom: 10, left: 12, right: 12, top: 10})
+											$mdgriffith$elm_ui$Element$Font$size(12)
 										]),
-									{
-										label: $mdgriffith$elm_ui$Element$text('Me'),
-										onPress: $elm$core$Maybe$Just($author$project$Main$LoadAuthMe)
-									}),
+									$mdgriffith$elm_ui$Element$text('Email')),
+								onChange: $author$project$Main$SetAuthEmail,
+								placeholder: $elm$core$Maybe$Just(
 									A2(
-									$mdgriffith$elm_ui$Element$Input$button,
+										$mdgriffith$elm_ui$Element$Input$placeholder,
+										_List_Nil,
+										$mdgriffith$elm_ui$Element$text('user@email.com'))),
+								text: model.authEmail
+							}),
+							A2(
+							$mdgriffith$elm_ui$Element$Input$text,
+							_List_fromArray(
+								[
+									$mdgriffith$elm_ui$Element$width(
+									$mdgriffith$elm_ui$Element$fillPortion(2))
+								]),
+							{
+								label: A2(
+									$mdgriffith$elm_ui$Element$Input$labelAbove,
 									_List_fromArray(
 										[
-											$mdgriffith$elm_ui$Element$alignBottom,
-											$mdgriffith$elm_ui$Element$Background$color(
-											A3($mdgriffith$elm_ui$Element$rgb255, 248, 226, 226)),
-											$mdgriffith$elm_ui$Element$Border$rounded(10),
-											$mdgriffith$elm_ui$Element$paddingEach(
-											{bottom: 10, left: 12, right: 12, top: 10})
+											$mdgriffith$elm_ui$Element$Font$size(12)
 										]),
-									{
-										label: $mdgriffith$elm_ui$Element$text('Logout'),
-										onPress: $elm$core$Maybe$Just($author$project$Main$LogoutSession)
-									})
-								])))),
+									$mdgriffith$elm_ui$Element$text('Code')),
+								onChange: $author$project$Main$SetAuthCode,
+								placeholder: $elm$core$Maybe$Just(
+									A2(
+										$mdgriffith$elm_ui$Element$Input$placeholder,
+										_List_Nil,
+										$mdgriffith$elm_ui$Element$text('6-digit code'))),
+								text: model.authCode
+							}),
+							A2(
+							$mdgriffith$elm_ui$Element$Input$button,
+							_List_fromArray(
+								[
+									$mdgriffith$elm_ui$Element$alignBottom,
+									$mdgriffith$elm_ui$Element$Background$color(
+									A3($mdgriffith$elm_ui$Element$rgb255, 84, 121, 224)),
+									$mdgriffith$elm_ui$Element$Font$color(
+									A3($mdgriffith$elm_ui$Element$rgb255, 246, 248, 252)),
+									$mdgriffith$elm_ui$Element$Border$rounded(10),
+									$mdgriffith$elm_ui$Element$paddingEach(
+									{bottom: 10, left: 12, right: 12, top: 10})
+								]),
+							{
+								label: $mdgriffith$elm_ui$Element$text('Request code'),
+								onPress: $elm$core$Maybe$Just($author$project$Main$RequestAuthCode)
+							}),
+							A2(
+							$mdgriffith$elm_ui$Element$Input$button,
+							_List_fromArray(
+								[
+									$mdgriffith$elm_ui$Element$alignBottom,
+									$mdgriffith$elm_ui$Element$Background$color(
+									A3($mdgriffith$elm_ui$Element$rgb255, 34, 124, 95)),
+									$mdgriffith$elm_ui$Element$Font$color(
+									A3($mdgriffith$elm_ui$Element$rgb255, 246, 251, 248)),
+									$mdgriffith$elm_ui$Element$Border$rounded(10),
+									$mdgriffith$elm_ui$Element$paddingEach(
+									{bottom: 10, left: 12, right: 12, top: 10})
+								]),
+							{
+								label: $mdgriffith$elm_ui$Element$text('Login'),
+								onPress: $elm$core$Maybe$Just($author$project$Main$LoginWithCode)
+							}),
+							A2(
+							$mdgriffith$elm_ui$Element$Input$button,
+							_List_fromArray(
+								[
+									$mdgriffith$elm_ui$Element$alignBottom,
+									$mdgriffith$elm_ui$Element$Background$color(
+									A3($mdgriffith$elm_ui$Element$rgb255, 224, 231, 241)),
+									$mdgriffith$elm_ui$Element$Border$rounded(10),
+									$mdgriffith$elm_ui$Element$paddingEach(
+									{bottom: 10, left: 12, right: 12, top: 10})
+								]),
+							{
+								label: $mdgriffith$elm_ui$Element$text('Me'),
+								onPress: $elm$core$Maybe$Just($author$project$Main$LoadAuthMe)
+							}),
+							A2(
+							$mdgriffith$elm_ui$Element$Input$button,
+							_List_fromArray(
+								[
+									$mdgriffith$elm_ui$Element$alignBottom,
+									$mdgriffith$elm_ui$Element$Background$color(
+									A3($mdgriffith$elm_ui$Element$rgb255, 248, 226, 226)),
+									$mdgriffith$elm_ui$Element$Border$rounded(10),
+									$mdgriffith$elm_ui$Element$paddingEach(
+									{bottom: 10, left: 12, right: 12, top: 10})
+								]),
+							{
+								label: $mdgriffith$elm_ui$Element$text('Logout'),
+								onPress: $elm$core$Maybe$Just($author$project$Main$LogoutSession)
+							})
+						])),
 					A2(
 					$mdgriffith$elm_ui$Element$el,
 					_List_fromArray(
@@ -16834,18 +16864,18 @@ var $author$project$Main$viewFlash = function (model) {
 	} else {
 		var message = _v0.a;
 		return A2(
-			$mdgriffith$elm_ui$Element$row,
+			$mdgriffith$elm_ui$Element$column,
 			_List_fromArray(
 				[
 					$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
 					$mdgriffith$elm_ui$Element$Background$color(
-					A3($mdgriffith$elm_ui$Element$rgb255, 255, 245, 230)),
+					A3($mdgriffith$elm_ui$Element$rgb255, 244, 248, 255)),
 					$mdgriffith$elm_ui$Element$Border$rounded(10),
 					$mdgriffith$elm_ui$Element$Border$width(1),
 					$mdgriffith$elm_ui$Element$Border$color(
-					A3($mdgriffith$elm_ui$Element$rgb255, 250, 200, 120)),
+					A3($mdgriffith$elm_ui$Element$rgb255, 179, 200, 236)),
 					$mdgriffith$elm_ui$Element$padding(12),
-					$mdgriffith$elm_ui$Element$spacing(12)
+					$mdgriffith$elm_ui$Element$spacing(10)
 				]),
 			_List_fromArray(
 				[
@@ -16853,23 +16883,43 @@ var $author$project$Main$viewFlash = function (model) {
 					$mdgriffith$elm_ui$Element$el,
 					_List_fromArray(
 						[
-							$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill)
+							$mdgriffith$elm_ui$Element$Font$size(11),
+							$mdgriffith$elm_ui$Element$Font$bold,
+							$mdgriffith$elm_ui$Element$Font$color(
+							A3($mdgriffith$elm_ui$Element$rgb255, 70, 89, 120))
 						]),
-					$mdgriffith$elm_ui$Element$text(message)),
+					$mdgriffith$elm_ui$Element$text('Service response')),
 					A2(
-					$mdgriffith$elm_ui$Element$Input$button,
+					$mdgriffith$elm_ui$Element$row,
 					_List_fromArray(
 						[
-							$mdgriffith$elm_ui$Element$Background$color(
-							A3($mdgriffith$elm_ui$Element$rgb255, 251, 185, 79)),
-							$mdgriffith$elm_ui$Element$Border$rounded(8),
-							$mdgriffith$elm_ui$Element$paddingEach(
-							{bottom: 6, left: 10, right: 10, top: 6})
+							$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+							$mdgriffith$elm_ui$Element$spacing(12)
 						]),
-					{
-						label: $mdgriffith$elm_ui$Element$text('Dismiss'),
-						onPress: $elm$core$Maybe$Just($author$project$Main$ClearFlash)
-					})
+					_List_fromArray(
+						[
+							A2(
+							$mdgriffith$elm_ui$Element$el,
+							_List_fromArray(
+								[
+									$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill)
+								]),
+							$mdgriffith$elm_ui$Element$text(message)),
+							A2(
+							$mdgriffith$elm_ui$Element$Input$button,
+							_List_fromArray(
+								[
+									$mdgriffith$elm_ui$Element$Background$color(
+									A3($mdgriffith$elm_ui$Element$rgb255, 217, 229, 250)),
+									$mdgriffith$elm_ui$Element$Border$rounded(8),
+									$mdgriffith$elm_ui$Element$paddingEach(
+									{bottom: 6, left: 10, right: 10, top: 6})
+								]),
+							{
+								label: $mdgriffith$elm_ui$Element$text('Close'),
+								onPress: $elm$core$Maybe$Just($author$project$Main$ClearFlash)
+							})
+						]))
 				]));
 	}
 };
@@ -17609,6 +17659,7 @@ var $author$project$Main$viewContent = function (model) {
 			[
 				$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
 				$mdgriffith$elm_ui$Element$height($mdgriffith$elm_ui$Element$fill),
+				$mdgriffith$elm_ui$Element$scrollbarY,
 				$mdgriffith$elm_ui$Element$padding(24),
 				$mdgriffith$elm_ui$Element$spacing(16)
 			]),
@@ -17953,6 +18004,7 @@ var $author$project$Main$viewSidebar = function (model) {
 				$mdgriffith$elm_ui$Element$width(
 				$mdgriffith$elm_ui$Element$px(280)),
 				$mdgriffith$elm_ui$Element$height($mdgriffith$elm_ui$Element$fill),
+				$mdgriffith$elm_ui$Element$scrollbarY,
 				$mdgriffith$elm_ui$Element$Background$color(
 				A3($mdgriffith$elm_ui$Element$rgb255, 18, 22, 28)),
 				$mdgriffith$elm_ui$Element$padding(20),
@@ -18067,7 +18119,11 @@ var $author$project$Main$viewLayout = function (model) {
 		_List_fromArray(
 			[
 				$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
-				$mdgriffith$elm_ui$Element$height($mdgriffith$elm_ui$Element$fill)
+				$mdgriffith$elm_ui$Element$height($mdgriffith$elm_ui$Element$fill),
+				$mdgriffith$elm_ui$Element$htmlAttribute(
+				A2($elm$html$Html$Attributes$style, 'height', '100vh')),
+				$mdgriffith$elm_ui$Element$htmlAttribute(
+				A2($elm$html$Html$Attributes$style, 'overflow', 'hidden'))
 			]),
 		_List_fromArray(
 			[

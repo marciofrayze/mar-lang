@@ -59,8 +59,8 @@ func (r *Runtime) schemaPayload() map[string]any {
 	}
 	cfg := r.authConfig()
 	needsBootstrap := false
-	if totalAdmins, err := r.countAuthUsersByRole("admin"); err == nil {
-		needsBootstrap = totalAdmins == 0
+	if totalUsers, err := r.countAuthUsers(); err == nil {
+		needsBootstrap = totalUsers == 0
 	}
 	userEntityName := internalAuthUsersTable
 	if r.usesAppAuthEntity() {

@@ -3,11 +3,12 @@ module Main exposing (main)
 import Belm.Api exposing (ActionInfo, AuthInfo, Entity, Field, InputAliasField, InputAliasInfo, Row, Schema, SystemAuthInfo, decodeRows, decodeSchema, encodePayload, fieldTypeLabel, rowDecoder, valueToString)
 import Browser
 import Dict exposing (Dict)
-import Element exposing (Element, alignLeft, centerY, column, el, fill, fillPortion, height, none, padding, paddingEach, paragraph, px, rgb255, row, spacing, text, width)
+import Element exposing (Element, alignLeft, centerY, column, el, fill, fillPortion, height, htmlAttribute, none, padding, paddingEach, paragraph, px, rgb255, row, scrollbarY, spacing, text, width)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
 import Element.Input as Input
+import Html.Attributes as HtmlAttr
 import Http
 import Json.Decode as Decode
 import Json.Encode as Encode
@@ -475,7 +476,19 @@ update msg model =
                 Ok response ->
                     case response.devCode of
                         Just code ->
-                            ( { model | authCode = code, flash = Just ("First " ++ authScopeLabel scope ++ " admin created. devCode: " ++ code) }, loadSchema model.apiBase )
+                            let
+                                nextModel =
+                                    { model
+                                        | authCode = code
+                                        , flash = Just ("First " ++ authScopeLabel scope ++ " admin created. Logging in...")
+                                    }
+                            in
+                            ( nextModel
+                            , Cmd.batch
+                                [ loadSchema model.apiBase
+                                , loginWithCode scope nextModel
+                                ]
+                            )
 
                         Nothing ->
                             ( { model | flash = Just response.message }, loadSchema model.apiBase )
@@ -1479,7 +1492,12 @@ view model =
 
 viewLayout : Model -> Element Msg
 viewLayout model =
-    row [ width fill, height fill ]
+    row
+        [ width fill
+        , height fill
+        , htmlAttribute (HtmlAttr.style "height" "100vh")
+        , htmlAttribute (HtmlAttr.style "overflow" "hidden")
+        ]
         [ viewSidebar model
         , viewContent model
         ]
@@ -1653,6 +1671,7 @@ viewSidebar model =
     column
         [ width (px 280)
         , height fill
+        , scrollbarY
         , Background.color (rgb255 18 22 28)
         , padding 20
         , spacing 16
@@ -1729,6 +1748,7 @@ viewContent model =
     column
         [ width fill
         , height fill
+        , scrollbarY
         , padding 24
         , spacing 16
         ]
@@ -1862,7 +1882,7 @@ viewAuthToolsPanel model =
                 case activeScope of
                     AppAuthScope ->
                         if appHasNoUsers then
-                            "No admin users found yet. You can request code for regular users and also create the first admin."
+                            "No users found yet. Create the first admin to initialize authentication."
 
                         else
                             "Request code sends a login code and always tries to auto-create the user when missing."
@@ -1906,20 +1926,41 @@ viewAuthToolsPanel model =
                     ]
                 , el [ Font.size 12, Font.color (rgb255 93 103 120) ] (text transportText)
                 , row [ width fill, spacing 8 ] activeBadgeText
-                , row [ width fill, spacing 10 ]
-                    (([ Input.text [ width (fillPortion 3) ]
+                , if needsBootstrap then
+                    row [ width fill, spacing 10 ]
+                        [ Input.text [ width (fillPortion 3) ]
+                            { onChange = SetAuthEmail
+                            , text = model.authEmail
+                            , placeholder = Just (Input.placeholder [] (text "admin@email.com"))
+                            , label = Input.labelAbove [ Font.size 12 ] (text "Email")
+                            }
+                        , Input.button
+                            [ Element.alignBottom
+                            , Background.color (rgb255 242 180 42)
+                            , Font.color (rgb255 40 33 16)
+                            , Border.rounded 10
+                            , paddingEach { top = 10, right = 12, bottom = 10, left = 12 }
+                            ]
+                            { onPress = Just BootstrapFirstAdmin
+                            , label = text "Create first admin"
+                            }
+                        ]
+
+                  else
+                    row [ width fill, spacing 10 ]
+                        [ Input.text [ width (fillPortion 3) ]
                             { onChange = SetAuthEmail
                             , text = model.authEmail
                             , placeholder = Just (Input.placeholder [] (text "user@email.com"))
                             , label = Input.labelAbove [ Font.size 12 ] (text "Email")
                             }
-                      , Input.text [ width (fillPortion 2) ]
+                        , Input.text [ width (fillPortion 2) ]
                             { onChange = SetAuthCode
                             , text = model.authCode
                             , placeholder = Just (Input.placeholder [] (text "6-digit code"))
                             , label = Input.labelAbove [ Font.size 12 ] (text "Code")
                             }
-                      , Input.button
+                        , Input.button
                             [ Element.alignBottom
                             , Background.color (rgb255 84 121 224)
                             , Font.color (rgb255 246 248 252)
@@ -1929,24 +1970,7 @@ viewAuthToolsPanel model =
                             { onPress = Just RequestAuthCode
                             , label = text "Request code"
                             }
-                      ]
-                        ++ (if needsBootstrap then
-                                [ Input.button
-                                    [ Element.alignBottom
-                                    , Background.color (rgb255 242 180 42)
-                                    , Font.color (rgb255 40 33 16)
-                                    , Border.rounded 10
-                                    , paddingEach { top = 10, right = 12, bottom = 10, left = 12 }
-                                    ]
-                                    { onPress = Just BootstrapFirstAdmin
-                                    , label = text "Create first admin"
-                                    }
-                                ]
-
-                            else
-                                []
-                           )
-                        ++ [ Input.button
+                        , Input.button
                             [ Element.alignBottom
                             , Background.color (rgb255 34 124 95)
                             , Font.color (rgb255 246 251 248)
@@ -1956,7 +1980,7 @@ viewAuthToolsPanel model =
                             { onPress = Just LoginWithCode
                             , label = text "Login"
                             }
-                         , Input.button
+                        , Input.button
                             [ Element.alignBottom
                             , Background.color (rgb255 224 231 241)
                             , Border.rounded 10
@@ -1965,7 +1989,7 @@ viewAuthToolsPanel model =
                             { onPress = Just LoadAuthMe
                             , label = text "Me"
                             }
-                         , Input.button
+                        , Input.button
                             [ Element.alignBottom
                             , Background.color (rgb255 248 226 226)
                             , Border.rounded 10
@@ -1974,7 +1998,7 @@ viewAuthToolsPanel model =
                             { onPress = Just LogoutSession
                             , label = text "Logout"
                             }
-                           ]))
+                        ]
                 , el
                     [ Font.size 12
                     , Font.color
@@ -2064,24 +2088,30 @@ viewFlash model =
             none
 
         Just message ->
-            row
+            column
                 [ width fill
-                , Background.color (rgb255 255 245 230)
+                , Background.color (rgb255 244 248 255)
                 , Border.rounded 10
                 , Border.width 1
-                , Border.color (rgb255 250 200 120)
+                , Border.color (rgb255 179 200 236)
                 , padding 12
-                , spacing 12
+                , spacing 10
                 ]
-                [ el [ width fill ] (text message)
-                , Input.button
-                    [ Background.color (rgb255 251 185 79)
-                    , Border.rounded 8
-                    , paddingEach { top = 6, right = 10, bottom = 6, left = 10 }
+                [ el [ Font.size 11, Font.bold, Font.color (rgb255 70 89 120) ] (text "Service response")
+                , row
+                    [ width fill
+                    , spacing 12
                     ]
-                    { onPress = Just ClearFlash
-                    , label = text "Dismiss"
-                    }
+                    [ el [ width fill ] (text message)
+                    , Input.button
+                        [ Background.color (rgb255 217 229 250)
+                        , Border.rounded 8
+                        , paddingEach { top = 6, right = 10, bottom = 6, left = 10 }
+                        ]
+                        { onPress = Just ClearFlash
+                        , label = text "Close"
+                        }
+                    ]
                 ]
 
 

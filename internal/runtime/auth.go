@@ -220,12 +220,12 @@ func (r *Runtime) handleBootstrapAdmin(w http.ResponseWriter, payload map[string
 		return &apiError{Status: http.StatusBadRequest, Message: "auth.role_field is required for admin bootstrap"}
 	}
 
-	totalAdmins, err := r.countAuthUsersByRole("admin")
+	totalUsers, err := r.countAuthUsers()
 	if err != nil {
 		return err
 	}
-	if totalAdmins > 0 {
-		return &apiError{Status: http.StatusConflict, Message: "Bootstrap is only allowed when there are no admin users"}
+	if totalUsers > 0 {
+		return &apiError{Status: http.StatusConflict, Message: "Bootstrap is only allowed when there are no users"}
 	}
 
 	email, err := parseAuthEmail(payload)
@@ -276,6 +276,13 @@ func (r *Runtime) loadOrCreateAuthUserForRequestCode(email string) (map[string]a
 	user, found, err := r.loadAuthUserByEmail(email)
 	if err != nil || found {
 		return user, found, err
+	}
+	totalUsers, err := r.countAuthUsers()
+	if err != nil {
+		return nil, false, err
+	}
+	if totalUsers == 0 {
+		return r.tryAutoCreateAuthUserWithRole(email, "admin")
 	}
 	return r.tryAutoCreateAuthUser(email)
 }
