@@ -61,12 +61,11 @@ Full examples:
 - Email code login flow
 - Rule-based authorization
 - Safe automatic schema migrations
-- Version-control friendly by design (source-first app definitions instead of visual-only configuration)
+- Version-control friendly by design
 - Integrated admin panel
-- Embedded static frontend support (`public` block)
 - Built-in SQLite backup workflow
-- Built-in monitoring dashboards
-- In-memory request log dashboard with SQL query traces
+- Built-in monitoring and logging dashboards
+- Embedded static frontend support
 
 ## Architecture (Go)
 
@@ -370,6 +369,7 @@ Use `system` for runtime-level controls.
 ```belm
 system {
   request_logs_buffer 500
+  http_max_request_body_mb 1
   sqlite_journal_mode wal
   sqlite_synchronous normal
   sqlite_foreign_keys true
@@ -386,6 +386,12 @@ system {
 - default: `200`
 - minimum: `10`
 - maximum: `5000`
+
+`http_max_request_body_mb` controls max HTTP request body size (including JSON payloads) and returns HTTP `413` when exceeded.
+
+- default: `1`
+- minimum: `1`
+- maximum: `1024`
 
 SQLite settings are performance-first by default and can be overridden per app in `system`.
 
@@ -457,9 +463,9 @@ If no primary key is provided, Belm automatically adds:
 
 `id: Int primary auto`
 
-## Typed Actions (Elm-style)
+## Typed Actions
 
-Belm supports Elm-inspired typed actions for multi-entity writes in a single atomic transaction.
+Belm supports typed actions for multi-entity writes in a **single atomic transaction**.
 
 ```belm
 type alias PlaceOrderInput =
