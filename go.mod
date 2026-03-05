@@ -1,6 +1,6 @@
 module belm
 
-go 1.25
+go 1.26
 
 require modernc.org/sqlite v1.46.1
 
