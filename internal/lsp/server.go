@@ -427,6 +427,16 @@ func keywordCompletionItems() []map[string]any {
 		"action",
 		"input",
 		"create",
+		"user_entity",
+		"email_field",
+		"role_field",
+		"code_ttl_minutes",
+		"session_ttl_hours",
+		"email_transport",
+		"email_from",
+		"email_subject",
+		"sendmail_path",
+		"dev_expose_code",
 		"dir",
 		"mount",
 		"spa_fallback",
@@ -437,6 +447,8 @@ func keywordCompletionItems() []map[string]any {
 		"sqlite_busy_timeout_ms",
 		"sqlite_wal_autocheckpoint",
 		"sqlite_journal_size_limit_mb",
+		"sqlite_mmap_size_mb",
+		"sqlite_cache_size_kb",
 	}
 	out := make([]map[string]any, 0, len(keywords))
 	for _, kw := range keywords {

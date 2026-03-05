@@ -26,6 +26,8 @@ type SystemConfig struct {
 	SQLiteBusyTimeoutMs      *int    `json:"sqliteBusyTimeoutMs,omitempty"`
 	SQLiteWALAutoCheckpoint  *int    `json:"sqliteWalAutoCheckpoint,omitempty"`
 	SQLiteJournalSizeLimitMB *int    `json:"sqliteJournalSizeLimitMb,omitempty"`
+	SQLiteMmapSizeMB         *int    `json:"sqliteMmapSizeMb,omitempty"`
+	SQLiteCacheSizeKB        *int    `json:"sqliteCacheSizeKb,omitempty"`
 }
 
 type AuthConfig struct {

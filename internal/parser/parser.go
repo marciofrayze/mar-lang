@@ -20,6 +20,12 @@ const (
 	minRequestLogsBuffer     = 10
 	maxRequestLogsBuffer     = 5000
 
+	minCodeTTLMinutes = 1
+	maxCodeTTLMinutes = 1440
+
+	minSessionTTLHours = 1
+	maxSessionTTLHours = 8760
+
 	minSQLiteBusyTimeoutMs = 0
 	maxSQLiteBusyTimeoutMs = 600000
 
@@ -28,6 +34,12 @@ const (
 
 	minSQLiteJournalSizeLimitMB = -1
 	maxSQLiteJournalSizeLimitMB = 4096
+
+	minSQLiteMmapSizeMB = 0
+	maxSQLiteMmapSizeMB = 16384
+
+	minSQLiteCacheSizeKB = 0
+	maxSQLiteCacheSizeKB = 1048576
 )
 
 type line struct {
@@ -215,11 +227,29 @@ func parseAuthBlock(lines []line, idx *int) (*model.AuthConfig, error) {
 			matched = true
 		}
 		if m := match(`^code_ttl_minutes\s+([0-9]{1,4})$`, trimmed); m != nil {
-			auth.CodeTTLMinutes = mustInt(m[1])
+			value := mustInt(m[1])
+			if value < minCodeTTLMinutes || value > maxCodeTTLMinutes {
+				return nil, fmt.Errorf(
+					"line %d: auth.code_ttl_minutes must be between %d and %d",
+					ln.number,
+					minCodeTTLMinutes,
+					maxCodeTTLMinutes,
+				)
+			}
+			auth.CodeTTLMinutes = value
 			matched = true
 		}
 		if m := match(`^session_ttl_hours\s+([0-9]{1,4})$`, trimmed); m != nil {
-			auth.SessionTTLHours = mustInt(m[1])
+			value := mustInt(m[1])
+			if value < minSessionTTLHours || value > maxSessionTTLHours {
+				return nil, fmt.Errorf(
+					"line %d: auth.session_ttl_hours must be between %d and %d",
+					ln.number,
+					minSessionTTLHours,
+					maxSessionTTLHours,
+				)
+			}
+			auth.SessionTTLHours = value
 			matched = true
 		}
 		if m := match(`^email_transport\s+(console|sendmail)$`, trimmed); m != nil {
@@ -411,6 +441,34 @@ func parseSystemBlock(lines []line, idx *int) (*model.SystemConfig, error) {
 				)
 			}
 			cfg.SQLiteJournalSizeLimitMB = intPtr(value)
+			(*idx)++
+			continue
+		}
+		if m := match(`^sqlite_mmap_size_mb\s+([0-9]{1,5})$`, trimmed); m != nil {
+			value := mustInt(m[1])
+			if value < minSQLiteMmapSizeMB || value > maxSQLiteMmapSizeMB {
+				return nil, fmt.Errorf(
+					"line %d: system.sqlite_mmap_size_mb must be between %d and %d",
+					ln.number,
+					minSQLiteMmapSizeMB,
+					maxSQLiteMmapSizeMB,
+				)
+			}
+			cfg.SQLiteMmapSizeMB = intPtr(value)
+			(*idx)++
+			continue
+		}
+		if m := match(`^sqlite_cache_size_kb\s+([0-9]{1,7})$`, trimmed); m != nil {
+			value := mustInt(m[1])
+			if value < minSQLiteCacheSizeKB || value > maxSQLiteCacheSizeKB {
+				return nil, fmt.Errorf(
+					"line %d: system.sqlite_cache_size_kb must be between %d and %d",
+					ln.number,
+					minSQLiteCacheSizeKB,
+					maxSQLiteCacheSizeKB,
+				)
+			}
+			cfg.SQLiteCacheSizeKB = intPtr(value)
 			(*idx)++
 			continue
 		}

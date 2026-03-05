@@ -49,6 +49,8 @@ type Config struct {
 	BusyTimeoutMs     int
 	WALAutoCheckpoint int
 	JournalSizeLimitB int64
+	MmapSizeB         int64
+	CacheSizeKB       int
 }
 
 const (
@@ -58,6 +60,8 @@ const (
 	defaultBusyTimeoutMs     = 5000
 	defaultWALAutoCheckpoint = 1000
 	defaultJournalSizeLimitB = int64(64 * 1024 * 1024)
+	defaultMmapSizeB         = int64(128 * 1024 * 1024)
+	defaultCacheSizeKB       = 2000
 )
 
 // DefaultConfig returns Belm's default SQLite settings focused on local performance.
@@ -69,6 +73,8 @@ func DefaultConfig() Config {
 		BusyTimeoutMs:     defaultBusyTimeoutMs,
 		WALAutoCheckpoint: defaultWALAutoCheckpoint,
 		JournalSizeLimitB: defaultJournalSizeLimitB,
+		MmapSizeB:         defaultMmapSizeB,
+		CacheSizeKB:       defaultCacheSizeKB,
 	}
 }
 
@@ -139,6 +145,12 @@ func normalizeConfig(cfg Config) (Config, error) {
 	if cfg.JournalSizeLimitB < -1 {
 		return Config{}, fmt.Errorf("invalid sqlite journal_size_limit %d", cfg.JournalSizeLimitB)
 	}
+	if cfg.MmapSizeB < 0 {
+		return Config{}, fmt.Errorf("invalid sqlite mmap_size %d", cfg.MmapSizeB)
+	}
+	if cfg.CacheSizeKB < 0 || cfg.CacheSizeKB > 1048576 {
+		return Config{}, fmt.Errorf("invalid sqlite cache_size_kb %d", cfg.CacheSizeKB)
+	}
 	return cfg, nil
 }
 
@@ -150,6 +162,8 @@ func applyPragmas(db *sql.DB, cfg Config) error {
 		fmt.Sprintf("PRAGMA busy_timeout = %d", cfg.BusyTimeoutMs),
 		fmt.Sprintf("PRAGMA wal_autocheckpoint = %d", cfg.WALAutoCheckpoint),
 		fmt.Sprintf("PRAGMA journal_size_limit = %d", cfg.JournalSizeLimitB),
+		fmt.Sprintf("PRAGMA mmap_size = %d", cfg.MmapSizeB),
+		fmt.Sprintf("PRAGMA cache_size = -%d", cfg.CacheSizeKB),
 	}
 	for _, stmt := range statements {
 		if _, err := db.Exec(stmt); err != nil {

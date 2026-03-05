@@ -16,6 +16,8 @@ func TestOpenWithConfigAppliesPragmas(t *testing.T) {
 		BusyTimeoutMs:     3210,
 		WALAutoCheckpoint: 222,
 		JournalSizeLimitB: 1048576,
+		MmapSizeB:         134217728,
+		CacheSizeKB:       4096,
 	})
 	defer db.Close()
 
@@ -36,6 +38,12 @@ func TestOpenWithConfigAppliesPragmas(t *testing.T) {
 	if pragmaValue(t, db, "journal_size_limit") != "1048576" {
 		t.Fatalf("unexpected journal_size_limit value: %q", pragmaValue(t, db, "journal_size_limit"))
 	}
+	if pragmaValue(t, db, "mmap_size") != "134217728" {
+		t.Fatalf("unexpected mmap_size value: %q", pragmaValue(t, db, "mmap_size"))
+	}
+	if pragmaValue(t, db, "cache_size") != "-4096" {
+		t.Fatalf("unexpected cache_size value: %q", pragmaValue(t, db, "cache_size"))
+	}
 }
 
 func TestOpenWithConfigRejectsInvalidConfig(t *testing.T) {
@@ -47,6 +55,8 @@ func TestOpenWithConfigRejectsInvalidConfig(t *testing.T) {
 		BusyTimeoutMs:     1000,
 		WALAutoCheckpoint: 1000,
 		JournalSizeLimitB: 1024,
+		MmapSizeB:         1048576,
+		CacheSizeKB:       2000,
 	})
 	defer db.Close()
 

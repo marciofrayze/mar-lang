@@ -143,6 +143,12 @@ func sqliteConfigForApp(app *model.App) sqlitecli.Config {
 			cfg.JournalSizeLimitB = int64(*app.System.SQLiteJournalSizeLimitMB) * 1024 * 1024
 		}
 	}
+	if app.System.SQLiteMmapSizeMB != nil {
+		cfg.MmapSizeB = int64(*app.System.SQLiteMmapSizeMB) * 1024 * 1024
+	}
+	if app.System.SQLiteCacheSizeKB != nil {
+		cfg.CacheSizeKB = *app.System.SQLiteCacheSizeKB
+	}
 
 	return cfg
 }

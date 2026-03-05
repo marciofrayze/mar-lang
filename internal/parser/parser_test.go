@@ -89,6 +89,54 @@ auth {
 	}
 }
 
+func TestParseAuthCodeTTLRejectsOutOfRange(t *testing.T) {
+	src := `
+app AuthApi
+
+entity User {
+  email: String
+  role: String
+}
+
+auth {
+  user_entity User
+  code_ttl_minutes 0
+}
+`
+
+	_, err := Parse(src)
+	if err == nil {
+		t.Fatal("expected parse error for out-of-range auth.code_ttl_minutes")
+	}
+	if !strings.Contains(err.Error(), "auth.code_ttl_minutes must be between") {
+		t.Fatalf("unexpected error message: %v", err)
+	}
+}
+
+func TestParseAuthSessionTTLRejectsOutOfRange(t *testing.T) {
+	src := `
+app AuthApi
+
+entity User {
+  email: String
+  role: String
+}
+
+auth {
+  user_entity User
+  session_ttl_hours 9999
+}
+`
+
+	_, err := Parse(src)
+	if err == nil {
+		t.Fatal("expected parse error for out-of-range auth.session_ttl_hours")
+	}
+	if !strings.Contains(err.Error(), "auth.session_ttl_hours must be between") {
+		t.Fatalf("unexpected error message: %v", err)
+	}
+}
+
 func TestParseActionTypeMismatchShowsFriendlyError(t *testing.T) {
 	src := `
 app Demo
@@ -243,6 +291,8 @@ system {
   sqlite_busy_timeout_ms 5000
   sqlite_wal_autocheckpoint 1000
   sqlite_journal_size_limit_mb 64
+  sqlite_mmap_size_mb 128
+  sqlite_cache_size_kb 2000
 }
 
 entity Todo {
@@ -275,6 +325,12 @@ entity Todo {
 	if app.System.SQLiteJournalSizeLimitMB == nil || *app.System.SQLiteJournalSizeLimitMB != 64 {
 		t.Fatalf("unexpected sqlite_journal_size_limit_mb: %+v", app.System.SQLiteJournalSizeLimitMB)
 	}
+	if app.System.SQLiteMmapSizeMB == nil || *app.System.SQLiteMmapSizeMB != 128 {
+		t.Fatalf("unexpected sqlite_mmap_size_mb: %+v", app.System.SQLiteMmapSizeMB)
+	}
+	if app.System.SQLiteCacheSizeKB == nil || *app.System.SQLiteCacheSizeKB != 2000 {
+		t.Fatalf("unexpected sqlite_cache_size_kb: %+v", app.System.SQLiteCacheSizeKB)
+	}
 }
 
 func TestParseSystemSQLiteBusyTimeoutRejectsOutOfRange(t *testing.T) {
@@ -296,6 +352,29 @@ entity Todo {
 		t.Fatal("expected parse error for out-of-range sqlite_busy_timeout_ms")
 	}
 	if !strings.Contains(err.Error(), "system.sqlite_busy_timeout_ms must be between") {
+		t.Fatalf("unexpected error message: %v", err)
+	}
+}
+
+func TestParseSystemSQLiteCacheSizeRejectsOutOfRange(t *testing.T) {
+	src := `
+app FrontApi
+database "./front.db"
+
+system {
+  sqlite_cache_size_kb 9999999
+}
+
+entity Todo {
+  title: String
+}
+`
+
+	_, err := Parse(src)
+	if err == nil {
+		t.Fatal("expected parse error for out-of-range sqlite_cache_size_kb")
+	}
+	if !strings.Contains(err.Error(), "system.sqlite_cache_size_kb must be between") {
 		t.Fatalf("unexpected error message: %v", err)
 	}
 }

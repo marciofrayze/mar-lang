@@ -24,6 +24,8 @@ func TestSQLiteConfigForAppOverrides(t *testing.T) {
 	busyTimeoutMs := 12000
 	walAutoCheckpoint := 250
 	journalSizeLimitMB := 128
+	mmapSizeMB := 256
+	cacheSizeKB := 4096
 
 	app := &model.App{
 		System: &model.SystemConfig{
@@ -33,6 +35,8 @@ func TestSQLiteConfigForAppOverrides(t *testing.T) {
 			SQLiteBusyTimeoutMs:      &busyTimeoutMs,
 			SQLiteWALAutoCheckpoint:  &walAutoCheckpoint,
 			SQLiteJournalSizeLimitMB: &journalSizeLimitMB,
+			SQLiteMmapSizeMB:         &mmapSizeMB,
+			SQLiteCacheSizeKB:        &cacheSizeKB,
 		},
 	}
 
@@ -54,5 +58,11 @@ func TestSQLiteConfigForAppOverrides(t *testing.T) {
 	}
 	if got.JournalSizeLimitB != 128*1024*1024 {
 		t.Fatalf("unexpected journal size limit bytes: %d", got.JournalSizeLimitB)
+	}
+	if got.MmapSizeB != 256*1024*1024 {
+		t.Fatalf("unexpected mmap size bytes: %d", got.MmapSizeB)
+	}
+	if got.CacheSizeKB != 4096 {
+		t.Fatalf("unexpected cache size kb: %d", got.CacheSizeKB)
 	}
 }

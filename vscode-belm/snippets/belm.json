@@ -113,6 +113,8 @@
       "  sqlite_busy_timeout_ms ${5:5000}",
       "  sqlite_wal_autocheckpoint ${6:1000}",
       "  sqlite_journal_size_limit_mb ${7:64}",
+      "  sqlite_mmap_size_mb ${8:128}",
+      "  sqlite_cache_size_kb ${9:2000}",
       "}"
     ]
   },
