@@ -14,6 +14,7 @@ var (
 	addRequiredRe  = regexp.MustCompile(`^migration blocked for entity ([^:]+): cannot auto-add required field "([^"]+)" to existing table ([^ ]+)$`)
 	addPrimaryRe   = regexp.MustCompile(`^migration blocked for entity ([^:]+): cannot auto-add primary/auto field "([^"]+)" to existing table ([^ ]+)$`)
 	internalStrict = regexp.MustCompile(`^migration blocked for internal table ([^:]+): cannot auto-add strict column "([^"]+)"$`)
+	uniqueIndexRe  = regexp.MustCompile(`^migration blocked for ([^.]+)\.([^:]+): duplicate values prevent unique index creation in table ([^ ]+)$`)
 )
 
 type migrationBlockedKind string
@@ -25,6 +26,7 @@ const (
 	blockedAddRequired  migrationBlockedKind = "add_required_field"
 	blockedAddPrimary   migrationBlockedKind = "add_primary_auto_field"
 	blockedInternalRule migrationBlockedKind = "internal_strict_column"
+	blockedUniqueIndex  migrationBlockedKind = "unique_index_create"
 )
 
 type migrationBlockedInfo struct {
@@ -71,7 +73,11 @@ func PrintStartupError(err error, _ string) {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, colorize(useColor, yellow, "Hint:"))
-	fmt.Fprintln(os.Stderr, "  Run a manual SQL migration, or update your Belm schema to match the current database.")
+	if info.Kind == blockedUniqueIndex {
+		fmt.Fprintln(os.Stderr, "  Remove duplicate values for this field in the current database.")
+	} else {
+		fmt.Fprintln(os.Stderr, "  Run a manual SQL migration, or update your Belm schema to match the current database.")
+	}
 	fmt.Fprintln(os.Stderr)
 }
 
@@ -124,6 +130,14 @@ func parseMigrationBlocked(msg string) (migrationBlockedInfo, bool) {
 			Entity: "internal auth",
 			Field:  m[2],
 			Table:  m[1],
+		}, true
+	}
+	if m := uniqueIndexRe.FindStringSubmatch(msg); len(m) == 4 {
+		return migrationBlockedInfo{
+			Kind:   blockedUniqueIndex,
+			Entity: m[1],
+			Field:  m[2],
+			Table:  m[3],
 		}, true
 	}
 	return migrationBlockedInfo{}, false

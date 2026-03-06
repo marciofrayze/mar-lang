@@ -46,6 +46,8 @@ func (r *Runtime) runMigrations() error {
 	}); err != nil {
 		return err
 	}
+
+	cfg := r.authConfig()
 	if !r.appAuthEnabled() {
 		if err := r.migrateStaticTable(internalAuthUsersTable, []staticColumn{
 			{Name: "id", Type: "INTEGER", Primary: true, Auto: true},
@@ -53,6 +55,21 @@ func (r *Runtime) runMigrations() error {
 			{Name: "role", Type: "TEXT", NotNull: true, DefaultSQL: "'user'"},
 			{Name: "created_at", Type: "INTEGER", NotNull: true},
 		}); err != nil {
+			return err
+		}
+		if err := r.migrateUniqueNoCaseIndex(
+			authEmailUniqueIndexName(internalAuthUsersTable, cfg.EmailField),
+			internalAuthUsersTable,
+			cfg.EmailField,
+		); err != nil {
+			return err
+		}
+	} else {
+		if err := r.migrateUniqueNoCaseIndex(
+			authEmailUniqueIndexName(r.authUser.Table, cfg.EmailField),
+			r.authUser.Table,
+			cfg.EmailField,
+		); err != nil {
 			return err
 		}
 	}
@@ -86,6 +103,14 @@ func (r *Runtime) recordMigration(tableName, kind, sqlText string) error {
 
 func (r *Runtime) tableExists(tableName string) (bool, error) {
 	_, ok, err := r.DB.QueryRow(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1`, tableName)
+	if err != nil {
+		return false, err
+	}
+	return ok, nil
+}
+
+func (r *Runtime) indexExists(indexName string) (bool, error) {
+	_, ok, err := r.DB.QueryRow(`SELECT name FROM sqlite_master WHERE type = 'index' AND name = ? LIMIT 1`, indexName)
 	if err != nil {
 		return false, err
 	}
@@ -240,6 +265,52 @@ func (r *Runtime) migrateStaticTable(tableName string, columns []staticColumn) e
 		}
 	}
 	return nil
+}
+
+func (r *Runtime) migrateUniqueNoCaseIndex(indexName, tableName, fieldName string) error {
+	exists, err := r.indexExists(indexName)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return nil
+	}
+	index, err := quoteIdentifier(indexName)
+	if err != nil {
+		return err
+	}
+	table, err := quoteIdentifier(tableName)
+	if err != nil {
+		return err
+	}
+	field, err := quoteIdentifier(fieldName)
+	if err != nil {
+		return err
+	}
+	sqlText := fmt.Sprintf("CREATE UNIQUE INDEX %s ON %s(%s COLLATE NOCASE);", index, table, field)
+	if _, err := r.DB.Exec(sqlText); err != nil {
+		return fmt.Errorf("migration blocked for %s.%s: duplicate values prevent unique index creation in table %s", tableName, fieldName, tableName)
+	}
+	return r.recordMigration(tableName, "create_index_"+indexName, sqlText)
+}
+
+func authEmailUniqueIndexName(tableName, emailField string) string {
+	sanitize := func(value string) string {
+		builder := strings.Builder{}
+		for _, ch := range strings.TrimSpace(value) {
+			if (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') {
+				builder.WriteRune(ch)
+			} else {
+				builder.WriteRune('_')
+			}
+		}
+		out := strings.Trim(builder.String(), "_")
+		if out == "" {
+			return "x"
+		}
+		return strings.ToLower(out)
+	}
+	return fmt.Sprintf("idx_%s_%s_unique", sanitize(tableName), sanitize(emailField))
 }
 
 func staticTypeToBelm(sqlType string) string {

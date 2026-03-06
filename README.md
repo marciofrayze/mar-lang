@@ -548,7 +548,8 @@ Built-in email code login flow:
 4. `POST /auth/logout` revokes the session
 
 Authentication endpoints are always available, even when `auth { ... }` is not defined.
-In that case, Belm uses an internal auth users table (`belm_auth_users`) with `email` and `role`.
+When `auth { ... }` is defined, Belm uses your configured user entity (`user_entity`, `email_field`, `role_field`).
+When `auth { ... }` is not defined, Belm still provides a built-in auth user store automatically.
 Auth endpoints are rate-limited by default (`request-code`: `5/min`, `login`: `10/min`) and can be tuned in `system`.
 
 For first-login flows, `request-code` can auto-create the auth user when the selected `user_entity`
@@ -668,8 +669,8 @@ Automatic behavior:
 
 - creates missing tables
 - adds new optional columns
-- creates/migrates internal auth tables (`belm_auth_codes`, `belm_sessions`, and `belm_auth_users` when no `auth { ... }` block is present)
-- records operations in `belm_schema_migrations`
+- keeps authentication and session storage ready automatically
+- tracks applied schema changes
 
 Blocked (manual migration required):
 

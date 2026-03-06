@@ -138,6 +138,76 @@ entity Book {
 	}
 }
 
+func TestMigrationsCreateAuthEmailUniqueIndexForInternalUsers(t *testing.T) {
+	requireSQLite3(t)
+
+	dbPath := filepath.Join(t.TempDir(), "migration-auth-index-internal.db")
+	app := mustParseApp(t, `
+app InternalAuthApi
+
+entity Todo {
+  title: String
+}
+`)
+	app.Database = dbPath
+
+	r, err := New(app)
+	if err != nil {
+		t.Fatalf("runtime.New failed: %v", err)
+	}
+
+	_, err = r.DB.Exec(`INSERT INTO belm_auth_users (email, role, created_at) VALUES (?, ?, 0)`, "user@example.com", "user")
+	if err != nil {
+		t.Fatalf("first insert failed: %v", err)
+	}
+	_, err = r.DB.Exec(`INSERT INTO belm_auth_users (email, role, created_at) VALUES (?, ?, 0)`, "USER@example.com", "admin")
+	if err == nil {
+		t.Fatal("expected duplicate internal auth email to fail")
+	}
+	if !strings.Contains(strings.ToLower(err.Error()), "unique") {
+		t.Fatalf("expected unique constraint error, got %v", err)
+	}
+}
+
+func TestMigrationsCreateAuthEmailUniqueIndexForAppUsers(t *testing.T) {
+	requireSQLite3(t)
+
+	dbPath := filepath.Join(t.TempDir(), "migration-auth-index-app.db")
+	app := mustParseApp(t, `
+app AppAuthApi
+
+entity User {
+  id: Int primary auto
+  email: String
+  role: String
+}
+
+auth {
+  user_entity User
+  email_field email
+  role_field role
+}
+`)
+	app.Database = dbPath
+
+	r, err := New(app)
+	if err != nil {
+		t.Fatalf("runtime.New failed: %v", err)
+	}
+
+	_, err = r.DB.Exec(`INSERT INTO users (email, role) VALUES (?, ?)`, "user@example.com", "user")
+	if err != nil {
+		t.Fatalf("first insert failed: %v", err)
+	}
+	_, err = r.DB.Exec(`INSERT INTO users (email, role) VALUES (?, ?)`, "USER@example.com", "admin")
+	if err == nil {
+		t.Fatal("expected duplicate app auth email to fail")
+	}
+	if !strings.Contains(strings.ToLower(err.Error()), "unique") {
+		t.Fatalf("expected unique constraint error, got %v", err)
+	}
+}
+
 func requireSQLite3(t *testing.T) {
 	t.Helper()
 }

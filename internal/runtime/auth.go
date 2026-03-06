@@ -118,11 +118,7 @@ func (r *Runtime) loadAuthUserByEmail(email string) (map[string]any, bool, error
 	}
 	table, _ := quoteIdentifier(tableName)
 	emailField, _ := quoteIdentifier(emailFieldName)
-	query := fmt.Sprintf("SELECT * FROM %s WHERE %s = ? ORDER BY rowid DESC LIMIT 1", table, emailField)
-	if strings.TrimSpace(cfg.RoleField) != "" {
-		roleField, _ := quoteIdentifier(cfg.RoleField)
-		query = fmt.Sprintf("SELECT * FROM %s WHERE %s = ? ORDER BY CASE WHEN lower(%s) = 'admin' THEN 0 ELSE 1 END, rowid DESC LIMIT 1", table, emailField, roleField)
-	}
+	query := fmt.Sprintf("SELECT * FROM %s WHERE %s = ? COLLATE NOCASE LIMIT 1", table, emailField)
 	return queryRow(r.DB, query, email)
 }
 
