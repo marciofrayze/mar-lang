@@ -28,7 +28,7 @@ func (r *Runtime) authConfig() model.AuthConfig {
 		EmailFrom:       "no-reply@belm.local",
 		EmailSubject:    "Your Belm login code",
 		SendmailPath:    "/usr/sbin/sendmail",
-		DevExposeCode:   true,
+		DevExposeCode:   false,
 	}
 }
 
@@ -553,11 +553,14 @@ func (r *Runtime) deliverEmailCode(toEmail, code string) error {
 
 	switch cfg.EmailTransport {
 	case "console":
+		body := buildAuthEmailBody(code, cfg.CodeTTLMinutes)
 		r.printAuthLogHeader()
 		r.printAuthLogSection("Email delivery")
 		r.printAuthLogFieldCommand("Status", "sent")
 		r.printAuthLogField("Transport", "console")
 		r.printAuthLogField("To", toEmail)
+		r.printAuthLogSection("Email body")
+		r.printAuthLogMultiline(body)
 		return nil
 	case "sendmail":
 		if err := sendWithSendmail(cfg.SendmailPath, cfg.EmailFrom, cfg.EmailSubject, toEmail, code, cfg.CodeTTLMinutes); err != nil {
@@ -609,21 +612,16 @@ func (r *Runtime) printAuthLogFieldWithColor(label, value, valueColor string) {
 	fmt.Printf("    %s %s\n", colorize(useColor, ansiLabel, key), displayValue)
 }
 
+func (r *Runtime) printAuthLogMultiline(content string) {
+	lines := strings.Split(content, "\n")
+	for _, line := range lines {
+		fmt.Printf("    %s\n", line)
+	}
+}
+
 // sendWithSendmail sends plain-text email by invoking the local sendmail binary.
 func sendWithSendmail(sendmailPath, from, subject, to, code string, ttlMinutes int) error {
-	msg := strings.Join([]string{
-		"From: " + from,
-		"To: " + to,
-		"Subject: " + subject,
-		"Content-Type: text/plain; charset=utf-8",
-		"",
-		"Your login code is:",
-		code,
-		"",
-		fmt.Sprintf("This code expires in %d minute(s).", ttlMinutes),
-		"",
-		"If you did not request this code, ignore this email.",
-	}, "\n")
+	msg := buildAuthEmailMessage(from, subject, to, code, ttlMinutes)
 
 	cmd := exec.Command(sendmailPath, "-t", "-i")
 	stdin, err := cmd.StdinPipe()
@@ -644,6 +642,28 @@ func sendWithSendmail(sendmailPath, from, subject, to, code string, ttlMinutes i
 		return err
 	}
 	return nil
+}
+
+func buildAuthEmailMessage(from, subject, to, code string, ttlMinutes int) string {
+	return strings.Join([]string{
+		"From: " + from,
+		"To: " + to,
+		"Subject: " + subject,
+		"Content-Type: text/plain; charset=utf-8",
+		"",
+		buildAuthEmailBody(code, ttlMinutes),
+	}, "\n")
+}
+
+func buildAuthEmailBody(code string, ttlMinutes int) string {
+	return strings.Join([]string{
+		"Your login code is:",
+		code,
+		"",
+		fmt.Sprintf("This code expires in %d minute(s).", ttlMinutes),
+		"",
+		"If you did not request this code, ignore this email.",
+	}, "\n")
 }
 
 // randomCode6 returns a zero-padded 6-digit cryptographically random code.

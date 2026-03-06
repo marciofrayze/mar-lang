@@ -63,6 +63,14 @@ type apiError struct {
 
 const defaultHTTPMaxRequestBodyMB = 1
 
+const (
+	defaultSecurityFramePolicy    = "sameorigin"
+	defaultSecurityReferrerPolicy = "strict-origin-when-cross-origin"
+	defaultSecurityContentNoSniff = true
+	securityFramePolicyDeny       = "deny"
+	securityFramePolicySameOrigin = "sameorigin"
+)
+
 // Error implements error for API-layer errors that carry HTTP metadata.
 func (e *apiError) Error() string {
 	return e.Message
@@ -218,6 +226,7 @@ func (r *Runtime) handleHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 
 	setCORSHeaders(writer)
+	setSecurityHeaders(writer, r.App)
 	if req.Method == http.MethodOptions {
 		writer.WriteHeader(http.StatusNoContent)
 		finishRequest()
@@ -534,6 +543,50 @@ func setCORSHeaders(w http.ResponseWriter) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type,Authorization")
+}
+
+func setSecurityHeaders(w http.ResponseWriter, app *model.App) {
+	w.Header().Set("X-Frame-Options", securityFrameHeaderValue(framePolicyForApp(app)))
+	w.Header().Set("Referrer-Policy", referrerPolicyForApp(app))
+	if contentNoSniffForApp(app) {
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+	}
+}
+
+func framePolicyForApp(app *model.App) string {
+	if app == nil || app.System == nil || app.System.SecurityFramePolicy == nil {
+		return defaultSecurityFramePolicy
+	}
+	value := strings.ToLower(strings.TrimSpace(*app.System.SecurityFramePolicy))
+	if value == securityFramePolicyDeny || value == securityFramePolicySameOrigin {
+		return value
+	}
+	return defaultSecurityFramePolicy
+}
+
+func securityFrameHeaderValue(policy string) string {
+	if policy == securityFramePolicyDeny {
+		return "DENY"
+	}
+	return "SAMEORIGIN"
+}
+
+func referrerPolicyForApp(app *model.App) string {
+	if app == nil || app.System == nil || app.System.SecurityReferrerPolicy == nil {
+		return defaultSecurityReferrerPolicy
+	}
+	value := strings.TrimSpace(*app.System.SecurityReferrerPolicy)
+	if value == "strict-origin-when-cross-origin" || value == "no-referrer" {
+		return value
+	}
+	return defaultSecurityReferrerPolicy
+}
+
+func contentNoSniffForApp(app *model.App) bool {
+	if app == nil || app.System == nil || app.System.SecurityContentNoSniff == nil {
+		return defaultSecurityContentNoSniff
+	}
+	return *app.System.SecurityContentNoSniff
 }
 
 type statusRecorder struct {

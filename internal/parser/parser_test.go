@@ -87,6 +87,9 @@ auth {
 	if app.Auth.SessionTTLHours != 24 {
 		t.Fatalf("unexpected default session_ttl_hours: %d", app.Auth.SessionTTLHours)
 	}
+	if app.Auth.DevExposeCode {
+		t.Fatalf("unexpected default dev_expose_code: %v", app.Auth.DevExposeCode)
+	}
 }
 
 func TestParseAuthCodeTTLRejectsOutOfRange(t *testing.T) {
@@ -285,6 +288,9 @@ app FrontApi
 database "./front.db"
 
 system {
+  security_frame_policy sameorigin
+  security_referrer_policy strict-origin-when-cross-origin
+  security_content_type_nosniff true
   sqlite_journal_mode wal
   sqlite_synchronous normal
   sqlite_foreign_keys true
@@ -318,6 +324,15 @@ entity Todo {
 	}
 	if app.System.SQLiteForeignKeys == nil || !*app.System.SQLiteForeignKeys {
 		t.Fatalf("unexpected sqlite_foreign_keys: %+v", app.System.SQLiteForeignKeys)
+	}
+	if app.System.SecurityFramePolicy == nil || *app.System.SecurityFramePolicy != "sameorigin" {
+		t.Fatalf("unexpected security_frame_policy: %+v", app.System.SecurityFramePolicy)
+	}
+	if app.System.SecurityReferrerPolicy == nil || *app.System.SecurityReferrerPolicy != "strict-origin-when-cross-origin" {
+		t.Fatalf("unexpected security_referrer_policy: %+v", app.System.SecurityReferrerPolicy)
+	}
+	if app.System.SecurityContentNoSniff == nil || !*app.System.SecurityContentNoSniff {
+		t.Fatalf("unexpected security_content_type_nosniff: %+v", app.System.SecurityContentNoSniff)
 	}
 	if app.System.AuthRequestCodeRateLimit == nil || *app.System.AuthRequestCodeRateLimit != 5 {
 		t.Fatalf("unexpected auth_request_code_rate_limit_per_minute: %+v", app.System.AuthRequestCodeRateLimit)
@@ -456,6 +471,75 @@ entity Todo {
 		t.Fatal("expected parse error for out-of-range auth_login_rate_limit_per_minute")
 	}
 	if !strings.Contains(err.Error(), "system.auth_login_rate_limit_per_minute must be between") {
+		t.Fatalf("unexpected error message: %v", err)
+	}
+}
+
+func TestParseSystemSecurityFramePolicyRejectsInvalidValue(t *testing.T) {
+	src := `
+app FrontApi
+database "./front.db"
+
+system {
+  security_frame_policy allow
+}
+
+entity Todo {
+  title: String
+}
+`
+
+	_, err := Parse(src)
+	if err == nil {
+		t.Fatal("expected parse error for invalid security_frame_policy")
+	}
+	if !strings.Contains(err.Error(), "system.security_frame_policy must be one of") {
+		t.Fatalf("unexpected error message: %v", err)
+	}
+}
+
+func TestParseSystemSecurityReferrerPolicyRejectsInvalidValue(t *testing.T) {
+	src := `
+app FrontApi
+database "./front.db"
+
+system {
+  security_referrer_policy unsafe-url
+}
+
+entity Todo {
+  title: String
+}
+`
+
+	_, err := Parse(src)
+	if err == nil {
+		t.Fatal("expected parse error for invalid security_referrer_policy")
+	}
+	if !strings.Contains(err.Error(), "system.security_referrer_policy must be one of") {
+		t.Fatalf("unexpected error message: %v", err)
+	}
+}
+
+func TestParseSystemSecurityContentTypeNoSniffRejectsInvalidValue(t *testing.T) {
+	src := `
+app FrontApi
+database "./front.db"
+
+system {
+  security_content_type_nosniff maybe
+}
+
+entity Todo {
+  title: String
+}
+`
+
+	_, err := Parse(src)
+	if err == nil {
+		t.Fatal("expected parse error for invalid security_content_type_nosniff")
+	}
+	if !strings.Contains(err.Error(), "system.security_content_type_nosniff must be true or false") {
 		t.Fatalf("unexpected error message: %v", err)
 	}
 }

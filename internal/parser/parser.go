@@ -200,7 +200,7 @@ func parseAuthBlock(lines []line, idx *int) (*model.AuthConfig, error) {
 		EmailFrom:       "no-reply@belm.local",
 		EmailSubject:    "Your Belm login code",
 		SendmailPath:    "/usr/sbin/sendmail",
-		DevExposeCode:   true,
+		DevExposeCode:   false,
 	}
 
 	(*idx)++
@@ -434,6 +434,39 @@ func parseSystemBlock(lines []line, idx *int) (*model.SystemConfig, error) {
 			cfg.AuthLoginRateLimit = intPtr(value)
 			(*idx)++
 			continue
+		}
+		if m := match(`^security_frame_policy\s+(deny|sameorigin)$`, trimmed); m != nil {
+			cfg.SecurityFramePolicy = stringPtr(m[1])
+			(*idx)++
+			continue
+		}
+		if m := match(`^security_frame_policy\s+(.+)$`, trimmed); m != nil {
+			return nil, fmt.Errorf(
+				"line %d: system.security_frame_policy must be one of: deny, sameorigin",
+				ln.number,
+			)
+		}
+		if m := match(`^security_referrer_policy\s+(strict-origin-when-cross-origin|no-referrer)$`, trimmed); m != nil {
+			cfg.SecurityReferrerPolicy = stringPtr(m[1])
+			(*idx)++
+			continue
+		}
+		if m := match(`^security_referrer_policy\s+(.+)$`, trimmed); m != nil {
+			return nil, fmt.Errorf(
+				"line %d: system.security_referrer_policy must be one of: strict-origin-when-cross-origin, no-referrer",
+				ln.number,
+			)
+		}
+		if m := match(`^security_content_type_nosniff\s+(true|false)$`, trimmed); m != nil {
+			cfg.SecurityContentNoSniff = boolPtr(m[1] == "true")
+			(*idx)++
+			continue
+		}
+		if m := match(`^security_content_type_nosniff\s+(.+)$`, trimmed); m != nil {
+			return nil, fmt.Errorf(
+				"line %d: system.security_content_type_nosniff must be true or false",
+				ln.number,
+			)
 		}
 		if m := match(`^sqlite_journal_mode\s+(wal|delete|truncate|persist|memory|off)$`, trimmed); m != nil {
 			cfg.SQLiteJournalMode = stringPtr(m[1])

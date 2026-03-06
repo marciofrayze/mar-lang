@@ -23,6 +23,9 @@ type SystemConfig struct {
 	HTTPMaxRequestBodyMB     *int    `json:"httpMaxRequestBodyMb,omitempty"`
 	AuthRequestCodeRateLimit *int    `json:"authRequestCodeRateLimitPerMinute,omitempty"`
 	AuthLoginRateLimit       *int    `json:"authLoginRateLimitPerMinute,omitempty"`
+	SecurityFramePolicy      *string `json:"securityFramePolicy,omitempty"`
+	SecurityReferrerPolicy   *string `json:"securityReferrerPolicy,omitempty"`
+	SecurityContentNoSniff   *bool   `json:"securityContentTypeNosniff,omitempty"`
 	SQLiteJournalMode        *string `json:"sqliteJournalMode,omitempty"`
 	SQLiteSynchronous        *string `json:"sqliteSynchronous,omitempty"`
 	SQLiteForeignKeys        *bool   `json:"sqliteForeignKeys,omitempty"`

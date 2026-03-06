@@ -27,7 +27,9 @@ var (
 	systemIntRe   = regexp.MustCompile(`^(request_logs_buffer|sqlite_busy_timeout_ms|sqlite_wal_autocheckpoint|auth_request_code_rate_limit_per_minute|auth_login_rate_limit_per_minute)\s+([0-9]{1,7})$`)
 	systemModeRe  = regexp.MustCompile(`^(sqlite_journal_mode)\s+(wal|delete|truncate|persist|memory|off)$`)
 	systemSyncRe  = regexp.MustCompile(`^(sqlite_synchronous)\s+(off|normal|full|extra)$`)
-	systemBoolRe  = regexp.MustCompile(`^(sqlite_foreign_keys)\s+(true|false)$`)
+	systemBoolRe  = regexp.MustCompile(`^(sqlite_foreign_keys|security_content_type_nosniff)\s+(true|false)$`)
+	systemFrameRe = regexp.MustCompile(`^(security_frame_policy)\s+(deny|sameorigin)$`)
+	systemRefRe   = regexp.MustCompile(`^(security_referrer_policy)\s+(strict-origin-when-cross-origin|no-referrer)$`)
 	systemLimitRe = regexp.MustCompile(`^(sqlite_journal_size_limit_mb)\s+(-?[0-9]{1,4})$`)
 	systemMBRe    = regexp.MustCompile(`^(sqlite_mmap_size_mb|http_max_request_body_mb)\s+([0-9]{1,5})$`)
 	systemKBRe    = regexp.MustCompile(`^(sqlite_cache_size_kb)\s+([0-9]{1,7})$`)
@@ -197,6 +199,12 @@ func normalizeLine(trimmed string, state *formatState) string {
 			return m[1] + " " + m[2]
 		}
 		if m := systemBoolRe.FindStringSubmatch(trimmed); m != nil {
+			return m[1] + " " + m[2]
+		}
+		if m := systemFrameRe.FindStringSubmatch(trimmed); m != nil {
+			return m[1] + " " + m[2]
+		}
+		if m := systemRefRe.FindStringSubmatch(trimmed); m != nil {
 			return m[1] + " " + m[2]
 		}
 		if m := systemLimitRe.FindStringSubmatch(trimmed); m != nil {

@@ -372,6 +372,9 @@ system {
   http_max_request_body_mb 1
   auth_request_code_rate_limit_per_minute 5
   auth_login_rate_limit_per_minute 10
+  security_frame_policy sameorigin
+  security_referrer_policy strict-origin-when-cross-origin
+  security_content_type_nosniff true
   sqlite_journal_mode wal
   sqlite_synchronous normal
   sqlite_foreign_keys true
@@ -405,6 +408,12 @@ Auth rate-limit settings control auth endpoint attempts per minute (scoped by em
   - default: `10`
   - minimum: `1`
   - maximum: `10000`
+
+Security header settings apply to all endpoints:
+
+- `security_frame_policy` (default `sameorigin`): `sameorigin | deny` (sets `X-Frame-Options`)
+- `security_referrer_policy` (default `strict-origin-when-cross-origin`): `strict-origin-when-cross-origin | no-referrer`
+- `security_content_type_nosniff` (default `true`): `true | false` (controls `X-Content-Type-Options: nosniff`)
 
 SQLite settings are performance-first by default and can be overridden per app in `system`.
 
@@ -575,6 +584,7 @@ Numeric auth options:
 
 - `code_ttl_minutes` default `10`, range `1..1440`
 - `session_ttl_hours` default `24`, range `1..8760`
+- `dev_expose_code` default `false` (set to `true` only for local development)
 
 Recommended framework pattern:
 

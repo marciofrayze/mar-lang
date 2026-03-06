@@ -5373,217 +5373,58 @@ var $elm$core$Task$perform = F2(
 	});
 var $elm$browser$Browser$document = _Browser_document;
 var $elm$json$Json$Decode$field = _Json_decodeField;
+var $author$project$Main$AppAuthScope = {$: 'AppAuthScope'};
 var $author$project$Main$AppAuthTab = {$: 'AppAuthTab'};
 var $author$project$Main$FormHidden = {$: 'FormHidden'};
 var $author$project$Main$Loading = {$: 'Loading'};
 var $author$project$Main$NotAsked = {$: 'NotAsked'};
+var $author$project$Main$SystemAuthScope = {$: 'SystemAuthScope'};
+var $elm$core$Platform$Cmd$batch = _Platform_batch;
 var $elm$core$Dict$RBEmpty_elm_builtin = {$: 'RBEmpty_elm_builtin'};
 var $elm$core$Dict$empty = $elm$core$Dict$RBEmpty_elm_builtin;
-var $author$project$Main$GotSchema = function (a) {
-	return {$: 'GotSchema', a: a};
+var $author$project$Main$GotAuthMe = F2(
+	function (a, b) {
+		return {$: 'GotAuthMe', a: a, b: b};
+	});
+var $elm$http$Http$Header = F2(
+	function (a, b) {
+		return {$: 'Header', a: a, b: b};
+	});
+var $elm$http$Http$header = $elm$http$Http$Header;
+var $elm$core$String$trim = _String_trim;
+var $author$project$Main$appAuthHeaders = function (model) {
+	return ($elm$core$String$trim(model.authToken) === '') ? _List_Nil : _List_fromArray(
+		[
+			A2(
+			$elm$http$Http$header,
+			'Authorization',
+			'Bearer ' + $elm$core$String$trim(model.authToken))
+		]);
 };
-var $author$project$Belm$Api$Schema = F8(
-	function (appName, portNumber, database, entities, auth, systemAuth, inputAliases, actions) {
-		return {actions: actions, appName: appName, auth: auth, database: database, entities: entities, inputAliases: inputAliases, portNumber: portNumber, systemAuth: systemAuth};
+var $author$project$Main$AuthMeResponse = F2(
+	function (email, role) {
+		return {email: email, role: role};
 	});
-var $author$project$Belm$Api$ActionInfo = F3(
-	function (name, inputAlias, steps) {
-		return {inputAlias: inputAlias, name: name, steps: steps};
-	});
-var $elm$json$Json$Decode$int = _Json_decodeInt;
-var $elm$json$Json$Decode$map3 = _Json_map3;
-var $elm$json$Json$Decode$string = _Json_decodeString;
-var $author$project$Belm$Api$actionInfoDecoder = A4(
-	$elm$json$Json$Decode$map3,
-	$author$project$Belm$Api$ActionInfo,
-	A2($elm$json$Json$Decode$field, 'name', $elm$json$Json$Decode$string),
-	A2($elm$json$Json$Decode$field, 'inputAlias', $elm$json$Json$Decode$string),
-	A2($elm$json$Json$Decode$field, 'steps', $elm$json$Json$Decode$int));
-var $elm$json$Json$Decode$list = _Json_decodeList;
+var $elm$json$Json$Decode$null = _Json_decodeNull;
 var $elm$json$Json$Decode$oneOf = _Json_oneOf;
-var $author$project$Belm$Api$decodeActionInfo = $elm$json$Json$Decode$oneOf(
-	_List_fromArray(
-		[
-			A2(
-			$elm$json$Json$Decode$field,
-			'actions',
-			$elm$json$Json$Decode$list($author$project$Belm$Api$actionInfoDecoder)),
-			$elm$json$Json$Decode$succeed(_List_Nil)
-		]));
-var $author$project$Belm$Api$AuthInfo = F6(
-	function (enabled, userEntity, emailField, roleField, emailTransport, needsBootstrap) {
-		return {emailField: emailField, emailTransport: emailTransport, enabled: enabled, needsBootstrap: needsBootstrap, roleField: roleField, userEntity: userEntity};
-	});
-var $elm$json$Json$Decode$bool = _Json_decodeBool;
-var $elm$json$Json$Decode$map6 = _Json_map6;
-var $author$project$Belm$Api$authInfoDecoder = A7(
-	$elm$json$Json$Decode$map6,
-	$author$project$Belm$Api$AuthInfo,
-	A2($elm$json$Json$Decode$field, 'enabled', $elm$json$Json$Decode$bool),
-	A2($elm$json$Json$Decode$field, 'userEntity', $elm$json$Json$Decode$string),
-	A2($elm$json$Json$Decode$field, 'emailField', $elm$json$Json$Decode$string),
-	A2($elm$json$Json$Decode$field, 'roleField', $elm$json$Json$Decode$string),
-	A2($elm$json$Json$Decode$field, 'emailTransport', $elm$json$Json$Decode$string),
+var $elm$json$Json$Decode$string = _Json_decodeString;
+var $author$project$Main$authMeResponseDecoder = A3(
+	$elm$json$Json$Decode$map2,
+	$author$project$Main$AuthMeResponse,
+	A2($elm$json$Json$Decode$field, 'email', $elm$json$Json$Decode$string),
 	$elm$json$Json$Decode$oneOf(
 		_List_fromArray(
 			[
-				A2($elm$json$Json$Decode$field, 'needsBootstrap', $elm$json$Json$Decode$bool),
-				$elm$json$Json$Decode$succeed(false)
+				A2(
+				$elm$json$Json$Decode$field,
+				'role',
+				A2($elm$json$Json$Decode$map, $elm$core$Maybe$Just, $elm$json$Json$Decode$string)),
+				A2(
+				$elm$json$Json$Decode$field,
+				'role',
+				$elm$json$Json$Decode$null($elm$core$Maybe$Nothing)),
+				$elm$json$Json$Decode$succeed($elm$core$Maybe$Nothing)
 			])));
-var $author$project$Belm$Api$decodeAuthInfo = $elm$json$Json$Decode$oneOf(
-	_List_fromArray(
-		[
-			A2(
-			$elm$json$Json$Decode$field,
-			'auth',
-			A2($elm$json$Json$Decode$map, $elm$core$Maybe$Just, $author$project$Belm$Api$authInfoDecoder)),
-			$elm$json$Json$Decode$succeed($elm$core$Maybe$Nothing)
-		]));
-var $author$project$Belm$Api$InputAliasInfo = F2(
-	function (name, fields) {
-		return {fields: fields, name: name};
-	});
-var $author$project$Belm$Api$InputAliasField = F2(
-	function (name, fieldType) {
-		return {fieldType: fieldType, name: name};
-	});
-var $author$project$Belm$Api$inputAliasFieldDecoder = A3(
-	$elm$json$Json$Decode$map2,
-	$author$project$Belm$Api$InputAliasField,
-	A2($elm$json$Json$Decode$field, 'name', $elm$json$Json$Decode$string),
-	A2($elm$json$Json$Decode$field, 'type', $elm$json$Json$Decode$string));
-var $author$project$Belm$Api$inputAliasDecoder = A3(
-	$elm$json$Json$Decode$map2,
-	$author$project$Belm$Api$InputAliasInfo,
-	A2($elm$json$Json$Decode$field, 'name', $elm$json$Json$Decode$string),
-	A2(
-		$elm$json$Json$Decode$field,
-		'fields',
-		$elm$json$Json$Decode$list($author$project$Belm$Api$inputAliasFieldDecoder)));
-var $author$project$Belm$Api$decodeInputAliases = $elm$json$Json$Decode$oneOf(
-	_List_fromArray(
-		[
-			A2(
-			$elm$json$Json$Decode$field,
-			'inputAliases',
-			$elm$json$Json$Decode$list($author$project$Belm$Api$inputAliasDecoder)),
-			$elm$json$Json$Decode$succeed(_List_Nil)
-		]));
-var $author$project$Belm$Api$SystemAuthInfo = F3(
-	function (enabled, emailTransport, needsBootstrap) {
-		return {emailTransport: emailTransport, enabled: enabled, needsBootstrap: needsBootstrap};
-	});
-var $author$project$Belm$Api$systemAuthInfoDecoder = A4(
-	$elm$json$Json$Decode$map3,
-	$author$project$Belm$Api$SystemAuthInfo,
-	A2($elm$json$Json$Decode$field, 'enabled', $elm$json$Json$Decode$bool),
-	A2($elm$json$Json$Decode$field, 'emailTransport', $elm$json$Json$Decode$string),
-	$elm$json$Json$Decode$oneOf(
-		_List_fromArray(
-			[
-				A2($elm$json$Json$Decode$field, 'needsBootstrap', $elm$json$Json$Decode$bool),
-				$elm$json$Json$Decode$succeed(false)
-			])));
-var $author$project$Belm$Api$decodeSystemAuthInfo = $elm$json$Json$Decode$oneOf(
-	_List_fromArray(
-		[
-			A2(
-			$elm$json$Json$Decode$field,
-			'systemAuth',
-			A2($elm$json$Json$Decode$map, $elm$core$Maybe$Just, $author$project$Belm$Api$systemAuthInfoDecoder)),
-			$elm$json$Json$Decode$succeed($elm$core$Maybe$Nothing)
-		]));
-var $author$project$Belm$Api$Entity = F5(
-	function (name, table, resource, primaryKey, fields) {
-		return {fields: fields, name: name, primaryKey: primaryKey, resource: resource, table: table};
-	});
-var $author$project$Belm$Api$Field = F5(
-	function (name, fieldType, primary, auto, optional) {
-		return {auto: auto, fieldType: fieldType, name: name, optional: optional, primary: primary};
-	});
-var $author$project$Belm$Api$BoolType = {$: 'BoolType'};
-var $author$project$Belm$Api$FloatType = {$: 'FloatType'};
-var $author$project$Belm$Api$IntType = {$: 'IntType'};
-var $author$project$Belm$Api$StringType = {$: 'StringType'};
-var $elm$json$Json$Decode$fail = _Json_fail;
-var $author$project$Belm$Api$decodeFieldType = function (raw) {
-	switch (raw) {
-		case 'Int':
-			return $elm$json$Json$Decode$succeed($author$project$Belm$Api$IntType);
-		case 'String':
-			return $elm$json$Json$Decode$succeed($author$project$Belm$Api$StringType);
-		case 'Bool':
-			return $elm$json$Json$Decode$succeed($author$project$Belm$Api$BoolType);
-		case 'Float':
-			return $elm$json$Json$Decode$succeed($author$project$Belm$Api$FloatType);
-		default:
-			return $elm$json$Json$Decode$fail('Unknown field type: ' + raw);
-	}
-};
-var $elm$json$Json$Decode$map5 = _Json_map5;
-var $author$project$Belm$Api$fieldDecoder = A6(
-	$elm$json$Json$Decode$map5,
-	$author$project$Belm$Api$Field,
-	A2($elm$json$Json$Decode$field, 'name', $elm$json$Json$Decode$string),
-	A2(
-		$elm$json$Json$Decode$andThen,
-		$author$project$Belm$Api$decodeFieldType,
-		A2($elm$json$Json$Decode$field, 'type', $elm$json$Json$Decode$string)),
-	A2($elm$json$Json$Decode$field, 'primary', $elm$json$Json$Decode$bool),
-	A2($elm$json$Json$Decode$field, 'auto', $elm$json$Json$Decode$bool),
-	A2($elm$json$Json$Decode$field, 'optional', $elm$json$Json$Decode$bool));
-var $author$project$Belm$Api$entityDecoder = A6(
-	$elm$json$Json$Decode$map5,
-	$author$project$Belm$Api$Entity,
-	A2($elm$json$Json$Decode$field, 'name', $elm$json$Json$Decode$string),
-	A2($elm$json$Json$Decode$field, 'table', $elm$json$Json$Decode$string),
-	A2($elm$json$Json$Decode$field, 'resource', $elm$json$Json$Decode$string),
-	A2($elm$json$Json$Decode$field, 'primaryKey', $elm$json$Json$Decode$string),
-	A2(
-		$elm$json$Json$Decode$field,
-		'fields',
-		$elm$json$Json$Decode$list($author$project$Belm$Api$fieldDecoder)));
-var $elm$json$Json$Decode$map8 = _Json_map8;
-var $author$project$Belm$Api$decodeSchema = A9(
-	$elm$json$Json$Decode$map8,
-	$author$project$Belm$Api$Schema,
-	A2($elm$json$Json$Decode$field, 'appName', $elm$json$Json$Decode$string),
-	A2($elm$json$Json$Decode$field, 'port', $elm$json$Json$Decode$int),
-	A2($elm$json$Json$Decode$field, 'database', $elm$json$Json$Decode$string),
-	A2(
-		$elm$json$Json$Decode$field,
-		'entities',
-		$elm$json$Json$Decode$list($author$project$Belm$Api$entityDecoder)),
-	$author$project$Belm$Api$decodeAuthInfo,
-	$author$project$Belm$Api$decodeSystemAuthInfo,
-	$author$project$Belm$Api$decodeInputAliases,
-	$author$project$Belm$Api$decodeActionInfo);
-var $elm$http$Http$BadBody = function (a) {
-	return {$: 'BadBody', a: a};
-};
-var $elm$http$Http$BadUrl = function (a) {
-	return {$: 'BadUrl', a: a};
-};
-var $elm$http$Http$NetworkError = {$: 'NetworkError'};
-var $elm$http$Http$Timeout = {$: 'Timeout'};
-var $author$project$Main$apiErrorDecoder = $elm$json$Json$Decode$oneOf(
-	_List_fromArray(
-		[
-			A2($elm$json$Json$Decode$field, 'error', $elm$json$Json$Decode$string),
-			A2($elm$json$Json$Decode$field, 'message', $elm$json$Json$Decode$string)
-		]));
-var $elm$json$Json$Decode$decodeString = _Json_runOnString;
-var $author$project$Main$apiErrorMessage = F2(
-	function (statusCode, body) {
-		var fallback = 'HTTP error: ' + $elm$core$String$fromInt(statusCode);
-		var _v0 = A2($elm$json$Json$Decode$decodeString, $author$project$Main$apiErrorDecoder, body);
-		if (_v0.$ === 'Ok') {
-			var message = _v0.a;
-			return message;
-		} else {
-			return fallback;
-		}
-	});
 var $elm$http$Http$BadStatus_ = F2(
 	function (a, b) {
 		return {$: 'BadStatus_', a: a, b: b};
@@ -6124,6 +5965,33 @@ var $elm$core$Dict$update = F3(
 			return A2($elm$core$Dict$remove, targetKey, dictionary);
 		}
 	});
+var $elm$http$Http$emptyBody = _Http_emptyBody;
+var $elm$http$Http$BadBody = function (a) {
+	return {$: 'BadBody', a: a};
+};
+var $elm$http$Http$BadUrl = function (a) {
+	return {$: 'BadUrl', a: a};
+};
+var $elm$http$Http$NetworkError = {$: 'NetworkError'};
+var $elm$http$Http$Timeout = {$: 'Timeout'};
+var $author$project$Main$apiErrorDecoder = $elm$json$Json$Decode$oneOf(
+	_List_fromArray(
+		[
+			A2($elm$json$Json$Decode$field, 'error', $elm$json$Json$Decode$string),
+			A2($elm$json$Json$Decode$field, 'message', $elm$json$Json$Decode$string)
+		]));
+var $elm$json$Json$Decode$decodeString = _Json_runOnString;
+var $author$project$Main$apiErrorMessage = F2(
+	function (statusCode, body) {
+		var fallback = 'HTTP error: ' + $elm$core$String$fromInt(statusCode);
+		var _v0 = A2($elm$json$Json$Decode$decodeString, $author$project$Main$apiErrorDecoder, body);
+		if (_v0.$ === 'Ok') {
+			var message = _v0.a;
+			return message;
+		} else {
+			return fallback;
+		}
+	});
 var $elm$core$Basics$composeR = F3(
 	function (f, g, x) {
 		return g(
@@ -6173,7 +6041,6 @@ var $author$project$Main$expectJsonWithApiError = F2(
 				}
 			});
 	});
-var $elm$http$Http$emptyBody = _Http_emptyBody;
 var $elm$http$Http$Request = function (a) {
 	return {$: 'Request', a: a};
 };
@@ -6342,6 +6209,201 @@ var $elm$http$Http$request = function (r) {
 		$elm$http$Http$Request(
 			{allowCookiesFromOtherDomains: false, body: r.body, expect: r.expect, headers: r.headers, method: r.method, timeout: r.timeout, tracker: r.tracker, url: r.url}));
 };
+var $author$project$Main$loadAuthMe = F2(
+	function (scope, model) {
+		var headers = $author$project$Main$appAuthHeaders(model);
+		var endpoint = '/auth/me';
+		return $elm$http$Http$request(
+			{
+				body: $elm$http$Http$emptyBody,
+				expect: A2(
+					$author$project$Main$expectJsonWithApiError,
+					$author$project$Main$GotAuthMe(scope),
+					$author$project$Main$authMeResponseDecoder),
+				headers: headers,
+				method: 'GET',
+				timeout: $elm$core$Maybe$Nothing,
+				tracker: $elm$core$Maybe$Nothing,
+				url: _Utils_ap(model.apiBase, endpoint)
+			});
+	});
+var $author$project$Main$GotSchema = function (a) {
+	return {$: 'GotSchema', a: a};
+};
+var $author$project$Belm$Api$Schema = F8(
+	function (appName, portNumber, database, entities, auth, systemAuth, inputAliases, actions) {
+		return {actions: actions, appName: appName, auth: auth, database: database, entities: entities, inputAliases: inputAliases, portNumber: portNumber, systemAuth: systemAuth};
+	});
+var $author$project$Belm$Api$ActionInfo = F3(
+	function (name, inputAlias, steps) {
+		return {inputAlias: inputAlias, name: name, steps: steps};
+	});
+var $elm$json$Json$Decode$int = _Json_decodeInt;
+var $elm$json$Json$Decode$map3 = _Json_map3;
+var $author$project$Belm$Api$actionInfoDecoder = A4(
+	$elm$json$Json$Decode$map3,
+	$author$project$Belm$Api$ActionInfo,
+	A2($elm$json$Json$Decode$field, 'name', $elm$json$Json$Decode$string),
+	A2($elm$json$Json$Decode$field, 'inputAlias', $elm$json$Json$Decode$string),
+	A2($elm$json$Json$Decode$field, 'steps', $elm$json$Json$Decode$int));
+var $elm$json$Json$Decode$list = _Json_decodeList;
+var $author$project$Belm$Api$decodeActionInfo = $elm$json$Json$Decode$oneOf(
+	_List_fromArray(
+		[
+			A2(
+			$elm$json$Json$Decode$field,
+			'actions',
+			$elm$json$Json$Decode$list($author$project$Belm$Api$actionInfoDecoder)),
+			$elm$json$Json$Decode$succeed(_List_Nil)
+		]));
+var $author$project$Belm$Api$AuthInfo = F6(
+	function (enabled, userEntity, emailField, roleField, emailTransport, needsBootstrap) {
+		return {emailField: emailField, emailTransport: emailTransport, enabled: enabled, needsBootstrap: needsBootstrap, roleField: roleField, userEntity: userEntity};
+	});
+var $elm$json$Json$Decode$bool = _Json_decodeBool;
+var $elm$json$Json$Decode$map6 = _Json_map6;
+var $author$project$Belm$Api$authInfoDecoder = A7(
+	$elm$json$Json$Decode$map6,
+	$author$project$Belm$Api$AuthInfo,
+	A2($elm$json$Json$Decode$field, 'enabled', $elm$json$Json$Decode$bool),
+	A2($elm$json$Json$Decode$field, 'userEntity', $elm$json$Json$Decode$string),
+	A2($elm$json$Json$Decode$field, 'emailField', $elm$json$Json$Decode$string),
+	A2($elm$json$Json$Decode$field, 'roleField', $elm$json$Json$Decode$string),
+	A2($elm$json$Json$Decode$field, 'emailTransport', $elm$json$Json$Decode$string),
+	$elm$json$Json$Decode$oneOf(
+		_List_fromArray(
+			[
+				A2($elm$json$Json$Decode$field, 'needsBootstrap', $elm$json$Json$Decode$bool),
+				$elm$json$Json$Decode$succeed(false)
+			])));
+var $author$project$Belm$Api$decodeAuthInfo = $elm$json$Json$Decode$oneOf(
+	_List_fromArray(
+		[
+			A2(
+			$elm$json$Json$Decode$field,
+			'auth',
+			A2($elm$json$Json$Decode$map, $elm$core$Maybe$Just, $author$project$Belm$Api$authInfoDecoder)),
+			$elm$json$Json$Decode$succeed($elm$core$Maybe$Nothing)
+		]));
+var $author$project$Belm$Api$InputAliasInfo = F2(
+	function (name, fields) {
+		return {fields: fields, name: name};
+	});
+var $author$project$Belm$Api$InputAliasField = F2(
+	function (name, fieldType) {
+		return {fieldType: fieldType, name: name};
+	});
+var $author$project$Belm$Api$inputAliasFieldDecoder = A3(
+	$elm$json$Json$Decode$map2,
+	$author$project$Belm$Api$InputAliasField,
+	A2($elm$json$Json$Decode$field, 'name', $elm$json$Json$Decode$string),
+	A2($elm$json$Json$Decode$field, 'type', $elm$json$Json$Decode$string));
+var $author$project$Belm$Api$inputAliasDecoder = A3(
+	$elm$json$Json$Decode$map2,
+	$author$project$Belm$Api$InputAliasInfo,
+	A2($elm$json$Json$Decode$field, 'name', $elm$json$Json$Decode$string),
+	A2(
+		$elm$json$Json$Decode$field,
+		'fields',
+		$elm$json$Json$Decode$list($author$project$Belm$Api$inputAliasFieldDecoder)));
+var $author$project$Belm$Api$decodeInputAliases = $elm$json$Json$Decode$oneOf(
+	_List_fromArray(
+		[
+			A2(
+			$elm$json$Json$Decode$field,
+			'inputAliases',
+			$elm$json$Json$Decode$list($author$project$Belm$Api$inputAliasDecoder)),
+			$elm$json$Json$Decode$succeed(_List_Nil)
+		]));
+var $author$project$Belm$Api$SystemAuthInfo = F3(
+	function (enabled, emailTransport, needsBootstrap) {
+		return {emailTransport: emailTransport, enabled: enabled, needsBootstrap: needsBootstrap};
+	});
+var $author$project$Belm$Api$systemAuthInfoDecoder = A4(
+	$elm$json$Json$Decode$map3,
+	$author$project$Belm$Api$SystemAuthInfo,
+	A2($elm$json$Json$Decode$field, 'enabled', $elm$json$Json$Decode$bool),
+	A2($elm$json$Json$Decode$field, 'emailTransport', $elm$json$Json$Decode$string),
+	$elm$json$Json$Decode$oneOf(
+		_List_fromArray(
+			[
+				A2($elm$json$Json$Decode$field, 'needsBootstrap', $elm$json$Json$Decode$bool),
+				$elm$json$Json$Decode$succeed(false)
+			])));
+var $author$project$Belm$Api$decodeSystemAuthInfo = $elm$json$Json$Decode$oneOf(
+	_List_fromArray(
+		[
+			A2(
+			$elm$json$Json$Decode$field,
+			'systemAuth',
+			A2($elm$json$Json$Decode$map, $elm$core$Maybe$Just, $author$project$Belm$Api$systemAuthInfoDecoder)),
+			$elm$json$Json$Decode$succeed($elm$core$Maybe$Nothing)
+		]));
+var $author$project$Belm$Api$Entity = F5(
+	function (name, table, resource, primaryKey, fields) {
+		return {fields: fields, name: name, primaryKey: primaryKey, resource: resource, table: table};
+	});
+var $author$project$Belm$Api$Field = F5(
+	function (name, fieldType, primary, auto, optional) {
+		return {auto: auto, fieldType: fieldType, name: name, optional: optional, primary: primary};
+	});
+var $author$project$Belm$Api$BoolType = {$: 'BoolType'};
+var $author$project$Belm$Api$FloatType = {$: 'FloatType'};
+var $author$project$Belm$Api$IntType = {$: 'IntType'};
+var $author$project$Belm$Api$StringType = {$: 'StringType'};
+var $elm$json$Json$Decode$fail = _Json_fail;
+var $author$project$Belm$Api$decodeFieldType = function (raw) {
+	switch (raw) {
+		case 'Int':
+			return $elm$json$Json$Decode$succeed($author$project$Belm$Api$IntType);
+		case 'String':
+			return $elm$json$Json$Decode$succeed($author$project$Belm$Api$StringType);
+		case 'Bool':
+			return $elm$json$Json$Decode$succeed($author$project$Belm$Api$BoolType);
+		case 'Float':
+			return $elm$json$Json$Decode$succeed($author$project$Belm$Api$FloatType);
+		default:
+			return $elm$json$Json$Decode$fail('Unknown field type: ' + raw);
+	}
+};
+var $elm$json$Json$Decode$map5 = _Json_map5;
+var $author$project$Belm$Api$fieldDecoder = A6(
+	$elm$json$Json$Decode$map5,
+	$author$project$Belm$Api$Field,
+	A2($elm$json$Json$Decode$field, 'name', $elm$json$Json$Decode$string),
+	A2(
+		$elm$json$Json$Decode$andThen,
+		$author$project$Belm$Api$decodeFieldType,
+		A2($elm$json$Json$Decode$field, 'type', $elm$json$Json$Decode$string)),
+	A2($elm$json$Json$Decode$field, 'primary', $elm$json$Json$Decode$bool),
+	A2($elm$json$Json$Decode$field, 'auto', $elm$json$Json$Decode$bool),
+	A2($elm$json$Json$Decode$field, 'optional', $elm$json$Json$Decode$bool));
+var $author$project$Belm$Api$entityDecoder = A6(
+	$elm$json$Json$Decode$map5,
+	$author$project$Belm$Api$Entity,
+	A2($elm$json$Json$Decode$field, 'name', $elm$json$Json$Decode$string),
+	A2($elm$json$Json$Decode$field, 'table', $elm$json$Json$Decode$string),
+	A2($elm$json$Json$Decode$field, 'resource', $elm$json$Json$Decode$string),
+	A2($elm$json$Json$Decode$field, 'primaryKey', $elm$json$Json$Decode$string),
+	A2(
+		$elm$json$Json$Decode$field,
+		'fields',
+		$elm$json$Json$Decode$list($author$project$Belm$Api$fieldDecoder)));
+var $elm$json$Json$Decode$map8 = _Json_map8;
+var $author$project$Belm$Api$decodeSchema = A9(
+	$elm$json$Json$Decode$map8,
+	$author$project$Belm$Api$Schema,
+	A2($elm$json$Json$Decode$field, 'appName', $elm$json$Json$Decode$string),
+	A2($elm$json$Json$Decode$field, 'port', $elm$json$Json$Decode$int),
+	A2($elm$json$Json$Decode$field, 'database', $elm$json$Json$Decode$string),
+	A2(
+		$elm$json$Json$Decode$field,
+		'entities',
+		$elm$json$Json$Decode$list($author$project$Belm$Api$entityDecoder)),
+	$author$project$Belm$Api$decodeAuthInfo,
+	$author$project$Belm$Api$decodeSystemAuthInfo,
+	$author$project$Belm$Api$decodeInputAliases,
+	$author$project$Belm$Api$decodeActionInfo);
 var $elm$http$Http$get = function (r) {
 	return $elm$http$Http$request(
 		{body: $elm$http$Http$emptyBody, expect: r.expect, headers: _List_Nil, method: 'GET', timeout: $elm$core$Maybe$Nothing, tracker: $elm$core$Maybe$Nothing, url: r.url});
@@ -6353,14 +6415,55 @@ var $author$project$Main$loadSchema = function (apiBase) {
 			url: apiBase + '/_belm/schema'
 		});
 };
+var $elm$core$Basics$neq = _Utils_notEqual;
+var $elm$core$Platform$Cmd$none = $elm$core$Platform$Cmd$batch(_List_Nil);
 var $author$project$Main$init = function (flags) {
+	var initialModel = {
+		actionFormValues: $elm$core$Dict$empty,
+		actionResult: $elm$core$Maybe$Nothing,
+		adminVersion: $author$project$Main$NotAsked,
+		apiBase: flags.apiBase,
+		authCode: '',
+		authEmail: '',
+		authTab: $author$project$Main$AppAuthTab,
+		authToken: $elm$core$String$trim(flags.authToken),
+		authToolsOpen: true,
+		backups: $author$project$Main$NotAsked,
+		currentEmail: $elm$core$Maybe$Nothing,
+		currentRole: $elm$core$Maybe$Nothing,
+		currentSystemEmail: $elm$core$Maybe$Nothing,
+		currentSystemRole: $elm$core$Maybe$Nothing,
+		databaseMode: false,
+		firstAdminCodeRequested: false,
+		flash: $elm$core$Maybe$Nothing,
+		formMode: $author$project$Main$FormHidden,
+		formValues: $elm$core$Dict$empty,
+		lastBackup: $elm$core$Maybe$Nothing,
+		perf: $author$project$Main$NotAsked,
+		performanceMode: false,
+		requestLogs: $author$project$Main$NotAsked,
+		requestLogsMode: false,
+		rows: $author$project$Main$NotAsked,
+		schema: $author$project$Main$Loading,
+		selectedAction: $elm$core$Maybe$Nothing,
+		selectedEntity: $elm$core$Maybe$Nothing,
+		selectedRow: $elm$core$Maybe$Nothing,
+		systemAuthToken: $elm$core$String$trim(flags.systemAuthToken)
+	};
+	var restoreAppAuthCmd = (initialModel.authToken !== '') ? A2($author$project$Main$loadAuthMe, $author$project$Main$AppAuthScope, initialModel) : $elm$core$Platform$Cmd$none;
+	var restoreSystemAuthCmd = (initialModel.systemAuthToken !== '') ? A2($author$project$Main$loadAuthMe, $author$project$Main$SystemAuthScope, initialModel) : $elm$core$Platform$Cmd$none;
 	return _Utils_Tuple2(
-		{actionFormValues: $elm$core$Dict$empty, actionResult: $elm$core$Maybe$Nothing, adminVersion: $author$project$Main$NotAsked, apiBase: flags.apiBase, authCode: '', authEmail: '', authTab: $author$project$Main$AppAuthTab, authToken: '', authToolsOpen: true, backups: $author$project$Main$NotAsked, currentEmail: $elm$core$Maybe$Nothing, currentRole: $elm$core$Maybe$Nothing, currentSystemEmail: $elm$core$Maybe$Nothing, currentSystemRole: $elm$core$Maybe$Nothing, databaseMode: false, firstAdminCodeRequested: false, flash: $elm$core$Maybe$Nothing, formMode: $author$project$Main$FormHidden, formValues: $elm$core$Dict$empty, lastBackup: $elm$core$Maybe$Nothing, perf: $author$project$Main$NotAsked, performanceMode: false, requestLogs: $author$project$Main$NotAsked, requestLogsMode: false, rows: $author$project$Main$NotAsked, schema: $author$project$Main$Loading, selectedAction: $elm$core$Maybe$Nothing, selectedEntity: $elm$core$Maybe$Nothing, selectedRow: $elm$core$Maybe$Nothing, systemAuthToken: ''},
-		$author$project$Main$loadSchema(flags.apiBase));
+		initialModel,
+		$elm$core$Platform$Cmd$batch(
+			_List_fromArray(
+				[
+					$author$project$Main$loadSchema(flags.apiBase),
+					restoreAppAuthCmd,
+					restoreSystemAuthCmd
+				])));
 };
 var $elm$core$Platform$Sub$batch = _Platform_batch;
 var $elm$core$Platform$Sub$none = $elm$core$Platform$Sub$batch(_List_Nil);
-var $author$project$Main$AppAuthScope = {$: 'AppAuthScope'};
 var $author$project$Main$Failed = function (a) {
 	return {$: 'Failed', a: a};
 };
@@ -6441,7 +6544,6 @@ var $elm$json$Json$Encode$int = _Json_wrap;
 var $elm$json$Json$Encode$string = _Json_wrap;
 var $elm$core$String$toFloat = _String_toFloat;
 var $elm$core$String$toLower = _String_toLower;
-var $elm$core$String$trim = _String_trim;
 var $elm$core$Maybe$withDefault = F2(
 	function (_default, maybe) {
 		if (maybe.$ === 'Just') {
@@ -6576,7 +6678,6 @@ var $author$project$Main$authScopeLabel = function (scope) {
 		return 'admin';
 	}
 };
-var $elm$core$Platform$Cmd$batch = _Platform_batch;
 var $author$project$Main$GotBootstrapFirstAdmin = F2(
 	function (a, b) {
 		return {$: 'GotBootstrapFirstAdmin', a: a, b: b};
@@ -6631,20 +6732,6 @@ var $author$project$Main$bootstrapFirstAdmin = F2(
 	});
 var $author$project$Main$GotCreate = function (a) {
 	return {$: 'GotCreate', a: a};
-};
-var $elm$http$Http$Header = F2(
-	function (a, b) {
-		return {$: 'Header', a: a, b: b};
-	});
-var $elm$http$Http$header = $elm$http$Http$Header;
-var $author$project$Main$appAuthHeaders = function (model) {
-	return ($elm$core$String$trim(model.authToken) === '') ? _List_Nil : _List_fromArray(
-		[
-			A2(
-			$elm$http$Http$header,
-			'Authorization',
-			'Bearer ' + $elm$core$String$trim(model.authToken))
-		]);
 };
 var $elm$json$Json$Decode$keyValuePairs = _Json_decodeKeyValuePairs;
 var $elm$json$Json$Decode$dict = function (decoder) {
@@ -6859,7 +6946,6 @@ var $author$project$Belm$Api$isWhole = function (number) {
 		$elm$core$Basics$round(number),
 		number);
 };
-var $elm$json$Json$Decode$null = _Json_decodeNull;
 var $author$project$Belm$Api$valueToString = function (value) {
 	var _v0 = A2($elm$json$Json$Decode$decodeValue, $elm$json$Json$Decode$string, value);
 	if (_v0.$ === 'Ok') {
@@ -6919,7 +7005,6 @@ var $author$project$Main$formFromRow = F2(
 						entity.fields)));
 		}
 	});
-var $elm$core$Basics$neq = _Utils_notEqual;
 var $author$project$Main$hasActiveSession = function (model) {
 	return ($elm$core$String$trim(model.authToken) !== '') || (($elm$core$String$trim(model.systemAuthToken) !== '') || ((!_Utils_eq(model.currentEmail, $elm$core$Maybe$Nothing)) || (!_Utils_eq(model.currentSystemEmail, $elm$core$Maybe$Nothing))));
 };
@@ -6955,6 +7040,14 @@ var $author$project$Main$isAdminProfile = function (model) {
 		} else {
 			return false;
 		}
+	}
+};
+var $author$project$Main$isUnauthorizedError = function (httpError) {
+	if (httpError.$ === 'BadBody') {
+		var message = httpError.a;
+		return A2($elm$core$String$contains, 'HTTP error: 401', message);
+	} else {
+		return false;
 	}
 };
 var $author$project$Main$GotAdminVersion = function (a) {
@@ -7011,49 +7104,6 @@ var $author$project$Main$loadAdminVersion = function (model) {
 			url: model.apiBase + '/_belm/version/admin'
 		});
 };
-var $author$project$Main$GotAuthMe = F2(
-	function (a, b) {
-		return {$: 'GotAuthMe', a: a, b: b};
-	});
-var $author$project$Main$AuthMeResponse = F2(
-	function (email, role) {
-		return {email: email, role: role};
-	});
-var $author$project$Main$authMeResponseDecoder = A3(
-	$elm$json$Json$Decode$map2,
-	$author$project$Main$AuthMeResponse,
-	A2($elm$json$Json$Decode$field, 'email', $elm$json$Json$Decode$string),
-	$elm$json$Json$Decode$oneOf(
-		_List_fromArray(
-			[
-				A2(
-				$elm$json$Json$Decode$field,
-				'role',
-				A2($elm$json$Json$Decode$map, $elm$core$Maybe$Just, $elm$json$Json$Decode$string)),
-				A2(
-				$elm$json$Json$Decode$field,
-				'role',
-				$elm$json$Json$Decode$null($elm$core$Maybe$Nothing)),
-				$elm$json$Json$Decode$succeed($elm$core$Maybe$Nothing)
-			])));
-var $author$project$Main$loadAuthMe = F2(
-	function (scope, model) {
-		var headers = $author$project$Main$appAuthHeaders(model);
-		var endpoint = '/auth/me';
-		return $elm$http$Http$request(
-			{
-				body: $elm$http$Http$emptyBody,
-				expect: A2(
-					$author$project$Main$expectJsonWithApiError,
-					$author$project$Main$GotAuthMe(scope),
-					$author$project$Main$authMeResponseDecoder),
-				headers: headers,
-				method: 'GET',
-				timeout: $elm$core$Maybe$Nothing,
-				tracker: $elm$core$Maybe$Nothing,
-				url: _Utils_ap(model.apiBase, endpoint)
-			});
-	});
 var $author$project$Main$GotBackups = function (a) {
 	return {$: 'GotBackups', a: a};
 };
@@ -7250,7 +7300,6 @@ var $author$project$Main$GotRows = function (a) {
 	return {$: 'GotRows', a: a};
 };
 var $author$project$Belm$Api$decodeRows = $elm$json$Json$Decode$list($author$project$Belm$Api$rowDecoder);
-var $elm$core$Platform$Cmd$none = $elm$core$Platform$Cmd$batch(_List_Nil);
 var $author$project$Main$loadRows = function (model) {
 	var _v0 = model.selectedEntity;
 	if (_v0.$ === 'Nothing') {
@@ -7481,6 +7530,22 @@ var $author$project$Main$runAction = F3(
 				url: model.apiBase + ('/actions/' + actionInfo.name)
 			});
 	});
+var $author$project$Main$saveSession = _Platform_outgoingPort('saveSession', $elm$core$Basics$identity);
+var $author$project$Main$saveSessionFromModel = function (model) {
+	return $author$project$Main$saveSession(
+		$elm$json$Json$Encode$object(
+			_List_fromArray(
+				[
+					_Utils_Tuple2(
+					'authToken',
+					$elm$json$Json$Encode$string(
+						$elm$core$String$trim(model.authToken))),
+					_Utils_Tuple2(
+					'systemAuthToken',
+					$elm$json$Json$Encode$string(
+						$elm$core$String$trim(model.systemAuthToken)))
+				])));
+};
 var $author$project$Main$hasAuthorizationError = function (rowsRemote) {
 	if (rowsRemote.$ === 'Failed') {
 		var message = rowsRemote.a;
@@ -7934,7 +7999,7 @@ var $author$project$Main$update = F2(
 							_Utils_update(
 								model,
 								{
-									flash: $elm$core$Maybe$Just(response.message + ' No development code was returned. This can happen when the app keeps generic auth responses in this environment.')
+									flash: $elm$core$Maybe$Just(response.message)
 								}),
 							$elm$core$Platform$Cmd$none);
 					}
@@ -8039,6 +8104,7 @@ var $author$project$Main$update = F2(
 								firstAdminCodeRequested: false,
 								flash: $elm$core$Maybe$Just('Login successful.')
 							});
+						var saveSessionCmd = $author$project$Main$saveSessionFromModel(nextModel);
 						var meCmd = A2($author$project$Main$loadAuthMe, $author$project$Main$AppAuthScope, nextModel);
 						if ($author$project$Main$shouldReloadCrudAfterLogin(model)) {
 							var loadingModel = _Utils_update(
@@ -8051,14 +8117,15 @@ var $author$project$Main$update = F2(
 										[
 											$author$project$Main$loadRows(loadingModel),
 											meCmd,
-											schemaCmd
+											schemaCmd,
+											saveSessionCmd
 										])));
 						} else {
 							return _Utils_Tuple2(
 								nextModel,
 								$elm$core$Platform$Cmd$batch(
 									_List_fromArray(
-										[meCmd, schemaCmd])));
+										[meCmd, schemaCmd, saveSessionCmd])));
 						}
 					} else {
 						var nextModel = _Utils_update(
@@ -8080,7 +8147,14 @@ var $author$project$Main$update = F2(
 									$author$project$Main$loadPerformance(nextModel),
 									$author$project$Main$loadBackups(nextModel)
 								])) : $elm$core$Platform$Cmd$none));
-						return _Utils_Tuple2(nextModel, refreshCmd);
+						return _Utils_Tuple2(
+							nextModel,
+							$elm$core$Platform$Cmd$batch(
+								_List_fromArray(
+									[
+										refreshCmd,
+										$author$project$Main$saveSessionFromModel(nextModel)
+									])));
 					}
 				} else {
 					var httpError = result.a;
@@ -8150,14 +8224,42 @@ var $author$project$Main$update = F2(
 					}
 				} else {
 					var httpError = result.a;
-					return _Utils_Tuple2(
-						_Utils_update(
-							model,
-							{
-								flash: $elm$core$Maybe$Just(
-									$author$project$Main$httpErrorToString(httpError))
-							}),
-						$elm$core$Platform$Cmd$none);
+					if ($author$project$Main$isUnauthorizedError(httpError)) {
+						if (scope.$ === 'AppAuthScope') {
+							var nextModel = _Utils_update(
+								model,
+								{
+									authToken: '',
+									currentEmail: $elm$core$Maybe$Nothing,
+									currentRole: $elm$core$Maybe$Nothing,
+									flash: $elm$core$Maybe$Just('Session expired. Please login again.')
+								});
+							return _Utils_Tuple2(
+								nextModel,
+								$author$project$Main$saveSessionFromModel(nextModel));
+						} else {
+							var nextModel = _Utils_update(
+								model,
+								{
+									currentSystemEmail: $elm$core$Maybe$Nothing,
+									currentSystemRole: $elm$core$Maybe$Nothing,
+									flash: $elm$core$Maybe$Just('Session expired. Please login again.'),
+									systemAuthToken: ''
+								});
+							return _Utils_Tuple2(
+								nextModel,
+								$author$project$Main$saveSessionFromModel(nextModel));
+						}
+					} else {
+						return _Utils_Tuple2(
+							_Utils_update(
+								model,
+								{
+									flash: $elm$core$Maybe$Just(
+										$author$project$Main$httpErrorToString(httpError))
+								}),
+							$elm$core$Platform$Cmd$none);
+					}
 				}
 			case 'LogoutSession':
 				var scope = $author$project$Main$activeAuthScope(model);
@@ -8192,13 +8294,14 @@ var $author$project$Main$update = F2(
 								currentRole: $elm$core$Maybe$Nothing,
 								flash: $elm$core$Maybe$Just('User session logged out. Token cleared.')
 							});
+						var finalModel = _Utils_update(
+							nextModel,
+							{
+								authToolsOpen: !$author$project$Main$hasActiveSession(nextModel)
+							});
 						return _Utils_Tuple2(
-							_Utils_update(
-								nextModel,
-								{
-									authToolsOpen: !$author$project$Main$hasActiveSession(nextModel)
-								}),
-							$elm$core$Platform$Cmd$none);
+							finalModel,
+							$author$project$Main$saveSessionFromModel(finalModel));
 					} else {
 						var nextModel = _Utils_update(
 							model,
@@ -8208,13 +8311,14 @@ var $author$project$Main$update = F2(
 								flash: $elm$core$Maybe$Just('Admin session logged out. Token cleared.'),
 								systemAuthToken: ''
 							});
+						var finalModel = _Utils_update(
+							nextModel,
+							{
+								authToolsOpen: !$author$project$Main$hasActiveSession(nextModel)
+							});
 						return _Utils_Tuple2(
-							_Utils_update(
-								nextModel,
-								{
-									authToolsOpen: !$author$project$Main$hasActiveSession(nextModel)
-								}),
-							$elm$core$Platform$Cmd$none);
+							finalModel,
+							$author$project$Main$saveSessionFromModel(finalModel));
 					}
 				} else {
 					var httpError = result.a;
@@ -8333,8 +8437,8 @@ var $author$project$Main$update = F2(
 						}),
 					$elm$core$Platform$Cmd$none);
 			case 'SubmitForm':
-				var _v22 = model.selectedEntity;
-				if (_v22.$ === 'Nothing') {
+				var _v23 = model.selectedEntity;
+				if (_v23.$ === 'Nothing') {
 					return _Utils_Tuple2(
 						_Utils_update(
 							model,
@@ -8343,22 +8447,22 @@ var $author$project$Main$update = F2(
 							}),
 						$elm$core$Platform$Cmd$none);
 				} else {
-					var entity = _v22.a;
+					var entity = _v23.a;
 					var forUpdate = function () {
-						var _v26 = model.formMode;
-						if (_v26.$ === 'FormEdit') {
+						var _v27 = model.formMode;
+						if (_v27.$ === 'FormEdit') {
 							return true;
 						} else {
 							return false;
 						}
 					}();
-					var _v23 = A3(
+					var _v24 = A3(
 						$author$project$Belm$Api$encodePayload,
 						{forUpdate: forUpdate},
 						entity.fields,
 						model.formValues);
-					if (_v23.$ === 'Err') {
-						var message = _v23.a;
+					if (_v24.$ === 'Err') {
+						var message = _v24.a;
 						return _Utils_Tuple2(
 							_Utils_update(
 								model,
@@ -8367,17 +8471,17 @@ var $author$project$Main$update = F2(
 								}),
 							$elm$core$Platform$Cmd$none);
 					} else {
-						var payload = _v23.a;
-						var _v24 = model.formMode;
-						switch (_v24.$) {
+						var payload = _v24.a;
+						var _v25 = model.formMode;
+						switch (_v25.$) {
 							case 'FormCreate':
 								return _Utils_Tuple2(
 									model,
 									A3($author$project$Main$createRow, model, entity, payload));
 							case 'FormEdit':
-								var rowValue = _v24.a;
-								var _v25 = A2($author$project$Main$rowId, entity, rowValue);
-								if (_v25.$ === 'Nothing') {
+								var rowValue = _v25.a;
+								var _v26 = A2($author$project$Main$rowId, entity, rowValue);
+								if (_v26.$ === 'Nothing') {
 									return _Utils_Tuple2(
 										_Utils_update(
 											model,
@@ -8386,7 +8490,7 @@ var $author$project$Main$update = F2(
 											}),
 										$elm$core$Platform$Cmd$none);
 								} else {
-									var idValue = _v25.a;
+									var idValue = _v26.a;
 									return _Utils_Tuple2(
 										model,
 										A4($author$project$Main$updateRow, model, entity, idValue, payload));
@@ -8407,9 +8511,9 @@ var $author$project$Main$update = F2(
 				if (result.$ === 'Ok') {
 					var createdRow = result.a;
 					var nextRows = function () {
-						var _v28 = model.rows;
-						if (_v28.$ === 'Loaded') {
-							var items = _v28.a;
+						var _v29 = model.rows;
+						if (_v29.$ === 'Loaded') {
+							var items = _v29.a;
 							return $author$project$Main$Loaded(
 								A2($elm$core$List$cons, createdRow, items));
 						} else {
@@ -8442,10 +8546,10 @@ var $author$project$Main$update = F2(
 				if (result.$ === 'Ok') {
 					var updatedRow = result.a;
 					var nextRows = function () {
-						var _v30 = _Utils_Tuple2(model.selectedEntity, model.rows);
-						if ((_v30.a.$ === 'Just') && (_v30.b.$ === 'Loaded')) {
-							var entity = _v30.a.a;
-							var items = _v30.b.a;
+						var _v31 = _Utils_Tuple2(model.selectedEntity, model.rows);
+						if ((_v31.a.$ === 'Just') && (_v31.b.$ === 'Loaded')) {
+							var entity = _v31.a.a;
+							var items = _v31.b.a;
 							return $author$project$Main$Loaded(
 								A3($author$project$Main$replaceRow, entity, updatedRow, items));
 						} else {
@@ -8476,8 +8580,8 @@ var $author$project$Main$update = F2(
 				}
 			case 'DeleteRow':
 				var rowValue = msg.a;
-				var _v31 = model.selectedEntity;
-				if (_v31.$ === 'Nothing') {
+				var _v32 = model.selectedEntity;
+				if (_v32.$ === 'Nothing') {
 					return _Utils_Tuple2(
 						_Utils_update(
 							model,
@@ -8486,9 +8590,9 @@ var $author$project$Main$update = F2(
 							}),
 						$elm$core$Platform$Cmd$none);
 				} else {
-					var entity = _v31.a;
-					var _v32 = A2($author$project$Main$rowId, entity, rowValue);
-					if (_v32.$ === 'Nothing') {
+					var entity = _v32.a;
+					var _v33 = A2($author$project$Main$rowId, entity, rowValue);
+					if (_v33.$ === 'Nothing') {
 						return _Utils_Tuple2(
 							_Utils_update(
 								model,
@@ -8497,7 +8601,7 @@ var $author$project$Main$update = F2(
 								}),
 							$elm$core$Platform$Cmd$none);
 					} else {
-						var idValue = _v32.a;
+						var idValue = _v33.a;
 						return _Utils_Tuple2(
 							model,
 							A3($author$project$Main$deleteRowRequest, model, entity, idValue));
@@ -8531,8 +8635,8 @@ var $author$project$Main$update = F2(
 						$elm$core$Platform$Cmd$none);
 				}
 			case 'RunAction':
-				var _v34 = model.selectedAction;
-				if (_v34.$ === 'Nothing') {
+				var _v35 = model.selectedAction;
+				if (_v35.$ === 'Nothing') {
 					return _Utils_Tuple2(
 						_Utils_update(
 							model,
@@ -8541,10 +8645,10 @@ var $author$project$Main$update = F2(
 							}),
 						$elm$core$Platform$Cmd$none);
 				} else {
-					var actionInfo = _v34.a;
-					var _v35 = A2($author$project$Main$actionPayloadFromForm, model, actionInfo);
-					if (_v35.$ === 'Err') {
-						var message = _v35.a;
+					var actionInfo = _v35.a;
+					var _v36 = A2($author$project$Main$actionPayloadFromForm, model, actionInfo);
+					if (_v36.$ === 'Err') {
+						var message = _v36.a;
 						return _Utils_Tuple2(
 							_Utils_update(
 								model,
@@ -8553,7 +8657,7 @@ var $author$project$Main$update = F2(
 								}),
 							$elm$core$Platform$Cmd$none);
 					} else {
-						var payload = _v35.a;
+						var payload = _v36.a;
 						return _Utils_Tuple2(
 							_Utils_update(
 								model,
@@ -17224,17 +17328,26 @@ var $author$project$Main$viewFlash = function (model) {
 					_List_fromArray(
 						[
 							$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
-							$mdgriffith$elm_ui$Element$spacing(12)
+							$mdgriffith$elm_ui$Element$spacing(12),
+							$mdgriffith$elm_ui$Element$htmlAttribute(
+							A2($elm$html$Html$Attributes$style, 'align-items', 'flex-start'))
 						]),
 					_List_fromArray(
 						[
 							A2(
-							$mdgriffith$elm_ui$Element$el,
+							$mdgriffith$elm_ui$Element$paragraph,
 							_List_fromArray(
 								[
-									$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill)
+									$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+									$mdgriffith$elm_ui$Element$htmlAttribute(
+									A2($elm$html$Html$Attributes$style, 'overflow-wrap', 'anywhere')),
+									$mdgriffith$elm_ui$Element$htmlAttribute(
+									A2($elm$html$Html$Attributes$style, 'word-break', 'break-word'))
 								]),
-							$mdgriffith$elm_ui$Element$text(message)),
+							_List_fromArray(
+								[
+									$mdgriffith$elm_ui$Element$text(message)
+								])),
 							A2(
 							$mdgriffith$elm_ui$Element$Input$button,
 							_List_fromArray(
@@ -19027,8 +19140,18 @@ var $author$project$Main$main = $elm$browser$Browser$document(
 _Platform_export({'Main':{'init':$author$project$Main$main(
 	A2(
 		$elm$json$Json$Decode$andThen,
-		function (apiBase) {
-			return $elm$json$Json$Decode$succeed(
-				{apiBase: apiBase});
+		function (systemAuthToken) {
+			return A2(
+				$elm$json$Json$Decode$andThen,
+				function (authToken) {
+					return A2(
+						$elm$json$Json$Decode$andThen,
+						function (apiBase) {
+							return $elm$json$Json$Decode$succeed(
+								{apiBase: apiBase, authToken: authToken, systemAuthToken: systemAuthToken});
+						},
+						A2($elm$json$Json$Decode$field, 'apiBase', $elm$json$Json$Decode$string));
+				},
+				A2($elm$json$Json$Decode$field, 'authToken', $elm$json$Json$Decode$string));
 		},
-		A2($elm$json$Json$Decode$field, 'apiBase', $elm$json$Json$Decode$string)))(0)}});}(this));
+		A2($elm$json$Json$Decode$field, 'systemAuthToken', $elm$json$Json$Decode$string)))(0)}});}(this));

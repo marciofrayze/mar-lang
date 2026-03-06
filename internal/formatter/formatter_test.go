@@ -175,6 +175,9 @@ app FrontApi
 database "./front.db"
 system {
 request_logs_buffer    500
+security_frame_policy deny
+security_referrer_policy no-referrer
+security_content_type_nosniff false
 sqlite_journal_mode   wal
 sqlite_synchronous normal
 sqlite_foreign_keys   true
@@ -200,6 +203,9 @@ title:String
 		"database \"./front.db\"\n" +
 		"system {\n" +
 		"  request_logs_buffer 500\n" +
+		"  security_frame_policy deny\n" +
+		"  security_referrer_policy no-referrer\n" +
+		"  security_content_type_nosniff false\n" +
 		"  sqlite_journal_mode wal\n" +
 		"  sqlite_synchronous normal\n" +
 		"  sqlite_foreign_keys true\n" +

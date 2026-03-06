@@ -1,4 +1,4 @@
-module Main exposing (main)
+port module Main exposing (main)
 
 import Belm.Api exposing (ActionInfo, AuthInfo, Entity, Field, InputAliasField, InputAliasInfo, Row, Schema, SystemAuthInfo, decodeRows, decodeSchema, encodePayload, fieldTypeLabel, rowDecoder, valueToString)
 import Browser
@@ -17,7 +17,13 @@ import String
 
 
 type alias Flags =
-    { apiBase : String }
+    { apiBase : String
+    , authToken : String
+    , systemAuthToken : String
+    }
+
+
+port saveSession : Encode.Value -> Cmd msg
 
 
 type Remote a
@@ -262,38 +268,60 @@ main =
 
 init : Flags -> ( Model, Cmd Msg )
 init flags =
-    ( { apiBase = flags.apiBase
-      , authToken = ""
-      , systemAuthToken = ""
-      , currentEmail = Nothing
-      , currentRole = Nothing
-      , currentSystemEmail = Nothing
-      , currentSystemRole = Nothing
-      , authTab = AppAuthTab
-      , authEmail = ""
-      , authCode = ""
-      , firstAdminCodeRequested = False
-      , authToolsOpen = True
-      , schema = Loading
-      , selectedEntity = Nothing
-      , selectedAction = Nothing
-      , rows = NotAsked
-      , selectedRow = Nothing
-      , formMode = FormHidden
-      , formValues = Dict.empty
-      , actionFormValues = Dict.empty
-      , actionResult = Nothing
-      , perf = NotAsked
-      , adminVersion = NotAsked
-      , requestLogs = NotAsked
-      , backups = NotAsked
-      , performanceMode = False
-      , requestLogsMode = False
-      , databaseMode = False
-      , lastBackup = Nothing
-      , flash = Nothing
-      }
-    , loadSchema flags.apiBase
+    let
+        initialModel =
+            { apiBase = flags.apiBase
+            , authToken = String.trim flags.authToken
+            , systemAuthToken = String.trim flags.systemAuthToken
+            , currentEmail = Nothing
+            , currentRole = Nothing
+            , currentSystemEmail = Nothing
+            , currentSystemRole = Nothing
+            , authTab = AppAuthTab
+            , authEmail = ""
+            , authCode = ""
+            , firstAdminCodeRequested = False
+            , authToolsOpen = True
+            , schema = Loading
+            , selectedEntity = Nothing
+            , selectedAction = Nothing
+            , rows = NotAsked
+            , selectedRow = Nothing
+            , formMode = FormHidden
+            , formValues = Dict.empty
+            , actionFormValues = Dict.empty
+            , actionResult = Nothing
+            , perf = NotAsked
+            , adminVersion = NotAsked
+            , requestLogs = NotAsked
+            , backups = NotAsked
+            , performanceMode = False
+            , requestLogsMode = False
+            , databaseMode = False
+            , lastBackup = Nothing
+            , flash = Nothing
+            }
+
+        restoreAppAuthCmd =
+            if initialModel.authToken /= "" then
+                loadAuthMe AppAuthScope initialModel
+
+            else
+                Cmd.none
+
+        restoreSystemAuthCmd =
+            if initialModel.systemAuthToken /= "" then
+                loadAuthMe SystemAuthScope initialModel
+
+            else
+                Cmd.none
+    in
+    ( initialModel
+    , Cmd.batch
+        [ loadSchema flags.apiBase
+        , restoreAppAuthCmd
+        , restoreSystemAuthCmd
+        ]
     )
 
 
@@ -588,11 +616,7 @@ update msg model =
 
                         Nothing ->
                             ( { model
-                                | flash =
-                                    Just
-                                        (response.message
-                                            ++ " No development code was returned. This can happen when the app keeps generic auth responses in this environment."
-                                        )
+                                | flash = Just response.message
                               }
                             , Cmd.none
                             )
@@ -665,16 +689,19 @@ update msg model =
 
                                 schemaCmd =
                                     loadSchema model.apiBase
+
+                                saveSessionCmd =
+                                    saveSessionFromModel nextModel
                             in
                             if shouldReloadCrudAfterLogin model then
                                 let
                                     loadingModel =
                                         { nextModel | rows = Loading }
                                 in
-                                ( loadingModel, Cmd.batch [ loadRows loadingModel, meCmd, schemaCmd ] )
+                                ( loadingModel, Cmd.batch [ loadRows loadingModel, meCmd, schemaCmd, saveSessionCmd ] )
 
                             else
-                                ( nextModel, Cmd.batch [ meCmd, schemaCmd ] )
+                                ( nextModel, Cmd.batch [ meCmd, schemaCmd, saveSessionCmd ] )
 
                         SystemAuthScope ->
                             let
@@ -699,7 +726,7 @@ update msg model =
                                     else
                                         Cmd.none
                             in
-                            ( nextModel, refreshCmd )
+                            ( nextModel, Cmd.batch [ refreshCmd, saveSessionFromModel nextModel ] )
 
                 Err httpError ->
                     ( { model | flash = Just (httpErrorToString httpError) }, Cmd.none )
@@ -755,7 +782,34 @@ update msg model =
                             )
 
                 Err httpError ->
-                    ( { model | flash = Just (httpErrorToString httpError) }, Cmd.none )
+                    if isUnauthorizedError httpError then
+                        case scope of
+                            AppAuthScope ->
+                                let
+                                    nextModel =
+                                        { model
+                                            | authToken = ""
+                                            , currentEmail = Nothing
+                                            , currentRole = Nothing
+                                            , flash = Just "Session expired. Please login again."
+                                        }
+                                in
+                                ( nextModel, saveSessionFromModel nextModel )
+
+                            SystemAuthScope ->
+                                let
+                                    nextModel =
+                                        { model
+                                            | systemAuthToken = ""
+                                            , currentSystemEmail = Nothing
+                                            , currentSystemRole = Nothing
+                                            , flash = Just "Session expired. Please login again."
+                                        }
+                                in
+                                ( nextModel, saveSessionFromModel nextModel )
+
+                    else
+                        ( { model | flash = Just (httpErrorToString httpError) }, Cmd.none )
 
         LogoutSession ->
             let
@@ -785,14 +839,22 @@ update msg model =
                                 nextModel =
                                     { model | authToken = "", currentEmail = Nothing, currentRole = Nothing, flash = Just "User session logged out. Token cleared." }
                             in
-                            ( { nextModel | authToolsOpen = not (hasActiveSession nextModel) }, Cmd.none )
+                            let
+                                finalModel =
+                                    { nextModel | authToolsOpen = not (hasActiveSession nextModel) }
+                            in
+                            ( finalModel, saveSessionFromModel finalModel )
 
                         SystemAuthScope ->
                             let
                                 nextModel =
                                     { model | systemAuthToken = "", currentSystemEmail = Nothing, currentSystemRole = Nothing, flash = Just "Admin session logged out. Token cleared." }
                             in
-                            ( { nextModel | authToolsOpen = not (hasActiveSession nextModel) }, Cmd.none )
+                            let
+                                finalModel =
+                                    { nextModel | authToolsOpen = not (hasActiveSession nextModel) }
+                            in
+                            ( finalModel, saveSessionFromModel finalModel )
 
                 Err httpError ->
                     ( { model | flash = Just (httpErrorToString httpError) }, Cmd.none )
@@ -2403,6 +2465,26 @@ isAdminProfile model =
                     False
 
 
+saveSessionFromModel : Model -> Cmd Msg
+saveSessionFromModel model =
+    saveSession
+        (Encode.object
+            [ ( "authToken", Encode.string (String.trim model.authToken) )
+            , ( "systemAuthToken", Encode.string (String.trim model.systemAuthToken) )
+            ]
+        )
+
+
+isUnauthorizedError : Http.Error -> Bool
+isUnauthorizedError httpError =
+    case httpError of
+        Http.BadBody message ->
+            String.contains "HTTP error: 401" message
+
+        _ ->
+            False
+
+
 hasActiveSession : Model -> Bool
 hasActiveSession model =
     (String.trim model.authToken /= "")
@@ -2478,8 +2560,14 @@ viewFlash model =
                 , row
                     [ width fill
                     , spacing 12
+                    , htmlAttribute (HtmlAttr.style "align-items" "flex-start")
                     ]
-                    [ el [ width fill ] (text message)
+                    [ paragraph
+                        [ width fill
+                        , htmlAttribute (HtmlAttr.style "overflow-wrap" "anywhere")
+                        , htmlAttribute (HtmlAttr.style "word-break" "break-word")
+                        ]
+                        [ text message ]
                     , Input.button
                         [ Background.color (rgb255 217 229 250)
                         , Border.rounded 8
