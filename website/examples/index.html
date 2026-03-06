@@ -1,0 +1,465 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Belm Examples</title>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+
+      :root {
+        --bg: #f4f8ff;
+        --surface: #ffffff;
+        --border: #d1deef;
+        --text: #1a293b;
+        --muted: #5f728a;
+        --blue: #2d7ed2;
+        --code-bg: #12263d;
+        --code-border: #264669;
+        --code-text: #d8e9ff;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        min-height: 100%;
+        background: var(--bg);
+        color: var(--text);
+        font-family: 'IBM Plex Sans', 'Helvetica Neue', sans-serif;
+      }
+
+      .shell {
+        max-width: 1040px;
+        margin: 20px auto 28px;
+        padding: 0 20px;
+      }
+
+      .top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 20px;
+      }
+
+      .brand {
+        font-size: 28px;
+        font-weight: 700;
+        color: #163960;
+      }
+
+      .nav {
+        display: flex;
+        flex-wrap: wrap;
+      }
+
+      .nav a {
+        color: #405876;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 14px;
+        padding-top: 6px;
+        margin-left: 14px;
+      }
+
+      .nav a:hover {
+        color: #405876;
+        text-decoration: none;
+      }
+
+      .nav-current {
+        color: #245287;
+        font-weight: 700;
+        font-size: 14px;
+        padding-top: 6px;
+        margin-left: 14px;
+      }
+      .content {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 16px;
+      }
+
+      .warning {
+        background: #fff7e0;
+        border: 1px solid #f4d285;
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 20px;
+      }
+
+      .warning-title {
+        margin: 0 0 6px;
+        font-size: 22px;
+        font-weight: 700;
+        color: #794200;
+      }
+
+      .warning-text {
+        margin: 0;
+        line-height: 1.55;
+        color: #6b3e00;
+      }
+
+      h1 {
+        margin: 0 0 4px;
+        font-size: 34px;
+        color: #143559;
+      }
+
+      .subtitle {
+        margin: 0 0 16px;
+        line-height: 1.6;
+        color: #2e435b;
+      }
+
+      .examples {
+        display: grid;
+        gap: 14px;
+        min-width: 0;
+      }
+
+      .example-card {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: #f8fbff;
+        padding: 14px;
+        min-width: 0;
+      }
+
+      .example-header {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 10px;
+        flex-wrap: wrap;
+        min-width: 0;
+      }
+
+      .example-title {
+        margin: 0;
+        font-size: 22px;
+        color: #143559;
+        min-width: 0;
+      }
+
+      .example-meta {
+        font-size: 14px;
+        color: var(--muted);
+        min-width: 0;
+        overflow-wrap: anywhere;
+      }
+
+      .code-wrap {
+        position: relative;
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+      }
+
+      .copy-btn {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        border: 1px solid #345778;
+        border-radius: 8px;
+        background: #1b3a59;
+        color: #d8e9ff;
+        padding: 6px 10px;
+        font-family: 'IBM Plex Sans', 'Helvetica Neue', sans-serif;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      .copy-btn:hover {
+        background: #24507b;
+      }
+
+      pre {
+        margin: 0;
+        background: var(--code-bg);
+        border: 1px solid var(--code-border);
+        border-radius: 10px;
+        padding: 12px 14px;
+        overflow: auto;
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+      }
+
+      code {
+        font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.92em;
+      }
+
+      pre code {
+        color: var(--code-text);
+        white-space: pre;
+      }
+
+      pre code.lang-belm .tok-keyword { color: #7ab8ff; }
+      pre code.lang-belm .tok-type { color: #4fd1c5; }
+      pre code.lang-belm .tok-modifier { color: #b7c5d9; }
+      pre code.lang-belm .tok-field { color: #dce8f8; }
+      pre code.lang-belm .tok-entity { color: #92c4ff; }
+      pre code.lang-belm .tok-crud { color: #93d7ff; }
+      pre code.lang-belm .tok-string { color: #f7c97f; }
+      pre code.lang-belm .tok-number { color: #f5a97f; }
+      pre code.lang-belm .tok-function { color: #82e0aa; }
+      pre code.lang-belm .tok-context { color: #c3d7ff; }
+      pre code.lang-belm .tok-operator { color: #d8e9ff; }
+      pre code.lang-belm .tok-punctuation { color: #afc7e6; }
+      pre code.lang-belm .tok-comment { color: #7f96b3; font-style: italic; }
+
+      .error {
+        color: #b03737;
+        background: #fff3f3;
+        border: 1px solid #f3cccc;
+        padding: 10px;
+        border-radius: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <div class="top">
+        <div class="brand">Belm</div>
+        <div class="nav">
+          <a href="../index.html">Home</a>
+          <a href="../docs/viewer.html?doc=getting-started">Getting Started</a>
+          <a href="../docs/viewer.html?doc=advanced">Advanced</a>
+          <span class="nav-current">Examples</span>
+        </div>
+      </div>
+
+      <div class="warning">
+        <p class="warning-title">Warning</p>
+        <p class="warning-text">Belm is still at a very early stage and is <strong>not recommended for production use yet</strong>.</p>
+        <p class="warning-text">There are no guarantees that language syntax or database schema will remain backward compatible in future versions.</p>
+      </div>
+
+      <div class="content">
+        <h1>Examples</h1>
+        <p class="subtitle">View the source directly and copy it from the top-right button on each example.</p>
+        <div class="examples" id="examples"></div>
+      </div>
+    </div>
+
+    <script>
+      const EXAMPLES = [
+        {
+          id: 'todo-api',
+          title: 'Todo API',
+          meta: 'Minimal CRUD example',
+          file: 'todo.belm'
+        },
+        {
+          id: 'bookstore-api',
+          title: 'BookStore API',
+          meta: 'Auth, roles, and transactional action',
+          file: 'store.belm'
+        }
+      ];
+
+      function escapeHtml(value) {
+        return value
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+          .replaceAll("'", '&#39;');
+      }
+
+      const belmKeywords = new Set([
+        'app', 'port', 'database', 'entity', 'rule', 'when', 'authorize', 'auth',
+        'type', 'alias', 'action', 'input', 'public', 'system', 'dir', 'mount',
+        'spa_fallback', 'transaction', 'create', 'update', 'delete', 'list', 'get'
+      ]);
+      const belmTypes = new Set(['Int', 'String', 'Bool', 'Float']);
+      const belmModifiers = new Set(['primary', 'auto', 'optional']);
+      const belmFunctions = new Set(['len', 'contains', 'startsWith', 'endsWith', 'matches', 'isRole']);
+      const belmContext = new Set(['input', 'auth_authenticated', 'auth_email', 'auth_user_id', 'auth_role', 'true', 'false', 'null']);
+      const belmTwoCharOps = new Set(['>=', '<=', '==', '!=', '&&', '||', '->']);
+      const belmOpChars = new Set(['=', '+', '-', '*', '/', '%', '!', '<', '>', '&', '|']);
+      const belmPunctuation = new Set(['{', '}', '(', ')', '[', ']', ':', ',', '.']);
+
+      function belmClassForIdentifier(word) {
+        if (belmKeywords.has(word)) return 'tok-keyword';
+        if (belmTypes.has(word)) return 'tok-type';
+        if (belmModifiers.has(word)) return 'tok-modifier';
+        if (belmFunctions.has(word)) return 'tok-function';
+        if (belmContext.has(word)) return 'tok-context';
+        if (/^[A-Z]/.test(word)) return 'tok-entity';
+        return 'tok-field';
+      }
+
+      function wrapBelmToken(cssClass, raw) {
+        return `<span class="${cssClass}">${escapeHtml(raw)}</span>`;
+      }
+
+      function highlightBelmCode(source) {
+        let out = '';
+        let i = 0;
+
+        while (i < source.length) {
+          const ch = source[i];
+
+          if (ch === '-' && source[i + 1] === '-') {
+            let j = i + 2;
+            while (j < source.length && source[j] !== '\n') j += 1;
+            out += wrapBelmToken('tok-comment', source.slice(i, j));
+            i = j;
+            continue;
+          }
+
+          if (ch === '"') {
+            let j = i + 1;
+            while (j < source.length) {
+              if (source[j] === '\\') {
+                j += 2;
+                continue;
+              }
+              if (source[j] === '"') {
+                j += 1;
+                break;
+              }
+              j += 1;
+            }
+            out += wrapBelmToken('tok-string', source.slice(i, j));
+            i = j;
+            continue;
+          }
+
+          if (/[0-9]/.test(ch)) {
+            let j = i + 1;
+            while (j < source.length && /[0-9.]/.test(source[j])) j += 1;
+            out += wrapBelmToken('tok-number', source.slice(i, j));
+            i = j;
+            continue;
+          }
+
+          if (/[A-Za-z_]/.test(ch)) {
+            let j = i + 1;
+            while (j < source.length && /[A-Za-z0-9_]/.test(source[j])) j += 1;
+            const word = source.slice(i, j);
+            out += wrapBelmToken(belmClassForIdentifier(word), word);
+            i = j;
+            continue;
+          }
+
+          const two = source.slice(i, i + 2);
+          if (belmTwoCharOps.has(two)) {
+            out += wrapBelmToken('tok-operator', two);
+            i += 2;
+            continue;
+          }
+
+          if (belmOpChars.has(ch)) {
+            out += wrapBelmToken('tok-operator', ch);
+            i += 1;
+            continue;
+          }
+
+          if (belmPunctuation.has(ch)) {
+            out += wrapBelmToken('tok-punctuation', ch);
+            i += 1;
+            continue;
+          }
+
+          out += escapeHtml(ch);
+          i += 1;
+        }
+
+        return out;
+      }
+
+      function createExampleCard(example, source) {
+        const card = document.createElement('section');
+        card.className = 'example-card';
+        card.id = example.id;
+
+        const header = document.createElement('div');
+        header.className = 'example-header';
+
+        const title = document.createElement('h2');
+        title.className = 'example-title';
+        title.textContent = example.title;
+
+        const meta = document.createElement('div');
+        meta.className = 'example-meta';
+        meta.textContent = `${example.meta} | ${example.file}`;
+
+        header.appendChild(title);
+        header.appendChild(meta);
+
+        const wrap = document.createElement('div');
+        wrap.className = 'code-wrap';
+
+        const copyBtn = document.createElement('button');
+        copyBtn.type = 'button';
+        copyBtn.className = 'copy-btn';
+        copyBtn.textContent = 'Copy';
+        copyBtn.addEventListener('click', async () => {
+          try {
+            await navigator.clipboard.writeText(source);
+            copyBtn.textContent = 'Copied';
+            setTimeout(() => {
+              copyBtn.textContent = 'Copy';
+            }, 1000);
+          } catch (_error) {
+            copyBtn.textContent = 'Failed';
+            setTimeout(() => {
+              copyBtn.textContent = 'Copy';
+            }, 1200);
+          }
+        });
+
+        const pre = document.createElement('pre');
+        const code = document.createElement('code');
+        code.className = 'lang-belm';
+        code.innerHTML = highlightBelmCode(source);
+        pre.appendChild(code);
+
+        wrap.appendChild(copyBtn);
+        wrap.appendChild(pre);
+
+        card.appendChild(header);
+        card.appendChild(wrap);
+        return card;
+      }
+
+      async function loadExamples() {
+        const container = document.getElementById('examples');
+
+        for (const example of EXAMPLES) {
+          try {
+            const response = await fetch(example.file, { cache: 'no-cache' });
+            if (!response.ok) {
+              throw new Error(`HTTP ${response.status}`);
+            }
+            const source = await response.text();
+            container.appendChild(createExampleCard(example, source));
+          } catch (error) {
+            const box = document.createElement('div');
+            box.className = 'error';
+            box.textContent = `Could not load ${example.file}: ${error.message}`;
+            container.appendChild(box);
+          }
+        }
+      }
+
+      loadExamples();
+    </script>
+  </body>
+</html>

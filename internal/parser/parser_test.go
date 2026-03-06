@@ -174,6 +174,66 @@ action createBook {
 	}
 }
 
+func TestParseActionUnknownEntityFieldSuggestsClosestName(t *testing.T) {
+	src := `
+app Demo
+
+entity Todo {
+  title: String
+}
+
+type alias CreateTodoInput =
+  { title: String
+  }
+
+action createTodo {
+  input: CreateTodoInput
+
+  create Todo {
+    titel: input.title
+  }
+}
+`
+
+	_, err := Parse(src)
+	if err == nil {
+		t.Fatal("expected parse error for unknown action field")
+	}
+	if !strings.Contains(err.Error(), "Did you mean \"title\"?") {
+		t.Fatalf("expected Did you mean suggestion, got: %v", err)
+	}
+}
+
+func TestParseActionUnknownInputFieldSuggestsClosestName(t *testing.T) {
+	src := `
+app Demo
+
+entity Todo {
+  title: String
+}
+
+type alias CreateTodoInput =
+  { title: String
+  }
+
+action createTodo {
+  input: CreateTodoInput
+
+  create Todo {
+    title: input.titel
+  }
+}
+`
+
+	_, err := Parse(src)
+	if err == nil {
+		t.Fatal("expected parse error for unknown action input field")
+	}
+	if !strings.Contains(err.Error(), "Did you mean \"title\"?") {
+		t.Fatalf("expected Did you mean suggestion, got: %v", err)
+	}
+}
+
 func TestParsePublicBlock(t *testing.T) {
 	src := `
 app FrontApi

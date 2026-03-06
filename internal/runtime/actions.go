@@ -6,6 +6,7 @@ import (
 
 	"belm/internal/model"
 	"belm/internal/sqlitecli"
+	"belm/internal/suggest"
 )
 
 // handleAction executes a typed action (with create steps) in a single SQL transaction.
@@ -67,9 +68,10 @@ func (r *Runtime) handleAction(w http.ResponseWriter, actionName string, auth au
 }
 
 func normalizeActionInput(alias *model.TypeAlias, payload map[string]any) (map[string]any, error) {
+	fieldNames := aliasFieldNames(alias)
 	for key := range payload {
 		if !aliasHasField(alias, key) {
-			return nil, fmt.Errorf("unknown input field %q for %s", key, alias.Name)
+			return nil, fmt.Errorf("unknown input field %q for %s%s", key, alias.Name, suggest.DidYouMeanSuffix(key, fieldNames))
 		}
 	}
 	out := map[string]any{}
@@ -94,6 +96,14 @@ func aliasHasField(alias *model.TypeAlias, fieldName string) bool {
 		}
 	}
 	return false
+}
+
+func aliasFieldNames(alias *model.TypeAlias) []string {
+	out := make([]string, 0, len(alias.Fields))
+	for _, field := range alias.Fields {
+		out = append(out, field.Name)
+	}
+	return out
 }
 
 func normalizeActionInputValue(name, typ string, raw any) (any, error) {

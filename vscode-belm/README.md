@@ -44,18 +44,13 @@ This extension adds syntax highlighting, snippets/autocomplete, and LSP features
 - Quick fixes (code actions)
 - Format document support
 
-## Run Locally (Development Host)
+## Install in VSCode
 
-1. Build Belm from the repo root:
-   - `go build -o belm ./cmd/belm`
-2. Open this folder in VS Code:
-   - `/Users/marcio/dev/github/belm/vscode-belm`
-3. Install extension dependencies:
-   - `npm install`
-4. Press `F5` to start an Extension Development Host window.
-5. Open any `.belm` file in the new window.
+1. Open Extensions in VSCode.
+2. Search for `Belm Language Support`.
+3. Click `Install`.
 
-If needed, set `belm.languageServer.path` in VS Code settings (examples: `belm`, `/abs/path/to/belm`).
+If needed, set `belm.languageServer.path` in VSCode settings (examples: `belm`, `/abs/path/to/belm`).
 
 ## Format on Save
 
@@ -72,9 +67,6 @@ If needed, set `belm.languageServer.path` in VS Code settings (examples: `belm`,
 
 2. Save a `.belm` file to apply Belm formatting automatically.
 
-## Package for Installation
+## Notes
 
-1. From this folder, create a package with `npx` (no global install needed):
-   - `npx @vscode/vsce package`
-2. Install the generated `.vsix` in VS Code:
-   - Command Palette -> `Extensions: Install from VSIX...`
+- Keep `belm` available in your `PATH` so the extension can start LSP and formatting.

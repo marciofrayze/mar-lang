@@ -18,13 +18,37 @@
       body {
         background: #f4f8ff;
       }
+
+      .copy-link {
+        outline: none;
+        border-radius: 6px;
+      }
+
+      .copy-link:focus {
+        outline: none;
+      }
+
+      .copy-link:focus-visible {
+        outline: none;
+        box-shadow: none;
+        background: transparent;
+      }
+
     </style>
   </head>
   <body>
     <div id="app"></div>
     <script src="dist/app.js"></script>
     <script>
-      Elm.Main.init({ node: document.getElementById('app') });
+      const app = Elm.Main.init({ node: document.getElementById('app') });
+
+      if (app.ports && app.ports.copyToClipboard) {
+        app.ports.copyToClipboard.subscribe((value) => {
+          if (typeof value === 'string' && navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(value).catch(() => {});
+          }
+        });
+      }
     </script>
   </body>
 </html>

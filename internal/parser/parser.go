@@ -8,6 +8,7 @@ import (
 
 	"belm/internal/expr"
 	"belm/internal/model"
+	"belm/internal/suggest"
 )
 
 var (
@@ -1040,8 +1041,10 @@ func validateActions(app *model.App) error {
 			return fmt.Errorf("action %s references unknown input type %q", action.Name, action.InputAlias)
 		}
 		aliasFieldTypes := map[string]string{}
+		aliasFieldNames := make([]string, 0, len(alias.Fields))
 		for _, f := range alias.Fields {
 			aliasFieldTypes[f.Name] = f.Type
+			aliasFieldNames = append(aliasFieldNames, f.Name)
 		}
 
 		if len(action.Steps) == 0 {
@@ -1059,14 +1062,14 @@ func validateActions(app *model.App) error {
 			for _, item := range step.Values {
 				field := findEntityField(entity, item.Field)
 				if field == nil {
-					return fmt.Errorf("action %s assigns unknown field %s.%s", action.Name, entity.Name, item.Field)
+					return fmt.Errorf("action %s assigns unknown field %s.%s%s", action.Name, entity.Name, item.Field, suggest.DidYouMeanSuffix(item.Field, entityFieldNames(entity)))
 				}
 				if field.Primary && field.Auto {
 					return fmt.Errorf("action %s cannot assign auto-generated field %s.%s", action.Name, entity.Name, item.Field)
 				}
 				assignments[item.Field] = item
 
-				sourceType, err := resolveExprType(item, aliasFieldTypes)
+				sourceType, err := resolveExprType(item, aliasFieldTypes, aliasFieldNames)
 				if err != nil {
 					return fmt.Errorf("action %s field %s.%s: %w", action.Name, entity.Name, item.Field, err)
 				}
@@ -1097,12 +1100,12 @@ func validateActions(app *model.App) error {
 	return nil
 }
 
-func resolveExprType(expr model.ActionFieldExpr, aliasFieldTypes map[string]string) (string, error) {
+func resolveExprType(expr model.ActionFieldExpr, aliasFieldTypes map[string]string, aliasFieldNames []string) (string, error) {
 	switch expr.SourceKind {
 	case "input":
 		t := aliasFieldTypes[expr.InputField]
 		if t == "" {
-			return "", fmt.Errorf("references unknown input field %q", expr.InputField)
+			return "", fmt.Errorf("references unknown input field %q%s", expr.InputField, suggest.DidYouMeanSuffix(expr.InputField, aliasFieldNames))
 		}
 		return t, nil
 	case "literal_string":
@@ -1137,6 +1140,14 @@ func findEntityField(entity *model.Entity, name string) *model.Field {
 		}
 	}
 	return nil
+}
+
+func entityFieldNames(entity *model.Entity) []string {
+	out := make([]string, 0, len(entity.Fields))
+	for i := range entity.Fields {
+		out = append(out, entity.Fields[i].Name)
+	}
+	return out
 }
 
 func hasField(ent *model.Entity, name, typ string) bool {

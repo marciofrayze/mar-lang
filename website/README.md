@@ -18,7 +18,7 @@ Then open:
 
 - The page is intentionally separate from the compiler/runtime codebase.
 - It is built with Elm + elm-ui and can be deployed as static files.
-- Documentation links open an in-site Markdown viewer:
-  - `docs/viewer.html?doc=getting-started`
-  - `docs/viewer.html?doc=advanced`
-- The markdown files in `website/docs/*.md` are the single source of truth.
+- Documentation and examples are rendered directly by the Elm SPA routes:
+  - `#/getting-started`
+  - `#/advanced`
+  - `#/examples`

@@ -35,7 +35,7 @@
 
       .shell {
         max-width: 1040px;
-        margin: 20px auto;
+        margin: 20px auto 28px;
         padding: 0 20px;
       }
 
@@ -46,19 +46,18 @@
         background: var(--surface);
         border: 1px solid var(--border);
         border-radius: 12px;
-        padding: 12px 14px;
-        margin-bottom: 14px;
+        padding: 16px;
+        margin-bottom: 20px;
       }
 
       .brand {
-        font-size: 24px;
+        font-size: 28px;
         font-weight: 700;
         color: #163960;
       }
 
       .nav {
         display: flex;
-        gap: 14px;
         flex-wrap: wrap;
       }
 
@@ -67,18 +66,48 @@
         text-decoration: none;
         font-weight: 600;
         font-size: 14px;
+        padding-top: 6px;
+        margin-left: 14px;
       }
 
       .nav a:hover {
-        color: #2d7ed2;
-        text-decoration: underline;
+        color: #405876;
+        text-decoration: none;
       }
 
+      .nav-current {
+        color: #245287;
+        font-weight: 700;
+        font-size: 14px;
+        padding-top: 6px;
+        margin-left: 14px;
+      }
       .content {
         background: var(--surface);
         border: 1px solid var(--border);
         border-radius: 12px;
-        padding: 20px;
+        padding: 16px;
+      }
+
+      .warning {
+        background: #fff7e0;
+        border: 1px solid #f4d285;
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 20px;
+      }
+
+      .warning-title {
+        margin: 0 0 6px;
+        font-size: 22px;
+        font-weight: 700;
+        color: #794200;
+      }
+
+      .warning-text {
+        margin: 0;
+        line-height: 1.55;
+        color: #6b3e00;
       }
 
       h1,
@@ -111,6 +140,48 @@
 
       li { margin: 0.2em 0; }
 
+      .step-cards {
+        list-style: none;
+        margin: 0.45em 0 1.15em;
+        padding: 0;
+        counter-reset: step;
+      }
+
+      .step-cards > li {
+        counter-increment: step;
+        position: relative;
+        margin: 0 0 10px;
+        background: #f5faff;
+        border: 1px solid #d5e1f2;
+        border-radius: 10px;
+        padding: 12px 14px 12px 54px;
+      }
+
+      .step-cards > li:last-child {
+        margin-bottom: 0;
+      }
+
+      .step-cards > li::before {
+        content: counter(step);
+        position: absolute;
+        left: 12px;
+        top: 12px;
+        min-width: 24px;
+        height: 24px;
+        border-radius: 999px;
+        background: #e0ecfc;
+        color: #224c7a;
+        font-weight: 700;
+        font-size: 14px;
+        line-height: 24px;
+        text-align: center;
+      }
+
+      .step-cards > li > ul,
+      .step-cards > li > ol {
+        margin: 6px 0 0 1.2em;
+      }
+
       a {
         color: var(--blue);
         text-underline-offset: 2px;
@@ -140,6 +211,20 @@
         white-space: pre;
       }
 
+      pre code.lang-belm .tok-keyword { color: #7ab8ff; }
+      pre code.lang-belm .tok-type { color: #4fd1c5; }
+      pre code.lang-belm .tok-modifier { color: #b7c5d9; }
+      pre code.lang-belm .tok-field { color: #dce8f8; }
+      pre code.lang-belm .tok-entity { color: #92c4ff; }
+      pre code.lang-belm .tok-crud { color: #93d7ff; }
+      pre code.lang-belm .tok-string { color: #f7c97f; }
+      pre code.lang-belm .tok-number { color: #f5a97f; }
+      pre code.lang-belm .tok-function { color: #82e0aa; }
+      pre code.lang-belm .tok-context { color: #c3d7ff; }
+      pre code.lang-belm .tok-operator { color: #d8e9ff; }
+      pre code.lang-belm .tok-punctuation { color: #afc7e6; }
+      pre code.lang-belm .tok-comment { color: #7f96b3; font-style: italic; }
+
       :not(pre) > code {
         background: #edf3fc;
         color: #264669;
@@ -165,17 +250,22 @@
   <body>
     <div class="shell">
       <div class="top">
-        <div class="brand">Belm Docs</div>
+        <div class="brand">Belm</div>
         <div class="nav">
-          <a href="../index.html">Home</a>
-          <a href="viewer.html?doc=getting-started">Getting Started</a>
-          <a href="viewer.html?doc=advanced">Advanced</a>
-          <a href="../examples/todo.belm">Todo Example</a>
+          <a id="nav-home" href="../index.html">Home</a>
+          <a id="nav-getting-started" href="viewer.html?doc=getting-started">Getting Started</a>
+          <a id="nav-advanced" href="viewer.html?doc=advanced">Advanced</a>
+          <a id="nav-examples" href="../examples/index.html">Examples</a>
         </div>
       </div>
 
+      <div class="warning">
+        <p class="warning-title">Warning</p>
+        <p class="warning-text">Belm is still at a very early stage and is <strong>not recommended for production use yet</strong>.</p>
+        <p class="warning-text">There are no guarantees that language syntax or database schema will remain backward compatible in future versions.</p>
+      </div>
+
       <div class="content">
-        <div id="meta" class="muted"></div>
         <div id="doc">Loading...</div>
       </div>
     </div>
@@ -189,6 +279,20 @@
       const params = new URLSearchParams(window.location.search);
       const requested = params.get('doc') || 'getting-started';
       const docFile = docs[requested] || docs['getting-started'];
+
+      function setActiveNav() {
+        const activeId = requested === 'advanced' ? 'nav-advanced' : 'nav-getting-started';
+        const active = document.getElementById(activeId);
+        if (active) {
+          const label = active.textContent || '';
+          const current = document.createElement('span');
+          current.className = 'nav-current';
+          current.textContent = label;
+          active.replaceWith(current);
+        }
+      }
+
+      setActiveNav();
 
       function escapeHtml(value) {
         return value
@@ -205,6 +309,134 @@
         if (trimmed.endsWith('getting-started.md')) return 'viewer.html?doc=getting-started';
         if (trimmed.endsWith('advanced.md')) return 'viewer.html?doc=advanced';
         return trimmed;
+      }
+
+      const belmKeywords = new Set([
+        'app', 'port', 'database', 'entity', 'rule', 'when', 'authorize', 'auth',
+        'type', 'alias', 'action', 'input', 'public', 'system', 'dir', 'mount',
+        'spa_fallback', 'transaction'
+      ]);
+      const belmCrudWords = new Set(['list', 'get', 'create', 'update', 'delete']);
+      const belmTypes = new Set(['Int', 'String', 'Bool', 'Float']);
+      const belmModifiers = new Set(['primary', 'auto', 'optional']);
+      const belmFunctions = new Set(['len', 'contains', 'startsWith', 'endsWith', 'matches', 'isRole']);
+      const belmContext = new Set([
+        'input', 'auth_authenticated', 'auth_email', 'auth_user_id', 'auth_role',
+        'true', 'false', 'null'
+      ]);
+      const belmTwoCharOps = new Set(['>=', '<=', '==', '!=', '&&', '||', '->']);
+      const belmOpChars = new Set(['=', '+', '-', '*', '/', '%', '!', '<', '>', '&', '|']);
+      const belmPunctuation = new Set(['{', '}', '(', ')', '[', ']', ':', ',', '.']);
+
+      function belmClassForIdentifier(word) {
+        if (belmCrudWords.has(word)) return 'tok-crud';
+        if (belmKeywords.has(word)) return 'tok-keyword';
+        if (belmTypes.has(word)) return 'tok-type';
+        if (belmModifiers.has(word)) return 'tok-modifier';
+        if (belmFunctions.has(word)) return 'tok-function';
+        if (belmContext.has(word)) return 'tok-context';
+        if (/^[A-Z]/.test(word)) return 'tok-entity';
+        return 'tok-field';
+      }
+
+      function wrapBelmToken(cssClass, raw) {
+        return `<span class="${cssClass}">${escapeHtml(raw)}</span>`;
+      }
+
+      function highlightBelmCode(source) {
+        let out = '';
+        let i = 0;
+
+        while (i < source.length) {
+          const ch = source[i];
+
+          if (ch === '-' && source[i + 1] === '-') {
+            let j = i + 2;
+            while (j < source.length && source[j] !== '\n') j += 1;
+            out += wrapBelmToken('tok-comment', source.slice(i, j));
+            i = j;
+            continue;
+          }
+
+          if (ch === '#') {
+            let j = i + 1;
+            while (j < source.length && source[j] !== '\n') j += 1;
+            out += wrapBelmToken('tok-comment', source.slice(i, j));
+            i = j;
+            continue;
+          }
+
+          if (ch === '"') {
+            let j = i + 1;
+            while (j < source.length) {
+              if (source[j] === '\\' && j + 1 < source.length) {
+                j += 2;
+                continue;
+              }
+              if (source[j] === '"') {
+                j += 1;
+                break;
+              }
+              j += 1;
+            }
+            out += wrapBelmToken('tok-string', source.slice(i, j));
+            i = j;
+            continue;
+          }
+
+          if (/[0-9]/.test(ch)) {
+            let j = i + 1;
+            while (j < source.length && /[0-9]/.test(source[j])) j += 1;
+            if (source[j] === '.' && /[0-9]/.test(source[j + 1] || '')) {
+              j += 1;
+              while (j < source.length && /[0-9]/.test(source[j])) j += 1;
+            }
+            out += wrapBelmToken('tok-number', source.slice(i, j));
+            i = j;
+            continue;
+          }
+
+          if (/[A-Za-z_]/.test(ch)) {
+            let j = i + 1;
+            while (j < source.length && /[A-Za-z0-9_]/.test(source[j])) j += 1;
+            const word = source.slice(i, j);
+            out += wrapBelmToken(belmClassForIdentifier(word), word);
+            i = j;
+            continue;
+          }
+
+          const two = source.slice(i, i + 2);
+          if (belmTwoCharOps.has(two)) {
+            out += wrapBelmToken('tok-operator', two);
+            i += 2;
+            continue;
+          }
+
+          if (belmOpChars.has(ch)) {
+            out += wrapBelmToken('tok-operator', ch);
+            i += 1;
+            continue;
+          }
+
+          if (belmPunctuation.has(ch)) {
+            out += wrapBelmToken('tok-punctuation', ch);
+            i += 1;
+            continue;
+          }
+
+          out += escapeHtml(ch);
+          i += 1;
+        }
+
+        return out;
+      }
+
+      function renderCodeBlock(source, language) {
+        const lang = (language || '').toLowerCase();
+        if (lang === 'belm') {
+          return `<pre><code class="lang-belm">${highlightBelmCode(source)}</code></pre>`;
+        }
+        return `<pre><code>${escapeHtml(source)}</code></pre>`;
       }
 
       function inlineMarkdown(text) {
@@ -236,17 +468,67 @@
         const html = [];
         let i = 0;
 
+        function renderListBlockFromLines(blockLines, ordered) {
+          const bulletRegex = ordered
+            ? /^(\s*)\d+\.\s+(.*)$/
+            : /^(\s*)[-*]\s+(.*)$/;
+          const listTag = ordered ? 'ol' : 'ul';
+          const entries = [];
+
+          for (const rawLine of blockLines) {
+            const match = rawLine.match(bulletRegex);
+            if (!match) continue;
+            const indent = match[1].replace(/\t/g, '    ').length;
+            entries.push({ indent, content: match[2] });
+          }
+
+          if (entries.length === 0) return '';
+
+          let cursor = 0;
+
+          function renderLevel(levelIndent) {
+            let out = `<${listTag}>`;
+
+            while (cursor < entries.length) {
+              const entry = entries[cursor];
+
+              if (entry.indent < levelIndent) break;
+
+              if (entry.indent > levelIndent) {
+                out += renderLevel(entry.indent);
+                continue;
+              }
+
+              out += `<li>${inlineMarkdown(entry.content)}`;
+              cursor += 1;
+
+              if (cursor < entries.length && entries[cursor].indent > levelIndent) {
+                out += renderLevel(entries[cursor].indent);
+              }
+
+              out += '</li>';
+            }
+
+            out += `</${listTag}>`;
+            return out;
+          }
+
+          return renderLevel(entries[0].indent);
+        }
+
         while (i < lines.length) {
           const line = lines[i];
 
           if (/^```/.test(line)) {
+            const fence = line.match(/^```([A-Za-z0-9_-]+)?/);
+            const language = fence && fence[1] ? fence[1] : '';
             const codeLines = [];
             i += 1;
             while (i < lines.length && !/^```/.test(lines[i])) {
               codeLines.push(lines[i]);
               i += 1;
             }
-            html.push(`<pre><code>${escapeHtml(codeLines.join('\n'))}</code></pre>`);
+            html.push(renderCodeBlock(codeLines.join('\n'), language));
             i += 1;
             continue;
           }
@@ -260,22 +542,22 @@
           }
 
           if (/^\s*[-*]\s+/.test(line)) {
-            const items = [];
+            const block = [];
             while (i < lines.length && /^\s*[-*]\s+/.test(lines[i])) {
-              items.push(lines[i].replace(/^\s*[-*]\s+/, ''));
+              block.push(lines[i]);
               i += 1;
             }
-            html.push(`<ul>${items.map((item) => `<li>${inlineMarkdown(item)}</li>`).join('')}</ul>`);
+            html.push(renderListBlockFromLines(block, false));
             continue;
           }
 
           if (/^\s*\d+\.\s+/.test(line)) {
-            const items = [];
+            const block = [];
             while (i < lines.length && /^\s*\d+\.\s+/.test(lines[i])) {
-              items.push(lines[i].replace(/^\s*\d+\.\s+/, ''));
+              block.push(lines[i]);
               i += 1;
             }
-            html.push(`<ol>${items.map((item) => `<li>${inlineMarkdown(item)}</li>`).join('')}</ol>`);
+            html.push(renderListBlockFromLines(block, true));
             continue;
           }
 
@@ -303,7 +585,28 @@
         return html.join('\n');
       }
 
-      document.getElementById('meta').textContent = `Document: ${docFile}`;
+      function decorateGettingStartedSections() {
+        if (requested !== 'getting-started') return;
+        const root = document.getElementById('doc');
+        if (!root) return;
+
+        const targetTitles = new Set(['Install', 'Quick Start']);
+        const headings = root.querySelectorAll('h2');
+
+        for (const heading of headings) {
+          const title = (heading.textContent || '').trim();
+          if (!targetTitles.has(title)) continue;
+
+          let cursor = heading.nextElementSibling;
+          while (cursor && cursor.tagName !== 'H2') {
+            if (cursor.tagName === 'OL') {
+              cursor.classList.add('step-cards');
+              break;
+            }
+            cursor = cursor.nextElementSibling;
+          }
+        }
+      }
 
       fetch(docFile)
         .then((res) => {
@@ -312,6 +615,7 @@
         })
         .then((markdown) => {
           document.getElementById('doc').innerHTML = renderMarkdown(markdown);
+          decorateGettingStartedSections();
         })
         .catch((err) => {
           document.getElementById('doc').innerHTML = `<div class="error">Could not load document: ${escapeHtml(String(err))}</div>`;

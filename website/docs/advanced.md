@@ -1,8 +1,8 @@
-# Belm Advanced Guide
+# Advanced Guide
 
 This document is the full Belm reference.
 
-If you are new to Belm, start with the quick guide in [README.md](/Users/marcio/dev/github/belm/README.md).
+If you are new to Belm, start with the [Quick Start Guide](./getting-started.md).
 
 Belm is a DSL for backend development inspired by [Elm](https://elm-lang.org) and [PocketBase](https://pocketbase.io), implemented in Go, with a strong focus on readability, simplicity and maintainability.
 
@@ -54,8 +54,8 @@ action placeOrder {
 
 Full examples:
 
-- [examples/todo.belm](/Users/marcio/dev/github/belm/examples/todo.belm): minimal CRUD + auth-ready admin tools
-- [examples/store.belm](/Users/marcio/dev/github/belm/examples/store.belm): full app with auth, admin role, actions, backups
+- [Todo API example](../examples/index.html#todo-api): minimal CRUD + auth-ready admin tools
+- [BookStore API example](../examples/index.html#bookstore-api): full app with auth, admin role, actions, backups
 
 ## Goals
 
@@ -160,7 +160,7 @@ Dev mode behavior:
 
 - watches the input `.belm` file for changes
 - on save, recompiles and restarts the generated executable automatically
-- opens Belm Admin on the first successful run
+- opens the embedded admin UI on the first successful run
 - keeps generated files in `build/<name>/`
 - stop with `Ctrl+C`
 
@@ -194,7 +194,7 @@ Dev mode also supports custom output name:
 ./belm dev examples/store.belm bookstore
 ```
 
-Run API + Admin panel and open browser (from the compiled executable):
+Run API + embedded admin UI (from the compiled executable):
 
 ```bash
 ./build/store/store serve
@@ -297,14 +297,9 @@ await runPlaceBookOrder(config, {
 });
 ```
 
-## Admin Panel
+## Admin UI
 
-An Admin panel (built with [Elm](https://elm-lang.org) and [elm-ui](https://github.com/mdgriffith/elm-ui)) is also provided:
-
-- code: [admin/src/Main.elm](/Users/marcio/dev/github/belm/admin/src/Main.elm)
-- docs: [admin/README.md](/Users/marcio/dev/github/belm/admin/README.md)
-
-It uses `GET /_belm/schema` to discover entities and lets you list/create/update/delete records.
+Belm includes an embedded admin UI at `/_belm/admin`.
 
 For admin users, the System area includes:
 
@@ -317,7 +312,7 @@ For admin users, the System area includes:
 
 A VS Code language extension for `.belm` files is available in:
 
-- [vscode-belm](/Users/marcio/dev/github/belm/vscode-belm)
+- [vscode-belm](../vscode-belm)
 
 It provides:
 
@@ -491,7 +486,7 @@ If no primary key is provided, Belm automatically adds:
 
 ## Typed Actions
 
-Belm supports typed actions for multi-entity writes in a **single atomic transaction**.
+Belm supports transactional actions for multi-entity writes in a **single atomic transaction**.
 
 ```belm
 type alias PlaceOrderInput =

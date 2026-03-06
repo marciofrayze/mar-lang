@@ -1,40 +1,151 @@
-module Main exposing (main)
+port module Main exposing (main)
 
 import Browser
-import Element exposing (Attribute, Element, centerX, clipX, column, el, fill, height, html, htmlAttribute, link, maximum, minimum, newTabLink, padding, paddingEach, paragraph, px, rgb255, row, scrollbarY, spacing, text, width, wrappedRow)
+import Browser.Navigation as Nav
+import Char
+import Element exposing (Attribute, Element, centerX, column, el, fill, height, html, htmlAttribute, link, maximum, minimum, newTabLink, padding, paddingEach, paragraph, px, rgb255, row, scrollbarX, scrollbarY, spacing, text, width, wrappedRow)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
 import Html
 import Html.Attributes as HtmlAttr
+import Html.Events as HtmlEvents
+import String
+import Url exposing (Url)
+
+
+type Route
+    = Home
+    | GettingStarted
+    | Advanced
+    | Examples
 
 
 type alias Model =
-    {}
+    { key : Nav.Key
+    , route : Route
+    , copiedText : Maybe String
+    }
 
 
 type Msg
-    = NoOp
+    = LinkClicked Browser.UrlRequest
+    | UrlChanged Url
+    | CopyText String
+
+
+port copyToClipboard : String -> Cmd msg
 
 
 main : Program () Model Msg
 main =
-    Browser.document
-        { init = \_ -> ( {}, Cmd.none )
+    Browser.application
+        { init = init
         , update = update
         , subscriptions = \_ -> Sub.none
         , view = view
+        , onUrlRequest = LinkClicked
+        , onUrlChange = UrlChanged
         }
 
 
+init : () -> Url -> Nav.Key -> ( Model, Cmd Msg )
+init _ url key =
+    ( { key = key
+      , route = routeFromUrl url
+      , copiedText = Nothing
+      }
+    , Cmd.none
+    )
+
+
 update : Msg -> Model -> ( Model, Cmd Msg )
-update _ model =
-    ( model, Cmd.none )
+update msg model =
+    case msg of
+        LinkClicked urlRequest ->
+            case urlRequest of
+                Browser.Internal url ->
+                    ( model, Nav.pushUrl model.key (Url.toString url) )
+
+                Browser.External href ->
+                    ( model, Nav.load href )
+
+        UrlChanged url ->
+            ( { model | route = routeFromUrl url, copiedText = Nothing }, Cmd.none )
+
+        CopyText source ->
+            ( { model | copiedText = Just source }, copyToClipboard source )
+
+
+routeFromUrl : Url -> Route
+routeFromUrl url =
+    let
+        fragment =
+            url.fragment
+                |> Maybe.withDefault ""
+                |> normalizeFragment
+    in
+    case fragment of
+        "" ->
+            Home
+
+        "getting-started" ->
+            GettingStarted
+
+        "advanced" ->
+            Advanced
+
+        "examples" ->
+            Examples
+
+        _ ->
+            Home
+
+
+normalizeFragment : String -> String
+normalizeFragment fragment =
+    if String.startsWith "/" fragment then
+        String.dropLeft 1 fragment
+
+    else
+        fragment
+
+
+routeHref : Route -> String
+routeHref route =
+    case route of
+        Home ->
+            "#/"
+
+        GettingStarted ->
+            "#/getting-started"
+
+        Advanced ->
+            "#/advanced"
+
+        Examples ->
+            "#/examples"
+
+
+pageTitle : Route -> String
+pageTitle route =
+    case route of
+        Home ->
+            "Belm"
+
+        GettingStarted ->
+            "Belm - Getting Started"
+
+        Advanced ->
+            "Belm - Advanced Guide"
+
+        Examples ->
+            "Belm - Examples"
 
 
 view : Model -> Browser.Document Msg
-view _ =
-    { title = "Belm Language"
+view model =
+    { title = pageTitle model.route
     , body =
         [ Element.layout
             [ Background.color (rgb255 244 248 255)
@@ -45,36 +156,300 @@ view _ =
                 ]
             , Font.color (rgb255 26 41 59)
             ]
-            page
+            (page model)
         ]
     }
 
 
-page : Element Msg
-page =
+page : Model -> Element Msg
+page model =
     column
         [ width fill
         , spacing 20
         , paddingEach { top = 20, right = 20, bottom = 28, left = 20 }
         ]
-        [ topBar
-        , hero
-        , codeExample
-        , install
-        , quickStart
-        , features
-        , audience
-        , docsAndExamples
+        [ topBar model.route
+        , warningBanner
+        , routeView model
         ]
 
 
-topBar : Element Msg
-topBar =
+topBar : Route -> Element Msg
+topBar route =
     panel
         [ row [ width fill ]
             [ el [ Font.size 28, Font.bold, Font.color (rgb255 22 57 96) ] (text "Belm")
             , el [ width fill ] (text "")
+            , row [ spacing 8 ]
+                [ navItem route Home "Home"
+                , navItem route GettingStarted "Getting Started"
+                , navItem route Advanced "Advanced"
+                , navItem route Examples "Examples"
+                ]
             ]
+        ]
+
+
+navItem : Route -> Route -> String -> Element Msg
+navItem current target label =
+    navLink label (routeHref target) (current == target)
+
+
+routeView : Model -> Element Msg
+routeView model =
+    case model.route of
+        Home ->
+            homePage model
+
+        GettingStarted ->
+            gettingStartedPage model
+
+        Advanced ->
+            advancedPage model
+
+        Examples ->
+            examplesPage model
+
+
+warningBanner : Element Msg
+warningBanner =
+    column
+        [ width (fill |> maximum 1040)
+        , centerX
+        , spacing 8
+        , padding 16
+        , Background.color (rgb255 255 247 224)
+        , Border.width 1
+        , Border.color (rgb255 244 210 133)
+        , Border.rounded 12
+        ]
+        [ column [ spacing 8, width fill ]
+            [ paragraph [ Font.size 22, Font.bold, Font.color (rgb255 121 66 0) ]
+                [ text "Warning" ]
+            , paragraph [ Font.size 16, Font.color (rgb255 107 62 0), width fill ]
+                [ text "Belm is still at a very early stage and is "
+                , el [ Font.bold ] (text "not recommended for production use yet")
+                , text "."
+                ]
+            , paragraph [ Font.size 16, Font.color (rgb255 107 62 0), width fill ]
+                [ text "There are no guarantees that language syntax or database schema will remain backward compatible in future versions." ]
+            ]
+        ]
+
+
+homePage : Model -> Element Msg
+homePage model =
+    column
+        [ width fill
+        , spacing 20
+        ]
+        [ hero
+        , codeExample model
+        , features
+        , audience
+        ]
+
+
+gettingStartedPage : Model -> Element Msg
+gettingStartedPage model =
+    column
+        [ width fill
+        , spacing 20
+        ]
+        [ panel
+            [ sectionTitle "Getting Started"
+            , paragraph [ Font.size 16, Font.color (rgb255 72 95 123), width fill ]
+                [ text "Install Belm, iterate quickly with hot reload, and deploy as a single executable." ]
+            ]
+        , install model
+        , quickStart model
+        , panel
+            [ sectionTitle "Use the Admin UI while developing"
+            , paragraph [ Font.size 16, Font.color (rgb255 72 95 123), width fill ]
+                [ text "Admin UI URL: "
+                , newTabLink
+                    [ Font.bold
+                    , Font.family [ Font.typeface "IBM Plex Mono", Font.monospace ]
+                    , Font.color (rgb255 36 82 132)
+                    , htmlAttribute (HtmlAttr.style "cursor" "pointer")
+                    ]
+                    { url = "http://localhost:4100/_belm/admin"
+                    , label = text "http://localhost:4100/_belm/admin"
+                    }
+                ]
+            , bulletList
+                [ "Sign in through Authentication."
+                , "Navigate entities from the left sidebar."
+                , "Manage records with the built-in CRUD actions."
+                , "Access monitoring, logs, and database tools with an admin account."
+                ]
+            ]
+        ]
+
+
+advancedPage : Model -> Element Msg
+advancedPage model =
+    column
+        [ width fill
+        , spacing 20
+        ]
+        [ panel
+            [ sectionTitle "Advanced Guide"
+            , paragraph [ Font.size 16, Font.color (rgb255 72 95 123), width fill ]
+                [ text "Belm is a declarative backend DSL inspired by Elm and PocketBase, implemented in Go with focus on readability, maintainability, and simple deployment." ]
+            ]
+        , panel
+            [ sectionTitle "Quick Examples"
+            , labelledCodeBlock model "Minimal CRUD Example" 320 todoExampleSource
+            , labelledCodeBlock model "Transactional Action Example" 320 actionExampleSource
+            ]
+        , panel
+            [ sectionTitle "Core Capabilities"
+            , bodyText "Belm is meant to cover the common backend surface area without forcing you to assemble many moving parts by hand. The language stays small, but the generated runtime is intentionally practical."
+            , bulletList
+                [ "Declarative entities, rules, and authorization"
+                , "Automatic REST CRUD generation"
+                , "Email-code authentication and role checks"
+                , "Transactional action blocks"
+                , "Embedded Admin UI with monitoring, logs, and database tooling"
+                , "Generated Elm and TypeScript clients"
+                ]
+            ]
+        , panel
+            [ sectionTitle "Compiler Architecture"
+            , bodyText "The compiler parses a single .belm file into a typed app model, validates it, generates clients, embeds admin/static assets, and then builds a self-contained server executable."
+            , architectureDiagram
+            ]
+        , panel
+            [ sectionTitle "Compiler and Runtime Commands"
+            , bodyText "The `belm` binary hosts the compiler, development workflow, formatter, and language server. In practice, most day-to-day work starts with `dev`, and `compile` is what you use when you are ready to ship."
+            , commandRow model "1" "Compile" "Builds a .belm app into a self-contained executable and generates frontend clients." "belm compile examples/store.belm"
+            , commandRow model "2" "Dev" "Runs the app in development mode with hot reload when the .belm file changes." "belm dev examples/store.belm"
+            , commandRow model "3" "Format" "Applies Belm's official formatting style to source files." "belm format examples/store.belm"
+            , commandRow model "4" "LSP" "Starts the language server used by the VSCode extension for diagnostics, hovers, and navigation." "belm lsp"
+            ]
+        , panel
+            [ sectionTitle "Generated Client Output"
+            , bodyText "When you compile an app, Belm also generates frontend clients for Elm and TypeScript. These clients wrap the generated HTTP API with named functions, so you do not need to hand-write fetch calls, URLs, or request payload shapes."
+            , bulletList
+                [ "Elm client: build/<name>/clients/<AppName>Client.elm"
+                , "TypeScript client: build/<name>/clients/<AppName>Client.ts"
+                , "Both include CRUD functions, action functions, auth endpoints, and backend version access."
+                , "They reduce duplicated frontend code and keep frontend calls aligned with the backend generated from your .belm file."
+                , "This makes refactors safer, because the client surface is regenerated from the same source as the server."
+                ]
+            ]
+        , panel
+            [ sectionTitle "Admin UI and Editor Support"
+            , bodyText "Belm ships with an embedded Admin UI for operating the app you compiled. The editor tooling focuses on making the DSL easier to author and safer to change."
+            , bulletList
+                [ "The embedded Admin UI uses schema discovery from GET /_belm/schema."
+                , "It supports CRUD browsing, auth flows, monitoring, request logs, and database tooling."
+                , "The VSCode extension provides syntax highlighting, hover docs, go to definition, references, rename, formatting, and LSP diagnostics."
+                ]
+            ]
+        , panel
+            [ sectionTitle "Language Syntax"
+            , bodyText "Belm reads top-to-bottom as a declarative app definition. Most apps are centered around entities, rules, authorization, optional auth configuration, and typed actions."
+            , bulletList
+                [ "Top-level statements: app, port, database, public, system, auth, entity, type alias, action."
+                , "Fields use the form fieldName: Type with optional modifiers such as primary, auto, and optional."
+                , "Belm currently supports a single .belm entry file per app, without multi-file projects or imports."
+                ]
+            ]
+        , panel
+            [ sectionTitle "System Configuration"
+            , bodyText "Use `system` when you need to tune runtime behavior. This is where request logging, body limits, auth rate limits, security headers, and SQLite pragmas are configured."
+            , codeFromString model 340 systemConfigSource
+            , bulletList
+                [ "request_logs_buffer controls how many recent requests stay in memory for monitoring."
+                , "http_max_request_body_mb limits request body size and returns HTTP 413 when exceeded."
+                , "Auth rate limits control request-code and login attempts per minute."
+                , "Security settings apply response headers such as frame policy, referrer policy, and nosniff."
+                , "SQLite settings are performance-first by default and can be overridden per app."
+                ]
+            ]
+        , panel
+            [ sectionTitle "Public Static Frontend"
+            , bodyText "Belm can embed static frontend files into the final executable. This is useful when you want one deployable binary that serves both the backend and a compiled frontend."
+            , codeFromString model 220 publicConfigSource
+            , bulletList
+                [ "dir is required and is resolved relative to the .belm file."
+                , "mount defaults to /."
+                , "spa_fallback lets the executable serve a frontend entry file for route-style SPA paths."
+                , "Public files are embedded into the final executable."
+                ]
+            ]
+        , panel
+            [ sectionTitle "Authentication and Authorization"
+            , bodyText "Belm includes a built-in email-code login flow and per-operation authorization rules. The same auth model is also used by system-level tooling such as monitoring, logs, and backups."
+            , codeFromString model 300 authConfigSource
+            , codeFromString model 220 authorizeExampleSource
+            , bulletList
+                [ "Authentication endpoints are always available."
+                , "When auth { ... } is defined, Belm uses your configured user entity and fields."
+                , "When auth { ... } is omitted, Belm still provides a built-in auth user store."
+                , "System features use the same session and require role == \"admin\"."
+                ]
+            ]
+        , panel
+            [ sectionTitle "Rules and Typed Actions"
+            , bodyText "Rules are for validation close to the entity definition. Actions are for multi-step writes that must succeed or fail together."
+            , bulletList
+                [ "rule validates entity data and returns HTTP 422 with details when validation fails."
+                , "Actions run in a single atomic transaction."
+                , "Belm checks input types and assigned entity fields at compile time."
+                ]
+            ]
+        , panel
+            [ sectionTitle "Generated Endpoints"
+            , bodyText "Belm turns the declarative app definition into a concrete HTTP surface. CRUD, actions, auth, health, version, and admin-related endpoints are generated automatically from the source file."
+            , bulletList
+                [ "Each entity gets REST CRUD endpoints."
+                , "Typed actions are exposed as POST /actions/<name>."
+                , "System endpoints include /health, /_belm/admin, /_belm/schema, and /_belm/version."
+                , "Admin-only system endpoints include /_belm/version/admin, /_belm/perf, /_belm/request-logs, and /_belm/backups."
+                ]
+            ]
+        , panel
+            [ sectionTitle "Migrations"
+            , bodyText "Belm applies schema migration logic automatically on startup. Safe changes are handled for you, while unsafe changes are blocked instead of being applied silently."
+            , bulletList
+                [ "Migrations run automatically on startup."
+                , "Belm creates missing tables, adds new optional columns, and keeps auth/session storage ready."
+                , "Unsafe changes such as type changes, primary key changes, nullability changes, and new required fields are blocked."
+                , "When blocked, startup fails with a clear migration error."
+                ]
+            ]
+        , panel
+            [ sectionTitle "Current Limitations"
+            , bulletList
+                [ "Belm currently supports a single .belm entry file per app, without multi-file projects or imports." ]
+            ]
+        ]
+
+
+examplesPage : Model -> Element Msg
+examplesPage model =
+    column
+        [ width fill
+        , spacing 20
+        ]
+        [ exampleCard model "Todo API" "Minimal CRUD example" todoExampleSource
+        , exampleCard model "BookStore API" "Auth, roles, and transactional action" storeExampleSource
+        ]
+
+
+exampleCard : Model -> String -> String -> String -> Element Msg
+exampleCard model name subtitle source =
+    panel
+        [ row [ width fill, spacing 12 ]
+            [ column [ width fill, spacing 4 ]
+                [ paragraph [ Font.size 22, Font.bold, Font.color (rgb255 20 53 89) ] [ text name ]
+                , paragraph [ Font.size 15, Font.color (rgb255 95 114 138) ] [ text subtitle ]
+                ]
+            ]
+        , codeFromString model 360 source
         ]
 
 
@@ -85,8 +460,7 @@ hero =
             [ paragraph [ Font.size 42, Font.bold, Font.color (rgb255 16 44 79), width (fill |> maximum 900) ]
                 [ text "A simple declarative backend language." ]
             , paragraph [ Font.size 19, Font.color (rgb255 72 95 123), width (fill |> maximum 880) ]
-                [ text "Belm compiles declarative source into a self-contained server executable with API, auth, admin panel, monitoring, and backups."
-                ]
+                [ text "Belm compiles declarative source into a self-contained server executable with API, auth, admin panel, monitoring, and backups." ]
             , paragraph [ Font.size 16, Font.color (rgb255 96 116 140), width (fill |> maximum 880) ]
                 [ text "Inspired by "
                 , newTabLink
@@ -109,29 +483,91 @@ hero =
                 , text "."
                 ]
             , row [ spacing 10, paddingEach { top = 6, right = 0, bottom = 0, left = 0 } ]
-                [ primaryButton "Get Started" "docs/viewer.html?doc=getting-started"
-                , secondaryButton "Open Advanced Guide" "docs/viewer.html?doc=advanced"
+                [ primaryButton "Get Started" (routeHref GettingStarted)
+                , secondaryButton "Advanced Guide" (routeHref Advanced)
                 ]
             ]
         ]
 
 
-codeExample : Element Msg
-codeExample =
+codeExample : Model -> Element Msg
+codeExample model =
     panel
         [ sectionTitle "Belm Syntax Example"
-        , codeBlock
+        , codeBlock model
         ]
 
 
-install : Element Msg
-install =
+install : Model -> Element Msg
+install model =
     panel
         [ sectionTitle "Install"
         , downloadInstallRow
-        , pathInstallRow
-        , commandRow "3" "Check" "belm version"
+        , pathInstallRow model
+        , installCommandRow model "3" "Check" "belm version"
         , pluginInstallRow
+        ]
+
+
+quickStart : Model -> Element Msg
+quickStart model =
+    panel
+        [ sectionTitle "Quick Start"
+        , quickStartCreateCard model "1" "Create" "todo.belm" todoExampleSource
+        , commandRow model "2" "Develop" "Runs the app locally with hot reload while you edit todo.belm." "belm dev todo.belm"
+        , commandRow model "3" "Compile" "Builds the production executable and generates the frontend clients." "belm compile todo.belm"
+        , commandRow model "4" "Deploy" "Start the compiled server executable." "cd build/todo && ./todo serve"
+        , paragraph [ Font.size 16, Font.color (rgb255 72 95 123), width fill ]
+            [ text "Belm deploys as a single executable that already includes API, auth, embedded Admin UI, monitoring dashboards, request logs, and SQLite backup tools." ]
+        ]
+
+
+quickStartCreateCard : Model -> String -> String -> String -> String -> Element Msg
+quickStartCreateCard model number label fileName source =
+    column
+        [ width fill
+        , spacing 10
+        , Background.color (rgb255 245 250 255)
+        , Border.width 1
+        , Border.color (rgb255 213 225 241)
+        , Border.rounded 10
+        , paddingEach { top = 10, right = 12, bottom = 12, left = 12 }
+        ]
+        [ row [ width fill, spacing 10 ]
+            [ stepBadge number
+            , el [ Font.bold, Font.size 18, width (px 104), Font.color (rgb255 28 66 108) ] (text label)
+            , codeInline fileName
+            ]
+        , codeFromString model 260 source
+        ]
+
+
+installLabelWidth : Int
+installLabelWidth =
+    136
+
+
+installSubitemIndent : Int
+installSubitemIndent =
+    184
+
+
+installCommandRow : Model -> String -> String -> String -> Element Msg
+installCommandRow model number label command =
+    row
+        [ width fill
+        , spacing 10
+        , Background.color (rgb255 245 250 255)
+        , Border.width 1
+        , Border.color (rgb255 213 225 241)
+        , Border.rounded 10
+        , paddingEach { top = 10, right = 12, bottom = 10, left = 12 }
+        ]
+        [ stepBadge number
+        , el [ Font.bold, Font.size 18, width (px installLabelWidth), Font.color (rgb255 28 66 108) ] (text label)
+        , codeInline command
+        , el [ width fill ] (text "")
+        , copyLink model command
         ]
 
 
@@ -146,30 +582,22 @@ downloadInstallRow =
         , Border.rounded 10
         , paddingEach { top = 10, right = 12, bottom = 10, left = 12 }
         ]
-        [ el
-            [ Font.bold
-            , Font.size 15
-            , Font.color (rgb255 34 76 122)
-            , Background.color (rgb255 224 236 252)
-            , Border.rounded 999
-            , paddingEach { top = 3, right = 8, bottom = 3, left = 8 }
-            ]
-            (text "1")
-        , el [ Font.bold, Font.size 18, width (px 104), Font.color (rgb255 28 66 108) ] (text "Download")
+        [ stepBadge "1"
+        , el [ Font.bold, Font.size 18, width (px installLabelWidth), Font.color (rgb255 28 66 108) ] (text "Download")
         , newTabLink
             [ Font.size 16
             , Font.semiBold
             , Font.color (rgb255 36 82 132)
             , htmlAttribute (HtmlAttr.style "cursor" "pointer")
             ]
-            { url = "https://github.com/marciofrayze/mar/releases"
-            , label = text "github.com/marciofrayze/mar/releases"
+            { url = "https://github.com/marciofrayze/mar-lang/releases"
+            , label = text "github.com/marciofrayze/mar-lang/releases"
             }
         ]
 
 
-pathInstallRow : Element Msg
-pathInstallRow =
+pathInstallRow : Model -> Element Msg
+pathInstallRow model =
     column
         [ spacing 10
         , width fill
@@ -180,30 +608,24 @@ pathInstallRow =
         , paddingEach { top = 10, right = 12, bottom = 10, left = 12 }
         ]
         [ row [ width fill, spacing 10 ]
-            [ el
-                [ Font.bold
-                , Font.size 15
-                , Font.color (rgb255 34 76 122)
-                , Background.color (rgb255 224 236 252)
-                , Border.rounded 999
-                , paddingEach { top = 3, right = 8, bottom = 3, left = 8 }
-                ]
-                (text "2")
-            , el [ Font.bold, Font.size 18, width (px 104), Font.color (rgb255 28 66 108) ] (text "Path")
+            [ stepBadge "2"
+            , el [ Font.bold, Font.size 18, width (px installLabelWidth), Font.color (rgb255 28 66 108) ] (text "Path")
             , instructionText "Move belm to a directory in your PATH."
             ]
         , column
             [ width fill
             , spacing 8
-            , paddingEach { top = 0, right = 0, bottom = 0, left = 166 }
+            , paddingEach { top = 0, right = 0, bottom = 0, left = installSubitemIndent }
             ]
             [ row [ spacing 8 ]
                 [ el [ Font.size 13, Font.semiBold, Font.color (rgb255 70 93 121), width (px 88) ] (text "macOS/Linux")
                 , codeInlineSmall "mv belm /usr/local/bin/belm && chmod +x /usr/local/bin/belm"
+                , copyLink model "mv belm /usr/local/bin/belm && chmod +x /usr/local/bin/belm"
                 ]
             , row [ spacing 8 ]
                 [ el [ Font.size 13, Font.semiBold, Font.color (rgb255 70 93 121), width (px 88) ] (text "Windows")
                 , codeInlineSmall "setx PATH \"%PATH%;C:\\Tools\\belm\""
+                , copyLink model "setx PATH \"%PATH%;C:\\Tools\\belm\""
                 ]
             ]
         ]
@@ -221,22 +643,25 @@ pluginInstallRow =
         , paddingEach { top = 10, right = 12, bottom = 10, left = 12 }
         ]
         [ row [ width fill, spacing 10 ]
-            [ el
-                [ Font.bold
-                , Font.size 15
-                , Font.color (rgb255 34 76 122)
-                , Background.color (rgb255 224 236 252)
-                , Border.rounded 999
-                , paddingEach { top = 3, right = 8, bottom = 3, left = 8 }
+            [ stepBadge "4"
+            , el [ Font.bold, Font.size 18, width (px installLabelWidth), Font.color (rgb255 28 66 108) ] (text "Code editor")
+            , paragraph [ Font.size 16, Font.color (rgb255 70 93 121), width fill ]
+                [ text "Currently, Belm supports only "
+                , newTabLink
+                    [ Font.color (rgb255 36 82 132)
+                    , Font.semiBold
+                    , htmlAttribute (HtmlAttr.style "cursor" "pointer")
+                    ]
+                    { url = "https://code.visualstudio.com/"
+                    , label = text "VSCode"
+                    }
+                , text "."
                 ]
-                (text "4")
-            , el [ Font.bold, Font.size 18, width (px 120), Font.color (rgb255 28 66 108) ] (text "Code editor")
-            , instructionText "Currently, Belm supports only VSCode."
             ]
         , column
             [ spacing 6
             , width fill
-            , paddingEach { top = 0, right = 0, bottom = 0, left = 166 }
+            , paddingEach { top = 0, right = 0, bottom = 0, left = installSubitemIndent }
             ]
             [ paragraph [ Font.size 14, Font.color (rgb255 70 93 121) ]
                 [ text "Open VSCode Extensions (Cmd+Shift+X on macOS, Ctrl+Shift+X on Windows/Linux)." ]
@@ -250,10 +675,23 @@ pluginInstallRow =
             [ Font.size 14
             , Font.color (rgb255 72 95 123)
             , width fill
-            , paddingEach { top = 0, right = 0, bottom = 0, left = 166 }
+            , paddingEach { top = 0, right = 0, bottom = 0, left = installSubitemIndent }
             ]
             [ text "The VSCode extension requires belm on your PATH to start LSP and formatting." ]
         ]
+
+
+stepBadge : String -> Element Msg
+stepBadge value =
+    el
+        [ Font.bold
+        , Font.size 15
+        , Font.color (rgb255 34 76 122)
+        , Background.color (rgb255 224 236 252)
+        , Border.rounded 999
+        , paddingEach { top = 3, right = 8, bottom = 3, left = 8 }
+        ]
+        (text value)
 
 
 features : Element Msg
@@ -298,29 +736,6 @@ audience =
         ]
 
 
-quickStart : Element Msg
-quickStart =
-    panel
-        [ sectionTitle "Quick Start"
-        , commandRow "1" "Develop" "belm dev examples/store.belm"
-        , commandRow "2" "Compile" "belm compile examples/store.belm"
-        , commandRow "3" "Deploy" "cd build/store && ./store serve"
-        ]
-
-
-docsAndExamples : Element Msg
-docsAndExamples =
-    panel
-        [ sectionTitle "Resources"
-        , wrappedRow [ spacing 12, width fill ]
-            [ resourceCard "Getting Started" "docs/viewer.html?doc=getting-started"
-            , resourceCard "Advanced Guide" "docs/viewer.html?doc=advanced"
-            , resourceCard "Todo Example" "examples/todo.belm"
-            , resourceCard "Store Example" "examples/store.belm"
-            ]
-        ]
-
-
 panel : List (Element Msg) -> Element Msg
 panel children =
     column
@@ -339,6 +754,100 @@ panel children =
 sectionTitle : String -> Element Msg
 sectionTitle label =
     paragraph [ Font.size 26, Font.bold, Font.color (rgb255 20 53 89) ] [ text label ]
+
+
+bodyText : String -> Element Msg
+bodyText value =
+    paragraph
+        [ Font.size 16
+        , Font.color (rgb255 72 95 123)
+        , width fill
+        ]
+        [ text value ]
+
+
+subsectionLabel : String -> Element Msg
+subsectionLabel label =
+    el
+        [ Font.size 14
+        , Font.semiBold
+        , Font.color (rgb255 61 91 125)
+        , Background.color (rgb255 242 247 255)
+        , Border.width 1
+        , Border.color (rgb255 215 226 241)
+        , Border.rounded 999
+        , paddingEach { top = 5, right = 10, bottom = 5, left = 10 }
+        ]
+        (text label)
+
+
+labelledCodeBlock : Model -> String -> Int -> String -> Element Msg
+labelledCodeBlock model label boxHeight source =
+    column
+        [ width fill
+        , spacing 6
+        ]
+        [ subsectionLabel label
+        , codeFromString model boxHeight source
+        ]
+
+
+architectureDiagram : Element Msg
+architectureDiagram =
+    column
+        [ width fill
+        , spacing 12
+        ]
+        [ wrappedRow
+            [ width fill
+            , spacing 10
+            ]
+            [ architectureNode "Source" ".belm file"
+            , architectureArrow
+            , architectureNode "Parser" "AST + expressions"
+            , architectureArrow
+            , architectureNode "Model" "typed app definition"
+            , architectureArrow
+            , architectureNode "Validation" "entities, auth, actions"
+            ]
+        , wrappedRow
+            [ width fill
+            , spacing 10
+            ]
+            [ architectureNode "Generators" "Elm client + TypeScript client"
+            , architectureArrow
+            , architectureNode "Embedded assets" "Admin UI + public files"
+            , architectureArrow
+            , architectureNode "Go build" "self-contained executable"
+            ]
+        ]
+
+
+architectureNode : String -> String -> Element Msg
+architectureNode title detail =
+    column
+        [ width (fill |> minimum 180)
+        , spacing 4
+        , paddingEach { top = 12, right = 12, bottom = 12, left = 12 }
+        , Background.color (rgb255 246 250 255)
+        , Border.width 1
+        , Border.color (rgb255 211 224 241)
+        , Border.rounded 10
+        ]
+        [ paragraph [ Font.size 16, Font.bold, Font.color (rgb255 28 66 108) ] [ text title ]
+        , paragraph [ Font.size 14, Font.color (rgb255 86 107 133) ] [ text detail ]
+        ]
+
+
+architectureArrow : Element Msg
+architectureArrow =
+    el
+        [ Font.size 20
+        , Font.bold
+        , Font.color (rgb255 128 150 178)
+        , paddingEach { top = 6, right = 2, bottom = 6, left = 2 }
+        ]
+        (text "→")
 
 
 whyRow : String -> String -> String -> Element Msg
@@ -391,28 +900,33 @@ useCaseRow audienceTitle pain solution =
         ]
 
 
-commandRow : String -> String -> String -> Element Msg
-commandRow number label command =
-    row
+commandRow : Model -> String -> String -> String -> String -> Element Msg
+commandRow model number label description command =
+    column
         [ width fill
-        , spacing 10
+        , spacing 8
         , Background.color (rgb255 245 250 255)
         , Border.width 1
         , Border.color (rgb255 213 225 241)
         , Border.rounded 10
         , paddingEach { top = 10, right = 12, bottom = 10, left = 12 }
         ]
-        [ el
-            [ Font.bold
-            , Font.size 15
-            , Font.color (rgb255 34 76 122)
-            , Background.color (rgb255 224 236 252)
-            , Border.rounded 999
-            , paddingEach { top = 3, right = 8, bottom = 3, left = 8 }
+        [ row
+            [ width fill
+            , spacing 10
             ]
-            (text number)
-        , el [ Font.bold, Font.size 18, width (px 104), Font.color (rgb255 28 66 108) ] (text label)
-        , codeInline command
+            [ stepBadge number
+            , el [ Font.bold, Font.size 18, width (px 104), Font.color (rgb255 28 66 108) ] (text label)
+            , codeInline command
+            , el [ width fill ] (text "")
+            , copyLink model command
+            ]
+        , paragraph
+            [ Font.size 14
+            , Font.color (rgb255 83 105 132)
+            , width fill
+            ]
+            [ text description ]
         ]
 
 
@@ -470,18 +984,51 @@ buttonAttributes bg fg =
     ]
 
 
-navLink : String -> String -> Element Msg
-navLink label target =
+navLink : String -> String -> Bool -> Element Msg
+navLink label target isCurrent =
     link
-        [ Font.size 14
-        , Font.semiBold
-        , Font.color (rgb255 64 88 118)
-        , paddingEach { top = 6, right = 0, bottom = 0, left = 14 }
-        , htmlAttribute (HtmlAttr.style "cursor" "pointer")
-        ]
+        (if isCurrent then
+            [ Font.size 14
+            , Font.bold
+            , Font.color (rgb255 24 73 126)
+            , Background.color (rgb255 226 238 253)
+            , Border.width 1
+            , Border.color (rgb255 171 200 235)
+            , Border.rounded 999
+            , paddingEach { top = 6, right = 10, bottom = 6, left = 10 }
+            , htmlAttribute (HtmlAttr.style "cursor" "pointer")
+            ]
+
+         else
+            [ Font.size 14
+            , Font.semiBold
+            , Font.color (rgb255 64 88 118)
+            , Border.rounded 999
+            , paddingEach { top = 6, right = 10, bottom = 6, left = 10 }
+            , htmlAttribute (HtmlAttr.style "cursor" "pointer")
+            ]
+        )
         { url = target
         , label = text label
         }
+
+
+instructionText : String -> Element Msg
+instructionText value =
+    paragraph [ Font.size 16, Font.color (rgb255 70 93 121), width fill ] [ text value ]
+
+
+bulletList : List String -> Element Msg
+bulletList items =
+    column [ spacing 8, width fill ] (List.map bulletItem items)
+
+
+bulletItem : String -> Element Msg
+bulletItem value =
+    row [ spacing 8, width fill ]
+        [ el [ Font.color (rgb255 93 107 126), Font.bold ] (text "•")
+        , paragraph [ Font.size 16, Font.color (rgb255 72 95 123), width fill ] [ text value ]
+        ]
 
 
 codeInline : String -> Element Msg
@@ -516,37 +1063,423 @@ codeInlineSmall source =
         )
 
 
-instructionText : String -> Element Msg
-instructionText value =
-    paragraph [ Font.size 16, Font.color (rgb255 70 93 121), width fill ] [ text value ]
+copyLink : Model -> String -> Element Msg
+copyLink model source =
+    let
+        isCopied =
+            model.copiedText == Just source
 
+        label =
+            if isCopied then
+                "✓"
 
-codeBlock : Element Msg
-codeBlock =
-    el
-        [ width fill
-        , height (px 300)
-        , clipX
-        , scrollbarY
-        , Background.color (rgb255 18 38 61)
-        , Border.width 1
-        , Border.color (rgb255 38 70 105)
-        , Border.rounded 10
-        , paddingEach { top = 12, right = 14, bottom = 12, left = 14 }
-        ]
-        (html
-            (Html.pre
-                [ HtmlAttr.style "margin" "0"
-                , HtmlAttr.style "white-space" "pre"
-                , HtmlAttr.style "overflow-wrap" "break-word"
-                , HtmlAttr.style "font-family" "IBM Plex Mono, ui-monospace, SFMono-Regular, Menlo, monospace"
-                , HtmlAttr.style "font-size" "14px"
-                , HtmlAttr.style "line-height" "1.55"
-                , HtmlAttr.style "color" "#D8E9FF"
-                ]
-                codeSnippet
-            )
+            else
+                "⎘"
+
+        titleText =
+            if isCopied then
+                "Copied"
+
+            else
+                "Copy code"
+
+        color =
+            if isCopied then
+                "rgb(34, 122, 85)"
+
+            else
+                "rgb(88, 115, 146)"
+    in
+    html
+        (Html.button
+            [ HtmlAttr.type_ "button"
+            , HtmlAttr.class "copy-link"
+            , HtmlAttr.style "cursor" "pointer"
+            , HtmlAttr.style "font-size" "17px"
+            , HtmlAttr.style "font-weight" "600"
+            , HtmlAttr.style "color" color
+            , HtmlAttr.style "line-height" "1"
+            , HtmlAttr.style "padding" "3px 4px"
+            , HtmlAttr.style "background" "transparent"
+            , HtmlAttr.style "border" "none"
+            , HtmlAttr.style "outline" "none"
+            , HtmlAttr.style "box-shadow" "none"
+            , HtmlAttr.style "appearance" "none"
+            , HtmlAttr.style "-webkit-appearance" "none"
+            , HtmlAttr.style "border-radius" "6px"
+            , HtmlAttr.title titleText
+            , HtmlAttr.attribute "aria-label" titleText
+            , HtmlEvents.onClick (CopyText source)
+            ]
+            [ Html.text label ]
         )
+
+
+codeFromString : Model -> Int -> String -> Element Msg
+codeFromString model boxHeight source =
+    let
+        lines =
+            source
+                |> String.split "\n"
+                |> trimTrailingEmptyLine
+                |> ensureAtLeastOneLine
+    in
+    column
+        [ width fill
+        , spacing 6
+        ]
+        [ row [ width fill ]
+            [ el [ width fill ] (text "")
+            , copyLink model source
+            ]
+        , el
+            [ width fill
+            , height (px boxHeight)
+            , scrollbarX
+            , scrollbarY
+            , Background.color (rgb255 18 38 61)
+            , Border.width 1
+            , Border.color (rgb255 38 70 105)
+            , Border.rounded 10
+            , paddingEach { top = 12, right = 14, bottom = 12, left = 14 }
+            ]
+            (html
+                (Html.pre
+                    [ HtmlAttr.style "margin" "0"
+                    , HtmlAttr.style "white-space" "pre"
+                    , HtmlAttr.style "overflow-wrap" "break-word"
+                    , HtmlAttr.style "font-family" "IBM Plex Mono, ui-monospace, SFMono-Regular, Menlo, monospace"
+                    , HtmlAttr.style "font-size" "14px"
+                    , HtmlAttr.style "line-height" "1.55"
+                    , HtmlAttr.style "color" "#D8E9FF"
+                    ]
+                    [ Html.div
+                        [ HtmlAttr.style "min-width" "max-content" ]
+                        (List.indexedMap codeEditorLineView lines)
+                    ]
+                )
+            )
+        ]
+
+
+trimTrailingEmptyLine : List String -> List String
+trimTrailingEmptyLine lines =
+    case List.reverse lines of
+        "" :: rest ->
+            List.reverse rest
+
+        _ ->
+            lines
+
+
+ensureAtLeastOneLine : List String -> List String
+ensureAtLeastOneLine lines =
+    if List.isEmpty lines then
+        [ "" ]
+
+    else
+        lines
+
+
+codeEditorLineView : Int -> String -> Html.Html msg
+codeEditorLineView index lineText =
+    Html.div
+        [ HtmlAttr.style "display" "flex"
+        , HtmlAttr.style "align-items" "flex-start"
+        , HtmlAttr.style "min-height" "22px"
+        ]
+        [ Html.span
+            [ HtmlAttr.style "width" "42px"
+            , HtmlAttr.style "flex" "0 0 42px"
+            , HtmlAttr.style "text-align" "right"
+            , HtmlAttr.style "padding-right" "12px"
+            , HtmlAttr.style "color" "#7F96B3"
+            , HtmlAttr.style "user-select" "none"
+            ]
+            [ Html.text (String.fromInt (index + 1)) ]
+        , Html.code
+            [ HtmlAttr.style "white-space" "pre"
+            , HtmlAttr.style "color" "#D8E9FF"
+            ]
+            (if String.isEmpty lineText then
+                [ Html.text " " ]
+
+             else
+                highlightBelmSource lineText
+            )
+        ]
+
+
+highlightBelmSource : String -> List (Html.Html msg)
+highlightBelmSource source =
+    highlightBelmHelp source []
+        |> List.reverse
+
+
+highlightBelmHelp : String -> List (Html.Html msg) -> List (Html.Html msg)
+highlightBelmHelp remaining acc =
+    case String.uncons remaining of
+        Nothing ->
+            acc
+
+        Just ( firstChar, rest ) ->
+            case String.uncons rest of
+                Just ( '-', restAfterDash ) ->
+                    if firstChar == '-' then
+                        let
+                            ( commentText, afterComment ) =
+                                takeUntilNewline restAfterDash
+                        in
+                        highlightBelmHelp afterComment (commentToken ("--" ++ commentText) :: acc)
+
+                    else
+                        tokenizeSingle firstChar rest acc
+
+                _ ->
+                    if firstChar == '"' then
+                        let
+                            ( stringLiteral, afterString ) =
+                                takeStringLiteral rest "\""
+                        in
+                        highlightBelmHelp afterString (token "#F7C97F" stringLiteral :: acc)
+
+                    else if Char.isDigit firstChar then
+                        let
+                            ( numberTail, afterNumber ) =
+                                takeWhile isNumberChar rest
+
+                            numberText =
+                                String.fromChar firstChar ++ numberTail
+                        in
+                        highlightBelmHelp afterNumber (token "#F5A97F" numberText :: acc)
+
+                    else if isIdentifierStart firstChar then
+                        let
+                            ( identifierTail, afterIdentifier ) =
+                                takeWhile isIdentifierChar rest
+
+                            word =
+                                String.fromChar firstChar ++ identifierTail
+                        in
+                        highlightBelmHelp afterIdentifier (wordToken word :: acc)
+
+                    else if isTwoCharOperator firstChar rest then
+                        let
+                            secondChar =
+                                rest
+                                    |> String.left 1
+
+                            afterOperator =
+                                String.dropLeft 1 rest
+                        in
+                        highlightBelmHelp afterOperator (token "#D8E9FF" (String.fromChar firstChar ++ secondChar) :: acc)
+
+                    else if isOperatorChar firstChar then
+                        highlightBelmHelp rest (token "#D8E9FF" (String.fromChar firstChar) :: acc)
+
+                    else if isPunctuationChar firstChar then
+                        highlightBelmHelp rest (token "#AFC7E6" (String.fromChar firstChar) :: acc)
+
+                    else
+                        highlightBelmHelp rest (Html.text (String.fromChar firstChar) :: acc)
+
+
+tokenizeSingle : Char -> String -> List (Html.Html msg) -> List (Html.Html msg)
+tokenizeSingle firstChar rest acc =
+    if firstChar == '"' then
+        let
+            ( stringLiteral, afterString ) =
+                takeStringLiteral rest "\""
+        in
+        highlightBelmHelp afterString (token "#F7C97F" stringLiteral :: acc)
+
+    else if Char.isDigit firstChar then
+        let
+            ( numberTail, afterNumber ) =
+                takeWhile isNumberChar rest
+
+            numberText =
+                String.fromChar firstChar ++ numberTail
+        in
+        highlightBelmHelp afterNumber (token "#F5A97F" numberText :: acc)
+
+    else if isIdentifierStart firstChar then
+        let
+            ( identifierTail, afterIdentifier ) =
+                takeWhile isIdentifierChar rest
+
+            word =
+                String.fromChar firstChar ++ identifierTail
+        in
+        highlightBelmHelp afterIdentifier (wordToken word :: acc)
+
+    else if isTwoCharOperator firstChar rest then
+        let
+            secondChar =
+                rest
+                    |> String.left 1
+
+            afterOperator =
+                String.dropLeft 1 rest
+        in
+        highlightBelmHelp afterOperator (token "#D8E9FF" (String.fromChar firstChar ++ secondChar) :: acc)
+
+    else if isOperatorChar firstChar then
+        highlightBelmHelp rest (token "#D8E9FF" (String.fromChar firstChar) :: acc)
+
+    else if isPunctuationChar firstChar then
+        highlightBelmHelp rest (token "#AFC7E6" (String.fromChar firstChar) :: acc)
+
+    else
+        highlightBelmHelp rest (Html.text (String.fromChar firstChar) :: acc)
+
+
+takeUntilNewline : String -> ( String, String )
+takeUntilNewline input =
+    case String.uncons input of
+        Nothing ->
+            ( "", "" )
+
+        Just ( char, rest ) ->
+            if char == '\n' then
+                ( "", input )
+
+            else
+                let
+                    ( tailText, remaining ) =
+                        takeUntilNewline rest
+                in
+                ( String.fromChar char ++ tailText, remaining )
+
+
+takeStringLiteral : String -> String -> ( String, String )
+takeStringLiteral remaining built =
+    case String.uncons remaining of
+        Nothing ->
+            ( built, "" )
+
+        Just ( char, rest ) ->
+            if char == '"' then
+                ( built ++ "\"", rest )
+
+            else if char == '\\' then
+                case String.uncons rest of
+                    Nothing ->
+                        ( built ++ "\\\\", "" )
+
+                    Just ( escaped, afterEscaped ) ->
+                        takeStringLiteral afterEscaped (built ++ "\\" ++ String.fromChar escaped)
+
+            else
+                takeStringLiteral rest (built ++ String.fromChar char)
+
+
+takeWhile : (Char -> Bool) -> String -> ( String, String )
+takeWhile predicate input =
+    case String.uncons input of
+        Nothing ->
+            ( "", "" )
+
+        Just ( char, rest ) ->
+            if predicate char then
+                let
+                    ( tailText, remaining ) =
+                        takeWhile predicate rest
+                in
+                ( String.fromChar char ++ tailText, remaining )
+
+            else
+                ( "", input )
+
+
+isIdentifierStart : Char -> Bool
+isIdentifierStart char =
+    Char.isAlpha char || char == '_'
+
+
+isIdentifierChar : Char -> Bool
+isIdentifierChar char =
+    Char.isAlphaNum char || char == '_'
+
+
+isNumberChar : Char -> Bool
+isNumberChar char =
+    Char.isDigit char || char == '.'
+
+
+isTwoCharOperator : Char -> String -> Bool
+isTwoCharOperator firstChar rest =
+    let
+        secondChar =
+            rest
+                |> String.left 1
+    in
+    List.member (String.fromChar firstChar ++ secondChar)
+        [ ">="
+        , "<="
+        , "=="
+        , "!="
+        , "&&"
+        , "||"
+        , "->"
+        ]
+
+
+isOperatorChar : Char -> Bool
+isOperatorChar char =
+    List.member char [ '=', '+', '-', '*', '/', '%', '!', '<', '>', '&', '|' ]
+
+
+isPunctuationChar : Char -> Bool
+isPunctuationChar char =
+    List.member char [ '{', '}', '(', ')', '[', ']', ':', ',', '.' ]
+
+
+wordToken : String -> Html.Html msg
+wordToken word =
+    if List.member word [ "list", "get", "create", "update", "delete" ] then
+        token "#93D7FF" word
+
+    else if List.member word [ "app", "port", "database", "entity", "rule", "when", "authorize", "auth", "type", "alias", "action", "input", "public", "system", "dir", "mount", "spa_fallback", "transaction" ] then
+        token "#7AB8FF" word
+
+    else if List.member word [ "Int", "String", "Bool", "Float" ] then
+        token "#4FD1C5" word
+
+    else if List.member word [ "primary", "auto", "optional" ] then
+        token "#B7C5D9" word
+
+    else if List.member word [ "len", "contains", "startsWith", "endsWith", "matches", "isRole" ] then
+        token "#82E0AA" word
+
+    else if List.member word [ "input", "auth_authenticated", "auth_email", "auth_user_id", "auth_role", "true", "false", "null" ] then
+        token "#C3D7FF" word
+
+    else
+        case String.uncons word of
+            Just ( firstChar, _ ) ->
+                if Char.isUpper firstChar then
+                    token "#92C4FF" word
+
+                else
+                    token "#DCE8F8" word
+
+            Nothing ->
+                Html.text word
+
+
+commentToken : String -> Html.Html msg
+commentToken value =
+    Html.span
+        [ HtmlAttr.style "color" "#7F96B3"
+        , HtmlAttr.style "font-style" "italic"
+        ]
+        [ Html.text value ]
+
+
+codeBlock : Model -> Element Msg
+codeBlock model =
+    codeFromString model 300 todoExampleSource
 
 
 codeSnippet : List (Html.Html msg)
@@ -693,3 +1626,191 @@ codeOperator value =
 codePunctuation : String -> Html.Html msg
 codePunctuation value =
     token "#AFC7E6" value
+
+
+todoExampleSource : String
+todoExampleSource =
+    """app TodoApi
+port 4100
+database \"todo.db\"
+
+entity Todo {
+  id: Int primary auto
+  title: String
+  done: Bool
+
+  rule \"Title must have at least 3 chars\" when len(title) >= 3
+  authorize list when auth_authenticated
+  authorize create when auth_authenticated
+}
+"""
+
+
+actionExampleSource : String
+actionExampleSource =
+    """type alias PlaceOrderInput =
+  { userId : Int
+  , total : Float
+  }
+
+action placeOrder {
+  input: PlaceOrderInput
+
+  create Order {
+    userId: input.userId
+    total: input.total
+    status: \"created\"
+  }
+
+  create AuditLog {
+    userId: input.userId
+    event: \"order created\"
+  }
+}
+"""
+
+
+systemConfigSource : String
+systemConfigSource =
+    """system {
+  request_logs_buffer 500
+  http_max_request_body_mb 1
+  auth_request_code_rate_limit_per_minute 5
+  auth_login_rate_limit_per_minute 10
+  security_frame_policy sameorigin
+  security_referrer_policy strict-origin-when-cross-origin
+  security_content_type_nosniff true
+  sqlite_journal_mode wal
+  sqlite_synchronous normal
+  sqlite_foreign_keys true
+  sqlite_busy_timeout_ms 5000
+  sqlite_wal_autocheckpoint 1000
+  sqlite_journal_size_limit_mb 64
+  sqlite_mmap_size_mb 128
+  sqlite_cache_size_kb 2000
+}
+"""
+
+
+publicConfigSource : String
+publicConfigSource =
+    """public {
+  dir \"./frontend/dist\"
+  mount \"/\"
+  spa_fallback \"index.html\"
+}
+"""
+
+
+authConfigSource : String
+authConfigSource =
+    """auth {
+  user_entity User
+  email_field email
+  role_field role
+  code_ttl_minutes 10
+  session_ttl_hours 24
+  email_transport console
+  email_from \"no-reply@store.local\"
+  email_subject \"Your StoreApi login code\"
+}
+"""
+
+
+authorizeExampleSource : String
+authorizeExampleSource =
+    """authorize list when isRole(\"admin\")
+authorize get when auth_authenticated and (id == auth_user_id or isRole(\"admin\"))
+authorize create when true
+authorize update when auth_authenticated and (id == auth_user_id or isRole(\"admin\"))
+authorize delete when isRole(\"admin\")
+"""
+
+
+storeExampleSource : String
+storeExampleSource =
+    """app BookStoreApi
+port 4100
+database \"bookstore.db\"
+
+auth {
+  user_entity User
+  email_field email
+  role_field role
+  code_ttl_minutes 10
+  session_ttl_hours 24
+  email_transport console
+  email_from \"no-reply@bookstore.local\"
+  email_subject \"Your BookStore login code\"
+}
+
+entity User {
+  id: Int primary auto
+  email: String
+  role: String
+  displayName: String optional
+
+  authorize list when isRole(\"admin\")
+  authorize get when auth_authenticated and (id == auth_user_id or isRole(\"admin\"))
+  authorize create when isRole(\"admin\")
+  authorize update when auth_authenticated and ((id == auth_user_id and role == auth_role) or isRole(\"admin\"))
+  authorize delete when isRole(\"admin\")
+}
+
+entity Book {
+  id: Int primary auto
+  title: String
+  authorName: String
+  isbn: String
+  price: Float
+  stock: Int
+
+  rule \"Book title cannot be empty\" when title != \"\"
+  rule \"Price must be greater than zero\" when price > 0
+
+  authorize list when true
+  authorize get when true
+  authorize create when auth_authenticated
+  authorize update when isRole(\"admin\")
+  authorize delete when isRole(\"admin\")
+}
+
+type alias PlaceBookOrderInput =
+  { orderRef : String
+  , userId : Int
+  , bookId : Int
+  , quantity : Int
+  , unitPrice : Float
+  , lineTotal : Float
+  , orderTotal : Float
+  , notes : String
+  }
+
+action placeBookOrder {
+  input: PlaceBookOrderInput
+
+  create Order {
+    orderRef: input.orderRef
+    userId: input.userId
+    status: \"confirmed\"
+    total: input.orderTotal
+    currency: \"BRL\"
+    notes: input.notes
+  }
+
+  create OrderItem {
+    orderRef: input.orderRef
+    userId: input.userId
+    bookId: input.bookId
+    quantity: input.quantity
+    unitPrice: input.unitPrice
+    lineTotal: input.lineTotal
+  }
+
+  create AuditLog {
+    userId: input.userId
+    event: \"book order created\"
+    orderRef: input.orderRef
+  }
+}
+"""

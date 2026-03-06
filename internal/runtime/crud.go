@@ -7,6 +7,7 @@ import (
 
 	"belm/internal/expr"
 	"belm/internal/model"
+	"belm/internal/suggest"
 )
 
 // handleList returns all rows from an entity resource after authorization.
@@ -338,13 +339,15 @@ func buildUpdate(entity *model.Entity, payload map[string]any, current map[strin
 
 func assertNoUnknownFields(entity *model.Entity, payload map[string]any, mode string) error {
 	known := map[string]*model.Field{}
+	knownNames := make([]string, 0, len(entity.Fields))
 	for i := range entity.Fields {
 		known[entity.Fields[i].Name] = &entity.Fields[i]
+		knownNames = append(knownNames, entity.Fields[i].Name)
 	}
 	for key := range payload {
 		field := known[key]
 		if field == nil {
-			return fmt.Errorf("unknown field %s", key)
+			return fmt.Errorf("unknown field %q%s", key, suggest.DidYouMeanSuffix(key, knownNames))
 		}
 		if mode == "create" && field.Primary && field.Auto {
 			return fmt.Errorf("field %s is auto-generated and cannot be provided", key)
