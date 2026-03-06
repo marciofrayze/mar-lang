@@ -1,0 +1,168 @@
+-- =========================================
+-- Application
+-- =========================================
+
+app BookStoreApi
+port 4100
+database "bookstore.db"
+
+-- Authentication is built into the framework.
+-- Users login with one-time email codes via /auth/request-code and /auth/login.
+auth {
+  user_entity User
+  email_field email
+  role_field role
+  code_ttl_minutes 10
+  session_ttl_hours 24
+  email_transport console
+  email_from "no-reply@bookstore.local"
+  email_subject "Your BookStore login code"
+  dev_expose_code true
+}
+
+-- =========================================
+-- Entities
+-- =========================================
+
+-- User is both identity and profile for auth.
+-- First login can auto-provision the user when fields are inferable.
+entity User {
+  id: Int primary auto
+  email: String
+  role: String
+  displayName: String optional
+  phone: String optional
+
+  rule "User email must be valid" when matches(email, "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")
+  rule "Role must be admin or user" when role == "admin" or role == "user"
+
+  authorize list when isRole("admin")
+  authorize get when auth_authenticated and (id == auth_user_id or isRole("admin"))
+  authorize create when isRole("admin")
+  authorize update when auth_authenticated and ((id == auth_user_id and role == auth_role) or isRole("admin"))
+  authorize delete when isRole("admin")
+}
+
+entity Book {
+  id: Int primary auto
+  title: String
+  authorName: String
+  isbn: String
+  price: Float
+  stock: Int
+
+  rule "Book title cannot be empty" when title != ""
+  rule "ISBN format must be valid" when matches(isbn, "^[0-9-]{10,20}$")
+  rule "Price must be greater than zero" when price > 0
+  rule "Stock cannot be negative" when stock >= 0
+
+  authorize list when true
+  authorize get when true
+  authorize create when auth_authenticated
+  authorize update when isRole("admin")
+  authorize delete when isRole("admin")
+}
+
+-- Order and OrderItem are linked by orderRef.
+-- This fits the current action model, where we write multiple creates atomically.
+entity Order {
+  id: Int primary auto
+  orderRef: String
+  userId: Int
+  status: String
+  total: Float
+  currency: String
+  notes: String optional
+
+  rule "Order ref cannot be empty" when orderRef != ""
+  rule "Order status must be confirmed, paid, shipped, or canceled" when status == "confirmed" or status == "paid" or status == "shipped" or status == "canceled"
+  rule "Order total must be greater than zero" when total > 0
+  rule "Currency must be BRL or USD" when currency == "BRL" or currency == "USD"
+
+  authorize list when auth_authenticated
+  authorize get when auth_authenticated and (userId == auth_user_id or isRole("admin"))
+  authorize create when auth_authenticated and (userId == auth_user_id or isRole("admin"))
+  authorize update when auth_authenticated and (userId == auth_user_id or isRole("admin"))
+  authorize delete when isRole("admin")
+}
+
+entity OrderItem {
+  id: Int primary auto
+  orderRef: String
+  userId: Int
+  bookId: Int
+  quantity: Int
+  unitPrice: Float
+  lineTotal: Float
+
+  rule "Order item ref cannot be empty" when orderRef != ""
+  rule "Quantity must be at least 1" when quantity >= 1
+  rule "Unit price must be greater than zero" when unitPrice > 0
+  rule "Line total must be greater than zero" when lineTotal > 0
+
+  authorize list when auth_authenticated and (userId == auth_user_id or isRole("admin"))
+  authorize get when auth_authenticated and (userId == auth_user_id or isRole("admin"))
+  authorize create when auth_authenticated and (userId == auth_user_id or isRole("admin"))
+  authorize update when auth_authenticated and (userId == auth_user_id or isRole("admin"))
+  authorize delete when isRole("admin")
+}
+
+entity AuditLog {
+  id: Int primary auto
+  userId: Int
+  event: String
+  orderRef: String optional
+
+  authorize list when isRole("admin")
+  authorize get when isRole("admin")
+  authorize create when auth_authenticated
+  authorize update when isRole("admin")
+  authorize delete when isRole("admin")
+}
+
+-- =========================================
+-- Actions
+-- =========================================
+
+-- placeBookOrder writes to multiple entities in one atomic action:
+-- 1) create an Order
+-- 2) create one OrderItem
+-- 3) write an AuditLog event
+type alias PlaceBookOrderInput =
+  { orderRef : String
+  , userId : Int
+  , bookId : Int
+  , quantity : Int
+  , unitPrice : Float
+  , lineTotal : Float
+  , orderTotal : Float
+  , notes : String
+}
+
+action placeBookOrder {
+  input: PlaceBookOrderInput
+
+  create Order {
+    orderRef: input.orderRef
+    userId: input.userId
+    status: "confirmed"
+    total: input.orderTotal
+    currency: "BRL"
+    notes: input.notes
+  }
+
+  create OrderItem {
+    orderRef: input.orderRef
+    userId: input.userId
+    bookId: input.bookId
+    quantity: input.quantity
+    unitPrice: input.unitPrice
+    lineTotal: input.lineTotal
+  }
+
+  create AuditLog {
+    userId: input.userId
+    event: "book order created"
+    orderRef: input.orderRef
+  }
+}

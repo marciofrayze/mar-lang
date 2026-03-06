@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Belm Language</title>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+
+      html,
+      body,
+      #app {
+        margin: 0;
+        width: 100%;
+        min-height: 100%;
+      }
+
+      body {
+        background: #f4f8ff;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script src="dist/app.js"></script>
+    <script>
+      Elm.Main.init({ node: document.getElementById('app') });
+    </script>
+  </body>
+</html>

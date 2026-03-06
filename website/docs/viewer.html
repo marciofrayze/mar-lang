@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Belm Docs</title>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+
+      :root {
+        --bg: #f4f8ff;
+        --surface: #ffffff;
+        --border: #d1deef;
+        --text: #1a293b;
+        --muted: #5f728a;
+        --blue: #2d7ed2;
+        --code-bg: #12263d;
+        --code-border: #264669;
+        --code-text: #d8e9ff;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        min-height: 100%;
+        background: var(--bg);
+        color: var(--text);
+        font-family: 'IBM Plex Sans', 'Helvetica Neue', sans-serif;
+      }
+
+      .shell {
+        max-width: 1040px;
+        margin: 20px auto;
+        padding: 0 20px;
+      }
+
+      .top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 12px 14px;
+        margin-bottom: 14px;
+      }
+
+      .brand {
+        font-size: 24px;
+        font-weight: 700;
+        color: #163960;
+      }
+
+      .nav {
+        display: flex;
+        gap: 14px;
+        flex-wrap: wrap;
+      }
+
+      .nav a {
+        color: #405876;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 14px;
+      }
+
+      .nav a:hover {
+        color: #2d7ed2;
+        text-decoration: underline;
+      }
+
+      .content {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 20px;
+      }
+
+      h1,
+      h2,
+      h3,
+      h4,
+      h5,
+      h6 {
+        color: #143559;
+        margin: 0.2em 0 0.45em;
+        line-height: 1.3;
+      }
+
+      h1 { font-size: 34px; }
+      h2 { font-size: 28px; margin-top: 1.25em; }
+      h3 { font-size: 22px; margin-top: 1.1em; }
+
+      p {
+        margin: 0.4em 0 0.9em;
+        line-height: 1.6;
+        color: #2e435b;
+      }
+
+      ul,
+      ol {
+        margin: 0.3em 0 1em 1.35em;
+        color: #2e435b;
+        line-height: 1.6;
+      }
+
+      li { margin: 0.2em 0; }
+
+      a {
+        color: var(--blue);
+        text-underline-offset: 2px;
+      }
+
+      a:hover {
+        color: #1f66b0;
+        text-decoration: underline;
+      }
+
+      pre {
+        margin: 0.7em 0 1.1em;
+        background: var(--code-bg);
+        border: 1px solid var(--code-border);
+        border-radius: 10px;
+        padding: 12px 14px;
+        overflow: auto;
+      }
+
+      code {
+        font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.92em;
+      }
+
+      pre code {
+        color: var(--code-text);
+        white-space: pre;
+      }
+
+      :not(pre) > code {
+        background: #edf3fc;
+        color: #264669;
+        border: 1px solid #d4e3f7;
+        border-radius: 6px;
+        padding: 0.08em 0.35em;
+      }
+
+      .muted {
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .error {
+        color: #b03737;
+        background: #fff3f3;
+        border: 1px solid #f3cccc;
+        padding: 12px;
+        border-radius: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <div class="top">
+        <div class="brand">Belm Docs</div>
+        <div class="nav">
+          <a href="../index.html">Home</a>
+          <a href="viewer.html?doc=getting-started">Getting Started</a>
+          <a href="viewer.html?doc=advanced">Advanced</a>
+          <a href="../examples/todo.belm">Todo Example</a>
+        </div>
+      </div>
+
+      <div class="content">
+        <div id="meta" class="muted"></div>
+        <div id="doc">Loading...</div>
+      </div>
+    </div>
+
+    <script>
+      const docs = {
+        'getting-started': 'getting-started.md',
+        advanced: 'advanced.md'
+      };
+
+      const params = new URLSearchParams(window.location.search);
+      const requested = params.get('doc') || 'getting-started';
+      const docFile = docs[requested] || docs['getting-started'];
+
+      function escapeHtml(value) {
+        return value
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+          .replaceAll("'", '&#39;');
+      }
+
+      function normalizeLink(href) {
+        const trimmed = href.trim();
+        if (/^https?:\/\//i.test(trimmed)) return trimmed;
+        if (trimmed.endsWith('getting-started.md')) return 'viewer.html?doc=getting-started';
+        if (trimmed.endsWith('advanced.md')) return 'viewer.html?doc=advanced';
+        return trimmed;
+      }
+
+      function inlineMarkdown(text) {
+        const codeHolders = [];
+        let out = escapeHtml(text);
+
+        out = out.replace(/`([^`]+)`/g, (_, code) => {
+          const token = `@@CODE_${codeHolders.length}@@`;
+          codeHolders.push(`<code>${code}</code>`);
+          return token;
+        });
+
+        out = out.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, label, href) => {
+          const safeHref = normalizeLink(href);
+          const external = /^https?:\/\//i.test(safeHref);
+          const target = external ? ' target="_blank" rel="noopener noreferrer"' : '';
+          return `<a href="${safeHref}"${target}>${label}</a>`;
+        });
+
+        out = out.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+        out = out.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+
+        out = out.replace(/@@CODE_(\d+)@@/g, (_, i) => codeHolders[Number(i)] || '');
+        return out;
+      }
+
+      function renderMarkdown(markdown) {
+        const lines = markdown.replace(/\r\n?/g, '\n').split('\n');
+        const html = [];
+        let i = 0;
+
+        while (i < lines.length) {
+          const line = lines[i];
+
+          if (/^```/.test(line)) {
+            const codeLines = [];
+            i += 1;
+            while (i < lines.length && !/^```/.test(lines[i])) {
+              codeLines.push(lines[i]);
+              i += 1;
+            }
+            html.push(`<pre><code>${escapeHtml(codeLines.join('\n'))}</code></pre>`);
+            i += 1;
+            continue;
+          }
+
+          const heading = line.match(/^(#{1,6})\s+(.+)$/);
+          if (heading) {
+            const level = heading[1].length;
+            html.push(`<h${level}>${inlineMarkdown(heading[2])}</h${level}>`);
+            i += 1;
+            continue;
+          }
+
+          if (/^\s*[-*]\s+/.test(line)) {
+            const items = [];
+            while (i < lines.length && /^\s*[-*]\s+/.test(lines[i])) {
+              items.push(lines[i].replace(/^\s*[-*]\s+/, ''));
+              i += 1;
+            }
+            html.push(`<ul>${items.map((item) => `<li>${inlineMarkdown(item)}</li>`).join('')}</ul>`);
+            continue;
+          }
+
+          if (/^\s*\d+\.\s+/.test(line)) {
+            const items = [];
+            while (i < lines.length && /^\s*\d+\.\s+/.test(lines[i])) {
+              items.push(lines[i].replace(/^\s*\d+\.\s+/, ''));
+              i += 1;
+            }
+            html.push(`<ol>${items.map((item) => `<li>${inlineMarkdown(item)}</li>`).join('')}</ol>`);
+            continue;
+          }
+
+          if (/^\s*$/.test(line)) {
+            i += 1;
+            continue;
+          }
+
+          const para = [line];
+          i += 1;
+          while (
+            i < lines.length &&
+            !/^\s*$/.test(lines[i]) &&
+            !/^(#{1,6})\s+/.test(lines[i]) &&
+            !/^```/.test(lines[i]) &&
+            !/^\s*[-*]\s+/.test(lines[i]) &&
+            !/^\s*\d+\.\s+/.test(lines[i])
+          ) {
+            para.push(lines[i]);
+            i += 1;
+          }
+          html.push(`<p>${inlineMarkdown(para.join(' '))}</p>`);
+        }
+
+        return html.join('\n');
+      }
+
+      document.getElementById('meta').textContent = `Document: ${docFile}`;
+
+      fetch(docFile)
+        .then((res) => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return res.text();
+        })
+        .then((markdown) => {
+          document.getElementById('doc').innerHTML = renderMarkdown(markdown);
+        })
+        .catch((err) => {
+          document.getElementById('doc').innerHTML = `<div class="error">Could not load document: ${escapeHtml(String(err))}</div>`;
+        });
+    </script>
+  </body>
+</html>

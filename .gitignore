@@ -6,6 +6,7 @@ build/
 .gomodcache/
 .gocache/
 admin/elm-stuff
+**/elm-stuff/
 admin/dist/
 belm
 belm.exe
