@@ -53,6 +53,47 @@ entity Book {
 	}
 }
 
+func TestParseSupportsDoubleDashComments(t *testing.T) {
+	src := `
+-- application
+app TodoApi
+port 4100
+database "./todo.db"
+
+-- entity
+entity Todo {
+  title: String
+}
+`
+
+	app, err := Parse(src)
+	if err != nil {
+		t.Fatalf("Parse returned error: %v", err)
+	}
+	if app.AppName != "TodoApi" {
+		t.Fatalf("unexpected app name: %q", app.AppName)
+	}
+}
+
+func TestParseRejectsHashComments(t *testing.T) {
+	src := `
+# application
+app TodoApi
+
+entity Todo {
+  title: String
+}
+`
+
+	_, err := Parse(src)
+	if err == nil {
+		t.Fatal("expected parse error for hash comment")
+	}
+	if !strings.Contains(err.Error(), "unknown statement") {
+		t.Fatalf("unexpected error message: %v", err)
+	}
+}
+
 func TestParseAuthDefaults(t *testing.T) {
 	src := `
 app AuthApi

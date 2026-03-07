@@ -34,10 +34,6 @@
         {
           "name": "comment.line.double-dash.belm",
           "match": "--.*$"
-        },
-        {
-          "name": "comment.line.number-sign.belm",
-          "match": "#.*$"
         }
       ]
     },

@@ -1169,7 +1169,7 @@ func hasFieldName(ent *model.Entity, name string) bool {
 }
 
 func isCommentOrBlank(s string) bool {
-	return s == "" || strings.HasPrefix(s, "--") || strings.HasPrefix(s, "#")
+	return s == "" || strings.HasPrefix(s, "--")
 }
 
 func splitLines(source string) []line {

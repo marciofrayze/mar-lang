@@ -826,7 +826,7 @@ func splitNormalizedLines(text string) []string {
 }
 
 func isCommentOrBlankLSP(trimmed string) bool {
-	return trimmed == "" || strings.HasPrefix(trimmed, "--") || strings.HasPrefix(trimmed, "#")
+	return trimmed == "" || strings.HasPrefix(trimmed, "--")
 }
 
 func fileURIToPath(rawURI string) (string, error) {

@@ -15,7 +15,7 @@ This extension adds syntax highlighting, snippets/autocomplete, and LSP features
 - Built-in types (`Int`, `String`, `Bool`, `Float`)
 - Built-in functions (`contains`, `startsWith`, `endsWith`, `len`, `matches`, `isRole`)
 - Context variables (`input`, `input.field`, `auth_authenticated`, `auth_email`, `auth_user_id`, `auth_role`)
-- Comments (`--` and `#`), strings, numbers, booleans, null, operators, and punctuation
+- Comments (`--`), strings, numbers, booleans, null, operators, and punctuation
 - Snippets/autocomplete (examples):
 - `app`
 - `entity`

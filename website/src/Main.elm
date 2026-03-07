@@ -17,7 +17,11 @@ import Url exposing (Url)
 type Route
     = Home
     | GettingStarted
-    | Advanced
+    | AdvancedGuide
+    | AdvancedLanguage
+    | AdvancedRuntime
+    | AdvancedTooling
+    | AdvancedCompiler
     | Examples
 
 
@@ -93,7 +97,19 @@ routeFromUrl url =
             GettingStarted
 
         "advanced" ->
-            Advanced
+            AdvancedGuide
+
+        "advanced/language" ->
+            AdvancedLanguage
+
+        "advanced/runtime" ->
+            AdvancedRuntime
+
+        "advanced/tooling" ->
+            AdvancedTooling
+
+        "advanced/compiler" ->
+            AdvancedCompiler
 
         "examples" ->
             Examples
@@ -120,8 +136,20 @@ routeHref route =
         GettingStarted ->
             "#/getting-started"
 
-        Advanced ->
+        AdvancedGuide ->
             "#/advanced"
+
+        AdvancedLanguage ->
+            "#/advanced/language"
+
+        AdvancedRuntime ->
+            "#/advanced/runtime"
+
+        AdvancedTooling ->
+            "#/advanced/tooling"
+
+        AdvancedCompiler ->
+            "#/advanced/compiler"
 
         Examples ->
             "#/examples"
@@ -136,8 +164,20 @@ pageTitle route =
         GettingStarted ->
             "Belm - Getting Started"
 
-        Advanced ->
+        AdvancedGuide ->
             "Belm - Advanced Guide"
+
+        AdvancedLanguage ->
+            "Belm - Language Guide"
+
+        AdvancedRuntime ->
+            "Belm - Runtime Guide"
+
+        AdvancedTooling ->
+            "Belm - Tooling Guide"
+
+        AdvancedCompiler ->
+            "Belm - Compiler Guide"
 
         Examples ->
             "Belm - Examples"
@@ -183,7 +223,7 @@ topBar route =
             , row [ spacing 8 ]
                 [ navItem route Home "Home"
                 , navItem route GettingStarted "Getting Started"
-                , navItem route Advanced "Advanced"
+                , navItem route AdvancedGuide "Advanced"
                 , navItem route Examples "Examples"
                 ]
             ]
@@ -192,7 +232,26 @@ topBar route =
 
 navItem : Route -> Route -> String -> Element Msg
 navItem current target label =
-    navLink label (routeHref target) (current == target)
+    navLink label (routeHref target) (topLevelRoute current == topLevelRoute target)
+
+
+topLevelRoute : Route -> Route
+topLevelRoute route =
+    case route of
+        AdvancedLanguage ->
+            AdvancedGuide
+
+        AdvancedRuntime ->
+            AdvancedGuide
+
+        AdvancedTooling ->
+            AdvancedGuide
+
+        AdvancedCompiler ->
+            AdvancedGuide
+
+        _ ->
+            route
 
 
 routeView : Model -> Element Msg
@@ -204,8 +263,20 @@ routeView model =
         GettingStarted ->
             gettingStartedPage model
 
-        Advanced ->
-            advancedPage model
+        AdvancedGuide ->
+            advancedLanguagePage model
+
+        AdvancedLanguage ->
+            advancedLanguagePage model
+
+        AdvancedRuntime ->
+            advancedRuntimePage model
+
+        AdvancedTooling ->
+            advancedToolingPage model
+
+        AdvancedCompiler ->
+            advancedCompilerPage
 
         Examples ->
             examplesPage model
@@ -287,145 +358,163 @@ gettingStartedPage model =
         ]
 
 
-advancedPage : Model -> Element Msg
-advancedPage model =
+advancedLanguagePage : Model -> Element Msg
+advancedLanguagePage model =
     column
         [ width fill
         , spacing 20
         ]
-        [ panel
+        [ advancedSubmenu model.route
+        , panel
             [ sectionTitle "Advanced Guide"
-            , paragraph [ Font.size 16, Font.color (rgb255 72 95 123), width fill ]
-                [ text "Belm is a declarative backend DSL inspired by Elm and PocketBase, implemented in Go with focus on readability, maintainability, and simple deployment." ]
-            ]
-        , panel
-            [ sectionTitle "Quick Examples"
-            , labelledCodeBlock model "Minimal CRUD Example" 320 todoExampleSource
-            , labelledCodeBlock model "Transactional Action Example" 320 actionExampleSource
-            ]
-        , panel
-            [ sectionTitle "Core Capabilities"
-            , bodyText "Belm is meant to cover the common backend surface area without forcing you to assemble many moving parts by hand. The language stays small, but the generated runtime is intentionally practical."
-            , bulletList
-                [ "Declarative entities, rules, and authorization"
-                , "Automatic REST CRUD generation"
-                , "Email-code authentication and role checks"
-                , "Transactional action blocks"
-                , "Embedded Admin UI with monitoring, logs, and database tooling"
-                , "Generated Elm and TypeScript clients"
-                ]
-            ]
-        , panel
-            [ sectionTitle "Compiler Architecture"
-            , bodyText "The compiler parses a single .belm file into a typed app model, validates it, generates clients, embeds admin/static assets, and then builds a self-contained server executable."
-            , architectureDiagram
-            ]
-        , panel
-            [ sectionTitle "Compiler and Runtime Commands"
-            , bodyText "The `belm` binary hosts the compiler, development workflow, formatter, and language server. In practice, most day-to-day work starts with `dev`, and `compile` is what you use when you are ready to ship."
-            , commandRow model "1" "Compile" "Builds a .belm app into a self-contained executable and generates frontend clients." "belm compile examples/store.belm"
-            , commandRow model "2" "Dev" "Runs the app in development mode with hot reload when the .belm file changes." "belm dev examples/store.belm"
-            , commandRow model "3" "Format" "Applies Belm's official formatting style to source files." "belm format examples/store.belm"
-            , commandRow model "4" "LSP" "Starts the language server used by the VSCode extension for diagnostics, hovers, and navigation." "belm lsp"
-            ]
-        , panel
-            [ sectionTitle "Generated Client Output"
-            , bodyText "When you compile an app, Belm also generates frontend clients for Elm and TypeScript. These clients wrap the generated HTTP API with named functions, so you do not need to hand-write fetch calls, URLs, or request payload shapes."
-            , bulletList
-                [ "Elm client: build/<name>/clients/<AppName>Client.elm"
-                , "TypeScript client: build/<name>/clients/<AppName>Client.ts"
-                , "Both include CRUD functions, action functions, auth endpoints, and backend version access."
-                , "They reduce duplicated frontend code and keep frontend calls aligned with the backend generated from your .belm file."
-                , "This makes refactors safer, because the client surface is regenerated from the same source as the server."
-                ]
-            ]
-        , panel
-            [ sectionTitle "Admin UI and Editor Support"
-            , bodyText "Belm ships with an embedded Admin UI for operating the app you compiled. The editor tooling focuses on making the DSL easier to author and safer to change."
-            , bulletList
-                [ "The embedded Admin UI uses schema discovery from GET /_belm/schema."
-                , "It supports CRUD browsing, auth flows, monitoring, request logs, and database tooling."
-                , "The VSCode extension provides syntax highlighting, hover docs, go to definition, references, rename, formatting, and LSP diagnostics."
-                ]
-            ]
-        , panel
-            [ sectionTitle "Language Syntax"
-            , bodyText "Belm reads top-to-bottom as a declarative app definition. Most apps are centered around entities, rules, authorization, optional auth configuration, and typed actions."
-            , bulletList
+            , bodyText "Belm is a declarative backend DSL inspired by Elm and PocketBase, implemented in Go with focus on readability, maintainability, and simple deployment."
+            , docSubsectionTitle "Language"
+            , bodyText "Belm reads top-to-bottom as a declarative app definition. A Belm app is centered around entities, rules, authorization, optional auth configuration, and typed actions."
+            , docSubsectionTitle "Quick Examples"
+            , codeFromString model "todo.belm" 450 todoExampleSource
+            , codeFromString model "action.belm" 575 actionExampleSource
+            , docSubsectionTitle "Syntax Model"
+            , docList
                 [ "Top-level statements: app, port, database, public, system, auth, entity, type alias, action."
                 , "Fields use the form fieldName: Type with optional modifiers such as primary, auto, and optional."
-                , "Belm currently supports a single .belm entry file per app, without multi-file projects or imports."
+                , "Comments use Elm-style line comments: -- this is a comment."
                 ]
+            , docSubsectionTitle "Authentication and Authorization"
+            , bodyText "Belm includes a built-in email-code login flow and per-operation authorization rules. The same auth model is also used by system-level tooling such as monitoring, logs, and backups."
+            , codeFromString model "auth.belm" 272 authConfigSource
+            , codeFromString model "authorize.belm" 300 authorizeExampleSource
+            , docList
+                [ "Authentication endpoints are always available."
+                , "When auth { ... } is defined, Belm uses your configured user entity and fields."
+                , "When auth { ... } is omitted, Belm still provides a built-in auth user store."
+                , "System features use the same session and require role == \"admin\"."
+                ]
+            , docSubsectionTitle "Rules and Typed Actions"
+            , bodyText "Rules are for validation close to the entity definition. Actions are for multi-step writes that must succeed or fail together."
+            , docList
+                [ "rule validates entity data and returns HTTP 422 with details when validation fails."
+                , "Actions run in a single atomic transaction."
+                , "Belm checks input types and assigned entity fields at compile time."
+                ]
+            , docSubsectionTitle "Current Limitations"
+            , bodyText "Belm currently supports a single .belm entry file per app, without multi-file projects or imports."
             ]
+        , advancedPager Nothing (Just AdvancedRuntime)
+        ]
+
+
+advancedRuntimePage : Model -> Element Msg
+advancedRuntimePage model =
+    column
+        [ width fill
+        , spacing 20
+        ]
+        [ advancedSubmenu model.route
         , panel
-            [ sectionTitle "System Configuration"
-            , bodyText "Use `system` when you need to tune runtime behavior. This is where request logging, body limits, auth rate limits, security headers, and SQLite pragmas are configured."
-            , codeFromString model 340 systemConfigSource
-            , bulletList
+            [ sectionTitle "Advanced Guide"
+            , docSubsectionTitle "Runtime"
+            , bodyText "The runtime generated by Belm is meant to be practical by default: HTTP endpoints, SQLite storage, authentication, admin tooling, and migrations come from the same source file."
+            , docSubsectionTitle "System Configuration"
+            , paragraphWithEmphasis
+                [ text "Use "
+                , emphasisText "system"
+                , text " when you need to tune runtime behavior. This is where request logging, body limits, auth rate limits, security headers, and SQLite pragmas are configured."
+                ]
+            , codeFromString model "system.belm" 0 systemConfigSource
+            , docList
                 [ "request_logs_buffer controls how many recent requests stay in memory for monitoring."
                 , "http_max_request_body_mb limits request body size and returns HTTP 413 when exceeded."
                 , "Auth rate limits control request-code and login attempts per minute."
                 , "Security settings apply response headers such as frame policy, referrer policy, and nosniff."
                 , "SQLite settings are performance-first by default and can be overridden per app."
                 ]
-            ]
-        , panel
-            [ sectionTitle "Public Static Frontend"
+            , docSubsectionTitle "Public Static Frontend"
             , bodyText "Belm can embed static frontend files into the final executable. This is useful when you want one deployable binary that serves both the backend and a compiled frontend."
-            , codeFromString model 220 publicConfigSource
-            , bulletList
-                [ "dir is required and is resolved relative to the .belm file."
-                , "mount defaults to /."
-                , "spa_fallback lets the executable serve a frontend entry file for route-style SPA paths."
-                , "Public files are embedded into the final executable."
-                ]
-            ]
-        , panel
-            [ sectionTitle "Authentication and Authorization"
-            , bodyText "Belm includes a built-in email-code login flow and per-operation authorization rules. The same auth model is also used by system-level tooling such as monitoring, logs, and backups."
-            , codeFromString model 300 authConfigSource
-            , codeFromString model 220 authorizeExampleSource
-            , bulletList
-                [ "Authentication endpoints are always available."
-                , "When auth { ... } is defined, Belm uses your configured user entity and fields."
-                , "When auth { ... } is omitted, Belm still provides a built-in auth user store."
-                , "System features use the same session and require role == \"admin\"."
-                ]
-            ]
-        , panel
-            [ sectionTitle "Rules and Typed Actions"
-            , bodyText "Rules are for validation close to the entity definition. Actions are for multi-step writes that must succeed or fail together."
-            , bulletList
-                [ "rule validates entity data and returns HTTP 422 with details when validation fails."
-                , "Actions run in a single atomic transaction."
-                , "Belm checks input types and assigned entity fields at compile time."
-                ]
-            ]
-        , panel
-            [ sectionTitle "Generated Endpoints"
+            , codeFromString model "public.belm" 260 publicConfigSource
+            , docSubsectionTitle "Generated Endpoints"
             , bodyText "Belm turns the declarative app definition into a concrete HTTP surface. CRUD, actions, auth, health, version, and admin-related endpoints are generated automatically from the source file."
-            , bulletList
+            , docList
                 [ "Each entity gets REST CRUD endpoints."
                 , "Typed actions are exposed as POST /actions/<name>."
                 , "System endpoints include /health, /_belm/admin, /_belm/schema, and /_belm/version."
                 , "Admin-only system endpoints include /_belm/version/admin, /_belm/perf, /_belm/request-logs, and /_belm/backups."
                 ]
-            ]
-        , panel
-            [ sectionTitle "Migrations"
+            , docSubsectionTitle "Migrations"
             , bodyText "Belm applies schema migration logic automatically on startup. Safe changes are handled for you, while unsafe changes are blocked instead of being applied silently."
-            , bulletList
+            , docList
                 [ "Migrations run automatically on startup."
                 , "Belm creates missing tables, adds new optional columns, and keeps auth/session storage ready."
                 , "Unsafe changes such as type changes, primary key changes, nullability changes, and new required fields are blocked."
                 , "When blocked, startup fails with a clear migration error."
                 ]
             ]
+        , advancedPager (Just AdvancedLanguage) (Just AdvancedTooling)
+        ]
+
+
+advancedToolingPage : Model -> Element Msg
+advancedToolingPage model =
+    column
+        [ width fill
+        , spacing 20
+        ]
+        [ advancedSubmenu model.route
         , panel
-            [ sectionTitle "Current Limitations"
-            , bulletList
-                [ "Belm currently supports a single .belm entry file per app, without multi-file projects or imports." ]
+            [ sectionTitle "Advanced Guide"
+            , docSubsectionTitle "Tooling"
+            , paragraphWithEmphasis
+                [ emphasisText "belm"
+                , text " hosts the day-to-day developer workflow, while the generated clients and editor support help keep frontend and backend aligned."
+                ]
+            , docSubsectionTitle "Compiler and Runtime Commands"
+            , paragraphWithEmphasis
+                [ text "The "
+                , emphasisText "belm"
+                , text " binary hosts the compiler, development workflow, formatter, and language server. Most day-to-day work starts with "
+                , emphasisText "dev"
+                , text ", and "
+                , emphasisText "compile"
+                , text " is what you use when you are ready to ship."
+                ]
+            , commandRow model "1" "Dev" "Runs the app in development mode with hot reload when the .belm file changes." "belm dev store.belm"
+            , commandRow model "2" "Compile" "Builds a .belm app into a self-contained executable and generates frontend clients." "belm compile store.belm"
+            , commandRow model "3" "Format" "Applies Belm's official formatting style to source files." "belm format store.belm"
+            , commandRow model "4" "LSP" "Starts the language server used by the VSCode extension for diagnostics, hovers, and navigation. Usually started by the editor plugin." "belm lsp"
+            , docSubsectionTitle "Generated Client Output"
+            , bodyText "When you compile an app, Belm also generates frontend clients for Elm and TypeScript. These clients wrap the generated HTTP API with named functions, so you do not need to hand-write fetch calls, URLs, or request payload shapes."
+            , docList
+                [ "Elm client: build/<name>/clients/<AppName>Client.elm"
+                , "TypeScript client: build/<name>/clients/<AppName>Client.ts"
+                , "Both include CRUD functions, action functions, auth endpoints, and backend version access."
+                , "They reduce duplicated frontend code and keep frontend calls aligned with the backend generated from your .belm file."
+                , "This makes refactors safer, because the client surface is regenerated from the same source as the server."
+                ]
+            , docSubsectionTitle "Admin UI and Editor Support"
+            , bodyText "Belm ships with an embedded Admin UI for operating the app you compiled. The editor tooling focuses on making the DSL easier to author and safer to change."
+            , docList
+                [ "The embedded Admin UI uses schema discovery from GET /_belm/schema."
+                , "It supports CRUD browsing, auth flows, monitoring, request logs, and database tooling."
+                , "The VSCode extension provides syntax highlighting, hover docs, go to definition, references, rename, formatting, and LSP diagnostics."
+                ]
             ]
+        , advancedPager (Just AdvancedRuntime) (Just AdvancedCompiler)
+        ]
+
+
+advancedCompilerPage : Element Msg
+advancedCompilerPage =
+    column
+        [ width fill
+        , spacing 20
+        ]
+        [ advancedSubmenu AdvancedCompiler
+        , panel
+            [ sectionTitle "Advanced Guide"
+            , docSubsectionTitle "Compiler"
+            , bodyText "The compiler parses a single .belm file into a typed app model, validates it, generates clients, embeds admin/static assets, and then builds a self-contained server executable."
+            , architectureDiagram
+            ]
+        , advancedPager (Just AdvancedTooling) Nothing
         ]
 
 
@@ -435,13 +524,13 @@ examplesPage model =
         [ width fill
         , spacing 20
         ]
-        [ exampleCard model "Todo API" "Minimal CRUD example" todoExampleSource
-        , exampleCard model "BookStore API" "Auth, roles, and transactional action" storeExampleSource
+        [ exampleCard model "Todo API" "Minimal CRUD example" "todo.belm" todoExampleSource
+        , exampleCard model "BookStore API" "Auth, roles, and transactional action" "store.belm" storeExampleSource
         ]
 
 
-exampleCard : Model -> String -> String -> String -> Element Msg
-exampleCard model name subtitle source =
+exampleCard : Model -> String -> String -> String -> String -> Element Msg
+exampleCard model name subtitle fileName source =
     panel
         [ row [ width fill, spacing 12 ]
             [ column [ width fill, spacing 4 ]
@@ -449,7 +538,7 @@ exampleCard model name subtitle source =
                 , paragraph [ Font.size 15, Font.color (rgb255 95 114 138) ] [ text subtitle ]
                 ]
             ]
-        , codeFromString model 360 source
+        , codeFromString model fileName 360 source
         ]
 
 
@@ -484,7 +573,7 @@ hero =
                 ]
             , row [ spacing 10, paddingEach { top = 6, right = 0, bottom = 0, left = 0 } ]
                 [ primaryButton "Get Started" (routeHref GettingStarted)
-                , secondaryButton "Advanced Guide" (routeHref Advanced)
+                , secondaryButton "Advanced Guide" (routeHref AdvancedGuide)
                 ]
             ]
         ]
@@ -536,9 +625,8 @@ quickStartCreateCard model number label fileName source =
         [ row [ width fill, spacing 10 ]
             [ stepBadge number
             , el [ Font.bold, Font.size 18, width (px 104), Font.color (rgb255 28 66 108) ] (text label)
-            , codeInline fileName
             ]
-        , codeFromString model 260 source
+        , codeFromString model fileName 320 source
         ]
 
 
@@ -766,6 +854,25 @@ bodyText value =
         [ text value ]
 
 
+paragraphWithEmphasis : List (Element Msg) -> Element Msg
+paragraphWithEmphasis children =
+    paragraph
+        [ Font.size 16
+        , Font.color (rgb255 72 95 123)
+        , width fill
+        ]
+        children
+
+
+emphasisText : String -> Element Msg
+emphasisText value =
+    el
+        [ Font.semiBold
+        , Font.color (rgb255 28 66 108)
+        ]
+        (text value)
+
+
 subsectionLabel : String -> Element Msg
 subsectionLabel label =
     el
@@ -781,52 +888,51 @@ subsectionLabel label =
         (text label)
 
 
-labelledCodeBlock : Model -> String -> Int -> String -> Element Msg
-labelledCodeBlock model label boxHeight source =
-    column
-        [ width fill
-        , spacing 6
+docSubsectionTitle : String -> Element Msg
+docSubsectionTitle label =
+    paragraph
+        [ Font.size 20
+        , Font.bold
+        , Font.color (rgb255 28 66 108)
+        , paddingEach { top = 6, right = 0, bottom = 0, left = 0 }
         ]
-        [ subsectionLabel label
-        , codeFromString model boxHeight source
-        ]
+        [ text label ]
 
 
 architectureDiagram : Element Msg
 architectureDiagram =
     column
-        [ width fill
-        , spacing 12
+        [ width (fill |> maximum 760)
+        , centerX
+        , spacing 10
         ]
-        [ wrappedRow
+        [ architectureNode "Source" ".belm file"
+        , architectureArrow
+        , architectureNode "Parser" "AST + expressions"
+        , architectureArrow
+        , architectureNode "Model" "typed app definition"
+        , architectureArrow
+        , architectureNode "Validation" "entities, auth, actions"
+        , architectureArrow
+        , row
             [ width fill
             , spacing 10
             ]
-            [ architectureNode "Source" ".belm file"
-            , architectureArrow
-            , architectureNode "Parser" "AST + expressions"
-            , architectureArrow
-            , architectureNode "Model" "typed app definition"
-            , architectureArrow
-            , architectureNode "Validation" "entities, auth, actions"
-            ]
-        , wrappedRow
-            [ width fill
-            , spacing 10
-            ]
-            [ architectureNode "Generators" "Elm client + TypeScript client"
-            , architectureArrow
+            [ architectureNode "Generated clients" "Elm + TypeScript client code"
             , architectureNode "Embedded assets" "Admin UI + public files"
-            , architectureArrow
-            , architectureNode "Go build" "self-contained executable"
             ]
+        , architectureArrow
+        , architectureNode "Go build" "self-contained executable"
+        , architectureArrow
+        , architectureNode "Executable" "API + auth + admin + runtime"
         ]
 
 
 architectureNode : String -> String -> Element Msg
 architectureNode title detail =
     column
-        [ width (fill |> minimum 180)
+        [ width (fill |> maximum 360)
+        , centerX
         , spacing 4
         , paddingEach { top = 12, right = 12, bottom = 12, left = 12 }
         , Background.color (rgb255 246 250 255)
@@ -842,12 +948,13 @@ architectureNode title detail =
 architectureArrow : Element Msg
 architectureArrow =
     el
-        [ Font.size 20
+        [ centerX
+        , Font.size 24
         , Font.bold
         , Font.color (rgb255 128 150 178)
         , paddingEach { top = 6, right = 2, bottom = 6, left = 2 }
         ]
-        (text "→")
+        (text "↓")
 
 
 whyRow : String -> String -> String -> Element Msg
@@ -925,6 +1032,7 @@ commandRow model number label description command =
             [ Font.size 14
             , Font.color (rgb255 83 105 132)
             , width fill
+            , paddingEach { top = 0, right = 0, bottom = 0, left = 149 }
             ]
             [ text description ]
         ]
@@ -947,6 +1055,101 @@ resourceCard label target =
         { url = target
         , label = text label
         }
+
+
+guideCard : String -> String -> Route -> Element Msg
+guideCard title summary target =
+    link
+        [ width (fill |> minimum 220)
+        , Background.color (rgb255 246 250 255)
+        , Border.width 1
+        , Border.color (rgb255 211 224 241)
+        , Border.rounded 10
+        , paddingEach { top = 14, right = 14, bottom = 14, left = 14 }
+        , htmlAttribute (HtmlAttr.style "cursor" "pointer")
+        ]
+        { url = routeHref target
+        , label =
+            column [ spacing 6, width fill ]
+                [ paragraph [ Font.size 18, Font.bold, Font.color (rgb255 28 66 108) ] [ text title ]
+                , paragraph [ Font.size 15, Font.color (rgb255 86 107 133), width fill ] [ text summary ]
+                ]
+        }
+
+
+advancedSubmenu : Route -> Element Msg
+advancedSubmenu current =
+    panel
+        [ row [ width fill, spacing 8 ]
+            [ sectionNavItem current AdvancedLanguage "Language"
+            , sectionNavItem current AdvancedRuntime "Runtime"
+            , sectionNavItem current AdvancedTooling "Tooling"
+            , sectionNavItem current AdvancedCompiler "Compiler"
+            ]
+        ]
+
+
+sectionNavItem : Route -> Route -> String -> Element Msg
+sectionNavItem current target label =
+    let
+        isCurrent =
+            case ( current, target ) of
+                ( AdvancedGuide, AdvancedLanguage ) ->
+                    True
+
+                _ ->
+                    current == target
+    in
+    navLink label (routeHref target) isCurrent
+
+
+advancedPager : Maybe Route -> Maybe Route -> Element Msg
+advancedPager previous next =
+    panel
+        [ row [ width fill, spacing 12 ]
+            [ case previous of
+                Just route ->
+                    secondaryButton ("Previous: " ++ routeLabel route) (routeHref route)
+
+                Nothing ->
+                    el [ width fill ] (text "")
+            , el [ width fill ] (text "")
+            , case next of
+                Just route ->
+                    primaryButton ("Next: " ++ routeLabel route) (routeHref route)
+
+                Nothing ->
+                    el [ width fill ] (text "")
+            ]
+        ]
+
+
+routeLabel : Route -> String
+routeLabel route =
+    case route of
+        AdvancedLanguage ->
+            "Language"
+
+        AdvancedRuntime ->
+            "Runtime"
+
+        AdvancedTooling ->
+            "Tooling"
+
+        AdvancedCompiler ->
+            "Compiler"
+
+        AdvancedGuide ->
+            "Advanced Guide"
+
+        GettingStarted ->
+            "Getting Started"
+
+        Examples ->
+            "Examples"
+
+        Home ->
+            "Home"
 
 
 primaryButton : String -> String -> Element Msg
@@ -1028,6 +1231,32 @@ bulletItem value =
     row [ spacing 8, width fill ]
         [ el [ Font.color (rgb255 93 107 126), Font.bold ] (text "•")
         , paragraph [ Font.size 16, Font.color (rgb255 72 95 123), width fill ] [ text value ]
+        ]
+
+
+docList : List String -> Element Msg
+docList items =
+    column
+        [ spacing 8
+        , width fill
+        , paddingEach { top = 0, right = 0, bottom = 0, left = 16 }
+        ]
+        (List.map docListItem items)
+
+
+docListItem : String -> Element Msg
+docListItem value =
+    row
+        [ spacing 8
+        , width fill
+        ]
+        [ el [ Font.color (rgb255 93 107 126), Font.bold ] (text "•")
+        , paragraph
+            [ Font.size 15
+            , Font.color (rgb255 72 95 123)
+            , width fill
+            ]
+            [ text value ]
         ]
 
 
@@ -1115,32 +1344,49 @@ copyLink model source =
         )
 
 
-codeFromString : Model -> Int -> String -> Element Msg
-codeFromString model boxHeight source =
+codeFromString : Model -> String -> Int -> String -> Element Msg
+codeFromString model fileName boxHeight source =
     let
         lines =
             source
                 |> String.split "\n"
                 |> trimTrailingEmptyLine
                 |> ensureAtLeastOneLine
+
+        autoHeight =
+            max boxHeight ((List.length lines * 22) + 30)
     in
     column
         [ width fill
-        , spacing 6
+        , spacing 0
         ]
-        [ row [ width fill ]
-            [ el [ width fill ] (text "")
+        [ row
+            [ width fill
+            , paddingEach { top = 0, right = 4, bottom = 0, left = 0 }
+            ]
+            [ el
+                [ Background.color (rgb255 24 47 73)
+                , Border.widthEach { top = 1, right = 1, bottom = 0, left = 1 }
+                , Border.color (rgb255 38 70 105)
+                , Border.roundEach { topLeft = 10, topRight = 10, bottomLeft = 0, bottomRight = 0 }
+                , paddingEach { top = 8, right = 12, bottom = 8, left = 12 }
+                , Font.family [ Font.typeface "IBM Plex Mono", Font.monospace ]
+                , Font.size 13
+                , Font.color (rgb255 176 199 225)
+                ]
+                (text fileName)
+            , el [ width fill ] (text "")
             , copyLink model source
             ]
         , el
             [ width fill
-            , height (px boxHeight)
+            , height (px autoHeight)
             , scrollbarX
             , scrollbarY
             , Background.color (rgb255 18 38 61)
-            , Border.width 1
+            , Border.widthEach { top = 1, right = 1, bottom = 1, left = 1 }
             , Border.color (rgb255 38 70 105)
-            , Border.rounded 10
+            , Border.roundEach { topLeft = 0, topRight = 0, bottomLeft = 10, bottomRight = 10 }
             , paddingEach { top = 12, right = 14, bottom = 12, left = 14 }
             ]
             (html
@@ -1479,7 +1725,7 @@ commentToken value =
 
 codeBlock : Model -> Element Msg
 codeBlock model =
-    codeFromString model 300 todoExampleSource
+    codeFromString model "todo.belm" 340 todoExampleSource
 
 
 codeSnippet : List (Html.Html msg)
@@ -1630,10 +1876,16 @@ codePunctuation value =
 
 todoExampleSource : String
 todoExampleSource =
-    """app TodoApi
+    """-- A minimal CRUD application.
+-- This example shows the basic Belm structure:
+-- app, port, database, entity, rule, and authorization.
+
+-- Application
+app TodoApi
 port 4100
 database \"todo.db\"
 
+-- Entity
 entity Todo {
   id: Int primary auto
   title: String
@@ -1648,11 +1900,17 @@ entity Todo {
 
 actionExampleSource : String
 actionExampleSource =
-    """type alias PlaceOrderInput =
+    """-- A transactional action example.
+-- This example shows how one action can write to
+-- multiple entities in a single atomic operation.
+
+-- Action input
+type alias PlaceOrderInput =
   { userId : Int
   , total : Float
   }
 
+-- Atomic action
 action placeOrder {
   input: PlaceOrderInput
 
@@ -1672,7 +1930,8 @@ action placeOrder {
 
 systemConfigSource : String
 systemConfigSource =
-    """system {
+    """-- Runtime configuration
+system {
   request_logs_buffer 500
   http_max_request_body_mb 1
   auth_request_code_rate_limit_per_minute 5
@@ -1694,7 +1953,13 @@ systemConfigSource =
 
 publicConfigSource : String
 publicConfigSource =
-    """public {
+    """-- Embedded frontend files
+-- dir is required and is resolved relative to the .belm file.
+-- mount defaults to /.
+-- spa_fallback serves the frontend entry file for SPA-style routes.
+-- Public files are embedded into the final executable.
+
+public {
   dir \"./frontend/dist\"
   mount \"/\"
   spa_fallback \"index.html\"
@@ -1704,7 +1969,8 @@ publicConfigSource =
 
 authConfigSource : String
 authConfigSource =
-    """auth {
+    """-- Email-code authentication
+auth {
   user_entity User
   email_field email
   role_field role
@@ -1719,11 +1985,18 @@ authConfigSource =
 
 authorizeExampleSource : String
 authorizeExampleSource =
-    """authorize list when isRole(\"admin\")
-authorize get when auth_authenticated and (id == auth_user_id or isRole(\"admin\"))
-authorize create when true
-authorize update when auth_authenticated and (id == auth_user_id or isRole(\"admin\"))
-authorize delete when isRole(\"admin\")
+    """-- Per-operation authorization inside an entity
+entity User {
+  id: Int primary auto
+  email: String
+  role: String
+
+  authorize list when isRole(\"admin\")
+  authorize get when auth_authenticated and (id == auth_user_id or isRole(\"admin\"))
+  authorize create when true
+  authorize update when auth_authenticated and (id == auth_user_id or isRole(\"admin\"))
+  authorize delete when isRole(\"admin\")
+}
 """
 
 

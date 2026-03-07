@@ -337,5 +337,5 @@ func collapseSpaces(value string) string {
 }
 
 func isCommentLine(trimmed string) bool {
-	return strings.HasPrefix(trimmed, "--") || strings.HasPrefix(trimmed, "#")
+	return strings.HasPrefix(trimmed, "--")
 }
