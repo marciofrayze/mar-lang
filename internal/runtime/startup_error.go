@@ -68,7 +68,7 @@ func PrintStartupError(err error, _ string) {
 	}
 	if info.Kind == blockedTypeChange {
 		fmt.Fprintf(os.Stderr, "  %s %s\n", colorize(useColor, cyan, "Database type:"), info.CurrentType)
-		fmt.Fprintf(os.Stderr, "  %s %s\n", colorize(useColor, cyan, "Belm type:"), info.ExpectedType)
+		fmt.Fprintf(os.Stderr, "  %s %s\n", colorize(useColor, cyan, "Mar type:"), info.ExpectedType)
 	}
 
 	fmt.Fprintln(os.Stderr)
@@ -76,7 +76,7 @@ func PrintStartupError(err error, _ string) {
 	if info.Kind == blockedUniqueIndex {
 		fmt.Fprintln(os.Stderr, "  Remove duplicate values for this field in the current database.")
 	} else {
-		fmt.Fprintln(os.Stderr, "  Run a manual SQL migration, or update your Belm schema to match the current database.")
+		fmt.Fprintln(os.Stderr, "  Run a manual SQL migration, or update your Mar schema to match the current database.")
 	}
 	fmt.Fprintln(os.Stderr)
 }

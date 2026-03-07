@@ -1,18 +1,18 @@
 # Advanced Guide
 
-This document is the full Belm reference.
+This document is the full Mar reference.
 
-If you are new to Belm, start with the [Quick Start Guide](./getting-started.md).
+If you are new to Mar, start with the [Quick Start Guide](./getting-started.md).
 
-Belm is a DSL for backend development inspired by [Elm](https://elm-lang.org) and [PocketBase](https://pocketbase.io), implemented in Go, with a strong focus on readability, simplicity and maintainability.
+Mar is a DSL for backend development inspired by [Elm](https://elm-lang.org) and [PocketBase](https://pocketbase.io), implemented in Go, with a strong focus on readability, simplicity and maintainability.
 
 ## Quick Examples
 
-Belm is designed to be read top-to-bottom as a declarative app definition.
+Mar is designed to be read top-to-bottom as a declarative app definition.
 
-Example (`.belm`):
+Example (`.mar`):
 
-```belm
+```mar
 app TodoApi
 port 4100
 database "todo.db"
@@ -30,7 +30,7 @@ entity Todo {
 
 Example with typed action:
 
-```belm
+```mar
 type alias PlaceOrderInput =
   { userId : Int
   , total : Float
@@ -73,20 +73,20 @@ Full examples:
 
 ## Architecture (Go)
 
-- [cmd/belm/main.go](/Users/marcio/dev/github/belm/cmd/belm/main.go): compiler/runtime CLI
-- [internal/parser/parser.go](/Users/marcio/dev/github/belm/internal/parser/parser.go): `.belm` language parser
-- [internal/expr/parser.go](/Users/marcio/dev/github/belm/internal/expr/parser.go): expression parser (`rule`/`authorize`)
-- [internal/runtime](/Users/marcio/dev/github/belm/internal/runtime): HTTP server, auth/authz, and migrations
-- [internal/sqlitecli/sqlitecli.go](/Users/marcio/dev/github/belm/internal/sqlitecli/sqlitecli.go): embedded SQLite access via Go driver (`modernc.org/sqlite`)
+- [cmd/mar/main.go](/Users/marcio/dev/github/mar/cmd/mar/main.go): compiler/runtime CLI
+- [internal/parser/parser.go](/Users/marcio/dev/github/mar/internal/parser/parser.go): `.mar` language parser
+- [internal/expr/parser.go](/Users/marcio/dev/github/mar/internal/expr/parser.go): expression parser (`rule`/`authorize`)
+- [internal/runtime](/Users/marcio/dev/github/mar/internal/runtime): HTTP server, auth/authz, and migrations
+- [internal/sqlitecli/sqlitecli.go](/Users/marcio/dev/github/mar/internal/sqlitecli/sqlitecli.go): embedded SQLite access via Go driver (`modernc.org/sqlite`)
 
 ## Compiler Architecture
 
-Belm has a single Go CLI binary (`belm`) that hosts multiple tools:
+Mar has a single Go CLI binary (`mar`) that hosts multiple tools:
 
-- compiler (`belm compile`)
-- dev server with hot reload (`belm dev`)
-- formatter (`belm format`)
-- language server (`belm lsp`)
+- compiler (`mar compile`)
+- dev server with hot reload (`mar dev`)
+- formatter (`mar format`)
+- language server (`mar lsp`)
 
 The compiler pipeline is centered on a shared typed AST/model (`model.App`), produced by the parser and reused by code generators and runtime embedding.
 
@@ -94,7 +94,7 @@ The compiler pipeline is centered on a shared typed AST/model (`model.App`), pro
 
 ```mermaid
 flowchart LR
-    A["cmd/belm/main.go"] --> B["internal/cli"]
+    A["cmd/mar/main.go"] --> B["internal/cli"]
     B --> C["internal/parser"]
     C --> D["internal/model (App)"]
     C --> E["internal/expr (rule/auth expression parsing)"]
@@ -106,15 +106,15 @@ flowchart LR
     B --> K["internal/lsp"]
 ```
 
-### `belm compile` Build Flow
+### `mar compile` Build Flow
 
 ```mermaid
 flowchart TD
-    S[".belm source"] --> P["parser.Parse(...)"]
+    S[".mar source"] --> P["parser.Parse(...)"]
     P --> M["model.App"]
     M --> V["Validation (entities, auth, actions, types)"]
     V --> MAN["manifest.json (serialized model.App)"]
-    MAN --> TMP["temporary build workspace (.belm-build-*)"]
+    MAN --> TMP["temporary build workspace (.mar-build-*)"]
     TMP --> ADM["copy/build admin assets (admin/index.html + admin/dist/app.js)"]
     M --> EC["Generate Elm client"]
     M --> TC["Generate TypeScript client"]
@@ -127,7 +127,7 @@ flowchart TD
 
 ### What Is Inside the Generated Executable
 
-At compile time, Belm embeds:
+At compile time, Mar embeds:
 
 - `manifest.json` (compiled app model)
 - `admin/index.html`
@@ -144,35 +144,35 @@ This means the final app binary is self-contained for server + admin UI.
 
 ## Compiler and Dev Commands
 
-Compile `.belm` into an executable:
+Compile `.mar` into an executable:
 
 ```bash
-./belm compile examples/store.belm
+./mar compile examples/store.mar
 ```
 
 Run development mode with hot reload:
 
 ```bash
-./belm dev examples/store.belm
+./mar dev examples/store.mar
 ```
 
 Dev mode behavior:
 
-- watches the input `.belm` file for changes
+- watches the input `.mar` file for changes
 - on save, recompiles and restarts the generated executable automatically
 - opens the embedded admin UI on the first successful run
 - keeps generated files in `build/<name>/`
 - stop with `Ctrl+C`
 
-Show Belm CLI version and build metadata:
+Show Mar CLI version and build metadata:
 
 ```bash
-./belm version
+./mar version
 ```
 
 Default output location is `build/<name>/<name>` where `<name>` comes from input filename:
 
-- `examples/store.belm` -> `build/store/store`
+- `examples/store.mar` -> `build/store/store`
 
 Run the compiled executable:
 
@@ -184,14 +184,14 @@ Run the compiled executable:
 Optional output name:
 
 ```bash
-./belm compile examples/store.belm bookstore
+./mar compile examples/store.mar bookstore
 # output (binary): build/bookstore/bookstore
 ```
 
 Dev mode also supports custom output name:
 
 ```bash
-./belm dev examples/store.belm bookstore
+./mar dev examples/store.mar bookstore
 ```
 
 Run API + embedded admin UI (from the compiled executable):
@@ -202,29 +202,29 @@ Run API + embedded admin UI (from the compiled executable):
 
 ## Code Formatting
 
-Belm provides a canonical formatter (single official formatting style).
+Mar provides a canonical formatter (single official formatting style).
 
 Format files in place:
 
 ```bash
-./belm format examples/store.belm examples/todo.belm
+./mar format examples/store.mar examples/todo.mar
 ```
 
 Check formatting in CI (no writes):
 
 ```bash
-./belm format --check examples/store.belm
+./mar format --check examples/store.mar
 ```
 
 Format from stdin:
 
 ```bash
-cat examples/store.belm | ./belm format --stdin
+cat examples/store.mar | ./mar format --stdin
 ```
 
 ## Auto-generated Clients
 
-Belm generates client files under `clients/` inside the app build folder:
+Mar generates client files under `clients/` inside the app build folder:
 
 - Elm: `build/<name>/clients/<AppName>Client.elm`
 - TypeScript: `build/<name>/clients/<AppName>Client.ts`
@@ -246,7 +246,7 @@ Both clients include:
 - `logout`
 - `me`
 - public backend version endpoint:
-- `getVersion` (calls `GET /_belm/version`)
+- `getVersion` (calls `GET /_mar/version`)
 
 Elm client also exposes:
 
@@ -299,7 +299,7 @@ await runPlaceBookOrder(config, {
 
 ## Admin UI
 
-Belm includes an embedded admin UI at `/_belm/admin`.
+Mar includes an embedded admin UI at `/_mar/admin`.
 
 For admin users, the System area includes:
 
@@ -310,9 +310,9 @@ For admin users, the System area includes:
 
 ## VS Code Extension (Syntax + LSP + Format)
 
-A VS Code language extension for `.belm` files is available in:
+A VS Code language extension for `.mar` files is available in:
 
-- [vscode-belm](../vscode-belm)
+- [vscode-mar](../vscode-mar)
 
 It provides:
 
@@ -332,7 +332,7 @@ It provides:
 
 Minimal example:
 
-```belm
+```mar
 app TodoApi
 port 4100
 database "todo.db"
@@ -365,7 +365,7 @@ Relative `database` paths are resolved from the process working directory (where
 
 Use `system` for runtime-level controls.
 
-```belm
+```mar
 system {
   request_logs_buffer 500
   http_max_request_body_mb 1
@@ -385,7 +385,7 @@ system {
 }
 ```
 
-`request_logs_buffer` controls how many recent requests stay in memory for the admin monitoring dashboard and `GET /_belm/request-logs`.
+`request_logs_buffer` controls how many recent requests stay in memory for the admin monitoring dashboard and `GET /_mar/request-logs`.
 
 - default: `200`
 - minimum: `10`
@@ -427,7 +427,7 @@ SQLite settings are performance-first by default and can be overridden per app i
 
 If you need a safer write profile, override only what you want, for example:
 
-```belm
+```mar
 system {
   sqlite_synchronous full
 }
@@ -435,9 +435,9 @@ system {
 
 ### Public Static Frontend
 
-Belm can embed frontend static files into the compiled executable.
+Mar can embed frontend static files into the compiled executable.
 
-```belm
+```mar
 public {
   dir "./frontend/dist"
   mount "/"
@@ -453,14 +453,14 @@ Fields:
 
 Notes:
 
-- `dir` is resolved relative to the `.belm` file location (or can be absolute).
+- `dir` is resolved relative to the `.mar` file location (or can be absolute).
 - Public files are embedded into the compiled executable for simpler deployment.
 
 Routing behavior:
 
 1. API routes are resolved first.
-2. If no API route matches, Belm tries static files from `public`.
-3. If no static file matches and `spa_fallback` is configured, Belm serves the fallback for route-like paths (no file extension).
+2. If no API route matches, Mar tries static files from `public`.
+3. If no static file matches and `spa_fallback` is configured, Mar serves the fallback for route-like paths (no file extension).
 4. Otherwise, it returns `404`.
 
 ### Fields
@@ -480,15 +480,15 @@ Attributes:
 - `auto`: auto-increment (usually with `Int primary`)
 - `optional`: nullable field
 
-If no primary key is provided, Belm automatically adds:
+If no primary key is provided, Mar automatically adds:
 
 `id: Int primary auto`
 
 ## Typed Actions
 
-Belm supports transactional actions for multi-entity writes in a **single atomic transaction**.
+Mar supports transactional actions for multi-entity writes in a **single atomic transaction**.
 
-```belm
+```mar
 type alias PlaceOrderInput =
   { userId : Int
   , total : Float
@@ -522,7 +522,7 @@ Behavior:
 
 Inside `entity`:
 
-```belm
+```mar
 rule "User must be 18 or older" when age >= 18
 ```
 
@@ -556,8 +556,8 @@ Built-in email code login flow:
 4. `POST /auth/logout` revokes the session
 
 Authentication endpoints are always available, even when `auth { ... }` is not defined.
-When `auth { ... }` is defined, Belm uses your configured user entity (`user_entity`, `email_field`, `role_field`).
-When `auth { ... }` is not defined, Belm still provides a built-in auth user store automatically.
+When `auth { ... }` is defined, Mar uses your configured user entity (`user_entity`, `email_field`, `role_field`).
+When `auth { ... }` is not defined, Mar still provides a built-in auth user store automatically.
 Auth endpoints are rate-limited by default (`request-code`: `5/min`, `login`: `10/min`) and can be tuned in `system`.
 
 For first-login flows, `request-code` can auto-create the auth user when the selected `user_entity`
@@ -565,7 +565,7 @@ only requires inferable fields (for example `email` and `role`).
 
 Configuration:
 
-```belm
+```mar
 auth {
   user_entity User
   email_field email
@@ -601,18 +601,18 @@ System features use the same app authentication session (`/auth/*`) and check `r
 
 System endpoints:
 
-- `GET /_belm/version`
-- `GET /_belm/version/admin` (role admin)
-- `GET /_belm/perf`
-- `GET /_belm/request-logs`
-- `POST /_belm/backups`
-- `GET /_belm/backups`
+- `GET /_mar/version`
+- `GET /_mar/version/admin` (role admin)
+- `GET /_mar/perf`
+- `GET /_mar/request-logs`
+- `POST /_mar/backups`
+- `GET /_mar/backups`
 
 ## Authorization (`authorize`)
 
 Per CRUD operation:
 
-```belm
+```mar
 authorize list when isRole("admin")
 authorize get when auth_authenticated and (id == auth_user_id or isRole("admin"))
 authorize create when true
@@ -646,9 +646,9 @@ For each entity `X`:
 Always:
 
 - `GET /health`
-- `GET /_belm/admin`
-- `GET /_belm/schema`
-- `GET /_belm/version`
+- `GET /_mar/admin`
+- `GET /_mar/schema`
+- `GET /_mar/version`
 
 Auth endpoints:
 
@@ -656,14 +656,14 @@ Auth endpoints:
 - `POST /auth/login`
 - `POST /auth/logout`
 - `GET /auth/me`
-- `POST /_belm/bootstrap-admin` (first admin setup)
-- `GET /_belm/version/admin` (role admin)
-- `GET /_belm/perf` (role admin)
-- `GET /_belm/request-logs` (role admin)
-- `POST /_belm/backups` (role admin)
-- `GET /_belm/backups` (role admin)
+- `POST /_mar/bootstrap-admin` (first admin setup)
+- `GET /_mar/version/admin` (role admin)
+- `GET /_mar/perf` (role admin)
+- `GET /_mar/request-logs` (role admin)
+- `POST /_mar/backups` (role admin)
+- `GET /_mar/backups` (role admin)
 
-`POST /_belm/bootstrap-admin` sends a verification code for the first user setup.
+`POST /_mar/bootstrap-admin` sends a verification code for the first user setup.
 The user gets admin role only after a successful `POST /auth/login` with that code.
 
 For each typed action `myAction`:
@@ -693,7 +693,7 @@ When blocked, the server fails at startup with a clear error message.
 
 ## Full Example
 
-See [examples/store.belm](/Users/marcio/dev/github/belm/examples/store.belm), which already includes:
+See [examples/store.mar](/Users/marcio/dev/github/mar/examples/store.mar), which already includes:
 
 - business rules (email validation, role checks, stock/order constraints, etc.)
 - email code auth

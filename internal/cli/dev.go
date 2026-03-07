@@ -25,7 +25,7 @@ type devProcess struct {
 
 func runDev(binaryName, inputPath, outputPath string) error {
 	if _, err := os.Stat("go.mod"); err != nil {
-		return fmt.Errorf("dev command must run from the belm module root (go.mod not found)")
+		return fmt.Errorf("dev command must run from the mar module root (go.mod not found)")
 	}
 
 	absInput, err := filepath.Abs(inputPath)
@@ -61,7 +61,7 @@ func runDev(binaryName, inputPath, outputPath string) error {
 		started := time.Now()
 		fmt.Printf("%s %s\n", colorizeCLI(useColor, "\033[1;36m", "Compiling"), displayInput)
 
-		app, parseErr := parseBelmFile(absInput)
+		app, parseErr := parseMarFile(absInput)
 		if parseErr != nil {
 			fmt.Printf("%s %s\n", colorizeCLI(useColor, "\033[1;31m", "Build failed:"), parseErr)
 			return

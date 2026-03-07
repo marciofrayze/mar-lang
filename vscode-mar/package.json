@@ -1,0 +1,64 @@
+{
+  "name": "mar-language-support",
+  "displayName": "Mar Language Support",
+  "description": "Syntax highlighting, snippets, and LSP support for modern Mar (.mar) files.",
+  "version": "0.1.1",
+  "publisher": "mar-dev",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/marcio/mar.git"
+  },
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "main": "./extension.js",
+  "activationEvents": [
+    "onLanguage:mar"
+  ],
+  "categories": [
+    "Programming Languages",
+    "Formatters"
+  ],
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "contributes": {
+    "languages": [
+      {
+        "id": "mar",
+        "aliases": [
+          "Mar",
+          "mar"
+        ],
+        "extensions": [
+          ".mar"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "mar",
+        "scopeName": "source.mar",
+        "path": "./syntaxes/mar.tmLanguage.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "mar",
+        "path": "./snippets/mar.json"
+      }
+    ],
+    "configuration": {
+      "title": "Mar",
+      "properties": {
+        "mar.languageServer.path": {
+          "type": "string",
+          "default": "mar",
+          "description": "Path or command used to start the Mar Language Server via `<command> lsp`."
+        }
+      }
+    }
+  }
+}

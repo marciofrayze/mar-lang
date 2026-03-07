@@ -14,12 +14,12 @@ import (
 	"syscall"
 	"time"
 
-	"belm/internal/expr"
-	"belm/internal/model"
-	"belm/internal/sqlitecli"
+	"mar/internal/expr"
+	"mar/internal/model"
+	"mar/internal/sqlitecli"
 )
 
-// Runtime hosts the compiled Belm app state and serves its HTTP API on top of SQLite.
+// Runtime hosts the compiled Mar app state and serves its HTTP API on top of SQLite.
 type Runtime struct {
 	App            *model.App
 	DB             *sqlitecli.DB
@@ -252,7 +252,7 @@ func httpMaxRequestBodyBytes(app *model.App) int64 {
 	return int64(mb) * 1024 * 1024
 }
 
-// route resolves Belm endpoints for health, schema, auth, and entity CRUD operations.
+// route resolves Mar endpoints for health, schema, auth, and entity CRUD operations.
 func (r *Runtime) route(w http.ResponseWriter, req *http.Request) error {
 	path := strings.TrimSuffix(req.URL.Path, "/")
 	if path == "" {
@@ -267,15 +267,15 @@ func (r *Runtime) route(w http.ResponseWriter, req *http.Request) error {
 	if served, err := r.serveAdminAsset(w, req, path); served {
 		return err
 	}
-	if method == http.MethodGet && path == "/_belm/schema" {
+	if method == http.MethodGet && path == "/_mar/schema" {
 		r.writeJSON(w, http.StatusOK, r.schemaPayload())
 		return nil
 	}
-	if method == http.MethodGet && path == "/_belm/version" {
+	if method == http.MethodGet && path == "/_mar/version" {
 		r.writeJSON(w, http.StatusOK, r.publicVersionPayload())
 		return nil
 	}
-	if method == http.MethodPost && path == "/_belm/bootstrap-admin" {
+	if method == http.MethodPost && path == "/_mar/bootstrap-admin" {
 		payload, err := readJSONBody(req)
 		if err != nil {
 			return err
@@ -288,7 +288,7 @@ func (r *Runtime) route(w http.ResponseWriter, req *http.Request) error {
 		return err
 	}
 
-	if method == http.MethodGet && path == "/_belm/perf" {
+	if method == http.MethodGet && path == "/_mar/perf" {
 		if !r.authEnabled() {
 			return &apiError{Status: http.StatusNotFound, Message: "Authentication is not enabled"}
 		}
@@ -301,7 +301,7 @@ func (r *Runtime) route(w http.ResponseWriter, req *http.Request) error {
 		r.writeJSON(w, http.StatusOK, r.perfPayload())
 		return nil
 	}
-	if method == http.MethodGet && path == "/_belm/version/admin" {
+	if method == http.MethodGet && path == "/_mar/version/admin" {
 		if !r.authEnabled() {
 			return &apiError{Status: http.StatusNotFound, Message: "Authentication is not enabled"}
 		}
@@ -315,7 +315,7 @@ func (r *Runtime) route(w http.ResponseWriter, req *http.Request) error {
 		return nil
 	}
 
-	if method == http.MethodGet && path == "/_belm/request-logs" {
+	if method == http.MethodGet && path == "/_mar/request-logs" {
 		if !r.authEnabled() {
 			return &apiError{Status: http.StatusNotFound, Message: "Authentication is not enabled"}
 		}
@@ -340,7 +340,7 @@ func (r *Runtime) route(w http.ResponseWriter, req *http.Request) error {
 		return nil
 	}
 
-	if method == http.MethodPost && (path == "/_belm/backups" || path == "/_belm/backup") {
+	if method == http.MethodPost && (path == "/_mar/backups" || path == "/_mar/backup") {
 		if !r.authEnabled() {
 			return &apiError{Status: http.StatusNotFound, Message: "Authentication is not enabled"}
 		}
@@ -363,7 +363,7 @@ func (r *Runtime) route(w http.ResponseWriter, req *http.Request) error {
 		})
 		return nil
 	}
-	if method == http.MethodGet && path == "/_belm/backups" {
+	if method == http.MethodGet && path == "/_mar/backups" {
 		if !r.authEnabled() {
 			return &apiError{Status: http.StatusNotFound, Message: "Authentication is not enabled"}
 		}
@@ -620,16 +620,16 @@ func (r *Runtime) metricsRouteLabel(req *http.Request) string {
 	}
 
 	switch path {
-	case "/health", "/_belm/schema", "/_belm/version", "/_belm/version/admin", "/_belm/perf", "/_belm/backups", "/_belm/bootstrap-admin":
+	case "/health", "/_mar/schema", "/_mar/version", "/_mar/version/admin", "/_mar/perf", "/_mar/backups", "/_mar/bootstrap-admin":
 		return path
-	case "/_belm/request-logs":
+	case "/_mar/request-logs":
 		return path
-	case "/_belm/backup":
+	case "/_mar/backup":
 		// Backward compatibility alias kept for one version.
-		return "/_belm/backups"
+		return "/_mar/backups"
 	}
-	if path == "/_belm/admin" || strings.HasPrefix(path, "/_belm/admin/") {
-		return "/_belm/admin"
+	if path == "/_mar/admin" || strings.HasPrefix(path, "/_mar/admin/") {
+		return "/_mar/admin"
 	}
 
 	if strings.HasPrefix(path, "/auth/") {

@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"belm/internal/model"
+	"mar/internal/model"
 )
 
 const (

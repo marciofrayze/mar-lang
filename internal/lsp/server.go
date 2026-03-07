@@ -12,8 +12,8 @@ import (
 	"strconv"
 	"strings"
 
-	"belm/internal/formatter"
-	"belm/internal/parser"
+	"mar/internal/formatter"
+	"mar/internal/parser"
 )
 
 type lspRequest struct {
@@ -156,7 +156,7 @@ type codeActionParams struct {
 
 var lineErrRe = regexp.MustCompile(`(?i)^line\s+([0-9]+):\s*(.*)$`)
 
-// RunStdio starts Belm Language Server over stdio using JSON-RPC/LSP framing.
+// RunStdio starts Mar Language Server over stdio using JSON-RPC/LSP framing.
 func RunStdio() error {
 	srv := &server{
 		in:        bufio.NewReader(os.Stdin),
@@ -221,7 +221,7 @@ func (s *server) loop() error {
 					},
 				},
 				"serverInfo": map[string]any{
-					"name":    "belm",
+					"name":    "mar",
 					"version": "0.1.0",
 				},
 			}
@@ -461,7 +461,7 @@ func keywordCompletionItems() []map[string]any {
 		out = append(out, map[string]any{
 			"label":  kw,
 			"kind":   14, // CompletionItemKind.Keyword
-			"detail": "Belm keyword",
+			"detail": "Mar keyword",
 		})
 	}
 	return out
@@ -506,7 +506,7 @@ func parseErrorToDiagnostic(err error, text string) lspDiag {
 			End:   lspPosition{Line: lineIdx, Character: charEnd},
 		},
 		Severity: 1, // Error
-		Source:   "belm-lsp",
+		Source:   "mar-lsp",
 		Message:  message,
 	}
 }

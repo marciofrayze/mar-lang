@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"strings"
 
-	"belm/internal/model"
+	"mar/internal/model"
 )
 
 // ElmClientOutput defines where the generated Elm client should be written.
@@ -17,14 +17,14 @@ type ElmClientOutput struct {
 	Source     []byte
 }
 
-// GenerateElmClient builds an Elm module with helper functions for calling Belm APIs.
+// GenerateElmClient builds an Elm module with helper functions for calling Mar APIs.
 func GenerateElmClient(app *model.App) (*ElmClientOutput, error) {
 	if app == nil {
 		return nil, fmt.Errorf("nil app")
 	}
 	baseModule := sanitizeModuleName(app.AppName)
 	if baseModule == "" {
-		baseModule = "Belm"
+		baseModule = "Mar"
 	}
 	moduleName := baseModule + "Client"
 
@@ -247,7 +247,7 @@ func GenerateElmClient(app *model.App) (*ElmClientOutput, error) {
 	writeLine(buf, "    Http.request")
 	writeLine(buf, "        { method = \"GET\"")
 	writeLine(buf, "        , headers = headers config")
-	writeLine(buf, "        , url = buildUrl config \"/_belm/version\"")
+	writeLine(buf, "        , url = buildUrl config \"/_mar/version\"")
 	writeLine(buf, "        , body = Http.emptyBody")
 	writeLine(buf, "        , expect = Http.expectJson toMsg publicVersionDecoder")
 	writeLine(buf, "        , timeout = Nothing")

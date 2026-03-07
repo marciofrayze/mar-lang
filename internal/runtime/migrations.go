@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"belm/internal/model"
+	"mar/internal/model"
 )
 
 type tableInfoRow struct {
@@ -24,7 +24,7 @@ func (r *Runtime) runMigrations() error {
 			return err
 		}
 	}
-	if err := r.migrateStaticTable("belm_auth_codes", []staticColumn{
+	if err := r.migrateStaticTable("mar_auth_codes", []staticColumn{
 		{Name: "id", Type: "INTEGER", Primary: true, Auto: true},
 		{Name: "email", Type: "TEXT", NotNull: true},
 		{Name: "user_id", Type: "INTEGER", NotNull: true},
@@ -36,7 +36,7 @@ func (r *Runtime) runMigrations() error {
 	}); err != nil {
 		return err
 	}
-	if err := r.migrateStaticTable("belm_sessions", []staticColumn{
+	if err := r.migrateStaticTable("mar_sessions", []staticColumn{
 		{Name: "token", Type: "TEXT", Primary: true},
 		{Name: "user_id", Type: "INTEGER", NotNull: true},
 		{Name: "email", Type: "TEXT", NotNull: true},
@@ -79,7 +79,7 @@ func (r *Runtime) runMigrations() error {
 // ensureMigrationMetaTable creates the migration history table when missing.
 func (r *Runtime) ensureMigrationMetaTable() error {
 	_, err := r.DB.Exec(`
-		CREATE TABLE IF NOT EXISTS belm_schema_migrations (
+		CREATE TABLE IF NOT EXISTS mar_schema_migrations (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			table_name TEXT NOT NULL,
 			migration_kind TEXT NOT NULL,
@@ -93,7 +93,7 @@ func (r *Runtime) ensureMigrationMetaTable() error {
 // recordMigration appends an applied migration statement to history.
 func (r *Runtime) recordMigration(tableName, kind, sqlText string) error {
 	_, err := r.DB.Exec(
-		`INSERT INTO belm_schema_migrations (table_name, migration_kind, sql_text, applied_at) VALUES (?, ?, ?, CAST((julianday('now') - 2440587.5)*86400000 AS INTEGER))`,
+		`INSERT INTO mar_schema_migrations (table_name, migration_kind, sql_text, applied_at) VALUES (?, ?, ?, CAST((julianday('now') - 2440587.5)*86400000 AS INTEGER))`,
 		tableName,
 		kind,
 		sqlText,
@@ -196,7 +196,7 @@ func (r *Runtime) migrateEntityTable(entity *model.Entity) error {
 
 	for _, row := range existing {
 		if !expected[row.Name] {
-			fmt.Printf("[BelmMigrate] Table %s has extra column %q not present in entity %s; keeping unchanged.\n", entity.Table, row.Name, entity.Name)
+			fmt.Printf("[MarMigrate] Table %s has extra column %q not present in entity %s; keeping unchanged.\n", entity.Table, row.Name, entity.Name)
 		}
 	}
 	return nil
@@ -216,7 +216,7 @@ type staticColumn struct {
 	DefaultSQL string
 }
 
-// migrateStaticTable applies safe migrations for Belm internal auth tables.
+// migrateStaticTable applies safe migrations for Mar internal auth tables.
 func (r *Runtime) migrateStaticTable(tableName string, columns []staticColumn) error {
 	exists, err := r.tableExists(tableName)
 	if err != nil {
@@ -259,7 +259,7 @@ func (r *Runtime) migrateStaticTable(tableName string, columns []staticColumn) e
 			}
 			continue
 		}
-		expectedField := model.Field{Name: col.Name, Type: staticTypeToBelm(col.Type), Primary: col.Primary, Optional: !col.NotNull}
+		expectedField := model.Field{Name: col.Name, Type: staticTypeToMar(col.Type), Primary: col.Primary, Optional: !col.NotNull}
 		if err := assertCompatibleColumn(tableName, tableName, &expectedField, row); err != nil {
 			return err
 		}
@@ -313,7 +313,7 @@ func authEmailUniqueIndexName(tableName, emailField string) string {
 	return fmt.Sprintf("idx_%s_%s_unique", sanitize(tableName), sanitize(emailField))
 }
 
-func staticTypeToBelm(sqlType string) string {
+func staticTypeToMar(sqlType string) string {
 	switch strings.ToUpper(strings.TrimSpace(sqlType)) {
 	case "INTEGER":
 		return "Int"

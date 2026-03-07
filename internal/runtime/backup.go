@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"belm/internal/sqlitecli"
+	"mar/internal/sqlitecli"
 )
 
 // BackupResult describes the generated backup file and rotated files.

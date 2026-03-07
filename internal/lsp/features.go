@@ -52,7 +52,7 @@ var (
 		"dir":                                     "Sets the source directory for embedded static files. Example: `dir \"./frontend/dist\"`.",
 		"mount":                                   "Sets where static files are served. Example: `mount \"/\"` or `mount \"/app\"`.",
 		"spa_fallback":                            "Sets a fallback file for SPA routes when no static file matches.",
-		"entity":                                  "Declares an entity. Belm generates CRUD endpoints for it.",
+		"entity":                                  "Declares an entity. Mar generates CRUD endpoints for it.",
 		"auth":                                    "Configures email-code authentication for the app.",
 		"user_entity":                             "Sets which entity stores app auth users. Example: `user_entity User`.",
 		"email_field":                             "Sets the user entity field used as login email. Example: `email_field email`.",
@@ -80,10 +80,10 @@ var (
 		"startsWith":                              "Returns true when text starts with a prefix.",
 		"endsWith":                                "Returns true when text ends with a suffix.",
 		"matches":                                 "Returns true when text matches a regex pattern.",
-		"Int":                                     "Belm primitive type for whole numbers.",
-		"String":                                  "Belm primitive type for text values.",
-		"Bool":                                    "Belm primitive type for booleans (`true`/`false`).",
-		"Float":                                   "Belm primitive type for decimal numbers.",
+		"Int":                                     "Mar primitive type for whole numbers.",
+		"String":                                  "Mar primitive type for text values.",
+		"Bool":                                    "Mar primitive type for booleans (`true`/`false`).",
+		"Float":                                   "Mar primitive type for decimal numbers.",
 	}
 )
 

@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"belm/internal/model"
-	"belm/internal/sqlitecli"
+	"mar/internal/model"
+	"mar/internal/sqlitecli"
 )
 
 const (

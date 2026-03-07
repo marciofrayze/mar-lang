@@ -205,7 +205,7 @@ func (s *server) collectWorkspaceDocuments() map[string]string {
 				}
 				return nil
 			}
-			if strings.ToLower(filepath.Ext(d.Name())) != ".belm" {
+			if strings.ToLower(filepath.Ext(d.Name())) != ".mar" {
 				return nil
 			}
 

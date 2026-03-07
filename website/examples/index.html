@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Belm Examples</title>
+    <title>Mar Examples</title>
     <style>
       @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
 
@@ -208,19 +208,19 @@
         white-space: pre;
       }
 
-      pre code.lang-belm .tok-keyword { color: #7ab8ff; }
-      pre code.lang-belm .tok-type { color: #4fd1c5; }
-      pre code.lang-belm .tok-modifier { color: #b7c5d9; }
-      pre code.lang-belm .tok-field { color: #dce8f8; }
-      pre code.lang-belm .tok-entity { color: #92c4ff; }
-      pre code.lang-belm .tok-crud { color: #93d7ff; }
-      pre code.lang-belm .tok-string { color: #f7c97f; }
-      pre code.lang-belm .tok-number { color: #f5a97f; }
-      pre code.lang-belm .tok-function { color: #82e0aa; }
-      pre code.lang-belm .tok-context { color: #c3d7ff; }
-      pre code.lang-belm .tok-operator { color: #d8e9ff; }
-      pre code.lang-belm .tok-punctuation { color: #afc7e6; }
-      pre code.lang-belm .tok-comment { color: #7f96b3; font-style: italic; }
+      pre code.lang-mar .tok-keyword { color: #7ab8ff; }
+      pre code.lang-mar .tok-type { color: #4fd1c5; }
+      pre code.lang-mar .tok-modifier { color: #b7c5d9; }
+      pre code.lang-mar .tok-field { color: #dce8f8; }
+      pre code.lang-mar .tok-entity { color: #92c4ff; }
+      pre code.lang-mar .tok-crud { color: #93d7ff; }
+      pre code.lang-mar .tok-string { color: #f7c97f; }
+      pre code.lang-mar .tok-number { color: #f5a97f; }
+      pre code.lang-mar .tok-function { color: #82e0aa; }
+      pre code.lang-mar .tok-context { color: #c3d7ff; }
+      pre code.lang-mar .tok-operator { color: #d8e9ff; }
+      pre code.lang-mar .tok-punctuation { color: #afc7e6; }
+      pre code.lang-mar .tok-comment { color: #7f96b3; font-style: italic; }
 
       .error {
         color: #b03737;
@@ -234,7 +234,7 @@
   <body>
     <div class="shell">
       <div class="top">
-        <div class="brand">Belm</div>
+        <div class="brand">Mar</div>
         <div class="nav">
           <a href="../index.html">Home</a>
           <a href="../docs/viewer.html?doc=getting-started">Getting Started</a>
@@ -245,7 +245,7 @@
 
       <div class="warning">
         <p class="warning-title">Warning</p>
-        <p class="warning-text">Belm is still at a very early stage and is <strong>not recommended for production use yet</strong>.</p>
+        <p class="warning-text">Mar is still at a very early stage and is <strong>not recommended for production use yet</strong>.</p>
         <p class="warning-text">There are no guarantees that language syntax or database schema will remain backward compatible in future versions.</p>
       </div>
 
@@ -262,13 +262,13 @@
           id: 'todo-api',
           title: 'Todo API',
           meta: 'Minimal CRUD example',
-          file: 'todo.belm'
+          file: 'todo.mar'
         },
         {
           id: 'bookstore-api',
           title: 'BookStore API',
           meta: 'Auth, roles, and transactional action',
-          file: 'store.belm'
+          file: 'store.mar'
         }
       ];
 
@@ -281,34 +281,34 @@
           .replaceAll("'", '&#39;');
       }
 
-      const belmKeywords = new Set([
+      const marKeywords = new Set([
         'app', 'port', 'database', 'entity', 'rule', 'when', 'authorize', 'auth',
         'type', 'alias', 'action', 'input', 'public', 'system', 'dir', 'mount',
         'spa_fallback', 'transaction', 'create', 'update', 'delete', 'list', 'get'
       ]);
-      const belmTypes = new Set(['Int', 'String', 'Bool', 'Float']);
-      const belmModifiers = new Set(['primary', 'auto', 'optional']);
-      const belmFunctions = new Set(['len', 'contains', 'startsWith', 'endsWith', 'matches', 'isRole']);
-      const belmContext = new Set(['input', 'auth_authenticated', 'auth_email', 'auth_user_id', 'auth_role', 'true', 'false', 'null']);
-      const belmTwoCharOps = new Set(['>=', '<=', '==', '!=', '&&', '||', '->']);
-      const belmOpChars = new Set(['=', '+', '-', '*', '/', '%', '!', '<', '>', '&', '|']);
-      const belmPunctuation = new Set(['{', '}', '(', ')', '[', ']', ':', ',', '.']);
+      const marTypes = new Set(['Int', 'String', 'Bool', 'Float']);
+      const marModifiers = new Set(['primary', 'auto', 'optional']);
+      const marFunctions = new Set(['len', 'contains', 'startsWith', 'endsWith', 'matches', 'isRole']);
+      const marContext = new Set(['input', 'auth_authenticated', 'auth_email', 'auth_user_id', 'auth_role', 'true', 'false', 'null']);
+      const marTwoCharOps = new Set(['>=', '<=', '==', '!=', '&&', '||', '->']);
+      const marOpChars = new Set(['=', '+', '-', '*', '/', '%', '!', '<', '>', '&', '|']);
+      const marPunctuation = new Set(['{', '}', '(', ')', '[', ']', ':', ',', '.']);
 
-      function belmClassForIdentifier(word) {
-        if (belmKeywords.has(word)) return 'tok-keyword';
-        if (belmTypes.has(word)) return 'tok-type';
-        if (belmModifiers.has(word)) return 'tok-modifier';
-        if (belmFunctions.has(word)) return 'tok-function';
-        if (belmContext.has(word)) return 'tok-context';
+      function marClassForIdentifier(word) {
+        if (marKeywords.has(word)) return 'tok-keyword';
+        if (marTypes.has(word)) return 'tok-type';
+        if (marModifiers.has(word)) return 'tok-modifier';
+        if (marFunctions.has(word)) return 'tok-function';
+        if (marContext.has(word)) return 'tok-context';
         if (/^[A-Z]/.test(word)) return 'tok-entity';
         return 'tok-field';
       }
 
-      function wrapBelmToken(cssClass, raw) {
+      function wrapMarToken(cssClass, raw) {
         return `<span class="${cssClass}">${escapeHtml(raw)}</span>`;
       }
 
-      function highlightBelmCode(source) {
+      function highlightMarCode(source) {
         let out = '';
         let i = 0;
 
@@ -318,7 +318,7 @@
           if (ch === '-' && source[i + 1] === '-') {
             let j = i + 2;
             while (j < source.length && source[j] !== '\n') j += 1;
-            out += wrapBelmToken('tok-comment', source.slice(i, j));
+            out += wrapMarToken('tok-comment', source.slice(i, j));
             i = j;
             continue;
           }
@@ -336,7 +336,7 @@
               }
               j += 1;
             }
-            out += wrapBelmToken('tok-string', source.slice(i, j));
+            out += wrapMarToken('tok-string', source.slice(i, j));
             i = j;
             continue;
           }
@@ -344,7 +344,7 @@
           if (/[0-9]/.test(ch)) {
             let j = i + 1;
             while (j < source.length && /[0-9.]/.test(source[j])) j += 1;
-            out += wrapBelmToken('tok-number', source.slice(i, j));
+            out += wrapMarToken('tok-number', source.slice(i, j));
             i = j;
             continue;
           }
@@ -353,26 +353,26 @@
             let j = i + 1;
             while (j < source.length && /[A-Za-z0-9_]/.test(source[j])) j += 1;
             const word = source.slice(i, j);
-            out += wrapBelmToken(belmClassForIdentifier(word), word);
+            out += wrapMarToken(marClassForIdentifier(word), word);
             i = j;
             continue;
           }
 
           const two = source.slice(i, i + 2);
-          if (belmTwoCharOps.has(two)) {
-            out += wrapBelmToken('tok-operator', two);
+          if (marTwoCharOps.has(two)) {
+            out += wrapMarToken('tok-operator', two);
             i += 2;
             continue;
           }
 
-          if (belmOpChars.has(ch)) {
-            out += wrapBelmToken('tok-operator', ch);
+          if (marOpChars.has(ch)) {
+            out += wrapMarToken('tok-operator', ch);
             i += 1;
             continue;
           }
 
-          if (belmPunctuation.has(ch)) {
-            out += wrapBelmToken('tok-punctuation', ch);
+          if (marPunctuation.has(ch)) {
+            out += wrapMarToken('tok-punctuation', ch);
             i += 1;
             continue;
           }
@@ -427,8 +427,8 @@
 
         const pre = document.createElement('pre');
         const code = document.createElement('code');
-        code.className = 'lang-belm';
-        code.innerHTML = highlightBelmCode(source);
+        code.className = 'lang-mar';
+        code.innerHTML = highlightMarCode(source);
         pre.appendChild(code);
 
         wrap.appendChild(copyBtn);

@@ -166,31 +166,31 @@ pageTitle : Route -> String
 pageTitle route =
     case route of
         Home ->
-            "Belm"
+            "Mar"
 
         GettingStarted ->
-            "Belm - Getting Started"
+            "Mar - Getting Started"
 
         AdvancedGuide ->
-            "Belm - Advanced Guide"
+            "Mar - Advanced Guide"
 
         AdvancedFundamentals ->
-            "Belm - Fundamentals Guide"
+            "Mar - Fundamentals Guide"
 
         AdvancedLanguageReference ->
-            "Belm - Language Reference"
+            "Mar - Language Reference"
 
         AdvancedRuntime ->
-            "Belm - Runtime Guide"
+            "Mar - Runtime Guide"
 
         AdvancedTooling ->
-            "Belm - Tooling Guide"
+            "Mar - Tooling Guide"
 
         AdvancedCompiler ->
-            "Belm - Compiler Guide"
+            "Mar - Compiler Guide"
 
         Examples ->
-            "Belm - Examples"
+            "Mar - Examples"
 
 
 view : Model -> Browser.Document Msg
@@ -221,6 +221,7 @@ page model =
         [ topBar model.route
         , warningBanner
         , routeView model
+        , footer
         ]
 
 
@@ -228,7 +229,7 @@ topBar : Route -> Element Msg
 topBar route =
     panel
         [ row [ width fill ]
-            [ el [ Font.size 28, Font.bold, Font.color (rgb255 22 57 96) ] (text "Belm")
+            [ el [ Font.size 28, Font.bold, Font.color (rgb255 22 57 96) ] (text "Mar")
             , el [ width fill ] (text "")
             , row [ spacing 8 ]
                 [ navItem route Home "Home"
@@ -314,7 +315,7 @@ warningBanner =
             [ paragraph [ Font.size 22, Font.bold, Font.color (rgb255 121 66 0) ]
                 [ text "Warning" ]
             , paragraph [ Font.size 16, Font.color (rgb255 107 62 0), width fill ]
-                [ text "Belm is still at a very early stage and is "
+                [ text "Mar is still at a very early stage and is "
                 , el [ Font.bold ] (text "not recommended for production use yet")
                 , text "."
                 ]
@@ -322,6 +323,18 @@ warningBanner =
                 [ text "There are no guarantees that language syntax or database schema will remain backward compatible in future versions." ]
             ]
         ]
+
+
+footer : Element Msg
+footer =
+    el
+        [ width (fill |> maximum 1040)
+        , centerX
+        , paddingEach { top = 8, right = 0, bottom = 0, left = 0 }
+        , Font.size 14
+        , Font.color (rgb255 98 116 139)
+        ]
+        (text "Copyright © 2026 Marcio Frayze David")
 
 
 homePage : Model -> Element Msg
@@ -346,7 +359,7 @@ gettingStartedPage model =
         [ panel
             [ sectionTitle "Getting Started"
             , paragraph [ Font.size 16, Font.color (rgb255 72 95 123), width fill ]
-                [ text "Install Belm, iterate quickly with hot reload, and deploy as a single executable." ]
+                [ text "Install Mar, iterate quickly with hot reload, and deploy as a single executable." ]
             ]
         , install model
         , quickStart model
@@ -360,8 +373,8 @@ gettingStartedPage model =
                     , Font.color (rgb255 36 82 132)
                     , htmlAttribute (HtmlAttr.style "cursor" "pointer")
                     ]
-                    { url = "http://localhost:4100/_belm/admin"
-                    , label = text "http://localhost:4100/_belm/admin"
+                    { url = "http://localhost:4100/_mar/admin"
+                    , label = text "http://localhost:4100/_mar/admin"
                     }
                 ]
             , bulletList
@@ -388,7 +401,7 @@ advancedLanguagePage model =
                 , Font.color (rgb255 72 95 123)
                 , width fill
                 ]
-                [ text "Belm is a declarative backend DSL inspired by "
+                [ text "Mar is a declarative backend DSL inspired by "
                 , newTabLink
                     [ Font.color (rgb255 36 82 132)
                     , Font.semiBold
@@ -418,10 +431,10 @@ advancedLanguagePage model =
                 , text " with focus on readability, maintainability, and simple deployment."
                 ]
             , docSubsectionTitle "Fundamentals"
-            , bodyText "Belm reads top-to-bottom as a declarative app definition. A Belm app is centered around entities, rules, authorization, optional auth configuration, and typed actions."
+            , bodyText "Mar reads top-to-bottom as a declarative app definition. A Mar app is centered around entities, rules, authorization, optional auth configuration, and typed actions."
             , docSubsectionTitle "Quick Examples"
-            , codeFromString model "todo.belm" 450 todoExampleSource
-            , codeFromString model "action.belm" 575 actionExampleSource
+            , codeFromString model "todo.mar" 450 todoExampleSource
+            , codeFromString model "action.mar" 575 actionExampleSource
             , docSubsectionTitle "Syntax Model"
             , docList
                 [ "Top-level statements: app, port, database, public, system, auth, entity, type alias, action."
@@ -429,13 +442,13 @@ advancedLanguagePage model =
                 , "Comments use Elm-style line comments: -- this is a comment."
                 ]
             , docSubsectionTitle "Authentication and Authorization"
-            , bodyText "Belm includes a built-in email-code login flow and per-operation authorization rules. The same auth model is also used by system-level tooling such as monitoring, logs, and backups."
-            , codeFromString model "auth.belm" 272 authConfigSource
-            , codeFromString model "authorize.belm" 300 authorizeExampleSource
+            , bodyText "Mar includes a built-in email-code login flow and per-operation authorization rules. The same auth model is also used by system-level tooling such as monitoring, logs, and backups."
+            , codeFromString model "auth.mar" 272 authConfigSource
+            , codeFromString model "authorize.mar" 300 authorizeExampleSource
             , docList
                 [ "Authentication endpoints are always available."
-                , "When auth { ... } is defined, Belm uses your configured user entity and fields."
-                , "When auth { ... } is omitted, Belm still provides a built-in auth user store."
+                , "When auth { ... } is defined, Mar uses your configured user entity and fields."
+                , "When auth { ... } is omitted, Mar still provides a built-in auth user store."
                 , "System features use the same session and require role == \"admin\"."
                 ]
             , docSubsectionTitle "Rules and Typed Actions"
@@ -443,10 +456,10 @@ advancedLanguagePage model =
             , docList
                 [ "rule validates entity data and returns HTTP 422 with details when validation fails."
                 , "Actions run in a single atomic transaction."
-                , "Belm checks input types and assigned entity fields at compile time."
+                , "Mar checks input types and assigned entity fields at compile time."
                 ]
             , docSubsectionTitle "Current Limitations"
-            , bodyText "Belm currently supports a single .belm entry file per app, without multi-file projects or imports."
+            , bodyText "Mar currently supports a single .mar entry file per app, without multi-file projects or imports."
             ]
         , advancedPager Nothing (Just AdvancedRuntime)
         ]
@@ -515,14 +528,14 @@ advancedRuntimePage model =
         , panel
             [ sectionTitle "Advanced Guide"
             , docSubsectionTitle "Runtime"
-            , bodyText "The runtime generated by Belm is meant to be practical by default: HTTP endpoints, SQLite storage, authentication, admin tooling, and migrations come from the same source file."
+            , bodyText "The runtime generated by Mar is meant to be practical by default: HTTP endpoints, SQLite storage, authentication, admin tooling, and migrations come from the same source file."
             , docSubsectionTitle "System Configuration"
             , paragraphWithEmphasis
                 [ text "Use "
                 , emphasisText "system"
                 , text " when you need to tune runtime behavior. This is where request logging, body limits, auth rate limits, security headers, and SQLite pragmas are configured."
                 ]
-            , codeFromString model "system.belm" 0 systemConfigSource
+            , codeFromString model "system.mar" 0 systemConfigSource
             , docList
                 [ "request_logs_buffer controls how many recent requests stay in memory for monitoring."
                 , "http_max_request_body_mb limits request body size and returns HTTP 413 when exceeded."
@@ -531,21 +544,21 @@ advancedRuntimePage model =
                 , "SQLite settings are performance-first by default and can be overridden per app."
                 ]
             , docSubsectionTitle "Public Static Frontend"
-            , bodyText "Belm can embed static frontend files into the final executable. This is useful when you want one deployable binary that serves both the backend and a compiled frontend."
-            , codeFromString model "public.belm" 260 publicConfigSource
+            , bodyText "Mar can embed static frontend files into the final executable. This is useful when you want one deployable binary that serves both the backend and a compiled frontend."
+            , codeFromString model "public.mar" 260 publicConfigSource
             , docSubsectionTitle "Generated Endpoints"
-            , bodyText "Belm turns the declarative app definition into a concrete HTTP surface. CRUD, actions, auth, health, version, and admin-related endpoints are generated automatically from the source file."
+            , bodyText "Mar turns the declarative app definition into a concrete HTTP surface. CRUD, actions, auth, health, version, and admin-related endpoints are generated automatically from the source file."
             , docList
                 [ "Each entity gets REST CRUD endpoints."
                 , "Typed actions are exposed as POST /actions/<name>."
-                , "System endpoints include /health, /_belm/admin, /_belm/schema, and /_belm/version."
-                , "Admin-only system endpoints include /_belm/version/admin, /_belm/perf, /_belm/request-logs, and /_belm/backups."
+                , "System endpoints include /health, /_mar/admin, /_mar/schema, and /_mar/version."
+                , "Admin-only system endpoints include /_mar/version/admin, /_mar/perf, /_mar/request-logs, and /_mar/backups."
                 ]
             , docSubsectionTitle "Migrations"
-            , bodyText "Belm applies schema migration logic automatically on startup. Safe changes are handled for you, while unsafe changes are blocked instead of being applied silently."
+            , bodyText "Mar applies schema migration logic automatically on startup. Safe changes are handled for you, while unsafe changes are blocked instead of being applied silently."
             , docList
                 [ "Migrations run automatically on startup."
-                , "Belm creates missing tables, adds new optional columns, and keeps auth/session storage ready."
+                , "Mar creates missing tables, adds new optional columns, and keeps auth/session storage ready."
                 , "Unsafe changes such as type changes, primary key changes, nullability changes, and new required fields are blocked."
                 , "When blocked, startup fails with a clear migration error."
                 ]
@@ -565,27 +578,27 @@ advancedToolingPage model =
             [ sectionTitle "Advanced Guide"
             , docSubsectionTitle "Tooling"
             , paragraphWithEmphasis
-                [ emphasisText "belm"
+                [ emphasisText "mar"
                 , text " hosts the day-to-day developer workflow, while the generated clients and editor support help keep frontend and backend aligned."
                 ]
             , docSubsectionTitle "Compiler and Runtime Commands"
-            , commandRow model "1" "Dev" "Runs the app in development mode with hot reload when the .belm file changes." "belm dev store.belm"
-            , commandRow model "2" "Compile" "Builds a .belm app into a self-contained executable and generates frontend clients." "belm compile store.belm"
-            , commandRow model "3" "Format" "Applies Belm's official formatting style to source files." "belm format store.belm"
-            , commandRow model "4" "LSP" "Starts the language server used by the VSCode extension for diagnostics, hovers, and navigation. Usually started by the editor plugin." "belm lsp"
+            , commandRow model "1" "Dev" "Runs the app in development mode with hot reload when the .mar file changes." "mar dev store.mar"
+            , commandRow model "2" "Compile" "Builds a .mar app into a self-contained executable and generates frontend clients." "mar compile store.mar"
+            , commandRow model "3" "Format" "Applies Mar's official formatting style to source files." "mar format store.mar"
+            , commandRow model "4" "LSP" "Starts the language server used by the VSCode extension for diagnostics, hovers, and navigation. Usually started by the editor plugin." "mar lsp"
             , docSubsectionTitle "Generated Client Output"
-            , bodyText "When you compile an app, Belm also generates frontend clients for Elm and TypeScript. These clients wrap the generated HTTP API with named functions, so you do not need to hand-write fetch calls, URLs, or request payload shapes."
+            , bodyText "When you compile an app, Mar also generates frontend clients for Elm and TypeScript. These clients wrap the generated HTTP API with named functions, so you do not need to hand-write fetch calls, URLs, or request payload shapes."
             , docList
                 [ "Elm client: build/<name>/clients/<AppName>Client.elm"
                 , "TypeScript client: build/<name>/clients/<AppName>Client.ts"
                 , "Both include CRUD functions, action functions, auth endpoints, and backend version access."
-                , "They reduce duplicated frontend code and keep frontend calls aligned with the backend generated from your .belm file."
+                , "They reduce duplicated frontend code and keep frontend calls aligned with the backend generated from your .mar file."
                 , "This makes refactors safer, because the client surface is regenerated from the same source as the server."
                 ]
             , docSubsectionTitle "Admin UI and Editor Support"
-            , bodyText "Belm ships with an embedded Admin UI for operating the app you compiled. The editor tooling focuses on making the DSL easier to author and safer to change."
+            , bodyText "Mar ships with an embedded Admin UI for operating the app you compiled. The editor tooling focuses on making the DSL easier to author and safer to change."
             , docList
-                [ "The embedded Admin UI uses schema discovery from GET /_belm/schema."
+                [ "The embedded Admin UI uses schema discovery from GET /_mar/schema."
                 , "It supports CRUD browsing, auth flows, monitoring, request logs, and database tooling."
                 , "The VSCode extension provides syntax highlighting, hover docs, go to definition, references, rename, formatting, and LSP diagnostics."
                 ]
@@ -604,7 +617,7 @@ advancedCompilerPage =
         , panel
             [ sectionTitle "Advanced Guide"
             , docSubsectionTitle "Compiler"
-            , bodyText "The compiler parses a single .belm file into a typed app model, validates it, generates clients, embeds admin/static assets, and then builds a self-contained server executable."
+            , bodyText "The compiler parses a single .mar file into a typed app model, validates it, generates clients, embeds admin/static assets, and then builds a self-contained server executable."
             , architectureDiagram
             ]
         , advancedPager (Just AdvancedTooling) (Just AdvancedCompiler)
@@ -617,8 +630,8 @@ examplesPage model =
         [ width fill
         , spacing 20
         ]
-        [ exampleCard model "Todo API" "Minimal CRUD example" "todo.belm" todoExampleSource
-        , exampleCard model "BookStore API" "Auth, roles, and transactional action" "store.belm" storeExampleSource
+        [ exampleCard model "Todo API" "Minimal CRUD example" "todo.mar" todoExampleSource
+        , exampleCard model "BookStore API" "Auth, roles, and transactional action" "store.mar" storeExampleSource
         ]
 
 
@@ -642,7 +655,7 @@ hero =
             [ paragraph [ Font.size 42, Font.bold, Font.color (rgb255 16 44 79), width (fill |> maximum 900) ]
                 [ text "A simple declarative backend language." ]
             , paragraph [ Font.size 19, Font.color (rgb255 72 95 123), width (fill |> maximum 880) ]
-                [ text "Belm compiles declarative source into a self-contained server executable with API, auth, admin panel, monitoring, and backups." ]
+                [ text "Mar compiles declarative source into a self-contained server executable with API, auth, admin panel, monitoring, and backups." ]
             , paragraph [ Font.size 16, Font.color (rgb255 96 116 140), width (fill |> maximum 880) ]
                 [ text "Inspired by "
                 , newTabLink
@@ -675,7 +688,7 @@ hero =
 codeExample : Model -> Element Msg
 codeExample model =
     panel
-        [ sectionTitle "Belm Syntax Example"
+        [ sectionTitle "Mar Syntax Example"
         , codeBlock model
         ]
 
@@ -686,7 +699,7 @@ install model =
         [ sectionTitle "Install"
         , downloadInstallRow
         , pathInstallRow model
-        , installCommandRow model "3" "Check" "belm version"
+        , installCommandRow model "3" "Check" "mar version"
         , pluginInstallRow
         ]
 
@@ -695,12 +708,12 @@ quickStart : Model -> Element Msg
 quickStart model =
     panel
         [ sectionTitle "Quick Start"
-        , quickStartCreateCard model "1" "Create" "todo.belm" todoExampleSource
-        , commandRow model "2" "Develop" "Runs the app locally with hot reload while you edit todo.belm." "belm dev todo.belm"
-        , commandRow model "3" "Compile" "Builds the production executable and generates the frontend clients." "belm compile todo.belm"
+        , quickStartCreateCard model "1" "Create" "todo.mar" todoExampleSource
+        , commandRow model "2" "Develop" "Runs the app locally with hot reload while you edit todo.mar." "mar dev todo.mar"
+        , commandRow model "3" "Compile" "Builds the production executable and generates the frontend clients." "mar compile todo.mar"
         , commandRow model "4" "Deploy" "Start the compiled server executable." "cd build/todo && ./todo serve"
         , paragraph [ Font.size 16, Font.color (rgb255 72 95 123), width fill ]
-            [ text "Belm deploys as a single executable that already includes API, auth, embedded Admin UI, monitoring dashboards, request logs, and SQLite backup tools." ]
+            [ text "Mar deploys as a single executable that already includes API, auth, embedded Admin UI, monitoring dashboards, request logs, and SQLite backup tools." ]
         ]
 
 
@@ -791,7 +804,7 @@ pathInstallRow model =
         [ row [ width fill, spacing 10 ]
             [ stepBadge "2"
             , el [ Font.bold, Font.size 18, width (px installLabelWidth), Font.color (rgb255 28 66 108) ] (text "Path")
-            , instructionText "Move belm to a directory in your PATH."
+            , instructionText "Move mar to a directory in your PATH."
             ]
         , column
             [ width fill
@@ -800,13 +813,13 @@ pathInstallRow model =
             ]
             [ row [ spacing 8 ]
                 [ el [ Font.size 13, Font.semiBold, Font.color (rgb255 70 93 121), width (px 88) ] (text "macOS/Linux")
-                , codeInlineSmall "mv belm /usr/local/bin/belm && chmod +x /usr/local/bin/belm"
-                , copyLink model "mv belm /usr/local/bin/belm && chmod +x /usr/local/bin/belm"
+                , codeInlineSmall "mv mar /usr/local/bin/mar && chmod +x /usr/local/bin/mar"
+                , copyLink model "mv mar /usr/local/bin/mar && chmod +x /usr/local/bin/mar"
                 ]
             , row [ spacing 8 ]
                 [ el [ Font.size 13, Font.semiBold, Font.color (rgb255 70 93 121), width (px 88) ] (text "Windows")
-                , codeInlineSmall "setx PATH \"%PATH%;C:\\Tools\\belm\""
-                , copyLink model "setx PATH \"%PATH%;C:\\Tools\\belm\""
+                , codeInlineSmall "setx PATH \"%PATH%;C:\\Tools\\mar\""
+                , copyLink model "setx PATH \"%PATH%;C:\\Tools\\mar\""
                 ]
             ]
         ]
@@ -827,7 +840,7 @@ pluginInstallRow =
             [ stepBadge "4"
             , el [ Font.bold, Font.size 18, width (px installLabelWidth), Font.color (rgb255 28 66 108) ] (text "Code editor")
             , paragraph [ Font.size 16, Font.color (rgb255 70 93 121), width fill ]
-                [ text "Currently, Belm supports only "
+                [ text "Currently, Mar supports only "
                 , newTabLink
                     [ Font.color (rgb255 36 82 132)
                     , Font.semiBold
@@ -848,7 +861,7 @@ pluginInstallRow =
                 [ text "Open VSCode Extensions (Cmd+Shift+X on macOS, Ctrl+Shift+X on Windows/Linux)." ]
             , paragraph [ Font.size 14, Font.color (rgb255 70 93 121) ]
                 [ text "Search for "
-                , el [ Font.semiBold ] (text "\"Belm Language Support\"")
+                , el [ Font.semiBold ] (text "\"Mar Language Support\"")
                 , text " and click Install."
                 ]
             ]
@@ -858,7 +871,7 @@ pluginInstallRow =
             , width fill
             , paddingEach { top = 0, right = 0, bottom = 0, left = installSubitemIndent }
             ]
-            [ text "The VSCode extension requires belm on your PATH to start LSP and formatting." ]
+            [ text "The VSCode extension requires mar on your PATH to start LSP and formatting." ]
         ]
 
 
@@ -878,7 +891,7 @@ stepBadge value =
 features : Element Msg
 features =
     panel
-        [ sectionTitle "Why Belm"
+        [ sectionTitle "Why Mar"
         , whyRow
             "Friendly errors"
             "Clear feedback when something is wrong."
@@ -901,19 +914,19 @@ features =
 audience : Element Msg
 audience =
     panel
-        [ sectionTitle "Who Belm Is For"
+        [ sectionTitle "Who Mar Is For"
         , useCaseRow
             "Functional developers"
             "Prefer declarative code and explicit data flow."
-            "Belm keeps backend behavior declarative and easy to reason about."
+            "Mar keeps backend behavior declarative and easy to reason about."
         , useCaseRow
             "One-person projects"
             "Need to build and ship alone with minimal overhead."
-            "Belm provides auth, admin, monitoring, and backups in one binary."
+            "Mar provides auth, admin, monitoring, and backups in one binary."
         , useCaseRow
             "Small systems"
             "Need a straightforward backend for focused products and internal tools."
-            "Belm favors clear, maintainable code over unnecessary complexity."
+            "Mar favors clear, maintainable code over unnecessary complexity."
         ]
 
 
@@ -999,7 +1012,7 @@ architectureDiagram =
         , centerX
         , spacing 10
         ]
-        [ architectureNode "Source" ".belm file"
+        [ architectureNode "Source" ".mar file"
         , architectureArrow
         , architectureNode "Parser" "AST + expressions"
         , architectureArrow
@@ -1597,19 +1610,19 @@ codeEditorLineView index lineText =
                 [ Html.text " " ]
 
              else
-                highlightBelmSource lineText
+                highlightMarSource lineText
             )
         ]
 
 
-highlightBelmSource : String -> List (Html.Html msg)
-highlightBelmSource source =
-    highlightBelmHelp source []
+highlightMarSource : String -> List (Html.Html msg)
+highlightMarSource source =
+    highlightMarHelp source []
         |> List.reverse
 
 
-highlightBelmHelp : String -> List (Html.Html msg) -> List (Html.Html msg)
-highlightBelmHelp remaining acc =
+highlightMarHelp : String -> List (Html.Html msg) -> List (Html.Html msg)
+highlightMarHelp remaining acc =
     case String.uncons remaining of
         Nothing ->
             acc
@@ -1622,7 +1635,7 @@ highlightBelmHelp remaining acc =
                             ( commentText, afterComment ) =
                                 takeUntilNewline restAfterDash
                         in
-                        highlightBelmHelp afterComment (commentToken ("--" ++ commentText) :: acc)
+                        highlightMarHelp afterComment (commentToken ("--" ++ commentText) :: acc)
 
                     else
                         tokenizeSingle firstChar rest acc
@@ -1633,7 +1646,7 @@ highlightBelmHelp remaining acc =
                             ( stringLiteral, afterString ) =
                                 takeStringLiteral rest "\""
                         in
-                        highlightBelmHelp afterString (token "#F7C97F" stringLiteral :: acc)
+                        highlightMarHelp afterString (token "#F7C97F" stringLiteral :: acc)
 
                     else if Char.isDigit firstChar then
                         let
@@ -1643,7 +1656,7 @@ highlightBelmHelp remaining acc =
                             numberText =
                                 String.fromChar firstChar ++ numberTail
                         in
-                        highlightBelmHelp afterNumber (token "#F5A97F" numberText :: acc)
+                        highlightMarHelp afterNumber (token "#F5A97F" numberText :: acc)
 
                     else if isIdentifierStart firstChar then
                         let
@@ -1653,7 +1666,7 @@ highlightBelmHelp remaining acc =
                             word =
                                 String.fromChar firstChar ++ identifierTail
                         in
-                        highlightBelmHelp afterIdentifier (wordToken word :: acc)
+                        highlightMarHelp afterIdentifier (wordToken word :: acc)
 
                     else if isTwoCharOperator firstChar rest then
                         let
@@ -1664,16 +1677,16 @@ highlightBelmHelp remaining acc =
                             afterOperator =
                                 String.dropLeft 1 rest
                         in
-                        highlightBelmHelp afterOperator (token "#D8E9FF" (String.fromChar firstChar ++ secondChar) :: acc)
+                        highlightMarHelp afterOperator (token "#D8E9FF" (String.fromChar firstChar ++ secondChar) :: acc)
 
                     else if isOperatorChar firstChar then
-                        highlightBelmHelp rest (token "#D8E9FF" (String.fromChar firstChar) :: acc)
+                        highlightMarHelp rest (token "#D8E9FF" (String.fromChar firstChar) :: acc)
 
                     else if isPunctuationChar firstChar then
-                        highlightBelmHelp rest (token "#AFC7E6" (String.fromChar firstChar) :: acc)
+                        highlightMarHelp rest (token "#AFC7E6" (String.fromChar firstChar) :: acc)
 
                     else
-                        highlightBelmHelp rest (Html.text (String.fromChar firstChar) :: acc)
+                        highlightMarHelp rest (Html.text (String.fromChar firstChar) :: acc)
 
 
 tokenizeSingle : Char -> String -> List (Html.Html msg) -> List (Html.Html msg)
@@ -1683,7 +1696,7 @@ tokenizeSingle firstChar rest acc =
             ( stringLiteral, afterString ) =
                 takeStringLiteral rest "\""
         in
-        highlightBelmHelp afterString (token "#F7C97F" stringLiteral :: acc)
+        highlightMarHelp afterString (token "#F7C97F" stringLiteral :: acc)
 
     else if Char.isDigit firstChar then
         let
@@ -1693,7 +1706,7 @@ tokenizeSingle firstChar rest acc =
             numberText =
                 String.fromChar firstChar ++ numberTail
         in
-        highlightBelmHelp afterNumber (token "#F5A97F" numberText :: acc)
+        highlightMarHelp afterNumber (token "#F5A97F" numberText :: acc)
 
     else if isIdentifierStart firstChar then
         let
@@ -1703,7 +1716,7 @@ tokenizeSingle firstChar rest acc =
             word =
                 String.fromChar firstChar ++ identifierTail
         in
-        highlightBelmHelp afterIdentifier (wordToken word :: acc)
+        highlightMarHelp afterIdentifier (wordToken word :: acc)
 
     else if isTwoCharOperator firstChar rest then
         let
@@ -1714,16 +1727,16 @@ tokenizeSingle firstChar rest acc =
             afterOperator =
                 String.dropLeft 1 rest
         in
-        highlightBelmHelp afterOperator (token "#D8E9FF" (String.fromChar firstChar ++ secondChar) :: acc)
+        highlightMarHelp afterOperator (token "#D8E9FF" (String.fromChar firstChar ++ secondChar) :: acc)
 
     else if isOperatorChar firstChar then
-        highlightBelmHelp rest (token "#D8E9FF" (String.fromChar firstChar) :: acc)
+        highlightMarHelp rest (token "#D8E9FF" (String.fromChar firstChar) :: acc)
 
     else if isPunctuationChar firstChar then
-        highlightBelmHelp rest (token "#AFC7E6" (String.fromChar firstChar) :: acc)
+        highlightMarHelp rest (token "#AFC7E6" (String.fromChar firstChar) :: acc)
 
     else
-        highlightBelmHelp rest (Html.text (String.fromChar firstChar) :: acc)
+        highlightMarHelp rest (Html.text (String.fromChar firstChar) :: acc)
 
 
 takeUntilNewline : String -> ( String, String )
@@ -1871,7 +1884,7 @@ commentToken value =
 
 codeBlock : Model -> Element Msg
 codeBlock model =
-    codeFromString model "todo.belm" 340 todoExampleSource
+    codeFromString model "todo.mar" 340 todoExampleSource
 
 
 codeSnippet : List (Html.Html msg)
@@ -2023,7 +2036,7 @@ codePunctuation value =
 todoExampleSource : String
 todoExampleSource =
     """-- A minimal CRUD application.
--- This example shows the basic Belm structure:
+-- This example shows the basic Mar structure:
 -- app, port, database, entity, rule, and authorization.
 
 -- Application
@@ -2101,7 +2114,7 @@ publicConfigSource : String
 publicConfigSource =
     """-- Public files are embedded into the final executable.
 public {
-  dir \"./frontend/dist\"      -- required; resolved relative to the .belm file.
+  dir \"./frontend/dist\"      -- required; resolved relative to the .mar file.
   mount \"/\"                  -- defaults to /.
   spa_fallback \"index.html\"  -- serves the frontend entry file for SPA-style routes.
 }

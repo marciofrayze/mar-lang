@@ -1,4 +1,4 @@
-# Belm
+# Mar
 
 Note: significant parts of this project were developed with assistance from generative AI tools.
 
@@ -6,9 +6,9 @@ Note: significant parts of this project were developed with assistance from gene
 - Getting Started (Web): [website/index.html#/getting-started](website/index.html#/getting-started)
 - Advanced Guide (Web): [website/index.html#/advanced](website/index.html#/advanced)
 - Examples (Web): [website/index.html#/examples](website/index.html#/examples)
-- VSCode Extension Guide: [vscode-belm/README.md](vscode-belm/README.md)
+- VSCode Extension Guide: [vscode-mar/README.md](vscode-mar/README.md)
 
 Examples:
 
-- [examples/todo.belm](examples/todo.belm)
-- [examples/store.belm](examples/store.belm)
+- [examples/todo.mar](examples/todo.mar)
+- [examples/store.mar](examples/store.mar)

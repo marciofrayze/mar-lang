@@ -1,6 +1,6 @@
-# Belm Website (Elm + elm-ui)
+# Mar Website (Elm + elm-ui)
 
-This directory contains a standalone marketing/landing page for Belm.
+This directory contains a standalone marketing/landing page for Mar.
 
 ## Run locally
 

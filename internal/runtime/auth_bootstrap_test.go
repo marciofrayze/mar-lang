@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"belm/internal/parser"
+	"mar/internal/parser"
 )
 
 func TestBootstrapAdminRequiresCodeLoginToPromoteFirstUser(t *testing.T) {

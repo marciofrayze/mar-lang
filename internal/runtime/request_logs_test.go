@@ -30,7 +30,7 @@ func TestRequestLogsEndpointRequiresAuthAndReturnsCapturedLogs(t *testing.T) {
 
 	r := mustNewAuthRuntime(t, filepath.Join(t.TempDir(), "request-logs.db"))
 
-	unauthRec := doRuntimeRequest(r, http.MethodGet, "/_belm/request-logs", "", "")
+	unauthRec := doRuntimeRequest(r, http.MethodGet, "/_mar/request-logs", "", "")
 	if unauthRec.Code != http.StatusUnauthorized {
 		t.Fatalf("expected 401 without auth, got %d body=%s", unauthRec.Code, unauthRec.Body.String())
 	}
@@ -43,7 +43,7 @@ func TestRequestLogsEndpointRequiresAuthAndReturnsCapturedLogs(t *testing.T) {
 		t.Fatalf("expected 200 for GET /todos, got %d body=%s", listRec.Code, listRec.Body.String())
 	}
 
-	rec := doRuntimeRequest(r, http.MethodGet, "/_belm/request-logs?limit=20", "", token)
+	rec := doRuntimeRequest(r, http.MethodGet, "/_mar/request-logs?limit=20", "", token)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200 for request logs, got %d body=%s", rec.Code, rec.Body.String())
 	}
@@ -126,12 +126,12 @@ func TestRequestLogsEndpointMasksSensitiveValues(t *testing.T) {
 		QueryTimeMs:  3.4,
 		ErrorMessage: "Authorization: Bearer " + rawToken + " devCode: " + rawCode + " email: " + rawEmail,
 		Queries: []requestLogQuery{
-			{SQL: "SELECT * FROM belm_auth_codes WHERE email = '" + rawEmail + "' AND code = '" + rawCode + "'"},
-			{SQL: "INSERT INTO belm_sessions (token, user_id, email) VALUES ('" + rawToken + "', 1, '" + rawEmail + "')"},
+			{SQL: "SELECT * FROM mar_auth_codes WHERE email = '" + rawEmail + "' AND code = '" + rawCode + "'"},
+			{SQL: "INSERT INTO mar_sessions (token, user_id, email) VALUES ('" + rawToken + "', 1, '" + rawEmail + "')"},
 		},
 	})
 
-	rec := doRuntimeRequest(r, http.MethodGet, "/_belm/request-logs?limit=5", "", token)
+	rec := doRuntimeRequest(r, http.MethodGet, "/_mar/request-logs?limit=5", "", token)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200 for request logs, got %d body=%s", rec.Code, rec.Body.String())
 	}

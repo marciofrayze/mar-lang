@@ -20,7 +20,7 @@ func (r *Runtime) printStartupBanner() {
 	useColor := supportsANSI()
 	apiURL := fmt.Sprintf("http://localhost:%d", r.App.Port)
 
-	fmt.Printf("\n%s %q\n", colorize(useColor, ansiTitle, "Belm app"), r.App.AppName)
+	fmt.Printf("\n%s %q\n", colorize(useColor, ansiTitle, "Mar app"), r.App.AppName)
 	fmt.Printf("  %s %s\n", colorize(useColor, ansiLabel, "API"), apiURL)
 	fmt.Printf("  %s %s\n", colorize(useColor, ansiLabel, "SQLite"), r.App.Database)
 
@@ -30,7 +30,7 @@ func (r *Runtime) printStartupBanner() {
 		fmt.Printf("  %s %s\n", "POST", "/auth/login")
 		fmt.Printf("  %s %s\n", "POST", "/auth/logout")
 		fmt.Printf("  %s %s\n", "GET ", "/auth/me")
-		fmt.Printf("  %s %s\n", "POST", "/_belm/bootstrap-admin (first admin setup)")
+		fmt.Printf("  %s %s\n", "POST", "/_mar/bootstrap-admin (first admin setup)")
 		if r.authUser != nil {
 			fmt.Printf("  %s %s\n", "ALL ", r.authUser.Resource+" (auth users)")
 		}
@@ -72,19 +72,19 @@ func (r *Runtime) printStartupBanner() {
 
 	fmt.Printf("\n%s\n", colorize(useColor, ansiSection, "System"))
 	fmt.Printf("  %s %s\n", "GET ", "/health")
-	fmt.Printf("  %s %s\n", "GET ", "/_belm/admin")
-	fmt.Printf("  %s %s\n", "GET ", "/_belm/schema")
-	fmt.Printf("  %s %s\n", "GET ", "/_belm/version")
+	fmt.Printf("  %s %s\n", "GET ", "/_mar/admin")
+	fmt.Printf("  %s %s\n", "GET ", "/_mar/schema")
+	fmt.Printf("  %s %s\n", "GET ", "/_mar/version")
 	if r.authEnabled() {
-		fmt.Printf("  %s %s\n", "GET ", "/_belm/version/admin (role admin)")
-		fmt.Printf("  %s %s\n", "GET ", "/_belm/perf (role admin)")
-		fmt.Printf("  %s %s\n", "GET ", "/_belm/request-logs (role admin)")
-		fmt.Printf("  %s %s\n", "POST", "/_belm/backups (role admin)")
-		fmt.Printf("  %s %s\n", "GET ", "/_belm/backups (role admin)")
+		fmt.Printf("  %s %s\n", "GET ", "/_mar/version/admin (role admin)")
+		fmt.Printf("  %s %s\n", "GET ", "/_mar/perf (role admin)")
+		fmt.Printf("  %s %s\n", "GET ", "/_mar/request-logs (role admin)")
+		fmt.Printf("  %s %s\n", "POST", "/_mar/backups (role admin)")
+		fmt.Printf("  %s %s\n", "GET ", "/_mar/backups (role admin)")
 	}
 
 	if shouldShowAdminHint() {
-		fmt.Printf("\n%s run %s to open Belm Admin\n", colorize(useColor, ansiHint, "Hint:"), colorize(useColor, ansiCommand, os.Args[0]+" serve"))
+		fmt.Printf("\n%s run %s to open Mar Admin\n", colorize(useColor, ansiHint, "Hint:"), colorize(useColor, ansiCommand, os.Args[0]+" serve"))
 	}
 }
 

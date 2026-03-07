@@ -1,0 +1,189 @@
+{
+  "Mar App": {
+    "prefix": "app",
+    "description": "Create a full Mar app scaffold",
+    "body": [
+      "app ${1:MyApi}",
+      "port ${2:4100}",
+      "database \"${3:app.db}\"",
+      "",
+      "entity ${4:User} {",
+      "  id: Int primary auto",
+      "  email: String",
+      "  role: String",
+      "  ${5:rule \\\"Email must be valid\\\" when matches(email, \\\"^[^@\\\\s]+@[^@\\\\s]+\\\\.[^@\\\\s]+$\\\")}",
+      "  rule \"Role must be admin or user\" when role == \"admin\" or role == \"user\"",
+      "  authorize list when isRole(\"admin\")",
+      "  authorize get when auth_authenticated and (id == auth_user_id or isRole(\"admin\"))",
+      "  authorize create when role == \"user\"",
+      "  authorize update when isRole(\"admin\")",
+      "  authorize delete when isRole(\"admin\")",
+      "}",
+      "",
+      "auth {",
+      "  user_entity ${4:User}",
+      "  email_field email",
+      "  role_field role",
+      "  code_ttl_minutes 10",
+      "  session_ttl_hours 24",
+      "  email_transport console",
+      "  email_from \"no-reply@example.local\"",
+      "  email_subject \"Your ${1:MyApi} login code\"",
+      "  dev_expose_code true",
+      "}",
+      "",
+      "type alias ${6:RegisterUserInput} =",
+      "  { email : String",
+      "  }",
+      "",
+      "action ${7:registerUser} {",
+      "  input: ${6:RegisterUserInput}",
+      "",
+      "  create ${4:User} {",
+      "    email: input.email",
+      "    role: \"user\"",
+      "  }",
+      "}"
+    ]
+  },
+  "Mar Entity": {
+    "prefix": "entity",
+    "description": "Create an entity block",
+    "body": [
+      "entity ${1:EntityName} {",
+      "  id: Int primary auto",
+      "  ${2:name}: ${3:String}",
+      "  ${4:rule \\\"Validation message\\\" when true}",
+      "}"
+    ]
+  },
+  "Mar Field": {
+    "prefix": "field",
+    "description": "Create a field declaration",
+    "body": "${1:fieldName}: ${2|Int,String,Bool,Float|}${3|, optional, primary, auto, primary auto|}"
+  },
+  "Mar Rule": {
+    "prefix": "rule",
+    "description": "Create a business rule inside an entity",
+    "body": "rule \"${1:Validation message}\" when ${2:expression}"
+  },
+  "Mar Authorize": {
+    "prefix": "authorize",
+    "description": "Create one authorize rule",
+    "body": "authorize ${1|list,get,create,update,delete|} when ${2:auth_authenticated}"
+  },
+  "Mar Auth Block": {
+    "prefix": "auth",
+    "description": "Create an auth configuration block",
+    "body": [
+      "auth {",
+      "  user_entity ${1:User}",
+      "  email_field ${2:email}",
+      "  role_field ${3:role}",
+      "  code_ttl_minutes ${4:10}",
+      "  session_ttl_hours ${5:24}",
+      "  email_transport ${6|console,sendmail|}",
+      "  email_from \"${7:no-reply@example.local}\"",
+      "  email_subject \"${8:Your login code}\"",
+      "  sendmail_path \"${9:/usr/sbin/sendmail}\"",
+      "  dev_expose_code ${10|false,true|}",
+      "}"
+    ]
+  },
+  "Mar Public Block": {
+    "prefix": "public",
+    "description": "Create a public static assets block (embedded in executable)",
+    "body": [
+      "public {",
+      "  dir \"${1:./frontend/dist}\"",
+      "  mount \"${2:/}\"",
+      "  spa_fallback \"${3:index.html}\"",
+      "}"
+    ]
+  },
+  "Mar System Block": {
+    "prefix": "system",
+    "description": "Create a system runtime configuration block",
+    "body": [
+      "system {",
+      "  request_logs_buffer ${1:200}",
+      "  http_max_request_body_mb ${2:1}",
+      "  auth_request_code_rate_limit_per_minute ${3:5}",
+      "  auth_login_rate_limit_per_minute ${4:10}",
+      "  security_frame_policy ${5|sameorigin,deny|}",
+      "  security_referrer_policy ${6|strict-origin-when-cross-origin,no-referrer|}",
+      "  security_content_type_nosniff ${7|true,false|}",
+      "  sqlite_journal_mode ${8|wal,delete,truncate,persist,memory,off|}",
+      "  sqlite_synchronous ${9|normal,full,extra,off|}",
+      "  sqlite_foreign_keys ${10|true,false|}",
+      "  sqlite_busy_timeout_ms ${11:5000}",
+      "  sqlite_wal_autocheckpoint ${12:1000}",
+      "  sqlite_journal_size_limit_mb ${13:64}",
+      "  sqlite_mmap_size_mb ${14:128}",
+      "  sqlite_cache_size_kb ${15:2000}",
+      "}"
+    ]
+  },
+  "Mar Authorize Pack": {
+    "prefix": "authzcrud",
+    "description": "Create full CRUD authorization rules",
+    "body": [
+      "authorize list when ${1:isRole(\"admin\")}",
+      "authorize get when ${2:auth_authenticated and (id == auth_user_id or isRole(\"admin\"))}",
+      "authorize create when ${3:auth_authenticated}",
+      "authorize update when ${4:auth_authenticated and (id == auth_user_id or isRole(\"admin\"))}",
+      "authorize delete when ${5:isRole(\"admin\")}" 
+    ]
+  },
+  "Mar Type Alias": {
+    "prefix": "typealias",
+    "description": "Create a type alias for action inputs",
+    "body": [
+      "type alias ${1:CreateOrderInput} =",
+      "  { ${2:userId} : ${3:Int}",
+      "  , ${4:total} : ${5:Float}",
+      "  }"
+    ]
+  },
+  "Mar Action Block": {
+    "prefix": "action",
+    "description": "Create an action block with input and create step",
+    "body": [
+      "action ${1:placeOrder} {",
+      "  input: ${2:PlaceOrderInput}",
+      "",
+      "  create ${3:Order} {",
+      "    ${4:userId}: input.${5:userId}",
+      "  }",
+      "}"
+    ]
+  },
+  "Mar Create Step": {
+    "prefix": "create",
+    "description": "Create one create step inside an action",
+    "body": [
+      "create ${1:Order} {",
+      "  ${2:userId}: input.${3:userId}",
+      "}"
+    ]
+  },
+  "Mar Multi-Create Action": {
+    "prefix": "actioncreate",
+    "description": "Create an action with multiple create steps",
+    "body": [
+      "action ${1:placeOrder} {",
+      "  input: ${2:PlaceOrderInput}",
+      "",
+      "  create ${3:Order} {",
+      "    ${4:userId}: input.${5:userId}",
+      "    ${6:total}: input.${7:total}",
+      "  }",
+      "",
+      "  create ${8:AuditLog} {",
+      "    ${9:userId}: input.${5:userId}",
+      "    ${10:event}: \"order created\"",
+      "  }",
+      "}"
+    ]
+  }
+}

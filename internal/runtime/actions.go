@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"belm/internal/model"
-	"belm/internal/sqlitecli"
-	"belm/internal/suggest"
+	"mar/internal/model"
+	"mar/internal/sqlitecli"
+	"mar/internal/suggest"
 )
 
 // handleAction executes a typed action (with create steps) in a single SQL transaction.

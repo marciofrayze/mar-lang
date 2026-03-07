@@ -5,11 +5,11 @@ import (
 	"strings"
 )
 
-// VersionInfo carries build metadata injected by the generated Belm app binary.
+// VersionInfo carries build metadata injected by the generated Mar app binary.
 type VersionInfo struct {
-	BelmVersion   string
-	BelmCommit    string
-	BelmBuildTime string
+	MarVersion   string
+	MarCommit    string
+	MarBuildTime string
 	AppBuildTime  string
 	ManifestHash  string
 }
@@ -39,10 +39,10 @@ func (r *Runtime) adminVersionPayload() map[string]any {
 			"buildTime":    strings.TrimSpace(r.versionInfo.AppBuildTime),
 			"manifestHash": strings.TrimSpace(r.versionInfo.ManifestHash),
 		},
-		"belm": map[string]any{
-			"version":   strings.TrimSpace(r.versionInfo.BelmVersion),
-			"commit":    strings.TrimSpace(r.versionInfo.BelmCommit),
-			"buildTime": strings.TrimSpace(r.versionInfo.BelmBuildTime),
+		"mar": map[string]any{
+			"version":   strings.TrimSpace(r.versionInfo.MarVersion),
+			"commit":    strings.TrimSpace(r.versionInfo.MarCommit),
+			"buildTime": strings.TrimSpace(r.versionInfo.MarBuildTime),
 		},
 		"runtime": map[string]any{
 			"goVersion": goruntime.Version(),

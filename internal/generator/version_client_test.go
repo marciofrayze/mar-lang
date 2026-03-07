@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"belm/internal/model"
+	"mar/internal/model"
 )
 
 func TestGenerateElmClientIncludesVersionEndpoint(t *testing.T) {
@@ -23,8 +23,8 @@ func TestGenerateElmClientIncludesVersionEndpoint(t *testing.T) {
 	if !strings.Contains(source, "getVersion : Config -> (Result Http.Error PublicVersion -> msg) -> Cmd msg") {
 		t.Fatalf("generated Elm client must include getVersion signature, source:\n%s", source)
 	}
-	if !strings.Contains(source, "buildUrl config \"/_belm/version\"") {
-		t.Fatalf("generated Elm client must call /_belm/version, source:\n%s", source)
+	if !strings.Contains(source, "buildUrl config \"/_mar/version\"") {
+		t.Fatalf("generated Elm client must call /_mar/version, source:\n%s", source)
 	}
 }
 
@@ -44,8 +44,8 @@ func TestGenerateTSClientIncludesVersionEndpoint(t *testing.T) {
 	if !strings.Contains(source, "export async function getVersion(config: Config): Promise<PublicVersionResponse>") {
 		t.Fatalf("generated TypeScript client must include getVersion signature, source:\n%s", source)
 	}
-	if !strings.Contains(source, "return requestJson<PublicVersionResponse>(config, \"GET\", \"/_belm/version\");") {
-		t.Fatalf("generated TypeScript client must call /_belm/version, source:\n%s", source)
+	if !strings.Contains(source, "return requestJson<PublicVersionResponse>(config, \"GET\", \"/_mar/version\");") {
+		t.Fatalf("generated TypeScript client must call /_mar/version, source:\n%s", source)
 	}
 }
 

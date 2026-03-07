@@ -1,6 +1,6 @@
 *.db
 .DS_Store
-vscode-belm/*.vsix
+vscode-mar/*.vsix
 **/.DS_Store
 build/
 .gomodcache/
@@ -8,5 +8,5 @@ build/
 admin/elm-stuff
 **/elm-stuff/
 admin/dist/
-belm
-belm.exe
+mar
+mar.exe

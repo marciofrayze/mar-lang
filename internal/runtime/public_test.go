@@ -146,7 +146,7 @@ entity Todo {
 	}
 }
 
-func TestAdminPanelServedUnderBelmPrefix(t *testing.T) {
+func TestAdminPanelServedUnderMarPrefix(t *testing.T) {
 	requireSQLite3(t)
 
 	app := mustParseApp(t, `
@@ -179,20 +179,20 @@ entity Todo {
 	})
 
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/_belm/admin", nil)
+	req := httptest.NewRequest(http.MethodGet, "/_mar/admin", nil)
 	r.handleHTTP(rec, req)
 	if rec.Code != http.StatusOK {
-		t.Fatalf("expected 200 for /_belm/admin, got %d body=%s", rec.Code, rec.Body.String())
+		t.Fatalf("expected 200 for /_mar/admin, got %d body=%s", rec.Code, rec.Body.String())
 	}
 	if !strings.Contains(rec.Body.String(), "admin") {
 		t.Fatalf("expected admin html body, got %q", rec.Body.String())
 	}
 
 	rec = httptest.NewRecorder()
-	req = httptest.NewRequest(http.MethodGet, "/_belm/admin/dist/app.js", nil)
+	req = httptest.NewRequest(http.MethodGet, "/_mar/admin/dist/app.js", nil)
 	r.handleHTTP(rec, req)
 	if rec.Code != http.StatusOK {
-		t.Fatalf("expected 200 for /_belm/admin/dist/app.js, got %d body=%s", rec.Code, rec.Body.String())
+		t.Fatalf("expected 200 for /_mar/admin/dist/app.js, got %d body=%s", rec.Code, rec.Body.String())
 	}
 	if !strings.Contains(rec.Body.String(), "admin") {
 		t.Fatalf("expected admin js body, got %q", rec.Body.String())

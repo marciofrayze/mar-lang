@@ -11,10 +11,10 @@ import (
 	"strings"
 	"time"
 
-	"belm/internal/model"
+	"mar/internal/model"
 )
 
-const internalAuthUsersTable = "belm_auth_users"
+const internalAuthUsersTable = "mar_auth_users"
 
 func (r *Runtime) authConfig() model.AuthConfig {
 	if r.App.Auth != nil {
@@ -26,8 +26,8 @@ func (r *Runtime) authConfig() model.AuthConfig {
 		CodeTTLMinutes:  10,
 		SessionTTLHours: 24,
 		EmailTransport:  "console",
-		EmailFrom:       "no-reply@belm.local",
-		EmailSubject:    "Your Belm login code",
+		EmailFrom:       "no-reply@mar.local",
+		EmailSubject:    "Your Mar login code",
 		SendmailPath:    "/usr/sbin/sendmail",
 		DevExposeCode:   false,
 	}
@@ -46,7 +46,7 @@ func (r *Runtime) resolveAuth(req *http.Request) (authSession, error) {
 
 	row, ok, err := queryRow(
 		r.DB,
-		`SELECT token, user_id, email, expires_at, revoked FROM belm_sessions WHERE token = ? LIMIT 1`,
+		`SELECT token, user_id, email, expires_at, revoked FROM mar_sessions WHERE token = ? LIMIT 1`,
 		token,
 	)
 	if err != nil {
@@ -184,7 +184,7 @@ func parseAuthEmail(payload map[string]any) (string, error) {
 }
 
 // handleAuthRequestCode creates and delivers a one-time login code for an auth user email.
-// If the user does not exist yet, Belm may auto-create it when the auth entity allows it.
+// If the user does not exist yet, Mar may auto-create it when the auth entity allows it.
 func (r *Runtime) handleAuthRequestCode(w http.ResponseWriter, payload map[string]any) error {
 	email, err := parseAuthEmail(payload)
 	if err != nil {
@@ -251,7 +251,7 @@ func (r *Runtime) issueAuthCode(w http.ResponseWriter, email string, userID any,
 	expiresAt := now + int64(cfg.CodeTTLMinutes)*60_000
 	grantRole = strings.TrimSpace(grantRole)
 	_, err = r.DB.Exec(
-		`INSERT INTO belm_auth_codes (email, user_id, code, grant_role, expires_at, used, created_at) VALUES (?, ?, ?, ?, ?, 0, ?)`,
+		`INSERT INTO mar_auth_codes (email, user_id, code, grant_role, expires_at, used, created_at) VALUES (?, ?, ?, ?, ?, 0, ?)`,
 		email,
 		userID,
 		code,
@@ -267,7 +267,7 @@ func (r *Runtime) issueAuthCode(w http.ResponseWriter, email string, userID any,
 	}
 
 	responseMessage := message
-	if isBelmDevMode() && strings.EqualFold(strings.TrimSpace(cfg.EmailTransport), "console") {
+	if isMarDevMode() && strings.EqualFold(strings.TrimSpace(cfg.EmailTransport), "console") {
 		responseMessage = "Login code generated. You are running in dev mode with email transport set to console, so check there."
 	}
 
@@ -279,7 +279,7 @@ func (r *Runtime) issueAuthCode(w http.ResponseWriter, email string, userID any,
 	return nil
 }
 
-func isBelmDevMode() bool {
+func isMarDevMode() bool {
 	value := strings.ToLower(strings.TrimSpace(os.Getenv("BELM_DEV_MODE")))
 	return value == "1" || value == "true" || value == "yes" || value == "on"
 }
@@ -427,7 +427,7 @@ func (r *Runtime) handleAuthLogin(w http.ResponseWriter, payload map[string]any)
 		return &apiError{Status: http.StatusBadRequest, Message: "code is required"}
 	}
 
-	row, ok, err := queryRow(r.DB, `SELECT id, user_id, code, grant_role, expires_at, used FROM belm_auth_codes WHERE email = ? ORDER BY id DESC LIMIT 1`, email)
+	row, ok, err := queryRow(r.DB, `SELECT id, user_id, code, grant_role, expires_at, used FROM mar_auth_codes WHERE email = ? ORDER BY id DESC LIMIT 1`, email)
 	if err != nil {
 		return err
 	}
@@ -445,7 +445,7 @@ func (r *Runtime) handleAuthLogin(w http.ResponseWriter, payload map[string]any)
 	userID := row["user_id"]
 	grantRole, _ := row["grant_role"].(string)
 
-	if _, err := r.DB.Exec(`UPDATE belm_auth_codes SET used = 1 WHERE id = ?`, codeID); err != nil {
+	if _, err := r.DB.Exec(`UPDATE mar_auth_codes SET used = 1 WHERE id = ?`, codeID); err != nil {
 		return err
 	}
 	userRow, found, err := r.loadAuthUserByID(userID)
@@ -475,7 +475,7 @@ func (r *Runtime) handleAuthLogin(w http.ResponseWriter, payload map[string]any)
 	}
 	cfg := r.authConfig()
 	sessionExpiresAt := now + int64(cfg.SessionTTLHours)*60*60*1000
-	if _, err := r.DB.Exec(`INSERT INTO belm_sessions (token, user_id, email, expires_at, revoked, created_at) VALUES (?, ?, ?, ?, 0, ?)`, token, userID, email, sessionExpiresAt, now); err != nil {
+	if _, err := r.DB.Exec(`INSERT INTO mar_sessions (token, user_id, email, expires_at, revoked, created_at) VALUES (?, ?, ?, ?, 0, ?)`, token, userID, email, sessionExpiresAt, now); err != nil {
 		return err
 	}
 
@@ -545,7 +545,7 @@ func (r *Runtime) handleAuthLogout(w http.ResponseWriter, auth authSession) erro
 	if !auth.Authenticated || auth.Token == "" {
 		return &apiError{Status: http.StatusUnauthorized, Message: "Authentication required"}
 	}
-	if _, err := r.DB.Exec(`UPDATE belm_sessions SET revoked = 1 WHERE token = ?`, auth.Token); err != nil {
+	if _, err := r.DB.Exec(`UPDATE mar_sessions SET revoked = 1 WHERE token = ?`, auth.Token); err != nil {
 		return err
 	}
 	r.writeJSON(w, http.StatusOK, map[string]any{"ok": true})

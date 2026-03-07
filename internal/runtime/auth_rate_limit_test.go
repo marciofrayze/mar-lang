@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"belm/internal/parser"
+	"mar/internal/parser"
 )
 
 func TestClampAuthRateLimitBoundaries(t *testing.T) {

@@ -6230,41 +6230,41 @@ var $author$project$Main$loadAuthMe = F2(
 var $author$project$Main$GotSchema = function (a) {
 	return {$: 'GotSchema', a: a};
 };
-var $author$project$Belm$Api$Schema = F8(
+var $author$project$Mar$Api$Schema = F8(
 	function (appName, portNumber, database, entities, auth, systemAuth, inputAliases, actions) {
 		return {actions: actions, appName: appName, auth: auth, database: database, entities: entities, inputAliases: inputAliases, portNumber: portNumber, systemAuth: systemAuth};
 	});
-var $author$project$Belm$Api$ActionInfo = F3(
+var $author$project$Mar$Api$ActionInfo = F3(
 	function (name, inputAlias, steps) {
 		return {inputAlias: inputAlias, name: name, steps: steps};
 	});
 var $elm$json$Json$Decode$int = _Json_decodeInt;
 var $elm$json$Json$Decode$map3 = _Json_map3;
-var $author$project$Belm$Api$actionInfoDecoder = A4(
+var $author$project$Mar$Api$actionInfoDecoder = A4(
 	$elm$json$Json$Decode$map3,
-	$author$project$Belm$Api$ActionInfo,
+	$author$project$Mar$Api$ActionInfo,
 	A2($elm$json$Json$Decode$field, 'name', $elm$json$Json$Decode$string),
 	A2($elm$json$Json$Decode$field, 'inputAlias', $elm$json$Json$Decode$string),
 	A2($elm$json$Json$Decode$field, 'steps', $elm$json$Json$Decode$int));
 var $elm$json$Json$Decode$list = _Json_decodeList;
-var $author$project$Belm$Api$decodeActionInfo = $elm$json$Json$Decode$oneOf(
+var $author$project$Mar$Api$decodeActionInfo = $elm$json$Json$Decode$oneOf(
 	_List_fromArray(
 		[
 			A2(
 			$elm$json$Json$Decode$field,
 			'actions',
-			$elm$json$Json$Decode$list($author$project$Belm$Api$actionInfoDecoder)),
+			$elm$json$Json$Decode$list($author$project$Mar$Api$actionInfoDecoder)),
 			$elm$json$Json$Decode$succeed(_List_Nil)
 		]));
-var $author$project$Belm$Api$AuthInfo = F6(
+var $author$project$Mar$Api$AuthInfo = F6(
 	function (enabled, userEntity, emailField, roleField, emailTransport, needsBootstrap) {
 		return {emailField: emailField, emailTransport: emailTransport, enabled: enabled, needsBootstrap: needsBootstrap, roleField: roleField, userEntity: userEntity};
 	});
 var $elm$json$Json$Decode$bool = _Json_decodeBool;
 var $elm$json$Json$Decode$map6 = _Json_map6;
-var $author$project$Belm$Api$authInfoDecoder = A7(
+var $author$project$Mar$Api$authInfoDecoder = A7(
 	$elm$json$Json$Decode$map6,
-	$author$project$Belm$Api$AuthInfo,
+	$author$project$Mar$Api$AuthInfo,
 	A2($elm$json$Json$Decode$field, 'enabled', $elm$json$Json$Decode$bool),
 	A2($elm$json$Json$Decode$field, 'userEntity', $elm$json$Json$Decode$string),
 	A2($elm$json$Json$Decode$field, 'emailField', $elm$json$Json$Decode$string),
@@ -6276,52 +6276,52 @@ var $author$project$Belm$Api$authInfoDecoder = A7(
 				A2($elm$json$Json$Decode$field, 'needsBootstrap', $elm$json$Json$Decode$bool),
 				$elm$json$Json$Decode$succeed(false)
 			])));
-var $author$project$Belm$Api$decodeAuthInfo = $elm$json$Json$Decode$oneOf(
+var $author$project$Mar$Api$decodeAuthInfo = $elm$json$Json$Decode$oneOf(
 	_List_fromArray(
 		[
 			A2(
 			$elm$json$Json$Decode$field,
 			'auth',
-			A2($elm$json$Json$Decode$map, $elm$core$Maybe$Just, $author$project$Belm$Api$authInfoDecoder)),
+			A2($elm$json$Json$Decode$map, $elm$core$Maybe$Just, $author$project$Mar$Api$authInfoDecoder)),
 			$elm$json$Json$Decode$succeed($elm$core$Maybe$Nothing)
 		]));
-var $author$project$Belm$Api$InputAliasInfo = F2(
+var $author$project$Mar$Api$InputAliasInfo = F2(
 	function (name, fields) {
 		return {fields: fields, name: name};
 	});
-var $author$project$Belm$Api$InputAliasField = F2(
+var $author$project$Mar$Api$InputAliasField = F2(
 	function (name, fieldType) {
 		return {fieldType: fieldType, name: name};
 	});
-var $author$project$Belm$Api$inputAliasFieldDecoder = A3(
+var $author$project$Mar$Api$inputAliasFieldDecoder = A3(
 	$elm$json$Json$Decode$map2,
-	$author$project$Belm$Api$InputAliasField,
+	$author$project$Mar$Api$InputAliasField,
 	A2($elm$json$Json$Decode$field, 'name', $elm$json$Json$Decode$string),
 	A2($elm$json$Json$Decode$field, 'type', $elm$json$Json$Decode$string));
-var $author$project$Belm$Api$inputAliasDecoder = A3(
+var $author$project$Mar$Api$inputAliasDecoder = A3(
 	$elm$json$Json$Decode$map2,
-	$author$project$Belm$Api$InputAliasInfo,
+	$author$project$Mar$Api$InputAliasInfo,
 	A2($elm$json$Json$Decode$field, 'name', $elm$json$Json$Decode$string),
 	A2(
 		$elm$json$Json$Decode$field,
 		'fields',
-		$elm$json$Json$Decode$list($author$project$Belm$Api$inputAliasFieldDecoder)));
-var $author$project$Belm$Api$decodeInputAliases = $elm$json$Json$Decode$oneOf(
+		$elm$json$Json$Decode$list($author$project$Mar$Api$inputAliasFieldDecoder)));
+var $author$project$Mar$Api$decodeInputAliases = $elm$json$Json$Decode$oneOf(
 	_List_fromArray(
 		[
 			A2(
 			$elm$json$Json$Decode$field,
 			'inputAliases',
-			$elm$json$Json$Decode$list($author$project$Belm$Api$inputAliasDecoder)),
+			$elm$json$Json$Decode$list($author$project$Mar$Api$inputAliasDecoder)),
 			$elm$json$Json$Decode$succeed(_List_Nil)
 		]));
-var $author$project$Belm$Api$SystemAuthInfo = F3(
+var $author$project$Mar$Api$SystemAuthInfo = F3(
 	function (enabled, emailTransport, needsBootstrap) {
 		return {emailTransport: emailTransport, enabled: enabled, needsBootstrap: needsBootstrap};
 	});
-var $author$project$Belm$Api$systemAuthInfoDecoder = A4(
+var $author$project$Mar$Api$systemAuthInfoDecoder = A4(
 	$elm$json$Json$Decode$map3,
-	$author$project$Belm$Api$SystemAuthInfo,
+	$author$project$Mar$Api$SystemAuthInfo,
 	A2($elm$json$Json$Decode$field, 'enabled', $elm$json$Json$Decode$bool),
 	A2($elm$json$Json$Decode$field, 'emailTransport', $elm$json$Json$Decode$string),
 	$elm$json$Json$Decode$oneOf(
@@ -6330,57 +6330,57 @@ var $author$project$Belm$Api$systemAuthInfoDecoder = A4(
 				A2($elm$json$Json$Decode$field, 'needsBootstrap', $elm$json$Json$Decode$bool),
 				$elm$json$Json$Decode$succeed(false)
 			])));
-var $author$project$Belm$Api$decodeSystemAuthInfo = $elm$json$Json$Decode$oneOf(
+var $author$project$Mar$Api$decodeSystemAuthInfo = $elm$json$Json$Decode$oneOf(
 	_List_fromArray(
 		[
 			A2(
 			$elm$json$Json$Decode$field,
 			'systemAuth',
-			A2($elm$json$Json$Decode$map, $elm$core$Maybe$Just, $author$project$Belm$Api$systemAuthInfoDecoder)),
+			A2($elm$json$Json$Decode$map, $elm$core$Maybe$Just, $author$project$Mar$Api$systemAuthInfoDecoder)),
 			$elm$json$Json$Decode$succeed($elm$core$Maybe$Nothing)
 		]));
-var $author$project$Belm$Api$Entity = F5(
+var $author$project$Mar$Api$Entity = F5(
 	function (name, table, resource, primaryKey, fields) {
 		return {fields: fields, name: name, primaryKey: primaryKey, resource: resource, table: table};
 	});
-var $author$project$Belm$Api$Field = F5(
+var $author$project$Mar$Api$Field = F5(
 	function (name, fieldType, primary, auto, optional) {
 		return {auto: auto, fieldType: fieldType, name: name, optional: optional, primary: primary};
 	});
-var $author$project$Belm$Api$BoolType = {$: 'BoolType'};
-var $author$project$Belm$Api$FloatType = {$: 'FloatType'};
-var $author$project$Belm$Api$IntType = {$: 'IntType'};
-var $author$project$Belm$Api$StringType = {$: 'StringType'};
+var $author$project$Mar$Api$BoolType = {$: 'BoolType'};
+var $author$project$Mar$Api$FloatType = {$: 'FloatType'};
+var $author$project$Mar$Api$IntType = {$: 'IntType'};
+var $author$project$Mar$Api$StringType = {$: 'StringType'};
 var $elm$json$Json$Decode$fail = _Json_fail;
-var $author$project$Belm$Api$decodeFieldType = function (raw) {
+var $author$project$Mar$Api$decodeFieldType = function (raw) {
 	switch (raw) {
 		case 'Int':
-			return $elm$json$Json$Decode$succeed($author$project$Belm$Api$IntType);
+			return $elm$json$Json$Decode$succeed($author$project$Mar$Api$IntType);
 		case 'String':
-			return $elm$json$Json$Decode$succeed($author$project$Belm$Api$StringType);
+			return $elm$json$Json$Decode$succeed($author$project$Mar$Api$StringType);
 		case 'Bool':
-			return $elm$json$Json$Decode$succeed($author$project$Belm$Api$BoolType);
+			return $elm$json$Json$Decode$succeed($author$project$Mar$Api$BoolType);
 		case 'Float':
-			return $elm$json$Json$Decode$succeed($author$project$Belm$Api$FloatType);
+			return $elm$json$Json$Decode$succeed($author$project$Mar$Api$FloatType);
 		default:
 			return $elm$json$Json$Decode$fail('Unknown field type: ' + raw);
 	}
 };
 var $elm$json$Json$Decode$map5 = _Json_map5;
-var $author$project$Belm$Api$fieldDecoder = A6(
+var $author$project$Mar$Api$fieldDecoder = A6(
 	$elm$json$Json$Decode$map5,
-	$author$project$Belm$Api$Field,
+	$author$project$Mar$Api$Field,
 	A2($elm$json$Json$Decode$field, 'name', $elm$json$Json$Decode$string),
 	A2(
 		$elm$json$Json$Decode$andThen,
-		$author$project$Belm$Api$decodeFieldType,
+		$author$project$Mar$Api$decodeFieldType,
 		A2($elm$json$Json$Decode$field, 'type', $elm$json$Json$Decode$string)),
 	A2($elm$json$Json$Decode$field, 'primary', $elm$json$Json$Decode$bool),
 	A2($elm$json$Json$Decode$field, 'auto', $elm$json$Json$Decode$bool),
 	A2($elm$json$Json$Decode$field, 'optional', $elm$json$Json$Decode$bool));
-var $author$project$Belm$Api$entityDecoder = A6(
+var $author$project$Mar$Api$entityDecoder = A6(
 	$elm$json$Json$Decode$map5,
-	$author$project$Belm$Api$Entity,
+	$author$project$Mar$Api$Entity,
 	A2($elm$json$Json$Decode$field, 'name', $elm$json$Json$Decode$string),
 	A2($elm$json$Json$Decode$field, 'table', $elm$json$Json$Decode$string),
 	A2($elm$json$Json$Decode$field, 'resource', $elm$json$Json$Decode$string),
@@ -6388,22 +6388,22 @@ var $author$project$Belm$Api$entityDecoder = A6(
 	A2(
 		$elm$json$Json$Decode$field,
 		'fields',
-		$elm$json$Json$Decode$list($author$project$Belm$Api$fieldDecoder)));
+		$elm$json$Json$Decode$list($author$project$Mar$Api$fieldDecoder)));
 var $elm$json$Json$Decode$map8 = _Json_map8;
-var $author$project$Belm$Api$decodeSchema = A9(
+var $author$project$Mar$Api$decodeSchema = A9(
 	$elm$json$Json$Decode$map8,
-	$author$project$Belm$Api$Schema,
+	$author$project$Mar$Api$Schema,
 	A2($elm$json$Json$Decode$field, 'appName', $elm$json$Json$Decode$string),
 	A2($elm$json$Json$Decode$field, 'port', $elm$json$Json$Decode$int),
 	A2($elm$json$Json$Decode$field, 'database', $elm$json$Json$Decode$string),
 	A2(
 		$elm$json$Json$Decode$field,
 		'entities',
-		$elm$json$Json$Decode$list($author$project$Belm$Api$entityDecoder)),
-	$author$project$Belm$Api$decodeAuthInfo,
-	$author$project$Belm$Api$decodeSystemAuthInfo,
-	$author$project$Belm$Api$decodeInputAliases,
-	$author$project$Belm$Api$decodeActionInfo);
+		$elm$json$Json$Decode$list($author$project$Mar$Api$entityDecoder)),
+	$author$project$Mar$Api$decodeAuthInfo,
+	$author$project$Mar$Api$decodeSystemAuthInfo,
+	$author$project$Mar$Api$decodeInputAliases,
+	$author$project$Mar$Api$decodeActionInfo);
 var $elm$http$Http$get = function (r) {
 	return $elm$http$Http$request(
 		{body: $elm$http$Http$emptyBody, expect: r.expect, headers: _List_Nil, method: 'GET', timeout: $elm$core$Maybe$Nothing, tracker: $elm$core$Maybe$Nothing, url: r.url});
@@ -6411,8 +6411,8 @@ var $elm$http$Http$get = function (r) {
 var $author$project$Main$loadSchema = function (apiBase) {
 	return $elm$http$Http$get(
 		{
-			expect: A2($author$project$Main$expectJsonWithApiError, $author$project$Main$GotSchema, $author$project$Belm$Api$decodeSchema),
-			url: apiBase + '/_belm/schema'
+			expect: A2($author$project$Main$expectJsonWithApiError, $author$project$Main$GotSchema, $author$project$Mar$Api$decodeSchema),
+			url: apiBase + '/_mar/schema'
 		});
 };
 var $elm$core$Basics$neq = _Utils_notEqual;
@@ -6707,7 +6707,7 @@ var $author$project$Main$requestCodeDecoder = A3(
 			])));
 var $author$project$Main$bootstrapFirstAdmin = F2(
 	function (scope, model) {
-		var endpoint = '/_belm/bootstrap-admin';
+		var endpoint = '/_mar/bootstrap-admin';
 		return $elm$http$Http$request(
 			{
 				body: $elm$http$Http$jsonBody(
@@ -6741,13 +6741,13 @@ var $elm$json$Json$Decode$dict = function (decoder) {
 		$elm$json$Json$Decode$keyValuePairs(decoder));
 };
 var $elm$json$Json$Decode$value = _Json_decodeValue;
-var $author$project$Belm$Api$rowDecoder = $elm$json$Json$Decode$dict($elm$json$Json$Decode$value);
+var $author$project$Mar$Api$rowDecoder = $elm$json$Json$Decode$dict($elm$json$Json$Decode$value);
 var $author$project$Main$createRow = F3(
 	function (model, entity, payload) {
 		return $elm$http$Http$request(
 			{
 				body: $elm$http$Http$jsonBody(payload),
-				expect: A2($author$project$Main$expectJsonWithApiError, $author$project$Main$GotCreate, $author$project$Belm$Api$rowDecoder),
+				expect: A2($author$project$Main$expectJsonWithApiError, $author$project$Main$GotCreate, $author$project$Mar$Api$rowDecoder),
 				headers: $author$project$Main$appAuthHeaders(model),
 				method: 'POST',
 				timeout: $elm$core$Maybe$Nothing,
@@ -6796,7 +6796,7 @@ var $author$project$Main$deleteRowRequest = F3(
 				url: model.apiBase + (entity.resource + ('/' + idValue))
 			});
 	});
-var $author$project$Belm$Api$encodeByType = F2(
+var $author$project$Mar$Api$encodeByType = F2(
 	function (field, rawValue) {
 		var _v0 = field.fieldType;
 		switch (_v0.$) {
@@ -6828,7 +6828,7 @@ var $author$project$Belm$Api$encodeByType = F2(
 					$elm$json$Json$Encode$bool(false)) : $elm$core$Result$Err('Field ' + (field.name + ' expects Bool (true/false)')));
 		}
 	});
-var $author$project$Belm$Api$encodeField = F4(
+var $author$project$Mar$Api$encodeField = F4(
 	function (options, valuesByName, field, partialResult) {
 		if (partialResult.$ === 'Err') {
 			var message = partialResult.a;
@@ -6843,7 +6843,7 @@ var $author$project$Belm$Api$encodeField = F4(
 			if (rawValue === '') {
 				return (field.optional || options.forUpdate) ? $elm$core$Result$Ok(items) : $elm$core$Result$Err('Field ' + (field.name + ' is required'));
 			} else {
-				var _v1 = A2($author$project$Belm$Api$encodeByType, field, rawValue);
+				var _v1 = A2($author$project$Mar$Api$encodeByType, field, rawValue);
 				if (_v1.$ === 'Ok') {
 					var encoded = _v1.a;
 					return $elm$core$Result$Ok(
@@ -6859,14 +6859,14 @@ var $author$project$Belm$Api$encodeField = F4(
 		}
 	});
 var $elm$core$Basics$not = _Basics_not;
-var $author$project$Belm$Api$encodePayload = F3(
+var $author$project$Mar$Api$encodePayload = F3(
 	function (options, fields, valuesByName) {
 		return A2(
 			$elm$core$Result$map,
 			$elm$json$Json$Encode$object,
 			A3(
 				$elm$core$List$foldl,
-				A2($author$project$Belm$Api$encodeField, options, valuesByName),
+				A2($author$project$Mar$Api$encodeField, options, valuesByName),
 				$elm$core$Result$Ok(_List_Nil),
 				A2(
 					$elm$core$List$filter,
@@ -6941,12 +6941,12 @@ var $elm$json$Json$Decode$decodeValue = _Json_run;
 var $elm$json$Json$Decode$float = _Json_decodeFloat;
 var $elm$core$String$fromFloat = _String_fromNumber;
 var $elm$core$Basics$round = _Basics_round;
-var $author$project$Belm$Api$isWhole = function (number) {
+var $author$project$Mar$Api$isWhole = function (number) {
 	return _Utils_eq(
 		$elm$core$Basics$round(number),
 		number);
 };
-var $author$project$Belm$Api$valueToString = function (value) {
+var $author$project$Mar$Api$valueToString = function (value) {
 	var _v0 = A2($elm$json$Json$Decode$decodeValue, $elm$json$Json$Decode$string, value);
 	if (_v0.$ === 'Ok') {
 		var text = _v0.a;
@@ -6960,7 +6960,7 @@ var $author$project$Belm$Api$valueToString = function (value) {
 			var _v2 = A2($elm$json$Json$Decode$decodeValue, $elm$json$Json$Decode$float, value);
 			if (_v2.$ === 'Ok') {
 				var number = _v2.a;
-				return $author$project$Belm$Api$isWhole(number) ? $elm$core$String$fromInt(
+				return $author$project$Mar$Api$isWhole(number) ? $elm$core$String$fromInt(
 					$elm$core$Basics$round(number)) : $elm$core$String$fromFloat(number);
 			} else {
 				var _v3 = A2(
@@ -6993,7 +6993,7 @@ var $author$project$Main$formFromRow = F2(
 							'',
 							A2(
 								$elm$core$Maybe$map,
-								$author$project$Belm$Api$valueToString,
+								$author$project$Mar$Api$valueToString,
 								A2($elm$core$Dict$get, field.name, rowValue)));
 						return _Utils_Tuple2(field.name, valueText);
 					},
@@ -7054,8 +7054,8 @@ var $author$project$Main$GotAdminVersion = function (a) {
 	return {$: 'GotAdminVersion', a: a};
 };
 var $author$project$Main$AdminVersionPayload = F3(
-	function (app, belm, runtimeInfo) {
-		return {app: app, belm: belm, runtimeInfo: runtimeInfo};
+	function (app, mar, runtimeInfo) {
+		return {app: app, mar: mar, runtimeInfo: runtimeInfo};
 	});
 var $author$project$Main$VersionApp = F3(
 	function (name, buildTime, manifestHash) {
@@ -7067,13 +7067,13 @@ var $author$project$Main$versionAppDecoder = A4(
 	A2($elm$json$Json$Decode$field, 'name', $elm$json$Json$Decode$string),
 	A2($elm$json$Json$Decode$field, 'buildTime', $elm$json$Json$Decode$string),
 	A2($elm$json$Json$Decode$field, 'manifestHash', $elm$json$Json$Decode$string));
-var $author$project$Main$VersionBelm = F3(
+var $author$project$Main$VersionMar = F3(
 	function (version, commit, buildTime) {
 		return {buildTime: buildTime, commit: commit, version: version};
 	});
-var $author$project$Main$versionBelmDecoder = A4(
+var $author$project$Main$versionMarDecoder = A4(
 	$elm$json$Json$Decode$map3,
-	$author$project$Main$VersionBelm,
+	$author$project$Main$VersionMar,
 	A2($elm$json$Json$Decode$field, 'version', $elm$json$Json$Decode$string),
 	A2($elm$json$Json$Decode$field, 'commit', $elm$json$Json$Decode$string),
 	A2($elm$json$Json$Decode$field, 'buildTime', $elm$json$Json$Decode$string));
@@ -7090,7 +7090,7 @@ var $author$project$Main$adminVersionDecoder = A4(
 	$elm$json$Json$Decode$map3,
 	$author$project$Main$AdminVersionPayload,
 	A2($elm$json$Json$Decode$field, 'app', $author$project$Main$versionAppDecoder),
-	A2($elm$json$Json$Decode$field, 'belm', $author$project$Main$versionBelmDecoder),
+	A2($elm$json$Json$Decode$field, 'mar', $author$project$Main$versionMarDecoder),
 	A2($elm$json$Json$Decode$field, 'runtime', $author$project$Main$versionRuntimeDecoder));
 var $author$project$Main$loadAdminVersion = function (model) {
 	return $elm$http$Http$request(
@@ -7101,7 +7101,7 @@ var $author$project$Main$loadAdminVersion = function (model) {
 			method: 'GET',
 			timeout: $elm$core$Maybe$Nothing,
 			tracker: $elm$core$Maybe$Nothing,
-			url: model.apiBase + '/_belm/version/admin'
+			url: model.apiBase + '/_mar/version/admin'
 		});
 };
 var $author$project$Main$GotBackups = function (a) {
@@ -7145,7 +7145,7 @@ var $author$project$Main$loadBackups = function (model) {
 			method: 'GET',
 			timeout: $elm$core$Maybe$Nothing,
 			tracker: $elm$core$Maybe$Nothing,
-			url: model.apiBase + '/_belm/backups'
+			url: model.apiBase + '/_mar/backups'
 		});
 };
 var $author$project$Main$GotPerformance = function (a) {
@@ -7205,7 +7205,7 @@ var $author$project$Main$loadPerformance = function (model) {
 			method: 'GET',
 			timeout: $elm$core$Maybe$Nothing,
 			tracker: $elm$core$Maybe$Nothing,
-			url: model.apiBase + '/_belm/perf'
+			url: model.apiBase + '/_mar/perf'
 		});
 };
 var $author$project$Main$GotRequestLogs = function (a) {
@@ -7293,13 +7293,13 @@ var $author$project$Main$loadRequestLogs = function (model) {
 			method: 'GET',
 			timeout: $elm$core$Maybe$Nothing,
 			tracker: $elm$core$Maybe$Nothing,
-			url: model.apiBase + '/_belm/request-logs?limit=30'
+			url: model.apiBase + '/_mar/request-logs?limit=30'
 		});
 };
 var $author$project$Main$GotRows = function (a) {
 	return {$: 'GotRows', a: a};
 };
-var $author$project$Belm$Api$decodeRows = $elm$json$Json$Decode$list($author$project$Belm$Api$rowDecoder);
+var $author$project$Mar$Api$decodeRows = $elm$json$Json$Decode$list($author$project$Mar$Api$rowDecoder);
 var $author$project$Main$loadRows = function (model) {
 	var _v0 = model.selectedEntity;
 	if (_v0.$ === 'Nothing') {
@@ -7309,7 +7309,7 @@ var $author$project$Main$loadRows = function (model) {
 		return $elm$http$Http$request(
 			{
 				body: $elm$http$Http$emptyBody,
-				expect: A2($author$project$Main$expectJsonWithApiError, $author$project$Main$GotRows, $author$project$Belm$Api$decodeRows),
+				expect: A2($author$project$Main$expectJsonWithApiError, $author$project$Main$GotRows, $author$project$Mar$Api$decodeRows),
 				headers: $author$project$Main$appAuthHeaders(model),
 				method: 'GET',
 				timeout: $elm$core$Maybe$Nothing,
@@ -7461,7 +7461,7 @@ var $author$project$Main$rowId = F2(
 	function (entity, rowValue) {
 		return A2(
 			$elm$core$Maybe$map,
-			$author$project$Belm$Api$valueToString,
+			$author$project$Mar$Api$valueToString,
 			A2($elm$core$Dict$get, entity.primaryKey, rowValue));
 	});
 var $author$project$Main$replaceRow = F3(
@@ -7522,7 +7522,7 @@ var $author$project$Main$runAction = F3(
 		return $elm$http$Http$request(
 			{
 				body: $elm$http$Http$jsonBody(payload),
-				expect: A2($author$project$Main$expectJsonWithApiError, $author$project$Main$GotRunAction, $author$project$Belm$Api$rowDecoder),
+				expect: A2($author$project$Main$expectJsonWithApiError, $author$project$Main$GotRunAction, $author$project$Mar$Api$rowDecoder),
 				headers: $author$project$Main$appAuthHeaders(model),
 				method: 'POST',
 				timeout: $elm$core$Maybe$Nothing,
@@ -7611,7 +7611,7 @@ var $author$project$Main$triggerBackup = function (model) {
 			method: 'POST',
 			timeout: $elm$core$Maybe$Nothing,
 			tracker: $elm$core$Maybe$Nothing,
-			url: model.apiBase + '/_belm/backups'
+			url: model.apiBase + '/_mar/backups'
 		});
 };
 var $author$project$Main$GotUpdate = function (a) {
@@ -7622,7 +7622,7 @@ var $author$project$Main$updateRow = F4(
 		return $elm$http$Http$request(
 			{
 				body: $elm$http$Http$jsonBody(payload),
-				expect: A2($author$project$Main$expectJsonWithApiError, $author$project$Main$GotUpdate, $author$project$Belm$Api$rowDecoder),
+				expect: A2($author$project$Main$expectJsonWithApiError, $author$project$Main$GotUpdate, $author$project$Mar$Api$rowDecoder),
 				headers: $author$project$Main$appAuthHeaders(model),
 				method: 'PATCH',
 				timeout: $elm$core$Maybe$Nothing,
@@ -8457,7 +8457,7 @@ var $author$project$Main$update = F2(
 						}
 					}();
 					var _v24 = A3(
-						$author$project$Belm$Api$encodePayload,
+						$author$project$Mar$Api$encodePayload,
 						{forUpdate: forUpdate},
 						entity.fields,
 						model.formValues);
@@ -16405,7 +16405,7 @@ var $author$project$Main$viewActionPanel = F2(
 																	_List_fromArray(
 																		[
 																			$mdgriffith$elm_ui$Element$text(
-																			$author$project$Belm$Api$valueToString(value))
+																			$author$project$Mar$Api$valueToString(value))
 																		]))
 																]));
 													},
@@ -16564,7 +16564,7 @@ var $author$project$Main$viewRowCard = F2(
 						'-',
 						A2(
 							$elm$core$Maybe$map,
-							$author$project$Belm$Api$valueToString,
+							$author$project$Mar$Api$valueToString,
 							A2($elm$core$Dict$get, field.name, rowValue)));
 					return field.name + (': ' + textValue);
 				},
@@ -17478,7 +17478,7 @@ var $author$project$Main$viewActionInfo = function (actionInfo) {
 					]))
 			]));
 };
-var $author$project$Belm$Api$fieldTypeLabel = function (fieldType) {
+var $author$project$Mar$Api$fieldTypeLabel = function (fieldType) {
 	switch (fieldType.$) {
 		case 'IntType':
 			return 'Int';
@@ -17552,7 +17552,7 @@ var $author$project$Main$viewEntitySchema = function (model) {
 										A3($mdgriffith$elm_ui$Element$rgb255, 93, 103, 120))
 									]),
 								$mdgriffith$elm_ui$Element$text(
-									$author$project$Belm$Api$fieldTypeLabel(field.fieldType))),
+									$author$project$Mar$Api$fieldTypeLabel(field.fieldType))),
 								field.primary ? $author$project$Main$badge('primary') : $mdgriffith$elm_ui$Element$none,
 								field.auto ? $author$project$Main$badge('auto') : $mdgriffith$elm_ui$Element$none,
 								field.optional ? $author$project$Main$badge('optional') : $mdgriffith$elm_ui$Element$none
@@ -17595,7 +17595,7 @@ var $author$project$Main$formCard = F3(
 							$mdgriffith$elm_ui$Element$Input$placeholder,
 							_List_Nil,
 							$mdgriffith$elm_ui$Element$text(
-								$author$project$Belm$Api$fieldTypeLabel(field.fieldType)))),
+								$author$project$Mar$Api$fieldTypeLabel(field.fieldType)))),
 					text: A2(
 						$elm$core$Maybe$withDefault,
 						'',
@@ -17757,7 +17757,7 @@ var $author$project$Main$viewSelectedRow = function (model) {
 									_List_fromArray(
 										[
 											$mdgriffith$elm_ui$Element$text(
-											$author$project$Belm$Api$valueToString(value))
+											$author$project$Mar$Api$valueToString(value))
 										]))
 								]));
 					},
@@ -17876,9 +17876,9 @@ var $author$project$Main$viewMonitoringVersion = function (versionRemote) {
 							]),
 						_List_fromArray(
 							[
-								A2($author$project$Main$databaseInfoCard, 'Belm', versionPayload.belm.version),
-								A2($author$project$Main$databaseInfoCard, 'Belm commit', versionPayload.belm.commit),
-								A2($author$project$Main$databaseInfoCard, 'Belm build time', versionPayload.belm.buildTime)
+								A2($author$project$Main$databaseInfoCard, 'Mar', versionPayload.mar.version),
+								A2($author$project$Main$databaseInfoCard, 'Mar commit', versionPayload.mar.commit),
+								A2($author$project$Main$databaseInfoCard, 'Mar build time', versionPayload.mar.buildTime)
 							])),
 						A2(
 						$mdgriffith$elm_ui$Element$row,
@@ -18834,7 +18834,7 @@ var $author$project$Main$viewSidebar = function (model) {
 					{bottom: 12, left: 12, right: 12, top: 12})
 				]),
 			{
-				label: A2(sidebarItemLabel, 'Logs', '/_belm/request-logs'),
+				label: A2(sidebarItemLabel, 'Logs', '/_mar/request-logs'),
 				onPress: $elm$core$Maybe$Just($author$project$Main$SelectRequestLogs)
 			});
 	}();
@@ -18853,7 +18853,7 @@ var $author$project$Main$viewSidebar = function (model) {
 					{bottom: 12, left: 12, right: 12, top: 12})
 				]),
 			{
-				label: A2(sidebarItemLabel, 'Monitoring', '/_belm/perf'),
+				label: A2(sidebarItemLabel, 'Monitoring', '/_mar/perf'),
 				onPress: $elm$core$Maybe$Just($author$project$Main$SelectPerformance)
 			});
 	}();
@@ -18901,7 +18901,7 @@ var $author$project$Main$viewSidebar = function (model) {
 					{bottom: 12, left: 12, right: 12, top: 12})
 				]),
 			{
-				label: A2(sidebarItemLabel, 'Database', '/_belm/backups'),
+				label: A2(sidebarItemLabel, 'Database', '/_mar/backups'),
 				onPress: $elm$core$Maybe$Just($author$project$Main$SelectDatabase)
 			});
 	}();
@@ -18993,7 +18993,7 @@ var $author$project$Main$viewSidebar = function (model) {
 							$mdgriffith$elm_ui$Element$Font$color(
 							A3($mdgriffith$elm_ui$Element$rgb255, 240, 245, 250))
 						]),
-					$mdgriffith$elm_ui$Element$text('Belm Admin')),
+					$mdgriffith$elm_ui$Element$text('Mar Admin')),
 					A2(
 					$mdgriffith$elm_ui$Element$el,
 					_List_fromArray(
@@ -19125,7 +19125,7 @@ var $author$project$Main$view = function (model) {
 					]),
 				$author$project$Main$viewLayout(model))
 			]),
-		title: 'Belm Admin'
+		title: 'Mar Admin'
 	};
 };
 var $author$project$Main$main = $elm$browser$Browser$document(

@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"strings"
 
-	"belm/internal/expr"
-	"belm/internal/model"
-	"belm/internal/suggest"
+	"mar/internal/expr"
+	"mar/internal/model"
+	"mar/internal/suggest"
 )
 
 // handleList returns all rows from an entity resource after authorization.

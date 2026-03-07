@@ -6,9 +6,9 @@ import (
 	"strconv"
 	"strings"
 
-	"belm/internal/expr"
-	"belm/internal/model"
-	"belm/internal/suggest"
+	"mar/internal/expr"
+	"mar/internal/model"
+	"mar/internal/suggest"
 )
 
 var (
@@ -54,7 +54,7 @@ type line struct {
 	text   string
 }
 
-// Parse reads Belm source and returns an App model.
+// Parse reads Mar source and returns an App model.
 func Parse(source string) (*model.App, error) {
 	lines := splitLines(source)
 	idx := 0
@@ -198,8 +198,8 @@ func parseAuthBlock(lines []line, idx *int) (*model.AuthConfig, error) {
 		CodeTTLMinutes:  10,
 		SessionTTLHours: 24,
 		EmailTransport:  "console",
-		EmailFrom:       "no-reply@belm.local",
-		EmailSubject:    "Your Belm login code",
+		EmailFrom:       "no-reply@mar.local",
+		EmailSubject:    "Your Mar login code",
 		SendmailPath:    "/usr/sbin/sendmail",
 		DevExposeCode:   false,
 	}

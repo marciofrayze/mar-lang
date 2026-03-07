@@ -1,6 +1,6 @@
 port module Main exposing (main)
 
-import Belm.Api exposing (ActionInfo, AuthInfo, Entity, Field, InputAliasField, InputAliasInfo, Row, Schema, SystemAuthInfo, decodeRows, decodeSchema, encodePayload, fieldTypeLabel, rowDecoder, valueToString)
+import Mar.Api exposing (ActionInfo, AuthInfo, Entity, Field, InputAliasField, InputAliasInfo, Row, Schema, SystemAuthInfo, decodeRows, decodeSchema, encodePayload, fieldTypeLabel, rowDecoder, valueToString)
 import Browser
 import Dict exposing (Dict)
 import Element exposing (Element, alignLeft, column, el, fill, fillPortion, height, htmlAttribute, none, padding, paddingEach, paragraph, px, rgb255, row, scrollbarY, spacing, text, width)
@@ -191,7 +191,7 @@ type alias PerfHttp =
 
 type alias AdminVersionPayload =
     { app : VersionApp
-    , belm : VersionBelm
+    , mar : VersionMar
     , runtimeInfo : VersionRuntime
     }
 
@@ -203,7 +203,7 @@ type alias VersionApp =
     }
 
 
-type alias VersionBelm =
+type alias VersionMar =
     { version : String
     , commit : String
     , buildTime : String
@@ -1062,7 +1062,7 @@ update msg model =
 loadSchema : String -> Cmd Msg
 loadSchema apiBase =
     Http.get
-        { url = apiBase ++ "/_belm/schema"
+        { url = apiBase ++ "/_mar/schema"
         , expect = expectJsonWithApiError GotSchema decodeSchema
         }
 
@@ -1090,7 +1090,7 @@ loadPerformance model =
     Http.request
         { method = "GET"
         , headers = appAuthHeaders model
-        , url = model.apiBase ++ "/_belm/perf"
+        , url = model.apiBase ++ "/_mar/perf"
         , body = Http.emptyBody
         , expect = expectJsonWithApiError GotPerformance perfPayloadDecoder
         , timeout = Nothing
@@ -1103,7 +1103,7 @@ loadAdminVersion model =
     Http.request
         { method = "GET"
         , headers = appAuthHeaders model
-        , url = model.apiBase ++ "/_belm/version/admin"
+        , url = model.apiBase ++ "/_mar/version/admin"
         , body = Http.emptyBody
         , expect = expectJsonWithApiError GotAdminVersion adminVersionDecoder
         , timeout = Nothing
@@ -1116,7 +1116,7 @@ loadRequestLogs model =
     Http.request
         { method = "GET"
         , headers = appAuthHeaders model
-        , url = model.apiBase ++ "/_belm/request-logs?limit=30"
+        , url = model.apiBase ++ "/_mar/request-logs?limit=30"
         , body = Http.emptyBody
         , expect = expectJsonWithApiError GotRequestLogs requestLogsPayloadDecoder
         , timeout = Nothing
@@ -1129,7 +1129,7 @@ loadBackups model =
     Http.request
         { method = "GET"
         , headers = appAuthHeaders model
-        , url = model.apiBase ++ "/_belm/backups"
+        , url = model.apiBase ++ "/_mar/backups"
         , body = Http.emptyBody
         , expect = expectJsonWithApiError GotBackups backupsDecoder
         , timeout = Nothing
@@ -1142,7 +1142,7 @@ triggerBackup model =
     Http.request
         { method = "POST"
         , headers = appAuthHeaders model
-        , url = model.apiBase ++ "/_belm/backups"
+        , url = model.apiBase ++ "/_mar/backups"
         , body = Http.emptyBody
         , expect = expectJsonWithApiError GotBackup backupResponseDecoder
         , timeout = Nothing
@@ -1224,7 +1224,7 @@ bootstrapFirstAdmin : AuthScope -> Model -> Cmd Msg
 bootstrapFirstAdmin scope model =
     let
         endpoint =
-            "/_belm/bootstrap-admin"
+            "/_mar/bootstrap-admin"
     in
     Http.request
         { method = "POST"
@@ -1473,7 +1473,7 @@ adminVersionDecoder : Decode.Decoder AdminVersionPayload
 adminVersionDecoder =
     Decode.map3 AdminVersionPayload
         (Decode.field "app" versionAppDecoder)
-        (Decode.field "belm" versionBelmDecoder)
+        (Decode.field "mar" versionMarDecoder)
         (Decode.field "runtime" versionRuntimeDecoder)
 
 
@@ -1485,9 +1485,9 @@ versionAppDecoder =
         (Decode.field "manifestHash" Decode.string)
 
 
-versionBelmDecoder : Decode.Decoder VersionBelm
-versionBelmDecoder =
-    Decode.map3 VersionBelm
+versionMarDecoder : Decode.Decoder VersionMar
+versionMarDecoder =
+    Decode.map3 VersionMar
         (Decode.field "version" Decode.string)
         (Decode.field "commit" Decode.string)
         (Decode.field "buildTime" Decode.string)
@@ -1812,7 +1812,7 @@ formFromRow model rowValue =
 
 view : Model -> Browser.Document Msg
 view model =
-    { title = "Belm Admin"
+    { title = "Mar Admin"
     , body =
         [ Element.layout
             [ Background.color (rgb255 244 245 247)
@@ -1953,7 +1953,7 @@ viewSidebar model =
                 ]
                 { onPress = Just SelectPerformance
                 , label =
-                    sidebarItemLabel "Monitoring" "/_belm/perf"
+                    sidebarItemLabel "Monitoring" "/_mar/perf"
                 }
 
         requestLogsButton : Element Msg
@@ -1975,7 +1975,7 @@ viewSidebar model =
                 ]
                 { onPress = Just SelectRequestLogs
                 , label =
-                    sidebarItemLabel "Logs" "/_belm/request-logs"
+                    sidebarItemLabel "Logs" "/_mar/request-logs"
                 }
 
         databaseButton : Element Msg
@@ -1997,7 +1997,7 @@ viewSidebar model =
                 ]
                 { onPress = Just SelectDatabase
                 , label =
-                    sidebarItemLabel "Database" "/_belm/backups"
+                    sidebarItemLabel "Database" "/_mar/backups"
                 }
 
         authToolsButton : Element Msg
@@ -2030,7 +2030,7 @@ viewSidebar model =
         , padding 20
         , spacing 16
         ]
-        ([ el [ Font.size 24, Font.bold, Font.color (rgb255 240 245 250) ] (text "Belm Admin")
+        ([ el [ Font.size 24, Font.bold, Font.color (rgb255 240 245 250) ] (text "Mar Admin")
          , el [ Font.size 13, Font.color (rgb255 144 158 179) ]
             (text
                 (case model.schema of
@@ -2965,9 +2965,9 @@ viewMonitoringVersion versionRemote =
                     , databaseInfoCard "Manifest hash" versionPayload.app.manifestHash
                     ]
                 , row [ width fill, spacing 12 ]
-                    [ databaseInfoCard "Belm" versionPayload.belm.version
-                    , databaseInfoCard "Belm commit" versionPayload.belm.commit
-                    , databaseInfoCard "Belm build time" versionPayload.belm.buildTime
+                    [ databaseInfoCard "Mar" versionPayload.mar.version
+                    , databaseInfoCard "Mar commit" versionPayload.mar.commit
+                    , databaseInfoCard "Mar build time" versionPayload.mar.buildTime
                     ]
                 , row [ width fill, spacing 12 ]
                     [ databaseInfoCard "Go version" versionPayload.runtimeInfo.goVersion

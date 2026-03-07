@@ -16,11 +16,11 @@ import (
 	"strings"
 	"time"
 
-	"belm/internal/formatter"
-	"belm/internal/generator"
-	"belm/internal/lsp"
-	"belm/internal/model"
-	"belm/internal/parser"
+	"mar/internal/formatter"
+	"mar/internal/generator"
+	"mar/internal/lsp"
+	"mar/internal/model"
+	"mar/internal/parser"
 )
 
 var (
@@ -29,10 +29,10 @@ var (
 	cliBuildTime = ""
 )
 
-// Run dispatches Belm CLI subcommands.
+// Run dispatches Mar CLI subcommands.
 func Run(binaryName string, args []string) error {
 	if binaryName == "" {
-		binaryName = "belm"
+		binaryName = "mar"
 	}
 	if len(args) == 0 {
 		printUsage(binaryName)
@@ -42,9 +42,9 @@ func Run(binaryName string, args []string) error {
 	switch args[0] {
 	case "compile":
 		if len(args) != 2 && len(args) != 3 {
-			return fmt.Errorf("usage: %s compile <input.belm> [output-name]", binaryName)
+			return fmt.Errorf("usage: %s compile <input.mar> [output-name]", binaryName)
 		}
-		app, err := parseBelmFile(args[1])
+		app, err := parseMarFile(args[1])
 		if err != nil {
 			return err
 		}
@@ -58,7 +58,7 @@ func Run(binaryName string, args []string) error {
 		})
 	case "dev":
 		if len(args) != 2 && len(args) != 3 {
-			return fmt.Errorf("usage: %s dev <input.belm> [output-name]", binaryName)
+			return fmt.Errorf("usage: %s dev <input.mar> [output-name]", binaryName)
 		}
 		outputPath := defaultOutputPath(args[1], "")
 		if len(args) == 3 {
@@ -117,7 +117,7 @@ func parseFormatArgs(binaryName string, args []string) (*formatOptions, error) {
 		return nil, fmt.Errorf("usage: %s format [--check] [--stdin] [files...]\n\nwhen --stdin is set, do not pass file paths", binaryName)
 	}
 	if !opts.Stdin && len(opts.Files) == 0 {
-		return nil, fmt.Errorf("usage: %s format [--check] [--stdin] [files...]\n\npass one or more .belm files, or use --stdin", binaryName)
+		return nil, fmt.Errorf("usage: %s format [--check] [--stdin] [files...]\n\npass one or more .mar files, or use --stdin", binaryName)
 	}
 	return opts, nil
 }
@@ -144,8 +144,8 @@ func runFormatStdin(check bool) error {
 func runFormatFiles(binaryName string, files []string, check bool) error {
 	changed := make([]string, 0, len(files))
 	for _, path := range files {
-		if strings.ToLower(filepath.Ext(path)) != ".belm" {
-			return fmt.Errorf("format only supports .belm files: %s", path)
+		if strings.ToLower(filepath.Ext(path)) != ".mar" {
+			return fmt.Errorf("format only supports .mar files: %s", path)
 		}
 
 		raw, err := os.ReadFile(path)
@@ -190,7 +190,7 @@ func normalizeFormattedCompare(source string) string {
 	return s
 }
 
-func parseBelmFile(path string) (*model.App, error) {
+func parseMarFile(path string) (*model.App, error) {
 	content, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -212,7 +212,7 @@ func buildExecutableWithOptions(app *model.App, outputPath string, options build
 		return errors.New("nil app")
 	}
 	if _, err := os.Stat("go.mod"); err != nil {
-		return errors.New("build command must run from the belm module root (go.mod not found)")
+		return errors.New("build command must run from the mar module root (go.mod not found)")
 	}
 
 	manifestJSON, err := json.Marshal(app)
@@ -222,9 +222,9 @@ func buildExecutableWithOptions(app *model.App, outputPath string, options build
 	manifestDigest := sha256.Sum256(manifestJSON)
 	manifestHash := "sha256:" + hex.EncodeToString(manifestDigest[:])
 	appBuildTime := time.Now().UTC().Format(time.RFC3339)
-	compilerInfo := readVersionInfo("belm")
+	compilerInfo := readVersionInfo("mar")
 
-	workDir, err := os.MkdirTemp(".", ".belm-build-*")
+	workDir, err := os.MkdirTemp(".", ".mar-build-*")
 	if err != nil {
 		return err
 	}
@@ -323,8 +323,8 @@ import (
 	"runtime"
 	"strings"
 
-	"belm/internal/model"
-	belmruntime "belm/internal/runtime"
+	"mar/internal/model"
+	marruntime "mar/internal/runtime"
 )
 
 //go:embed manifest.json admin/index.html admin/favicon.svg admin/dist/app.js all:public
@@ -333,9 +333,9 @@ var files embed.FS
 const adminEnabled = %t
 const publicEnabled = %t
 const backupKeepLast = 20
-const belmVersion = %q
-const belmCommit = %q
-const belmBuildTime = %q
+const marVersion = %q
+const marCommit = %q
+const marBuildTime = %q
 const appBuildTime = %q
 const appManifestHash = %q
 
@@ -357,7 +357,7 @@ func main() {
 		os.Exit(0)
 	case len(os.Args) == 2 && os.Args[1] == "serve":
 		if err := runServe(&app); err != nil {
-			belmruntime.PrintStartupError(err, os.Args[0])
+			marruntime.PrintStartupError(err, os.Args[0])
 			os.Exit(1)
 		}
 	case len(os.Args) == 2 && os.Args[1] == "backup":
@@ -375,10 +375,10 @@ func printAppUsage(binaryName string) {
 	useColor := appSupportsANSI(os.Stdout)
 	fmt.Println()
 	fmt.Printf("%%s\n", appColorize(useColor, "\033[1m", "Available commands"))
-	fmt.Printf("  %%s  %%s\n", appColorize(useColor, "\033[1;32m", binaryName+" serve "), "Start the API server and open Belm Admin.")
+	fmt.Printf("  %%s  %%s\n", appColorize(useColor, "\033[1;32m", binaryName+" serve "), "Start the API server and open Mar Admin.")
 	fmt.Printf("  %%s  %%s\n", appColorize(useColor, "\033[1;32m", binaryName+" backup"), "Create a SQLite backup in ./backups.")
 	fmt.Printf(
-		"\n%%s Use %%s to start the API server and open Belm Admin.\n",
+		"\n%%s Use %%s to start the API server and open Mar Admin.\n",
 		appColorize(useColor, "\033[1;33m", "Hint:"),
 		appColorize(useColor, "\033[1;32m", binaryName+" serve"),
 	)
@@ -398,7 +398,7 @@ func printAppUnknownCommand(binaryName string, args []string) {
 	fmt.Fprintf(os.Stderr, "  %%s\n", binaryName+" backup")
 	fmt.Fprintf(
 		os.Stderr,
-		"\n%%s Use %%s to start the API server and open Belm Admin.\n",
+		"\n%%s Use %%s to start the API server and open Mar Admin.\n",
 		appColorize(useColor, "\033[1;33m", "Hint:"),
 		appColorize(useColor, "\033[1;32m", binaryName+" serve"),
 	)
@@ -431,7 +431,7 @@ func runServe(app *model.App) error {
 	if !adminEnabled {
 		return errors.New("admin panel is not embedded in this executable")
 	}
-	r, err := belmruntime.New(app)
+	r, err := marruntime.New(app)
 	if err != nil {
 		return err
 	}
@@ -442,15 +442,15 @@ func runServe(app *model.App) error {
 	if err := configureAdminFiles(r); err != nil {
 		return err
 	}
-	r.SetVersionInfo(belmruntime.VersionInfo{
-		BelmVersion:   belmVersion,
-		BelmCommit:    belmCommit,
-		BelmBuildTime: belmBuildTime,
+	r.SetVersionInfo(marruntime.VersionInfo{
+		MarVersion:   marVersion,
+		MarCommit:    marCommit,
+		MarBuildTime: marBuildTime,
 		AppBuildTime:  appBuildTime,
 		ManifestHash:  appManifestHash,
 	})
 
-	adminURL := fmt.Sprintf("http://127.0.0.1:%%d/_belm/admin", app.Port)
+	adminURL := fmt.Sprintf("http://127.0.0.1:%%d/_mar/admin", app.Port)
 	fmt.Printf("\nAdmin panel: %%s\n", adminURL)
 	if strings.TrimSpace(os.Getenv("BELM_ADMIN_NO_OPEN")) == "" {
 		if err := openBrowser(adminURL); err != nil {
@@ -461,7 +461,7 @@ func runServe(app *model.App) error {
 }
 
 func runBackup(app *model.App) error {
-	result, err := belmruntime.CreateSQLiteBackup(app.Database, backupKeepLast)
+	result, err := marruntime.CreateSQLiteBackup(app.Database, backupKeepLast)
 	if err != nil {
 		return err
 	}
@@ -477,7 +477,7 @@ func runBackup(app *model.App) error {
 	return nil
 }
 
-func configurePublicFiles(r *belmruntime.Runtime) error {
+func configurePublicFiles(r *marruntime.Runtime) error {
 	if !publicEnabled {
 		return nil
 	}
@@ -489,7 +489,7 @@ func configurePublicFiles(r *belmruntime.Runtime) error {
 	return nil
 }
 
-func configureAdminFiles(r *belmruntime.Runtime) error {
+func configureAdminFiles(r *marruntime.Runtime) error {
 	sub, err := fs.Sub(files, "admin")
 	if err != nil {
 		return err
@@ -708,13 +708,13 @@ func printUsage(binaryName string) {
 
 	fmt.Println()
 	fmt.Printf("%s\n", colorizeCLI(useColor, "\033[1;36m", "Available commands"))
-	fmt.Printf("  %-45s %s\n", fmt.Sprintf("%s compile <input.belm> [output-name]", binaryName), "Compile a .belm app into an executable and clients.")
-	fmt.Printf("  %-45s %s\n", fmt.Sprintf("%s dev <input.belm> [output-name]", binaryName), "Run development mode with hot reload.")
-	fmt.Printf("  %-45s %s\n", fmt.Sprintf("%s format [--check] [--stdin] [files...]", binaryName), "Format Belm source files (Elm-style).")
-	fmt.Printf("  %-45s %s\n", fmt.Sprintf("%s lsp", binaryName), "Start the Belm Language Server (for editors).")
+	fmt.Printf("  %-45s %s\n", fmt.Sprintf("%s dev <input.mar> [output-name]", binaryName), "Run development mode with hot reload.")
+	fmt.Printf("  %-45s %s\n", fmt.Sprintf("%s compile <input.mar> [output-name]", binaryName), "Compile a .mar app into an executable and clients.")
+	fmt.Printf("  %-45s %s\n", fmt.Sprintf("%s format [--check] [--stdin] [files...]", binaryName), "Format Mar source files (Elm-style).")
+	fmt.Printf("  %-45s %s\n", fmt.Sprintf("%s lsp", binaryName), "Start the Mar Language Server (for editors).")
 	fmt.Printf("  %-45s %s\n", fmt.Sprintf("%s version", binaryName), "Show version and build information.")
 	fmt.Printf("\n%s\n", colorizeCLI(useColor, "\033[1;33m", "Hint:"))
-	fmt.Printf("  Build an app with: %s\n", colorizeCLI(useColor, "\033[1;32m", fmt.Sprintf("%s compile <input.belm>", binaryName)))
+	fmt.Printf("  Build an app with: %s\n", colorizeCLI(useColor, "\033[1;32m", fmt.Sprintf("%s compile <input.mar>", binaryName)))
 	fmt.Println()
 }
 
@@ -723,24 +723,24 @@ func unknownCommandError(binaryName, provided string) error {
 	var b strings.Builder
 	fmt.Fprintf(&b, "%s %q\n\n", colorizeCLI(useColor, "\033[1;31m", "unknown command"), provided)
 	fmt.Fprintf(&b, "%s\n", colorizeCLI(useColor, "\033[1;36m", "Available commands:"))
-	fmt.Fprintf(&b, "  %s\n", fmt.Sprintf("%s compile <input.belm> [output-name]", binaryName))
-	fmt.Fprintf(&b, "  %s\n", fmt.Sprintf("%s dev <input.belm> [output-name]", binaryName))
+	fmt.Fprintf(&b, "  %s\n", fmt.Sprintf("%s dev <input.mar> [output-name]", binaryName))
+	fmt.Fprintf(&b, "  %s\n", fmt.Sprintf("%s compile <input.mar> [output-name]", binaryName))
 	fmt.Fprintf(&b, "  %s\n", fmt.Sprintf("%s format [--check] [--stdin] [files...]", binaryName))
 	fmt.Fprintf(&b, "  %s\n", fmt.Sprintf("%s lsp", binaryName))
 	fmt.Fprintf(&b, "  %s\n", fmt.Sprintf("%s version", binaryName))
-	if looksLikeBelmFile(provided) {
+	if looksLikeMarFile(provided) {
 		fmt.Fprintf(&b, "\n%s\n", colorizeCLI(useColor, "\033[1;33m", "Hint:"))
-		fmt.Fprintf(&b, "  It looks like you passed a .belm file directly.\n")
+		fmt.Fprintf(&b, "  It looks like you passed a .mar file directly.\n")
 		fmt.Fprintf(&b, "  Run: %s\n", colorizeCLI(useColor, "\033[1;32m", fmt.Sprintf("%s compile %s", binaryName, provided)))
 	} else {
 		fmt.Fprintf(&b, "\n%s\n", colorizeCLI(useColor, "\033[1;33m", "Hint:"))
-		fmt.Fprintf(&b, "  To compile an app, run: %s\n", colorizeCLI(useColor, "\033[1;32m", fmt.Sprintf("%s compile <input.belm>", binaryName)))
+		fmt.Fprintf(&b, "  To compile an app, run: %s\n", colorizeCLI(useColor, "\033[1;32m", fmt.Sprintf("%s compile <input.mar>", binaryName)))
 	}
 	return errors.New(b.String())
 }
 
-func looksLikeBelmFile(value string) bool {
-	return strings.HasSuffix(strings.ToLower(strings.TrimSpace(value)), ".belm")
+func looksLikeMarFile(value string) bool {
+	return strings.HasSuffix(strings.ToLower(strings.TrimSpace(value)), ".mar")
 }
 
 func printCompileSummary(outputPath, elmPath, tsPath string) {
@@ -756,7 +756,7 @@ func printCompileSummary(outputPath, elmPath, tsPath string) {
 	fmt.Printf("    %s\n", elmPath)
 	fmt.Printf("    %s\n", tsPath)
 	fmt.Printf("\n  %s\n", colorizeCLI(useColor, "\033[1;33m", "Hint:"))
-	fmt.Printf("    %s\n", "To run this app and open Belm Admin:")
+	fmt.Printf("    %s\n", "To run this app and open Mar Admin:")
 	fmt.Printf("    %s\n", colorizeCLI(useColor, "\033[1;32m", "cd "+outputDir))
 	fmt.Printf("    %s\n", colorizeCLI(useColor, "\033[1;32m", "./"+outputBin+" serve"))
 	fmt.Println()
@@ -798,7 +798,7 @@ func printVersion(binaryName string) error {
 	info := readVersionInfo(binaryName)
 
 	fmt.Println()
-	fmt.Printf("%s\n", colorizeCLI(useColor, "\033[1m", "Belm version"))
+	fmt.Printf("%s\n", colorizeCLI(useColor, "\033[1m", "Mar version"))
 	fmt.Printf("  %s %s\n", colorizeCLI(useColor, "\033[1;36m", "Version:"), info.Version)
 	fmt.Printf("  %s %s\n", colorizeCLI(useColor, "\033[1;36m", "Commit:"), info.Commit)
 	fmt.Printf("  %s %s\n", colorizeCLI(useColor, "\033[1;36m", "Build time:"), info.BuildTime)

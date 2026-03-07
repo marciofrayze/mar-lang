@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"belm/internal/model"
-	"belm/internal/parser"
-	"belm/internal/sqlitecli"
+	"mar/internal/model"
+	"mar/internal/parser"
+	"mar/internal/sqlitecli"
 )
 
 func TestMigrationsCreateAndAddOptionalField(t *testing.T) {
@@ -156,11 +156,11 @@ entity Todo {
 		t.Fatalf("runtime.New failed: %v", err)
 	}
 
-	_, err = r.DB.Exec(`INSERT INTO belm_auth_users (email, role, created_at) VALUES (?, ?, 0)`, "user@example.com", "user")
+	_, err = r.DB.Exec(`INSERT INTO mar_auth_users (email, role, created_at) VALUES (?, ?, 0)`, "user@example.com", "user")
 	if err != nil {
 		t.Fatalf("first insert failed: %v", err)
 	}
-	_, err = r.DB.Exec(`INSERT INTO belm_auth_users (email, role, created_at) VALUES (?, ?, 0)`, "USER@example.com", "admin")
+	_, err = r.DB.Exec(`INSERT INTO mar_auth_users (email, role, created_at) VALUES (?, ?, 0)`, "USER@example.com", "admin")
 	if err == nil {
 		t.Fatal("expected duplicate internal auth email to fail")
 	}

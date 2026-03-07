@@ -3,19 +3,19 @@
 ## Install
 
 1. **Download**: Get the latest binary from [github.com/marciofrayze/mar-lang/releases](https://github.com/marciofrayze/mar-lang/releases).
-2. **Path**: Move `belm` to a directory in your `PATH` (`macOS/Linux`: `mv belm /usr/local/bin/belm && chmod +x /usr/local/bin/belm`; `Windows`: `setx PATH "%PATH%;C:\Tools\belm"`).
-3. **Check**: `belm version`
-4. **Code editor**: Belm currently supports only [VSCode](https://code.visualstudio.com/). Open Extensions (`Cmd+Shift+X` on macOS, `Ctrl+Shift+X` on Windows/Linux), search for `"Belm Language Support"`, and click Install. The extension requires `belm` on your `PATH` to start LSP and formatting.
+2. **Path**: Move `mar` to a directory in your `PATH` (`macOS/Linux`: `mv mar /usr/local/bin/mar && chmod +x /usr/local/bin/mar`; `Windows`: `setx PATH "%PATH%;C:\Tools\mar"`).
+3. **Check**: `mar version`
+4. **Code editor**: Mar currently supports only [VSCode](https://code.visualstudio.com/). Open Extensions (`Cmd+Shift+X` on macOS, `Ctrl+Shift+X` on Windows/Linux), search for `"Mar Language Support"`, and click Install. The extension requires `mar` on your `PATH` to start LSP and formatting.
 
 ## Quick Start
 
-1. **Develop** with hot reload: `belm dev examples/store.belm`
-2. **Compile** when ready to deploy: `belm compile examples/store.belm`
+1. **Develop** with hot reload: `mar dev examples/store.mar`
+2. **Compile** when ready to deploy: `mar compile examples/store.mar`
 3. **Deploy**: `cd build/store && ./store serve`
 
-## Create a `.belm` file
+## Create a `.mar` file
 
-```belm
+```mar
 app TodoApi
 port 4100
 database "todo.db"
@@ -34,14 +34,14 @@ entity Todo {
 ## Start development mode (hot reload)
 
 ```bash
-belm dev examples/todo.belm
+mar dev examples/todo.mar
 ```
 
-Belm rebuilds and restarts automatically whenever you save the file.
+Mar rebuilds and restarts automatically whenever you save the file.
 
 ## Use the Admin UI while developing
 
-Admin UI URL: `http://localhost:4100/_belm/admin`
+Admin UI URL: `http://localhost:4100/_mar/admin`
 
 1. Open **Authentication** and sign in.
 2. Select an entity in the sidebar.
@@ -51,7 +51,7 @@ Admin UI URL: `http://localhost:4100/_belm/admin`
 ## Build for deployment (final step)
 
 ```bash
-belm compile examples/todo.belm
+mar compile examples/todo.mar
 ```
 
 Output:
@@ -69,7 +69,7 @@ Copy the generated binary to your server and start it:
 ./todo serve
 ```
 
-Belm makes deployment straightforward: your entire backend ships as a single executable, including:
+Mar makes deployment straightforward: your entire backend ships as a single executable, including:
 
 - API server
 - authentication and authorization

@@ -3,8 +3,8 @@ package runtime
 import (
 	"fmt"
 
-	"belm/internal/expr"
-	"belm/internal/model"
+	"mar/internal/expr"
+	"mar/internal/model"
 )
 
 // compileExpressions parses and caches rule/authorization expressions for runtime evaluation.
@@ -75,7 +75,7 @@ func primaryField(entity *model.Entity) *model.Field {
 	return nil
 }
 
-// typeToSQLite maps Belm primitive field types to SQLite column types.
+// typeToSQLite maps Mar primitive field types to SQLite column types.
 func typeToSQLite(fieldType string) string {
 	switch fieldType {
 	case "Int":

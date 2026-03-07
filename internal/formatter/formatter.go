@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	"belm/internal/parser"
+	"mar/internal/parser"
 )
 
 var (
@@ -41,7 +41,7 @@ var (
 	actionFieldAssignRe = regexp.MustCompile(`^([a-z][A-Za-z0-9_]*)\s*:\s*(.+)$`)
 )
 
-// Format rewrites Belm source into a canonical style and returns formatted text.
+// Format rewrites Mar source into a canonical style and returns formatted text.
 func Format(source string) (string, error) {
 	normalized := normalizeNewlines(source)
 	if _, err := parser.Parse(normalized); err != nil {

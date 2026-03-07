@@ -25,7 +25,7 @@ func (r *Runtime) serveAdminAsset(w http.ResponseWriter, req *http.Request, requ
 	if req.Method != http.MethodGet && req.Method != http.MethodHead {
 		return false, nil
 	}
-	assetPath, ok := publicAssetPathForRequest(requestPath, "/_belm/admin")
+	assetPath, ok := publicAssetPathForRequest(requestPath, "/_mar/admin")
 	if !ok {
 		return false, nil
 	}

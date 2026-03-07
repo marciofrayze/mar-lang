@@ -64,7 +64,7 @@ const (
 	defaultCacheSizeKB       = 2000
 )
 
-// DefaultConfig returns Belm's default SQLite settings focused on local performance.
+// DefaultConfig returns Mar's default SQLite settings focused on local performance.
 func DefaultConfig() Config {
 	return Config{
 		JournalMode:       defaultJournalMode,

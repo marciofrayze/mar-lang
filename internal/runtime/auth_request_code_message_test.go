@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"belm/internal/parser"
+	"mar/internal/parser"
 )
 
 func TestRequestCodeMessageIncludesDevConsoleHintInDevMode(t *testing.T) {

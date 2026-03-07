@@ -3,8 +3,8 @@ package runtime
 import (
 	"testing"
 
-	"belm/internal/model"
-	"belm/internal/sqlitecli"
+	"mar/internal/model"
+	"mar/internal/sqlitecli"
 )
 
 func TestSQLiteConfigForAppDefaults(t *testing.T) {

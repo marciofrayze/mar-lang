@@ -10,8 +10,8 @@ import (
 	"strconv"
 	"strings"
 
-	"belm/internal/model"
-	"belm/internal/sqlitecli"
+	"mar/internal/model"
+	"mar/internal/sqlitecli"
 )
 
 func writeJSON(w http.ResponseWriter, status int, payload any) {
