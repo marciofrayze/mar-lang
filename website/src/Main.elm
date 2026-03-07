@@ -1394,14 +1394,13 @@ languageReferenceGroup label items =
         , width fill
         , paddingEach { top = 2, right = 0, bottom = 6, left = 0 }
         ]
-        ([ paragraph
+        (paragraph
             [ Font.size 16
             , Font.semiBold
             , Font.color (rgb255 39 72 110)
             ]
             [ text label ]
-         ]
-            ++ items
+            :: items
         )
 
 

@@ -7,6 +7,7 @@ dist/
 .gocache/
 admin/elm-stuff
 **/elm-stuff/
+**/.elm-home/
 admin/dist/
 website/dist/
 mar

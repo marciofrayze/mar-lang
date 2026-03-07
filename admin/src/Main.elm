@@ -39,11 +39,6 @@ type FormMode
     | FormEdit Row
 
 
-type AuthTab
-    = AppAuthTab
-    | SystemAuthTab
-
-
 type AuthScope
     = AppAuthScope
     | SystemAuthScope
@@ -57,7 +52,6 @@ type alias Model =
     , currentRole : Maybe String
     , currentSystemEmail : Maybe String
     , currentSystemRole : Maybe String
-    , authTab : AuthTab
     , authEmail : String
     , authCode : String
     , firstAdminCodeRequested : Bool
@@ -109,7 +103,6 @@ type Msg
     | GotBackups (Result Http.Error BackupsPayload)
     | TriggerBackup
     | GotBackup (Result Http.Error BackupResponse)
-    | SelectAuthTab AuthTab
     | SetAuthEmail String
     | SetAuthCode String
     | SetActionField String String
@@ -287,7 +280,6 @@ init flags =
             , currentRole = Nothing
             , currentSystemEmail = Nothing
             , currentSystemRole = Nothing
-            , authTab = AppAuthTab
             , authEmail = ""
             , authCode = ""
             , firstAdminCodeRequested = False
@@ -873,9 +865,6 @@ update msg model =
 
                 Err httpError ->
                     ( { model | flash = Just (httpErrorToString httpError) }, Cmd.none )
-
-        SelectAuthTab tab ->
-            ( { model | authTab = tab, flash = Nothing }, Cmd.none )
 
         TriggerBackup ->
             if not (isAdminProfile model) then
@@ -2123,71 +2112,66 @@ viewSidebar model =
         , padding 20
         , spacing 16
         ]
-        ([ el [ Font.size 24, Font.bold, Font.color (rgb255 240 245 250) ] (text "Mar Admin")
-         , el [ Font.size 13, Font.color (rgb255 144 158 179) ]
-            (text
-                (case model.schema of
-                    Loaded schema ->
-                        schema.appName
+        (List.concat
+            [ [ el [ Font.size 24, Font.bold, Font.color (rgb255 240 245 250) ] (text "Mar Admin")
+              , el [ Font.size 13, Font.color (rgb255 144 158 179) ]
+                    (text
+                        (case model.schema of
+                            Loaded schema ->
+                                schema.appName
 
-                    _ ->
-                        "loading schema..."
-                )
-            )
-         ]
-            ++ (if hasAnyAuthInfo model then
-                    [ el [ Font.size 11, Font.bold, Font.color (rgb255 118 136 160) ] (text "AUTH")
-                    , authToolsButton
+                            _ ->
+                                "loading schema..."
+                        )
+                    )
+              ]
+            , if hasAnyAuthInfo model then
+                el [ Font.size 11, Font.bold, Font.color (rgb255 118 136 160) ] (text "AUTH")
+                    :: authToolsButton
+                    :: List.map entityButton authEntities
+
+              else
+                []
+            , if List.isEmpty crudEntities then
+                []
+
+              else
+                el
+                    [ paddingEach { top = 10, right = 0, bottom = 0, left = 0 }
+                    , Font.size 11
+                    , Font.bold
+                    , Font.color (rgb255 118 136 160)
                     ]
-                        ++ List.map entityButton authEntities
+                    (text "CRUD")
+                    :: List.map entityButton crudEntities
+            , if List.isEmpty actions then
+                []
 
-                else
-                    []
-               )
-            ++ (if List.isEmpty crudEntities then
-                    []
-
-                else
-                    [ el
-                        [ paddingEach { top = 10, right = 0, bottom = 0, left = 0 }
-                        , Font.size 11
-                        , Font.bold
-                        , Font.color (rgb255 118 136 160)
-                        ]
-                        (text "CRUD")
+              else
+                el
+                    [ paddingEach { top = 10, right = 0, bottom = 0, left = 0 }
+                    , Font.size 11
+                    , Font.bold
+                    , Font.color (rgb255 118 136 160)
                     ]
-                        ++ List.map entityButton crudEntities
-               )
-            ++ (if List.isEmpty actions then
-                    []
-
-                else
-                    [ el
-                        [ paddingEach { top = 10, right = 0, bottom = 0, left = 0 }
-                        , Font.size 11
-                        , Font.bold
-                        , Font.color (rgb255 118 136 160)
-                        ]
-                        (text "ACTIONS")
+                    (text "ACTIONS")
+                    :: List.map actionEndpointCard actions
+            , if isAdminProfile model then
+                [ el
+                    [ paddingEach { top = 10, right = 0, bottom = 0, left = 0 }
+                    , Font.size 11
+                    , Font.bold
+                    , Font.color (rgb255 118 136 160)
                     ]
-                        ++ List.map actionEndpointCard actions
-               )
-            ++ (if isAdminProfile model then
-                    [ el
-                        [ paddingEach { top = 10, right = 0, bottom = 0, left = 0 }
-                        , Font.size 11
-                        , Font.bold
-                        , Font.color (rgb255 118 136 160)
-                        ]
-                        (text "SYSTEM")
-                    , performanceButton
-                    , requestLogsButton
-                    , databaseButton
-                    ]
+                    (text "SYSTEM")
+                , performanceButton
+                , requestLogsButton
+                , databaseButton
+                ]
 
-                else
-                    []
-               )
+              else
+                []
+            ]
         )
 
 
@@ -2538,11 +2522,6 @@ authScopeLabel scope =
             "admin"
 
 
-authScopeToTab : AuthScope -> AuthTab
-authScopeToTab _ =
-    AppAuthTab
-
-
 isAdminProfile : Model -> Bool
 isAdminProfile model =
     case model.currentRole of
@@ -2824,15 +2803,16 @@ viewActionPanel model actionInfo =
                 , Border.color (rgb255 226 232 239)
                 , padding 16
                 ]
-                ([ viewPanelHeader
-                    ("Action: " ++ actionInfo.name)
-                    [ el [ Font.size 13, Font.color (rgb255 93 103 120) ] (text ("POST /actions/" ++ actionInfo.name))
-                    , el [ Font.size 13, Font.color (rgb255 93 103 120) ] (text ("Input: " ++ aliasInfo.name))
-                    ]
-                    []
-                 ]
-                    ++ List.map fieldInput aliasInfo.fields
-                    ++ [ row [ width fill ]
+                (List.concat
+                    [ [ viewPanelHeader
+                            ("Action: " ++ actionInfo.name)
+                            [ el [ Font.size 13, Font.color (rgb255 93 103 120) ] (text ("POST /actions/" ++ actionInfo.name))
+                            , el [ Font.size 13, Font.color (rgb255 93 103 120) ] (text ("Input: " ++ aliasInfo.name))
+                            ]
+                            []
+                      ]
+                    , List.map fieldInput aliasInfo.fields
+                    , [ row [ width fill ]
                             [ el [ width fill ] none
                             , Input.button
                                 [ Background.color (rgb255 34 124 95)
@@ -2844,8 +2824,8 @@ viewActionPanel model actionInfo =
                                 , label = text "Run action"
                                 }
                             ]
-                       ]
-                    ++ [ case model.actionResult of
+                      ]
+                    , [ case model.actionResult of
                             Nothing ->
                                 none
 
@@ -2859,8 +2839,8 @@ viewActionPanel model actionInfo =
                                     , Border.color (rgb255 226 232 239)
                                     , padding 12
                                     ]
-                                    ([ el [ Font.bold ] (text "Response") ]
-                                        ++ (response
+                                    (el [ Font.bold ] (text "Response")
+                                        :: (response
                                                 |> Dict.toList
                                                 |> List.map
                                                     (\( key, value ) ->
@@ -2871,7 +2851,8 @@ viewActionPanel model actionInfo =
                                                     )
                                            )
                                     )
-                       ]
+                      ]
+                    ]
                 )
 
 
@@ -3084,8 +3065,8 @@ viewPerformancePanel model =
                             , performanceCard "5xx errors" (String.fromInt perf.http.errors5xx)
                             ]
                         , column [ width fill, spacing 8 ]
-                            ([ el [ Font.bold, Font.size 18 ] (text "Route metrics") ]
-                                ++ (if List.isEmpty perf.http.routes then
+                            (el [ Font.bold, Font.size 18 ] (text "Route metrics")
+                                :: (if List.isEmpty perf.http.routes then
                                         [ paragraph [] [ text "No requests captured yet." ] ]
 
                                     else
@@ -3256,36 +3237,36 @@ viewRequestLogEntry entry =
         , Border.color (rgb255 226 232 239)
         , padding 12
         ]
-        ([ row [ width fill, spacing 10 ]
-            [ el [ Font.size 12, Font.bold, Font.color (rgb255 70 80 96) ] (text ("Date: " ++ dateText))
-            , el [ Font.size 12, Font.bold, Font.color (rgb255 70 80 96) ] (text ("Time: " ++ timeText))
-            ]
-         , row [ width fill, spacing 10 ]
-            [ el [ Font.bold ] (text (entry.method ++ " " ++ entry.path))
-            , el [ Font.color statusColor, Font.bold ] (text (String.fromInt entry.status))
-            , el [ Font.size 12, Font.color (rgb255 93 103 120) ] (text (formatMs entry.durationMs))
-            ]
-         , row [ width fill, spacing 10 ]
-            [ el [ Font.size 12, Font.color (rgb255 93 103 120) ] (text ("Route: " ++ entry.route))
-            , el [ Font.size 12, Font.color (rgb255 93 103 120) ] (text querySummary)
-            ]
-         ]
-            ++ (if String.trim entry.errorMessage /= "" then
-                    [ paragraph [ Font.size 12, Font.color (rgb255 176 60 46) ] [ text ("Error: " ++ entry.errorMessage) ] ]
-
-                else
-                    []
-               )
-            ++ (if List.isEmpty entry.queries then
-                    []
-
-                else
-                    [ column [ width fill, spacing 6 ]
-                        ([ el [ Font.size 12, Font.bold, Font.color (rgb255 70 80 96) ] (text "Queries") ]
-                            ++ List.map viewRequestLogQuery entry.queries
-                        )
+        (List.concat
+            [ [ row [ width fill, spacing 10 ]
+                    [ el [ Font.size 12, Font.bold, Font.color (rgb255 70 80 96) ] (text ("Date: " ++ dateText))
+                    , el [ Font.size 12, Font.bold, Font.color (rgb255 70 80 96) ] (text ("Time: " ++ timeText))
                     ]
-               )
+              , row [ width fill, spacing 10 ]
+                    [ el [ Font.bold ] (text (entry.method ++ " " ++ entry.path))
+                    , el [ Font.color statusColor, Font.bold ] (text (String.fromInt entry.status))
+                    , el [ Font.size 12, Font.color (rgb255 93 103 120) ] (text (formatMs entry.durationMs))
+                    ]
+              , row [ width fill, spacing 10 ]
+                    [ el [ Font.size 12, Font.color (rgb255 93 103 120) ] (text ("Route: " ++ entry.route))
+                    , el [ Font.size 12, Font.color (rgb255 93 103 120) ] (text querySummary)
+                    ]
+              ]
+            , if String.trim entry.errorMessage /= "" then
+                [ paragraph [ Font.size 12, Font.color (rgb255 176 60 46) ] [ text ("Error: " ++ entry.errorMessage) ] ]
+
+              else
+                []
+            , if List.isEmpty entry.queries then
+                []
+
+              else
+                [ column [ width fill, spacing 6 ]
+                    (el [ Font.size 12, Font.bold, Font.color (rgb255 70 80 96) ] (text "Queries")
+                        :: List.map viewRequestLogQuery entry.queries
+                    )
+                ]
+            ]
         )
 
 
@@ -3302,25 +3283,26 @@ viewRequestLogQuery query =
         , Border.rounded 8
         , padding 8
         ]
-        ([ paragraph
-            [ Font.size 12
-            , Font.family [ Font.monospace ]
-            , Font.color (rgb255 44 56 72)
-            ]
-            [ text query.sql ]
-         , el [ Font.size 12, Font.color (rgb255 93 103 120) ] (text metricsText)
-         ]
-            ++ (case query.error of
-                    Just errText ->
-                        if String.trim errText == "" then
-                            []
-
-                        else
-                            [ paragraph [ Font.size 12, Font.color (rgb255 176 60 46) ] [ text ("Error: " ++ errText) ] ]
-
-                    Nothing ->
+        (List.concat
+            [ [ paragraph
+                    [ Font.size 12
+                    , Font.family [ Font.monospace ]
+                    , Font.color (rgb255 44 56 72)
+                    ]
+                    [ text query.sql ]
+              , el [ Font.size 12, Font.color (rgb255 93 103 120) ] (text metricsText)
+              ]
+            , case query.error of
+                Just errText ->
+                    if String.trim errText == "" then
                         []
-               )
+
+                    else
+                        [ paragraph [ Font.size 12, Font.color (rgb255 176 60 46) ] [ text ("Error: " ++ errText) ] ]
+
+                Nothing ->
+                    []
+            ]
         )
 
 
@@ -3415,19 +3397,21 @@ viewDatabasePanelAdmin model =
                             [ width fill
                             , spacing 8
                             ]
-                            ([ row
-                                [ width fill
-                                , spacing 12
-                                , paddingEach { top = 6, right = 10, bottom = 6, left = 10 }
-                                , Background.color (rgb255 244 247 252)
-                                , Border.rounded 8
+                            (List.concat
+                                [ [ row
+                                        [ width fill
+                                        , spacing 12
+                                        , paddingEach { top = 6, right = 10, bottom = 6, left = 10 }
+                                        , Background.color (rgb255 244 247 252)
+                                        , Border.rounded 8
+                                        ]
+                                        [ el [ width (fillPortion 2), Font.bold ] (text "Backup time")
+                                        , el [ width (fillPortion 1), Font.bold ] (text "Size")
+                                        , el [ width (fillPortion 4), Font.bold ] (text "File")
+                                        ]
+                                  ]
+                                , List.map backupRow payload.backups
                                 ]
-                                [ el [ width (fillPortion 2), Font.bold ] (text "Backup time")
-                                , el [ width (fillPortion 1), Font.bold ] (text "Size")
-                                , el [ width (fillPortion 4), Font.bold ] (text "File")
-                                ]
-                             ]
-                                ++ List.map backupRow payload.backups
                             )
     in
     column
@@ -3732,8 +3716,8 @@ viewEntitySchema model =
         , Border.color (rgb255 226 232 239)
         , padding 14
         ]
-        ([ el [ Font.bold, Font.size 18 ] (text "Schema") ]
-            ++ List.map
+        (el [ Font.bold, Font.size 18 ] (text "Schema")
+            :: List.map
                 (\field ->
                     row [ width fill, spacing 8 ]
                         [ el [ Font.bold ] (text field.name)
@@ -3806,9 +3790,10 @@ formCard model entity titleText =
         , Border.color (rgb255 226 232 239)
         , padding 14
         ]
-        ([ el [ Font.bold, Font.size 18 ] (text titleText) ]
-            ++ List.map fieldInput formFields
-            ++ [ row [ spacing 10 ]
+        (List.concat
+            [ [ el [ Font.bold, Font.size 18 ] (text titleText) ]
+            , List.map fieldInput formFields
+            , [ row [ spacing 10 ]
                     [ Input.button
                         [ Background.color (rgb255 34 124 95)
                         , Font.color (rgb255 247 252 249)
@@ -3827,7 +3812,8 @@ formCard model entity titleText =
                         , label = text "Cancel"
                         }
                     ]
-               ]
+              ]
+            ]
         )
 
 
@@ -3847,8 +3833,8 @@ viewSelectedRow model =
                 , Border.color (rgb255 226 232 239)
                 , padding 14
                 ]
-                ([ el [ Font.bold, Font.size 18 ] (text "Record detail") ]
-                    ++ (rowValue
+                (el [ Font.bold, Font.size 18 ] (text "Record detail")
+                    :: (rowValue
                             |> Dict.toList
                             |> List.map
                                 (\( key, value ) ->
