@@ -363,7 +363,7 @@ func GenerateElmClient(app *model.App) (*ElmClientOutput, error) {
 	return out, nil
 }
 
-// ClientOutputPath resolves the generated client location under build/<app>/clients.
+// ClientOutputPath resolves the generated client location under dist/<app>/clients.
 func ClientOutputPath(manifestPath, fileName string) string {
 	dir := filepath.Dir(manifestPath)
 	return filepath.Join(dir, "clients", fileName)

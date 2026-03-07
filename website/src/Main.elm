@@ -320,7 +320,7 @@ warningBanner =
                 , text "."
                 ]
             , paragraph [ Font.size 16, Font.color (rgb255 107 62 0), width fill ]
-                [ text "There are no guarantees that language syntax or database schema will remain backward compatible in future versions." ]
+                [ text "For now, Mar does not guarantee backward compatibility for language syntax or database schema. That guarantee is planned for a future stabilized release." ]
             ]
         ]
 
@@ -589,8 +589,8 @@ advancedToolingPage model =
             , docSubsectionTitle "Generated Client Output"
             , bodyText "When you compile an app, Mar also generates frontend clients for Elm and TypeScript. These clients wrap the generated HTTP API with named functions, so you do not need to hand-write fetch calls, URLs, or request payload shapes."
             , docList
-                [ "Elm client: build/<name>/clients/<AppName>Client.elm"
-                , "TypeScript client: build/<name>/clients/<AppName>Client.ts"
+                [ "Elm client: dist/<name>/clients/<AppName>Client.elm"
+                , "TypeScript client: dist/<name>/clients/<AppName>Client.ts"
                 , "Both include CRUD functions, action functions, auth endpoints, and backend version access."
                 , "They reduce duplicated frontend code and keep frontend calls aligned with the backend generated from your .mar file."
                 , "This makes refactors safer, because the client surface is regenerated from the same source as the server."
@@ -711,7 +711,7 @@ quickStart model =
         , quickStartCreateCard model "1" "Create" "todo.mar" todoExampleSource
         , commandRow model "2" "Develop" "Runs the app locally with hot reload while you edit todo.mar." "mar dev todo.mar"
         , commandRow model "3" "Compile" "Builds the production executable and generates the frontend clients." "mar compile todo.mar"
-        , commandRow model "4" "Deploy" "Start the compiled server executable." "cd build/todo && ./todo serve"
+        , commandRow model "4" "Deploy" "Start the compiled server executable." "cd dist/todo && ./todo serve"
         , paragraph [ Font.size 16, Font.color (rgb255 72 95 123), width fill ]
             [ text "Mar deploys as a single executable that already includes API, auth, embedded Admin UI, monitoring dashboards, request logs, and SQLite backup tools." ]
         ]

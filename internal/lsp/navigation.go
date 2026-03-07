@@ -235,7 +235,7 @@ func shouldSkipWorkspaceDir(root, path, name string) bool {
 		return false
 	}
 	switch name {
-	case ".git", "node_modules", "build", ".gocache", ".gomodcache", ".elm":
+	case ".git", "node_modules", "build", "dist", ".gocache", ".gomodcache", ".elm":
 		return true
 	}
 	return strings.HasPrefix(name, ".")

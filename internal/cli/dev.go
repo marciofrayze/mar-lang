@@ -24,9 +24,6 @@ type devProcess struct {
 }
 
 func runDev(binaryName, inputPath, outputPath string) error {
-	if _, err := os.Stat("go.mod"); err != nil {
-		return fmt.Errorf("dev command must run from the mar module root (go.mod not found)")
-	}
 	launchCWD, err := os.Getwd()
 	if err != nil {
 		return err
