@@ -350,6 +350,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, "error: decode embedded manifest:", err)
 		os.Exit(1)
 	}
+	app.Database = marruntime.ResolvePathRelativeToExecutable(app.Database)
 
 	switch {
 	case len(os.Args) == 1:
@@ -466,14 +467,18 @@ func runBackup(app *model.App) error {
 		return err
 	}
 
-	fmt.Printf("\nBackup created:\n  %%s\n", result.Path)
+	useColor := appSupportsANSI(os.Stdout)
+	fmt.Println()
+	fmt.Printf("%%s\n", appColorize(useColor, "\033[1m", "SQLite backup created"))
+	fmt.Printf("  %%s %%s\n", appColorize(useColor, "\033[1;36m", "SQLite database:"), result.Database)
+	fmt.Printf("  %%s %%s\n", appColorize(useColor, "\033[1;32m", "Backup file:"), result.Path)
 	if len(result.Removed) > 0 {
-		fmt.Println("\nRemoved old backups:")
+		fmt.Printf("\n%%s\n", appColorize(useColor, "\033[1;33m", "Removed old backups"))
 		for _, path := range result.Removed {
 			fmt.Printf("  %%s\n", path)
 		}
 	}
-	fmt.Printf("\nBackups directory:\n  %%s\n\n", result.BackupDir)
+	fmt.Println()
 	return nil
 }
 
@@ -709,12 +714,12 @@ func printUsage(binaryName string) {
 	fmt.Println()
 	fmt.Printf("%s\n", colorizeCLI(useColor, "\033[1;36m", "Available commands"))
 	fmt.Printf("  %-45s %s\n", fmt.Sprintf("%s dev <input.mar> [output-name]", binaryName), "Run development mode with hot reload.")
-	fmt.Printf("  %-45s %s\n", fmt.Sprintf("%s compile <input.mar> [output-name]", binaryName), "Compile a .mar app into an executable and clients.")
-	fmt.Printf("  %-45s %s\n", fmt.Sprintf("%s format [--check] [--stdin] [files...]", binaryName), "Format Mar source files (Elm-style).")
+	fmt.Printf("  %-45s %s\n", fmt.Sprintf("%s compile <input.mar> [output-name]", binaryName), "Compile a .mar app into an executable and generate its frontend clients.")
+	fmt.Printf("  %-45s %s\n", fmt.Sprintf("%s format [--check] [--stdin] [files...]", binaryName), "Format Mar source files.")
 	fmt.Printf("  %-45s %s\n", fmt.Sprintf("%s lsp", binaryName), "Start the Mar Language Server (for editors).")
 	fmt.Printf("  %-45s %s\n", fmt.Sprintf("%s version", binaryName), "Show version and build information.")
 	fmt.Printf("\n%s\n", colorizeCLI(useColor, "\033[1;33m", "Hint:"))
-	fmt.Printf("  Build an app with: %s\n", colorizeCLI(useColor, "\033[1;32m", fmt.Sprintf("%s compile <input.mar>", binaryName)))
+	fmt.Printf("  Start in development mode with: %s\n", colorizeCLI(useColor, "\033[1;32m", fmt.Sprintf("%s dev <input.mar>", binaryName)))
 	fmt.Println()
 }
 
@@ -730,11 +735,11 @@ func unknownCommandError(binaryName, provided string) error {
 	fmt.Fprintf(&b, "  %s\n", fmt.Sprintf("%s version", binaryName))
 	if looksLikeMarFile(provided) {
 		fmt.Fprintf(&b, "\n%s\n", colorizeCLI(useColor, "\033[1;33m", "Hint:"))
-		fmt.Fprintf(&b, "  It looks like you passed a .mar file directly.\n")
-		fmt.Fprintf(&b, "  Run: %s\n", colorizeCLI(useColor, "\033[1;32m", fmt.Sprintf("%s compile %s", binaryName, provided)))
+		fmt.Fprintf(&b, "  Looks like you want to open this .mar app in development mode.\n")
+		fmt.Fprintf(&b, "  Try: %s\n", colorizeCLI(useColor, "\033[1;32m", fmt.Sprintf("%s dev %s", binaryName, provided)))
 	} else {
 		fmt.Fprintf(&b, "\n%s\n", colorizeCLI(useColor, "\033[1;33m", "Hint:"))
-		fmt.Fprintf(&b, "  To compile an app, run: %s\n", colorizeCLI(useColor, "\033[1;32m", fmt.Sprintf("%s compile <input.mar>", binaryName)))
+		fmt.Fprintf(&b, "  Start in development mode with: %s\n", colorizeCLI(useColor, "\033[1;32m", fmt.Sprintf("%s dev <input.mar>", binaryName)))
 	}
 	return errors.New(b.String())
 }

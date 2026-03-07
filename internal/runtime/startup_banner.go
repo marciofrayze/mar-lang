@@ -3,6 +3,7 @@ package runtime
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -22,7 +23,7 @@ func (r *Runtime) printStartupBanner() {
 
 	fmt.Printf("\n%s %q\n", colorize(useColor, ansiTitle, "Mar app"), r.App.AppName)
 	fmt.Printf("  %s %s\n", colorize(useColor, ansiLabel, "API"), apiURL)
-	fmt.Printf("  %s %s\n", colorize(useColor, ansiLabel, "SQLite"), r.App.Database)
+	fmt.Printf("  %s %s\n", colorize(useColor, ansiLabel, "SQLite"), displayDatabasePath(r.App.Database))
 
 	if r.authEnabled() {
 		fmt.Printf("\n%s\n", colorize(useColor, ansiSection, "Auth"))
@@ -90,6 +91,62 @@ func (r *Runtime) printStartupBanner() {
 
 func shouldShowAdminHint() bool {
 	return !(len(os.Args) > 1 && os.Args[1] == "serve")
+}
+
+func displayDatabasePath(databasePath string) string {
+	processCWD, err := os.Getwd()
+	if err != nil {
+		processCWD = ""
+	}
+	return resolveDatabaseDisplayPath(
+		databasePath,
+		processCWD,
+		strings.TrimSpace(os.Getenv("MAR_DEV_LAUNCH_CWD")),
+	)
+}
+
+func resolveDatabaseDisplayPath(databasePath, processCWD, launchCWD string) string {
+	trimmed := strings.TrimSpace(databasePath)
+	if trimmed == "" {
+		return databasePath
+	}
+
+	cleaned := filepath.Clean(trimmed)
+	displayBase := strings.TrimSpace(launchCWD)
+	if displayBase == "" {
+		displayBase = strings.TrimSpace(processCWD)
+	}
+
+	if filepath.IsAbs(cleaned) {
+		if displayBase == "" {
+			return cleaned
+		}
+		rel, err := filepath.Rel(displayBase, cleaned)
+		if err != nil {
+			return cleaned
+		}
+		if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			return cleaned
+		}
+		return filepath.Clean(rel)
+	}
+	if strings.TrimSpace(processCWD) == "" {
+		return cleaned
+	}
+
+	actualPath := filepath.Join(processCWD, cleaned)
+	if displayBase == "" {
+		return cleaned
+	}
+
+	rel, err := filepath.Rel(displayBase, actualPath)
+	if err != nil {
+		return actualPath
+	}
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return actualPath
+	}
+	return filepath.Clean(rel)
 }
 
 func colorize(enabled bool, colorCode, value string) string {

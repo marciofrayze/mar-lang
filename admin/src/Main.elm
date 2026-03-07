@@ -680,6 +680,8 @@ update msg model =
                                         | authToken = response.token
                                         , currentRole = response.role
                                         , currentEmail = response.email
+                                        , authEmail = ""
+                                        , authCode = ""
                                         , firstAdminCodeRequested = False
                                         , flash = Just "Login successful."
                                     }
@@ -710,6 +712,8 @@ update msg model =
                                         | systemAuthToken = response.token
                                         , currentSystemRole = response.role
                                         , currentSystemEmail = response.email
+                                        , authEmail = ""
+                                        , authCode = ""
                                         , flash = Just "Admin login successful."
                                     }
 
@@ -2304,7 +2308,7 @@ viewAuthToolsPanel model =
                     )
                 , if firstAdminMode then
                     row [ width fill, spacing 10 ]
-                        [ Input.text [ width (fillPortion 3) ]
+                        [ Input.text [ width (fillPortion 3), onEnter BootstrapFirstAdmin ]
                             { onChange = SetAuthEmail
                             , text = model.authEmail
                             , placeholder = Just (Input.placeholder [] (text "admin@email.com"))
@@ -2965,7 +2969,7 @@ viewMonitoringVersion versionRemote =
                     , databaseInfoCard "Manifest hash" versionPayload.app.manifestHash
                     ]
                 , row [ width fill, spacing 12 ]
-                    [ databaseInfoCard "Mar" versionPayload.mar.version
+                    [ databaseInfoCard "Mar version" versionPayload.mar.version
                     , databaseInfoCard "Mar commit" versionPayload.mar.commit
                     , databaseInfoCard "Mar build time" versionPayload.mar.buildTime
                     ]

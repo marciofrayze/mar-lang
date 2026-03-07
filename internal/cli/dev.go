@@ -27,6 +27,10 @@ func runDev(binaryName, inputPath, outputPath string) error {
 	if _, err := os.Stat("go.mod"); err != nil {
 		return fmt.Errorf("dev command must run from the mar module root (go.mod not found)")
 	}
+	launchCWD, err := os.Getwd()
+	if err != nil {
+		return err
+	}
 
 	absInput, err := filepath.Abs(inputPath)
 	if err != nil {
@@ -79,7 +83,7 @@ func runDev(binaryName, inputPath, outputPath string) error {
 			process = nil
 		}
 
-		nextProcess, runErr := startDevProcess(absOutput, adminOpened)
+		nextProcess, runErr := startDevProcess(absOutput, adminOpened, launchCWD)
 		if runErr != nil {
 			fmt.Printf("%s %s\n", colorizeCLI(useColor, "\033[1;31m", "Run failed:"), runErr)
 			return
@@ -161,7 +165,7 @@ func readWatchedState(path string) (watchedFileState, error) {
 	}, nil
 }
 
-func startDevProcess(outputPath string, noOpen bool) (*devProcess, error) {
+func startDevProcess(outputPath string, noOpen bool, launchCWD string) (*devProcess, error) {
 	runDir := filepath.Dir(outputPath)
 	cmd := exec.Command(outputPath, "serve")
 	cmd.Dir = runDir
@@ -169,6 +173,9 @@ func startDevProcess(outputPath string, noOpen bool) (*devProcess, error) {
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = nil
 	cmd.Env = append(os.Environ(), "BELM_DEV_MODE=1")
+	if strings.TrimSpace(launchCWD) != "" {
+		cmd.Env = append(cmd.Env, "MAR_DEV_LAUNCH_CWD="+launchCWD)
+	}
 	if noOpen {
 		cmd.Env = append(cmd.Env, "BELM_ADMIN_NO_OPEN=1")
 	}

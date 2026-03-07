@@ -583,7 +583,7 @@ advancedToolingPage model =
                 ]
             , docSubsectionTitle "Compiler and Runtime Commands"
             , commandRow model "1" "Dev" "Runs the app in development mode with hot reload when the .mar file changes." "mar dev store.mar"
-            , commandRow model "2" "Compile" "Builds a .mar app into a self-contained executable and generates frontend clients." "mar compile store.mar"
+            , commandRow model "2" "Compile" "Builds a self-contained executable and generates frontend clients." "mar compile store.mar"
             , commandRow model "3" "Format" "Applies Mar's official formatting style to source files." "mar format store.mar"
             , commandRow model "4" "LSP" "Starts the language server used by the VSCode extension for diagnostics, hovers, and navigation. Usually started by the editor plugin." "mar lsp"
             , docSubsectionTitle "Generated Client Output"
