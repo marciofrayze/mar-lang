@@ -5198,12 +5198,13 @@ var $elm$core$Task$perform = F2(
 var $elm$browser$Browser$application = _Browser_application;
 var $elm$core$Platform$Cmd$batch = _Platform_batch;
 var $elm$core$Platform$Cmd$none = $elm$core$Platform$Cmd$batch(_List_Nil);
-var $author$project$Main$AdvancedCompiler = 6;
+var $author$project$Main$AdvancedCompiler = 7;
+var $author$project$Main$AdvancedFundamentals = 3;
 var $author$project$Main$AdvancedGuide = 2;
-var $author$project$Main$AdvancedLanguage = 3;
-var $author$project$Main$AdvancedRuntime = 4;
-var $author$project$Main$AdvancedTooling = 5;
-var $author$project$Main$Examples = 7;
+var $author$project$Main$AdvancedLanguageReference = 4;
+var $author$project$Main$AdvancedRuntime = 5;
+var $author$project$Main$AdvancedTooling = 6;
+var $author$project$Main$Examples = 8;
 var $author$project$Main$GettingStarted = 1;
 var $author$project$Main$Home = 0;
 var $author$project$Main$normalizeFragment = function (fragment) {
@@ -5228,16 +5229,18 @@ var $author$project$Main$routeFromUrl = function (url) {
 			return 1;
 		case 'advanced':
 			return 2;
-		case 'advanced/language':
+		case 'advanced/fundamentals':
 			return 3;
-		case 'advanced/runtime':
+		case 'advanced/reference':
 			return 4;
-		case 'advanced/tooling':
+		case 'advanced/runtime':
 			return 5;
-		case 'advanced/compiler':
+		case 'advanced/tooling':
 			return 6;
-		case 'examples':
+		case 'advanced/compiler':
 			return 7;
+		case 'examples':
+			return 8;
 		default:
 			return 0;
 	}
@@ -5447,7 +5450,7 @@ var $mdgriffith$elm_ui$Element$Font$family = function (families) {
 			A3($elm$core$List$foldl, $mdgriffith$elm_ui$Internal$Model$renderFontClassName, 'ff-', families),
 			families));
 };
-var $mdgriffith$elm_ui$Internal$Style$classes = {bN: 'a', aC: 'atv', bP: 'ab', bQ: 'cx', bR: 'cy', bS: 'acb', bT: 'accx', bU: 'accy', bV: 'acr', aZ: 'al', a_: 'ar', bW: 'at', aD: 'ah', aE: 'av', bY: 's', b0: 'bh', b1: 'b', b3: 'w7', b5: 'bd', b6: 'bdt', ar: 'bn', b7: 'bs', as: 'cpe', ca: 'cp', cb: 'cpx', cc: 'cpy', K: 'c', au: 'ctr', av: 'cb', aw: 'ccx', L: 'ccy', aj: 'cl', ax: 'cr', ce: 'ct', cf: 'cptr', cg: 'ctxt', cn: 'fcs', a7: 'focus-within', cp: 'fs', cq: 'g', aI: 'hbh', aJ: 'hc', ba: 'he', aK: 'hf', bb: 'hfp', cs: 'hv', cu: 'ic', cw: 'fr', az: 'lbl', cy: 'iml', cz: 'imlf', cA: 'imlp', cB: 'implw', cC: 'it', cD: 'i', bf: 'lnk', ad: 'nb', bi: 'notxt', cH: 'ol', cJ: 'or', W: 'oq', cN: 'oh', bm: 'pg', bn: 'p', cO: 'ppe', cQ: 'ui', z: 'r', cS: 'sb', cT: 'sbx', cU: 'sby', cV: 'sbt', cX: 'e', cY: 'cap', cZ: 'sev', c3: 'sk', t: 't', c6: 'tc', c7: 'w8', c8: 'w2', c9: 'w9', da: 'tj', aB: 'tja', db: 'tl', dc: 'w3', dd: 'w5', de: 'w4', df: 'tr', dg: 'w6', dh: 'w1', di: 'tun', bD: 'ts', Z: 'clr', dl: 'u', aV: 'wc', bI: 'we', aW: 'wf', bJ: 'wfp', aX: 'wrp'};
+var $mdgriffith$elm_ui$Internal$Style$classes = {bN: 'a', aC: 'atv', bP: 'ab', bQ: 'cx', bR: 'cy', bS: 'acb', bT: 'accx', bU: 'accy', bV: 'acr', aZ: 'al', a_: 'ar', bW: 'at', aD: 'ah', aE: 'av', bY: 's', b0: 'bh', b1: 'b', b3: 'w7', b5: 'bd', b6: 'bdt', ar: 'bn', b7: 'bs', as: 'cpe', ca: 'cp', cb: 'cpx', cc: 'cpy', K: 'c', au: 'ctr', av: 'cb', aw: 'ccx', L: 'ccy', aj: 'cl', ax: 'cr', ce: 'ct', cf: 'cptr', cg: 'ctxt', cn: 'fcs', a7: 'focus-within', cp: 'fs', cq: 'g', aI: 'hbh', aJ: 'hc', ba: 'he', aK: 'hf', bb: 'hfp', cs: 'hv', cu: 'ic', cw: 'fr', az: 'lbl', cy: 'iml', cz: 'imlf', cA: 'imlp', cB: 'implw', cC: 'it', cD: 'i', bf: 'lnk', ad: 'nb', bi: 'notxt', cH: 'ol', cJ: 'or', W: 'oq', cN: 'oh', bm: 'pg', bn: 'p', cO: 'ppe', cQ: 'ui', A: 'r', cS: 'sb', cT: 'sbx', cU: 'sby', cV: 'sbt', cX: 'e', cY: 'cap', cZ: 'sev', c3: 'sk', v: 't', c6: 'tc', c7: 'w8', c8: 'w2', c9: 'w9', da: 'tj', aB: 'tja', db: 'tl', dc: 'w3', dd: 'w5', de: 'w4', df: 'tr', dg: 'w6', dh: 'w1', di: 'tun', bD: 'ts', Z: 'clr', dl: 'u', aV: 'wc', bI: 'we', aW: 'wf', bJ: 'wfp', aX: 'wrp'};
 var $mdgriffith$elm_ui$Internal$Model$Attr = function (a) {
 	return {$: 1, a: a};
 };
@@ -5483,7 +5486,7 @@ var $mdgriffith$elm_ui$Internal$Model$columnClass = $mdgriffith$elm_ui$Internal$
 var $mdgriffith$elm_ui$Internal$Model$gridClass = $mdgriffith$elm_ui$Internal$Style$classes.bY + (' ' + $mdgriffith$elm_ui$Internal$Style$classes.cq);
 var $mdgriffith$elm_ui$Internal$Model$pageClass = $mdgriffith$elm_ui$Internal$Style$classes.bY + (' ' + $mdgriffith$elm_ui$Internal$Style$classes.bm);
 var $mdgriffith$elm_ui$Internal$Model$paragraphClass = $mdgriffith$elm_ui$Internal$Style$classes.bY + (' ' + $mdgriffith$elm_ui$Internal$Style$classes.bn);
-var $mdgriffith$elm_ui$Internal$Model$rowClass = $mdgriffith$elm_ui$Internal$Style$classes.bY + (' ' + $mdgriffith$elm_ui$Internal$Style$classes.z);
+var $mdgriffith$elm_ui$Internal$Model$rowClass = $mdgriffith$elm_ui$Internal$Style$classes.bY + (' ' + $mdgriffith$elm_ui$Internal$Style$classes.A);
 var $mdgriffith$elm_ui$Internal$Model$singleClass = $mdgriffith$elm_ui$Internal$Style$classes.bY + (' ' + $mdgriffith$elm_ui$Internal$Style$classes.cX);
 var $mdgriffith$elm_ui$Internal$Model$contextClasses = function (context) {
 	switch (context) {
@@ -5693,7 +5696,7 @@ var $mdgriffith$elm_ui$Internal$Model$getStyleName = function (style) {
 				A2($elm$core$List$map, $mdgriffith$elm_ui$Internal$Model$lengthClassName, template.D)) + ('-space-x-' + ($mdgriffith$elm_ui$Internal$Model$lengthClassName(template.c_.a) + ('-space-y-' + $mdgriffith$elm_ui$Internal$Model$lengthClassName(template.c_.b)))))));
 		case 9:
 			var pos = style.a;
-			return 'gp grid-pos-' + ($elm$core$String$fromInt(pos.z) + ('-' + ($elm$core$String$fromInt(pos.cd) + ('-' + ($elm$core$String$fromInt(pos.bH) + ('-' + $elm$core$String$fromInt(pos.a9)))))));
+			return 'gp grid-pos-' + ($elm$core$String$fromInt(pos.A) + ('-' + ($elm$core$String$fromInt(pos.cd) + ('-' + ($elm$core$String$fromInt(pos.bH) + ('-' + $elm$core$String$fromInt(pos.a9)))))));
 		case 11:
 			var selector = style.a;
 			var subStyle = style.b;
@@ -6247,7 +6250,7 @@ var $mdgriffith$elm_ui$Internal$Style$elDescription = _List_fromArray(
 			[
 				A2(
 				$mdgriffith$elm_ui$Internal$Style$Child,
-				$mdgriffith$elm_ui$Internal$Style$dot($mdgriffith$elm_ui$Internal$Style$classes.t),
+				$mdgriffith$elm_ui$Internal$Style$dot($mdgriffith$elm_ui$Internal$Style$classes.v),
 				_List_fromArray(
 					[
 						A2(
@@ -6859,7 +6862,7 @@ var $mdgriffith$elm_ui$Internal$Style$baseSheet = _List_fromArray(
 						A2($mdgriffith$elm_ui$Internal$Style$Prop, 'overflow-x', 'auto'),
 						A2(
 						$mdgriffith$elm_ui$Internal$Style$Descriptor,
-						$mdgriffith$elm_ui$Internal$Style$dot($mdgriffith$elm_ui$Internal$Style$classes.z),
+						$mdgriffith$elm_ui$Internal$Style$dot($mdgriffith$elm_ui$Internal$Style$classes.A),
 						_List_fromArray(
 							[
 								A2($mdgriffith$elm_ui$Internal$Style$Prop, 'flex-shrink', '1')
@@ -6944,7 +6947,7 @@ var $mdgriffith$elm_ui$Internal$Style$baseSheet = _List_fromArray(
 					])),
 				A2(
 				$mdgriffith$elm_ui$Internal$Style$Descriptor,
-				$mdgriffith$elm_ui$Internal$Style$dot($mdgriffith$elm_ui$Internal$Style$classes.t),
+				$mdgriffith$elm_ui$Internal$Style$dot($mdgriffith$elm_ui$Internal$Style$classes.v),
 				_List_fromArray(
 					[
 						A2($mdgriffith$elm_ui$Internal$Style$Prop, 'white-space', 'pre'),
@@ -6965,7 +6968,7 @@ var $mdgriffith$elm_ui$Internal$Style$baseSheet = _List_fromArray(
 				$mdgriffith$elm_ui$Internal$Style$elDescription),
 				A2(
 				$mdgriffith$elm_ui$Internal$Style$Descriptor,
-				$mdgriffith$elm_ui$Internal$Style$dot($mdgriffith$elm_ui$Internal$Style$classes.z),
+				$mdgriffith$elm_ui$Internal$Style$dot($mdgriffith$elm_ui$Internal$Style$classes.A),
 				_List_fromArray(
 					[
 						A2($mdgriffith$elm_ui$Internal$Style$Prop, 'display', 'flex'),
@@ -7552,7 +7555,7 @@ var $mdgriffith$elm_ui$Internal$Style$baseSheet = _List_fromArray(
 							])),
 						A2(
 						$mdgriffith$elm_ui$Internal$Style$AllChildren,
-						$mdgriffith$elm_ui$Internal$Style$dot($mdgriffith$elm_ui$Internal$Style$classes.t),
+						$mdgriffith$elm_ui$Internal$Style$dot($mdgriffith$elm_ui$Internal$Style$classes.v),
 						_List_fromArray(
 							[
 								A2($mdgriffith$elm_ui$Internal$Style$Prop, 'display', 'inline'),
@@ -7637,7 +7640,7 @@ var $mdgriffith$elm_ui$Internal$Style$baseSheet = _List_fromArray(
 									])),
 								A2(
 								$mdgriffith$elm_ui$Internal$Style$Child,
-								$mdgriffith$elm_ui$Internal$Style$dot($mdgriffith$elm_ui$Internal$Style$classes.t),
+								$mdgriffith$elm_ui$Internal$Style$dot($mdgriffith$elm_ui$Internal$Style$classes.v),
 								_List_fromArray(
 									[
 										A2($mdgriffith$elm_ui$Internal$Style$Prop, 'display', 'inline'),
@@ -7646,7 +7649,7 @@ var $mdgriffith$elm_ui$Internal$Style$baseSheet = _List_fromArray(
 							])),
 						A2(
 						$mdgriffith$elm_ui$Internal$Style$Child,
-						$mdgriffith$elm_ui$Internal$Style$dot($mdgriffith$elm_ui$Internal$Style$classes.z),
+						$mdgriffith$elm_ui$Internal$Style$dot($mdgriffith$elm_ui$Internal$Style$classes.A),
 						_List_fromArray(
 							[
 								A2($mdgriffith$elm_ui$Internal$Style$Prop, 'display', 'inline')
@@ -7951,14 +7954,14 @@ var $mdgriffith$elm_ui$Internal$Style$inputTextReset = '\ninput[type="search"],\
 var $mdgriffith$elm_ui$Internal$Style$sliderReset = '\ninput[type=range] {\n  -webkit-appearance: none; \n  background: transparent;\n  position:absolute;\n  left:0;\n  top:0;\n  z-index:10;\n  width: 100%;\n  outline: dashed 1px;\n  height: 100%;\n  opacity: 0;\n}\n';
 var $mdgriffith$elm_ui$Internal$Style$thumbReset = '\ninput[type=range]::-webkit-slider-thumb {\n    -webkit-appearance: none;\n    opacity: 0.5;\n    width: 80px;\n    height: 80px;\n    background-color: black;\n    border:none;\n    border-radius: 5px;\n}\ninput[type=range]::-moz-range-thumb {\n    opacity: 0.5;\n    width: 80px;\n    height: 80px;\n    background-color: black;\n    border:none;\n    border-radius: 5px;\n}\ninput[type=range]::-ms-thumb {\n    opacity: 0.5;\n    width: 80px;\n    height: 80px;\n    background-color: black;\n    border:none;\n    border-radius: 5px;\n}\ninput[type=range][orient=vertical]{\n    writing-mode: bt-lr; /* IE */\n    -webkit-appearance: slider-vertical;  /* WebKit */\n}\n';
 var $mdgriffith$elm_ui$Internal$Style$trackReset = '\ninput[type=range]::-moz-range-track {\n    background: transparent;\n    cursor: pointer;\n}\ninput[type=range]::-ms-track {\n    background: transparent;\n    cursor: pointer;\n}\ninput[type=range]::-webkit-slider-runnable-track {\n    background: transparent;\n    cursor: pointer;\n}\n';
-var $mdgriffith$elm_ui$Internal$Style$overrides = '@media screen and (-ms-high-contrast: active), (-ms-high-contrast: none) {' + ($mdgriffith$elm_ui$Internal$Style$dot($mdgriffith$elm_ui$Internal$Style$classes.bY) + ($mdgriffith$elm_ui$Internal$Style$dot($mdgriffith$elm_ui$Internal$Style$classes.z) + (' > ' + ($mdgriffith$elm_ui$Internal$Style$dot($mdgriffith$elm_ui$Internal$Style$classes.bY) + (' { flex-basis: auto !important; } ' + ($mdgriffith$elm_ui$Internal$Style$dot($mdgriffith$elm_ui$Internal$Style$classes.bY) + ($mdgriffith$elm_ui$Internal$Style$dot($mdgriffith$elm_ui$Internal$Style$classes.z) + (' > ' + ($mdgriffith$elm_ui$Internal$Style$dot($mdgriffith$elm_ui$Internal$Style$classes.bY) + ($mdgriffith$elm_ui$Internal$Style$dot($mdgriffith$elm_ui$Internal$Style$classes.au) + (' { flex-basis: auto !important; }}' + ($mdgriffith$elm_ui$Internal$Style$inputTextReset + ($mdgriffith$elm_ui$Internal$Style$sliderReset + ($mdgriffith$elm_ui$Internal$Style$trackReset + ($mdgriffith$elm_ui$Internal$Style$thumbReset + $mdgriffith$elm_ui$Internal$Style$explainer)))))))))))))));
+var $mdgriffith$elm_ui$Internal$Style$overrides = '@media screen and (-ms-high-contrast: active), (-ms-high-contrast: none) {' + ($mdgriffith$elm_ui$Internal$Style$dot($mdgriffith$elm_ui$Internal$Style$classes.bY) + ($mdgriffith$elm_ui$Internal$Style$dot($mdgriffith$elm_ui$Internal$Style$classes.A) + (' > ' + ($mdgriffith$elm_ui$Internal$Style$dot($mdgriffith$elm_ui$Internal$Style$classes.bY) + (' { flex-basis: auto !important; } ' + ($mdgriffith$elm_ui$Internal$Style$dot($mdgriffith$elm_ui$Internal$Style$classes.bY) + ($mdgriffith$elm_ui$Internal$Style$dot($mdgriffith$elm_ui$Internal$Style$classes.A) + (' > ' + ($mdgriffith$elm_ui$Internal$Style$dot($mdgriffith$elm_ui$Internal$Style$classes.bY) + ($mdgriffith$elm_ui$Internal$Style$dot($mdgriffith$elm_ui$Internal$Style$classes.au) + (' { flex-basis: auto !important; }}' + ($mdgriffith$elm_ui$Internal$Style$inputTextReset + ($mdgriffith$elm_ui$Internal$Style$sliderReset + ($mdgriffith$elm_ui$Internal$Style$trackReset + ($mdgriffith$elm_ui$Internal$Style$thumbReset + $mdgriffith$elm_ui$Internal$Style$explainer)))))))))))))));
 var $elm$core$String$concat = function (strings) {
 	return A2($elm$core$String$join, '', strings);
 };
 var $mdgriffith$elm_ui$Internal$Style$Intermediate = $elm$core$Basics$identity;
 var $mdgriffith$elm_ui$Internal$Style$emptyIntermediate = F2(
 	function (selector, closing) {
-		return {at: closing, m: _List_Nil, O: _List_Nil, A: selector};
+		return {at: closing, m: _List_Nil, O: _List_Nil, B: selector};
 	});
 var $mdgriffith$elm_ui$Internal$Style$renderRules = F2(
 	function (_v0, rulesToRender) {
@@ -7987,7 +7990,7 @@ var $mdgriffith$elm_ui$Internal$Style$renderRules = F2(
 							{
 								m: A2(
 									$elm$core$List$cons,
-									{at: '\n}', m: _List_Nil, O: props, A: '@supports (' + (prop + (':' + (value + (') {' + parent.A))))},
+									{at: '\n}', m: _List_Nil, O: props, B: '@supports (' + (prop + (':' + (value + (') {' + parent.B))))},
 									rendered.m)
 							});
 					case 5:
@@ -8000,7 +8003,7 @@ var $mdgriffith$elm_ui$Internal$Style$renderRules = F2(
 									$elm$core$List$cons,
 									A2(
 										$mdgriffith$elm_ui$Internal$Style$renderRules,
-										A2($mdgriffith$elm_ui$Internal$Style$emptyIntermediate, parent.A + (' + ' + selector), ''),
+										A2($mdgriffith$elm_ui$Internal$Style$emptyIntermediate, parent.B + (' + ' + selector), ''),
 										adjRules),
 									rendered.m)
 							});
@@ -8014,7 +8017,7 @@ var $mdgriffith$elm_ui$Internal$Style$renderRules = F2(
 									$elm$core$List$cons,
 									A2(
 										$mdgriffith$elm_ui$Internal$Style$renderRules,
-										A2($mdgriffith$elm_ui$Internal$Style$emptyIntermediate, parent.A + (' > ' + child), ''),
+										A2($mdgriffith$elm_ui$Internal$Style$emptyIntermediate, parent.B + (' > ' + child), ''),
 										childRules),
 									rendered.m)
 							});
@@ -8028,7 +8031,7 @@ var $mdgriffith$elm_ui$Internal$Style$renderRules = F2(
 									$elm$core$List$cons,
 									A2(
 										$mdgriffith$elm_ui$Internal$Style$renderRules,
-										A2($mdgriffith$elm_ui$Internal$Style$emptyIntermediate, parent.A + (' ' + child), ''),
+										A2($mdgriffith$elm_ui$Internal$Style$emptyIntermediate, parent.B + (' ' + child), ''),
 										childRules),
 									rendered.m)
 							});
@@ -8044,7 +8047,7 @@ var $mdgriffith$elm_ui$Internal$Style$renderRules = F2(
 										$mdgriffith$elm_ui$Internal$Style$renderRules,
 										A2(
 											$mdgriffith$elm_ui$Internal$Style$emptyIntermediate,
-											_Utils_ap(parent.A, descriptor),
+											_Utils_ap(parent.B, descriptor),
 											''),
 										descriptorRules),
 									rendered.m)
@@ -8058,7 +8061,7 @@ var $mdgriffith$elm_ui$Internal$Style$renderRules = F2(
 									$elm$core$List$cons,
 									A2(
 										$mdgriffith$elm_ui$Internal$Style$renderRules,
-										A2($mdgriffith$elm_ui$Internal$Style$emptyIntermediate, parent.A, ''),
+										A2($mdgriffith$elm_ui$Internal$Style$emptyIntermediate, parent.B, ''),
 										batched),
 									rendered.m)
 							});
@@ -8083,7 +8086,7 @@ var $mdgriffith$elm_ui$Internal$Style$renderCompact = function (styleClasses) {
 		if (!_v2.b) {
 			return '';
 		} else {
-			return rule.A + ('{' + (renderValues(rule.O) + (rule.at + '}')));
+			return rule.B + ('{' + (renderValues(rule.O) + (rule.at + '}')));
 		}
 	};
 	var renderIntermediate = function (_v0) {
@@ -8483,7 +8486,7 @@ var $mdgriffith$elm_ui$Internal$Model$renderStyleRule = F3(
 				var yPx = $elm$core$String$fromInt(y) + 'px';
 				var xPx = $elm$core$String$fromInt(x) + 'px';
 				var single = '.' + $mdgriffith$elm_ui$Internal$Style$classes.cX;
-				var row = '.' + $mdgriffith$elm_ui$Internal$Style$classes.z;
+				var row = '.' + $mdgriffith$elm_ui$Internal$Style$classes.A;
 				var wrappedRow = '.' + ($mdgriffith$elm_ui$Internal$Style$classes.aX + row);
 				var right = '.' + $mdgriffith$elm_ui$Internal$Style$classes.a_;
 				var paragraph = '.' + $mdgriffith$elm_ui$Internal$Style$classes.bn;
@@ -8802,7 +8805,7 @@ var $mdgriffith$elm_ui$Internal$Model$renderStyleRule = F3(
 					' ',
 					_List_fromArray(
 						[
-							'-ms-grid-row: ' + ($elm$core$String$fromInt(position.z) + ';'),
+							'-ms-grid-row: ' + ($elm$core$String$fromInt(position.A) + ';'),
 							'-ms-grid-row-span: ' + ($elm$core$String$fromInt(position.a9) + ';'),
 							'-ms-grid-column: ' + ($elm$core$String$fromInt(position.cd) + ';'),
 							'-ms-grid-column-span: ' + ($elm$core$String$fromInt(position.bH) + ';')
@@ -8812,10 +8815,10 @@ var $mdgriffith$elm_ui$Internal$Model$renderStyleRule = F3(
 					' ',
 					_List_fromArray(
 						[
-							'grid-row: ' + ($elm$core$String$fromInt(position.z) + (' / ' + ($elm$core$String$fromInt(position.z + position.a9) + ';'))),
+							'grid-row: ' + ($elm$core$String$fromInt(position.A) + (' / ' + ($elm$core$String$fromInt(position.A + position.a9) + ';'))),
 							'grid-column: ' + ($elm$core$String$fromInt(position.cd) + (' / ' + ($elm$core$String$fromInt(position.cd + position.bH) + ';')))
 						]));
-				var _class = '.grid-pos-' + ($elm$core$String$fromInt(position.z) + ('-' + ($elm$core$String$fromInt(position.cd) + ('-' + ($elm$core$String$fromInt(position.bH) + ('-' + $elm$core$String$fromInt(position.a9)))))));
+				var _class = '.grid-pos-' + ($elm$core$String$fromInt(position.A) + ('-' + ($elm$core$String$fromInt(position.cd) + ('-' + ($elm$core$String$fromInt(position.bH) + ('-' + $elm$core$String$fromInt(position.a9)))))));
 				var modernGrid = _class + ('{' + (modernPosition + '}'));
 				var supports = '@supports (display:grid) {' + (modernGrid + '}');
 				var base = _class + ('{' + (msPosition + '}'));
@@ -8886,7 +8889,7 @@ var $mdgriffith$elm_ui$Internal$Model$fontRule = F3(
 		return _List_fromArray(
 			[
 				A2($mdgriffith$elm_ui$Internal$Model$bracket, '.' + (name + ('.' + (modifier + (', ' + ('.' + (name + (' .' + modifier))))))), parentAdj),
-				A2($mdgriffith$elm_ui$Internal$Model$bracket, '.' + (name + ('.' + (modifier + ('> .' + ($mdgriffith$elm_ui$Internal$Style$classes.t + (', .' + (name + (' .' + (modifier + (' > .' + $mdgriffith$elm_ui$Internal$Style$classes.t)))))))))), textAdjustment)
+				A2($mdgriffith$elm_ui$Internal$Model$bracket, '.' + (name + ('.' + (modifier + ('> .' + ($mdgriffith$elm_ui$Internal$Style$classes.v + (', .' + (name + (' .' + (modifier + (' > .' + $mdgriffith$elm_ui$Internal$Style$classes.v)))))))))), textAdjustment)
 			]);
 	});
 var $mdgriffith$elm_ui$Internal$Model$renderFontAdjustmentRule = F3(
@@ -8918,7 +8921,7 @@ var $mdgriffith$elm_ui$Internal$Model$renderNullAdjustmentRule = F2(
 						])),
 					A2(
 					$mdgriffith$elm_ui$Internal$Model$bracket,
-					'.' + (name + ('.' + ($mdgriffith$elm_ui$Internal$Style$classes.cY + ('> .' + ($mdgriffith$elm_ui$Internal$Style$classes.t + (', .' + (name + (' .' + ($mdgriffith$elm_ui$Internal$Style$classes.cY + (' > .' + $mdgriffith$elm_ui$Internal$Style$classes.t)))))))))),
+					'.' + (name + ('.' + ($mdgriffith$elm_ui$Internal$Style$classes.cY + ('> .' + ($mdgriffith$elm_ui$Internal$Style$classes.v + (', .' + (name + (' .' + ($mdgriffith$elm_ui$Internal$Style$classes.cY + (' > .' + $mdgriffith$elm_ui$Internal$Style$classes.v)))))))))),
 					_List_fromArray(
 						[
 							_Utils_Tuple2('vertical-align', '0'),
@@ -9410,7 +9413,7 @@ var $elm$core$List$isEmpty = function (xs) {
 	}
 };
 var $elm$html$Html$text = $elm$virtual_dom$VirtualDom$text;
-var $mdgriffith$elm_ui$Internal$Model$textElementClasses = $mdgriffith$elm_ui$Internal$Style$classes.bY + (' ' + ($mdgriffith$elm_ui$Internal$Style$classes.t + (' ' + ($mdgriffith$elm_ui$Internal$Style$classes.aV + (' ' + $mdgriffith$elm_ui$Internal$Style$classes.aJ)))));
+var $mdgriffith$elm_ui$Internal$Model$textElementClasses = $mdgriffith$elm_ui$Internal$Style$classes.bY + (' ' + ($mdgriffith$elm_ui$Internal$Style$classes.v + (' ' + ($mdgriffith$elm_ui$Internal$Style$classes.aV + (' ' + $mdgriffith$elm_ui$Internal$Style$classes.aJ)))));
 var $mdgriffith$elm_ui$Internal$Model$textElement = function (str) {
 	return A2(
 		$elm$html$Html$div,
@@ -9423,7 +9426,7 @@ var $mdgriffith$elm_ui$Internal$Model$textElement = function (str) {
 				$elm$html$Html$text(str)
 			]));
 };
-var $mdgriffith$elm_ui$Internal$Model$textElementFillClasses = $mdgriffith$elm_ui$Internal$Style$classes.bY + (' ' + ($mdgriffith$elm_ui$Internal$Style$classes.t + (' ' + ($mdgriffith$elm_ui$Internal$Style$classes.aW + (' ' + $mdgriffith$elm_ui$Internal$Style$classes.aK)))));
+var $mdgriffith$elm_ui$Internal$Model$textElementFillClasses = $mdgriffith$elm_ui$Internal$Style$classes.bY + (' ' + ($mdgriffith$elm_ui$Internal$Style$classes.v + (' ' + ($mdgriffith$elm_ui$Internal$Style$classes.aW + (' ' + $mdgriffith$elm_ui$Internal$Style$classes.aK)))));
 var $mdgriffith$elm_ui$Internal$Model$textElementFill = function (str) {
 	return A2(
 		$elm$html$Html$div,
@@ -10054,7 +10057,7 @@ var $mdgriffith$elm_ui$Internal$Model$renderWidth = function (w) {
 					[
 						A3(
 						$mdgriffith$elm_ui$Internal$Model$Single,
-						$mdgriffith$elm_ui$Internal$Style$classes.bY + ('.' + ($mdgriffith$elm_ui$Internal$Style$classes.z + (' > ' + $mdgriffith$elm_ui$Internal$Style$dot(
+						$mdgriffith$elm_ui$Internal$Style$classes.bY + ('.' + ($mdgriffith$elm_ui$Internal$Style$classes.A + (' > ' + $mdgriffith$elm_ui$Internal$Style$dot(
 							'width-fill-' + $elm$core$String$fromInt(portion))))),
 						'flex-grow',
 						$elm$core$String$fromInt(portion * 100000))
@@ -10441,7 +10444,7 @@ var $mdgriffith$elm_ui$Internal$Model$gatherAttrRecursive = F8(
 											$elm$core$List$cons,
 											A3(
 												$mdgriffith$elm_ui$Internal$Model$Single,
-												$mdgriffith$elm_ui$Internal$Style$classes.bY + ('.' + ($mdgriffith$elm_ui$Internal$Style$classes.z + (' > ' + $mdgriffith$elm_ui$Internal$Style$dot(
+												$mdgriffith$elm_ui$Internal$Style$classes.bY + ('.' + ($mdgriffith$elm_ui$Internal$Style$classes.A + (' > ' + $mdgriffith$elm_ui$Internal$Style$dot(
 													'width-fill-' + $elm$core$String$fromInt(portion))))),
 												'flex-grow',
 												$elm$core$String$fromInt(portion * 100000)),
@@ -11466,8 +11469,8 @@ var $elm$html$Html$Attributes$href = function (url) {
 var $elm$html$Html$Attributes$rel = _VirtualDom_attribute('rel');
 var $mdgriffith$elm_ui$Element$link = F2(
 	function (attrs, _v0) {
-		var url = _v0.C;
-		var label = _v0.w;
+		var url = _v0.r;
+		var label = _v0.p;
 		return A4(
 			$mdgriffith$elm_ui$Internal$Model$element,
 			$mdgriffith$elm_ui$Internal$Model$asEl,
@@ -11509,8 +11512,8 @@ var $author$project$Main$primaryButton = F2(
 				A3($mdgriffith$elm_ui$Element$rgb255, 45, 126, 210),
 				A3($mdgriffith$elm_ui$Element$rgb255, 245, 250, 255)),
 			{
-				w: $mdgriffith$elm_ui$Element$text(label),
-				C: target
+				p: $mdgriffith$elm_ui$Element$text(label),
+				r: target
 			});
 	});
 var $author$project$Main$routeHref = function (route) {
@@ -11522,12 +11525,14 @@ var $author$project$Main$routeHref = function (route) {
 		case 2:
 			return '#/advanced';
 		case 3:
-			return '#/advanced/language';
+			return '#/advanced/fundamentals';
 		case 4:
-			return '#/advanced/runtime';
+			return '#/advanced/reference';
 		case 5:
-			return '#/advanced/tooling';
+			return '#/advanced/runtime';
 		case 6:
+			return '#/advanced/tooling';
+		case 7:
 			return '#/advanced/compiler';
 		default:
 			return '#/examples';
@@ -11536,18 +11541,20 @@ var $author$project$Main$routeHref = function (route) {
 var $author$project$Main$routeLabel = function (route) {
 	switch (route) {
 		case 3:
-			return 'Language';
+			return 'Fundamentals';
 		case 4:
-			return 'Runtime';
+			return 'Language Reference';
 		case 5:
-			return 'Tooling';
+			return 'Runtime';
 		case 6:
+			return 'Tooling';
+		case 7:
 			return 'Compiler';
 		case 2:
 			return 'Advanced Guide';
 		case 1:
 			return 'Getting Started';
-		case 7:
+		case 8:
 			return 'Examples';
 		default:
 			return 'Home';
@@ -11582,8 +11589,8 @@ var $author$project$Main$secondaryButton = F2(
 				A3($mdgriffith$elm_ui$Element$rgb255, 230, 239, 250),
 				A3($mdgriffith$elm_ui$Element$rgb255, 36, 82, 132)),
 			{
-				w: $mdgriffith$elm_ui$Element$text(label),
-				C: target
+				p: $mdgriffith$elm_ui$Element$text(label),
+				r: target
 			});
 	});
 var $author$project$Main$advancedPager = F2(
@@ -11644,7 +11651,6 @@ var $author$project$Main$advancedPager = F2(
 						]))
 				]));
 	});
-var $mdgriffith$elm_ui$Element$Font$bold = A2($mdgriffith$elm_ui$Internal$Model$Class, $mdgriffith$elm_ui$Internal$Flag$fontWeight, $mdgriffith$elm_ui$Internal$Style$classes.b3);
 var $mdgriffith$elm_ui$Element$Font$size = function (i) {
 	return A2(
 		$mdgriffith$elm_ui$Internal$Model$StyleClass,
@@ -11658,7 +11664,7 @@ var $author$project$Main$navLink = F3(
 			isCurrent ? _List_fromArray(
 				[
 					$mdgriffith$elm_ui$Element$Font$size(14),
-					$mdgriffith$elm_ui$Element$Font$bold,
+					$mdgriffith$elm_ui$Element$Font$semiBold,
 					$mdgriffith$elm_ui$Element$Font$color(
 					A3($mdgriffith$elm_ui$Element$rgb255, 24, 73, 126)),
 					$mdgriffith$elm_ui$Element$Background$color(
@@ -11677,6 +11683,9 @@ var $author$project$Main$navLink = F3(
 					$mdgriffith$elm_ui$Element$Font$semiBold,
 					$mdgriffith$elm_ui$Element$Font$color(
 					A3($mdgriffith$elm_ui$Element$rgb255, 64, 88, 118)),
+					$mdgriffith$elm_ui$Element$Border$width(1),
+					$mdgriffith$elm_ui$Element$Border$color(
+					A3($mdgriffith$elm_ui$Element$rgb255, 230, 238, 248)),
 					$mdgriffith$elm_ui$Element$Border$rounded(999),
 					$mdgriffith$elm_ui$Element$paddingEach(
 					{b: 6, c: 10, d: 10, e: 6}),
@@ -11684,8 +11693,8 @@ var $author$project$Main$navLink = F3(
 					A2($elm$html$Html$Attributes$style, 'cursor', 'pointer'))
 				]),
 			{
-				w: $mdgriffith$elm_ui$Element$text(label),
-				C: target
+				p: $mdgriffith$elm_ui$Element$text(label),
+				r: target
 			});
 	});
 var $author$project$Main$sectionNavItem = F3(
@@ -11719,13 +11728,15 @@ var $author$project$Main$advancedSubmenu = function (current) {
 					]),
 				_List_fromArray(
 					[
-						A3($author$project$Main$sectionNavItem, current, 3, 'Language'),
-						A3($author$project$Main$sectionNavItem, current, 4, 'Runtime'),
-						A3($author$project$Main$sectionNavItem, current, 5, 'Tooling'),
-						A3($author$project$Main$sectionNavItem, current, 6, 'Compiler')
+						A3($author$project$Main$sectionNavItem, current, 3, 'Fundamentals'),
+						A3($author$project$Main$sectionNavItem, current, 5, 'Runtime'),
+						A3($author$project$Main$sectionNavItem, current, 6, 'Tooling'),
+						A3($author$project$Main$sectionNavItem, current, 7, 'Compiler'),
+						A3($author$project$Main$sectionNavItem, current, 4, 'Language Reference')
 					]))
 			]));
 };
+var $mdgriffith$elm_ui$Element$Font$bold = A2($mdgriffith$elm_ui$Internal$Model$Class, $mdgriffith$elm_ui$Internal$Flag$fontWeight, $mdgriffith$elm_ui$Internal$Style$classes.b3);
 var $author$project$Main$architectureArrow = A2(
 	$mdgriffith$elm_ui$Element$el,
 	_List_fromArray(
@@ -11901,7 +11912,7 @@ var $author$project$Main$advancedCompilerPage = A2(
 		]),
 	_List_fromArray(
 		[
-			$author$project$Main$advancedSubmenu(6),
+			$author$project$Main$advancedSubmenu(7),
 			$author$project$Main$panel(
 			_List_fromArray(
 				[
@@ -11912,8 +11923,8 @@ var $author$project$Main$advancedCompilerPage = A2(
 				])),
 			A2(
 			$author$project$Main$advancedPager,
-			$elm$core$Maybe$Just(5),
-			$elm$core$Maybe$Nothing)
+			$elm$core$Maybe$Just(6),
+			$elm$core$Maybe$Just(7))
 		]));
 var $author$project$Main$actionExampleSource = '-- A transactional action example.\n-- This example shows how one action can write to\n-- multiple entities in a single atomic operation.\n\n-- Action input\ntype alias PlaceOrderInput =\n  { userId : Int\n  , total : Float\n  }\n\n-- Atomic action\naction placeOrder {\n  input: PlaceOrderInput\n\n  create Order {\n    userId: input.userId\n    total: input.total\n    status: \"created\"\n  }\n\n  create AuditLog {\n    userId: input.userId\n    event: \"order created\"\n  }\n}\n';
 var $author$project$Main$authConfigSource = '-- Email-code authentication\nauth {\n  user_entity User\n  email_field email\n  role_field role\n  code_ttl_minutes 10\n  session_ttl_hours 24\n  email_transport console\n  email_from \"no-reply@store.local\"\n  email_subject \"Your StoreApi login code\"\n}\n';
@@ -12091,7 +12102,7 @@ var $author$project$Main$wordToken = function (word) {
 			$elm$core$List$member,
 			word,
 			_List_fromArray(
-				['app', 'port', 'database', 'entity', 'rule', 'when', 'authorize', 'auth', 'type', 'alias', 'action', 'input', 'public', 'system', 'dir', 'mount', 'spa_fallback', 'transaction']))) {
+				['app', 'port', 'database', 'entity', 'rule', 'when', 'authorize', 'auth', 'type', 'alias', 'action', 'input', 'create', 'public', 'system', 'dir', 'mount', 'spa_fallback']))) {
 			return A2($author$project$Main$token, '#7AB8FF', word);
 		} else {
 			if (A2(
@@ -12712,6 +12723,41 @@ var $author$project$Main$docList = function (items) {
 			]),
 		A2($elm$core$List$map, $author$project$Main$docListItem, items));
 };
+var $elm$html$Html$Attributes$target = $elm$html$Html$Attributes$stringProperty('target');
+var $mdgriffith$elm_ui$Element$newTabLink = F2(
+	function (attrs, _v0) {
+		var url = _v0.r;
+		var label = _v0.p;
+		return A4(
+			$mdgriffith$elm_ui$Internal$Model$element,
+			$mdgriffith$elm_ui$Internal$Model$asEl,
+			$mdgriffith$elm_ui$Internal$Model$NodeName('a'),
+			A2(
+				$elm$core$List$cons,
+				$mdgriffith$elm_ui$Internal$Model$Attr(
+					$elm$html$Html$Attributes$href(url)),
+				A2(
+					$elm$core$List$cons,
+					$mdgriffith$elm_ui$Internal$Model$Attr(
+						$elm$html$Html$Attributes$rel('noopener noreferrer')),
+					A2(
+						$elm$core$List$cons,
+						$mdgriffith$elm_ui$Internal$Model$Attr(
+							$elm$html$Html$Attributes$target('_blank')),
+						A2(
+							$elm$core$List$cons,
+							$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$shrink),
+							A2(
+								$elm$core$List$cons,
+								$mdgriffith$elm_ui$Element$height($mdgriffith$elm_ui$Element$shrink),
+								A2(
+									$elm$core$List$cons,
+									$mdgriffith$elm_ui$Internal$Model$htmlClass($mdgriffith$elm_ui$Internal$Style$classes.aw + (' ' + ($mdgriffith$elm_ui$Internal$Style$classes.L + (' ' + $mdgriffith$elm_ui$Internal$Style$classes.bf)))),
+									attrs)))))),
+			$mdgriffith$elm_ui$Internal$Model$Unkeyed(
+				_List_fromArray(
+					[label])));
+	});
 var $author$project$Main$todoExampleSource = '-- A minimal CRUD application.\n-- This example shows the basic Belm structure:\n-- app, port, database, entity, rule, and authorization.\n\n-- Application\napp TodoApi\nport 4100\ndatabase \"todo.db\"\n\n-- Entity\nentity Todo {\n  id: Int primary auto\n  title: String\n  done: Bool\n\n  rule \"Title must have at least 3 chars\" when len(title) >= 3\n  authorize list when auth_authenticated\n  authorize create when auth_authenticated\n}\n';
 var $author$project$Main$advancedLanguagePage = function (model) {
 	return A2(
@@ -12728,8 +12774,65 @@ var $author$project$Main$advancedLanguagePage = function (model) {
 				_List_fromArray(
 					[
 						$author$project$Main$sectionTitle('Advanced Guide'),
-						$author$project$Main$bodyText('Belm is a declarative backend DSL inspired by Elm and PocketBase, implemented in Go with focus on readability, maintainability, and simple deployment.'),
-						$author$project$Main$docSubsectionTitle('Language'),
+						A2(
+						$mdgriffith$elm_ui$Element$paragraph,
+						_List_fromArray(
+							[
+								$mdgriffith$elm_ui$Element$Font$size(16),
+								$mdgriffith$elm_ui$Element$Font$color(
+								A3($mdgriffith$elm_ui$Element$rgb255, 72, 95, 123)),
+								$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill)
+							]),
+						_List_fromArray(
+							[
+								$mdgriffith$elm_ui$Element$text('Belm is a declarative backend DSL inspired by '),
+								A2(
+								$mdgriffith$elm_ui$Element$newTabLink,
+								_List_fromArray(
+									[
+										$mdgriffith$elm_ui$Element$Font$color(
+										A3($mdgriffith$elm_ui$Element$rgb255, 36, 82, 132)),
+										$mdgriffith$elm_ui$Element$Font$semiBold,
+										$mdgriffith$elm_ui$Element$htmlAttribute(
+										A2($elm$html$Html$Attributes$style, 'cursor', 'pointer'))
+									]),
+								{
+									p: $mdgriffith$elm_ui$Element$text('Elm'),
+									r: 'https://elm-lang.org'
+								}),
+								$mdgriffith$elm_ui$Element$text(' and '),
+								A2(
+								$mdgriffith$elm_ui$Element$newTabLink,
+								_List_fromArray(
+									[
+										$mdgriffith$elm_ui$Element$Font$color(
+										A3($mdgriffith$elm_ui$Element$rgb255, 36, 82, 132)),
+										$mdgriffith$elm_ui$Element$Font$semiBold,
+										$mdgriffith$elm_ui$Element$htmlAttribute(
+										A2($elm$html$Html$Attributes$style, 'cursor', 'pointer'))
+									]),
+								{
+									p: $mdgriffith$elm_ui$Element$text('PocketBase'),
+									r: 'https://pocketbase.io'
+								}),
+								$mdgriffith$elm_ui$Element$text(', implemented in '),
+								A2(
+								$mdgriffith$elm_ui$Element$newTabLink,
+								_List_fromArray(
+									[
+										$mdgriffith$elm_ui$Element$Font$color(
+										A3($mdgriffith$elm_ui$Element$rgb255, 36, 82, 132)),
+										$mdgriffith$elm_ui$Element$Font$semiBold,
+										$mdgriffith$elm_ui$Element$htmlAttribute(
+										A2($elm$html$Html$Attributes$style, 'cursor', 'pointer'))
+									]),
+								{
+									p: $mdgriffith$elm_ui$Element$text('Go'),
+									r: 'https://go.dev'
+								}),
+								$mdgriffith$elm_ui$Element$text(' with focus on readability, maintainability, and simple deployment.')
+							])),
+						$author$project$Main$docSubsectionTitle('Fundamentals'),
 						$author$project$Main$bodyText('Belm reads top-to-bottom as a declarative app definition. A Belm app is centered around entities, rules, authorization, optional auth configuration, and typed actions.'),
 						$author$project$Main$docSubsectionTitle('Quick Examples'),
 						A4($author$project$Main$codeFromString, model, 'todo.belm', 450, $author$project$Main$todoExampleSource),
@@ -12756,9 +12859,172 @@ var $author$project$Main$advancedLanguagePage = function (model) {
 				A2(
 				$author$project$Main$advancedPager,
 				$elm$core$Maybe$Nothing,
-				$elm$core$Maybe$Just(4))
+				$elm$core$Maybe$Just(5))
 			]));
 };
+var $author$project$Main$languageReferenceGroup = F2(
+	function (label, items) {
+		return A2(
+			$mdgriffith$elm_ui$Element$column,
+			_List_fromArray(
+				[
+					$mdgriffith$elm_ui$Element$spacing(8),
+					$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+					$mdgriffith$elm_ui$Element$paddingEach(
+					{b: 6, c: 0, d: 0, e: 2})
+				]),
+			_Utils_ap(
+				_List_fromArray(
+					[
+						A2(
+						$mdgriffith$elm_ui$Element$paragraph,
+						_List_fromArray(
+							[
+								$mdgriffith$elm_ui$Element$Font$size(16),
+								$mdgriffith$elm_ui$Element$Font$semiBold,
+								$mdgriffith$elm_ui$Element$Font$color(
+								A3($mdgriffith$elm_ui$Element$rgb255, 39, 72, 110))
+							]),
+						_List_fromArray(
+							[
+								$mdgriffith$elm_ui$Element$text(label)
+							]))
+					]),
+				items));
+	});
+var $author$project$Main$languageKeywordText = function (value) {
+	return A2(
+		$mdgriffith$elm_ui$Element$el,
+		_List_fromArray(
+			[
+				$mdgriffith$elm_ui$Element$Font$semiBold,
+				$mdgriffith$elm_ui$Element$Font$color(
+				A3($mdgriffith$elm_ui$Element$rgb255, 28, 66, 108))
+			]),
+		$mdgriffith$elm_ui$Element$text(value));
+};
+var $author$project$Main$languageReferenceItem = F2(
+	function (keyword, description) {
+		return A2(
+			$mdgriffith$elm_ui$Element$row,
+			_List_fromArray(
+				[
+					$mdgriffith$elm_ui$Element$spacing(8),
+					$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+					$mdgriffith$elm_ui$Element$paddingEach(
+					{b: 0, c: 16, d: 0, e: 0})
+				]),
+			_List_fromArray(
+				[
+					A2(
+					$mdgriffith$elm_ui$Element$el,
+					_List_fromArray(
+						[
+							$mdgriffith$elm_ui$Element$Font$color(
+							A3($mdgriffith$elm_ui$Element$rgb255, 93, 107, 126)),
+							$mdgriffith$elm_ui$Element$Font$bold
+						]),
+					$mdgriffith$elm_ui$Element$text('•')),
+					A2(
+					$mdgriffith$elm_ui$Element$paragraph,
+					_List_fromArray(
+						[
+							$mdgriffith$elm_ui$Element$Font$size(15),
+							$mdgriffith$elm_ui$Element$Font$color(
+							A3($mdgriffith$elm_ui$Element$rgb255, 72, 95, 123)),
+							$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill)
+						]),
+					_List_fromArray(
+						[
+							$author$project$Main$languageKeywordText(keyword),
+							$mdgriffith$elm_ui$Element$text(' '),
+							$mdgriffith$elm_ui$Element$text(description)
+						]))
+				]));
+	});
+var $author$project$Main$advancedLanguageReferencePage = A2(
+	$mdgriffith$elm_ui$Element$column,
+	_List_fromArray(
+		[
+			$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+			$mdgriffith$elm_ui$Element$spacing(20)
+		]),
+	_List_fromArray(
+		[
+			$author$project$Main$advancedSubmenu(4),
+			$author$project$Main$panel(
+			_List_fromArray(
+				[
+					$author$project$Main$sectionTitle('Advanced Guide'),
+					$author$project$Main$docSubsectionTitle('Language Reference'),
+					$author$project$Main$bodyText('This reference lists the current keywords and built-in names used by the language.'),
+					A2(
+					$author$project$Main$languageReferenceGroup,
+					'Top-level declarations',
+					_List_fromArray(
+						[
+							A2($author$project$Main$languageReferenceItem, 'app', 'Declares the app name.'),
+							A2($author$project$Main$languageReferenceItem, 'port', 'Sets the HTTP port.'),
+							A2($author$project$Main$languageReferenceItem, 'database', 'Sets the SQLite database file.'),
+							A2($author$project$Main$languageReferenceItem, 'public', 'Declares embedded static frontend files.'),
+							A2($author$project$Main$languageReferenceItem, 'system', 'Declares runtime and security settings.'),
+							A2($author$project$Main$languageReferenceItem, 'auth', 'Declares email-code authentication settings.'),
+							A2($author$project$Main$languageReferenceItem, 'entity', 'Declares an entity and its generated CRUD surface.'),
+							A2($author$project$Main$languageReferenceItem, 'type alias', 'Declares a record type, typically for action input.'),
+							A2($author$project$Main$languageReferenceItem, 'action', 'Declares a custom action endpoint.')
+						])),
+					A2(
+					$author$project$Main$languageReferenceGroup,
+					'Entity fields and modifiers',
+					_List_fromArray(
+						[
+							A2($author$project$Main$languageReferenceItem, 'primary', 'Marks a field as the primary key.'),
+							A2($author$project$Main$languageReferenceItem, 'auto', 'Marks a field as auto-generated.'),
+							A2($author$project$Main$languageReferenceItem, 'optional', 'Marks a field as nullable.')
+						])),
+					A2(
+					$author$project$Main$languageReferenceGroup,
+					'Validation and authorization',
+					_List_fromArray(
+						[
+							A2($author$project$Main$languageReferenceItem, 'rule', 'Adds entity validation.'),
+							A2($author$project$Main$languageReferenceItem, 'when', 'Introduces the boolean expression used by a rule or authorization clause.'),
+							A2($author$project$Main$languageReferenceItem, 'authorize', 'Declares per-operation authorization rules.'),
+							A2($author$project$Main$languageReferenceItem, 'list, get, create, update, delete', 'The supported CRUD operations for authorize clauses.')
+						])),
+					A2(
+					$author$project$Main$languageReferenceGroup,
+					'Actions',
+					_List_fromArray(
+						[
+							A2($author$project$Main$languageReferenceItem, 'input', 'Declares the action input type and is also used in expressions such as input.userId.'),
+							A2($author$project$Main$languageReferenceItem, 'create', 'Adds a create step inside an action.')
+						])),
+					A2(
+					$author$project$Main$languageReferenceGroup,
+					'Public frontend config',
+					_List_fromArray(
+						[
+							A2($author$project$Main$languageReferenceItem, 'dir', 'Sets the source directory of embedded static files.'),
+							A2($author$project$Main$languageReferenceItem, 'mount', 'Sets where embedded static files are served.'),
+							A2($author$project$Main$languageReferenceItem, 'spa_fallback', 'Sets the fallback file used for SPA-style routes.')
+						])),
+					A2(
+					$author$project$Main$languageReferenceGroup,
+					'Built-in functions and values',
+					_List_fromArray(
+						[
+							A2($author$project$Main$languageReferenceItem, 'len, contains, startsWith, endsWith, matches', 'Built-in helpers available inside rule and authorize expressions.'),
+							A2($author$project$Main$languageReferenceItem, 'isRole', 'Checks the authenticated user role inside authorize expressions.'),
+							A2($author$project$Main$languageReferenceItem, 'auth_authenticated, auth_email, auth_user_id, auth_role', 'Built-in authentication values available in expressions.'),
+							A2($author$project$Main$languageReferenceItem, 'true, false, null', 'Built-in literals.')
+						]))
+				])),
+			A2(
+			$author$project$Main$advancedPager,
+			$elm$core$Maybe$Just(7),
+			$elm$core$Maybe$Nothing)
+		]));
 var $author$project$Main$emphasisText = function (value) {
 	return A2(
 		$mdgriffith$elm_ui$Element$el,
@@ -12782,7 +13048,7 @@ var $author$project$Main$paragraphWithEmphasis = function (children) {
 			]),
 		children);
 };
-var $author$project$Main$publicConfigSource = '-- Embedded frontend files\n-- dir is required and is resolved relative to the .belm file.\n-- mount defaults to /.\n-- spa_fallback serves the frontend entry file for SPA-style routes.\n-- Public files are embedded into the final executable.\n\npublic {\n  dir \"./frontend/dist\"\n  mount \"/\"\n  spa_fallback \"index.html\"\n}\n';
+var $author$project$Main$publicConfigSource = '-- Public files are embedded into the final executable.\npublic {\n  dir \"./frontend/dist\"      -- required; resolved relative to the .belm file.\n  mount \"/\"                  -- defaults to /.\n  spa_fallback \"index.html\"  -- serves the frontend entry file for SPA-style routes.\n}\n';
 var $author$project$Main$systemConfigSource = '-- Runtime configuration\nsystem {\n  request_logs_buffer 500\n  http_max_request_body_mb 1\n  auth_request_code_rate_limit_per_minute 5\n  auth_login_rate_limit_per_minute 10\n  security_frame_policy sameorigin\n  security_referrer_policy strict-origin-when-cross-origin\n  security_content_type_nosniff true\n  sqlite_journal_mode wal\n  sqlite_synchronous normal\n  sqlite_foreign_keys true\n  sqlite_busy_timeout_ms 5000\n  sqlite_wal_autocheckpoint 1000\n  sqlite_journal_size_limit_mb 64\n  sqlite_mmap_size_mb 128\n  sqlite_cache_size_kb 2000\n}\n';
 var $author$project$Main$advancedRuntimePage = function (model) {
 	return A2(
@@ -12830,7 +13096,7 @@ var $author$project$Main$advancedRuntimePage = function (model) {
 				A2(
 				$author$project$Main$advancedPager,
 				$elm$core$Maybe$Just(3),
-				$elm$core$Maybe$Just(5))
+				$elm$core$Maybe$Just(6))
 			]));
 };
 var $author$project$Main$codeInline = function (source) {
@@ -12968,17 +13234,6 @@ var $author$project$Main$advancedToolingPage = function (model) {
 								$mdgriffith$elm_ui$Element$text(' hosts the day-to-day developer workflow, while the generated clients and editor support help keep frontend and backend aligned.')
 							])),
 						$author$project$Main$docSubsectionTitle('Compiler and Runtime Commands'),
-						$author$project$Main$paragraphWithEmphasis(
-						_List_fromArray(
-							[
-								$mdgriffith$elm_ui$Element$text('The '),
-								$author$project$Main$emphasisText('belm'),
-								$mdgriffith$elm_ui$Element$text(' binary hosts the compiler, development workflow, formatter, and language server. Most day-to-day work starts with '),
-								$author$project$Main$emphasisText('dev'),
-								$mdgriffith$elm_ui$Element$text(', and '),
-								$author$project$Main$emphasisText('compile'),
-								$mdgriffith$elm_ui$Element$text(' is what you use when you are ready to ship.')
-							])),
 						A5($author$project$Main$commandRow, model, '1', 'Dev', 'Runs the app in development mode with hot reload when the .belm file changes.', 'belm dev store.belm'),
 						A5($author$project$Main$commandRow, model, '2', 'Compile', 'Builds a .belm app into a self-contained executable and generates frontend clients.', 'belm compile store.belm'),
 						A5($author$project$Main$commandRow, model, '3', 'Format', 'Applies Belm\'s official formatting style to source files.', 'belm format store.belm'),
@@ -12996,8 +13251,8 @@ var $author$project$Main$advancedToolingPage = function (model) {
 					])),
 				A2(
 				$author$project$Main$advancedPager,
-				$elm$core$Maybe$Just(4),
-				$elm$core$Maybe$Just(6))
+				$elm$core$Maybe$Just(5),
+				$elm$core$Maybe$Just(4))
 			]));
 };
 var $author$project$Main$exampleCard = F5(
@@ -13113,41 +13368,6 @@ var $author$project$Main$bulletList = function (items) {
 		A2($elm$core$List$map, $author$project$Main$bulletItem, items));
 };
 var $author$project$Main$installLabelWidth = 136;
-var $elm$html$Html$Attributes$target = $elm$html$Html$Attributes$stringProperty('target');
-var $mdgriffith$elm_ui$Element$newTabLink = F2(
-	function (attrs, _v0) {
-		var url = _v0.C;
-		var label = _v0.w;
-		return A4(
-			$mdgriffith$elm_ui$Internal$Model$element,
-			$mdgriffith$elm_ui$Internal$Model$asEl,
-			$mdgriffith$elm_ui$Internal$Model$NodeName('a'),
-			A2(
-				$elm$core$List$cons,
-				$mdgriffith$elm_ui$Internal$Model$Attr(
-					$elm$html$Html$Attributes$href(url)),
-				A2(
-					$elm$core$List$cons,
-					$mdgriffith$elm_ui$Internal$Model$Attr(
-						$elm$html$Html$Attributes$rel('noopener noreferrer')),
-					A2(
-						$elm$core$List$cons,
-						$mdgriffith$elm_ui$Internal$Model$Attr(
-							$elm$html$Html$Attributes$target('_blank')),
-						A2(
-							$elm$core$List$cons,
-							$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$shrink),
-							A2(
-								$elm$core$List$cons,
-								$mdgriffith$elm_ui$Element$height($mdgriffith$elm_ui$Element$shrink),
-								A2(
-									$elm$core$List$cons,
-									$mdgriffith$elm_ui$Internal$Model$htmlClass($mdgriffith$elm_ui$Internal$Style$classes.aw + (' ' + ($mdgriffith$elm_ui$Internal$Style$classes.L + (' ' + $mdgriffith$elm_ui$Internal$Style$classes.bf)))),
-									attrs)))))),
-			$mdgriffith$elm_ui$Internal$Model$Unkeyed(
-				_List_fromArray(
-					[label])));
-	});
 var $author$project$Main$downloadInstallRow = A2(
 	$mdgriffith$elm_ui$Element$row,
 	_List_fromArray(
@@ -13190,8 +13410,8 @@ var $author$project$Main$downloadInstallRow = A2(
 					A2($elm$html$Html$Attributes$style, 'cursor', 'pointer'))
 				]),
 			{
-				w: $mdgriffith$elm_ui$Element$text('github.com/marciofrayze/mar-lang/releases'),
-				C: 'https://github.com/marciofrayze/mar-lang/releases'
+				p: $mdgriffith$elm_ui$Element$text('github.com/marciofrayze/mar-lang/releases'),
+				r: 'https://github.com/marciofrayze/mar-lang/releases'
 			})
 		]));
 var $author$project$Main$installCommandRow = F4(
@@ -13444,8 +13664,8 @@ var $author$project$Main$pluginInstallRow = A2(
 									A2($elm$html$Html$Attributes$style, 'cursor', 'pointer'))
 								]),
 							{
-								w: $mdgriffith$elm_ui$Element$text('VSCode'),
-								C: 'https://code.visualstudio.com/'
+								p: $mdgriffith$elm_ui$Element$text('VSCode'),
+								r: 'https://code.visualstudio.com/'
 							}),
 							$mdgriffith$elm_ui$Element$text('.')
 						]))
@@ -13651,8 +13871,8 @@ var $author$project$Main$gettingStartedPage = function (model) {
 										A2($elm$html$Html$Attributes$style, 'cursor', 'pointer'))
 									]),
 								{
-									w: $mdgriffith$elm_ui$Element$text('http://localhost:4100/_belm/admin'),
-									C: 'http://localhost:4100/_belm/admin'
+									p: $mdgriffith$elm_ui$Element$text('http://localhost:4100/_belm/admin'),
+									r: 'http://localhost:4100/_belm/admin'
 								})
 							])),
 						$author$project$Main$bulletList(
@@ -13888,8 +14108,8 @@ var $author$project$Main$hero = $author$project$Main$panel(
 									A2($elm$html$Html$Attributes$style, 'cursor', 'pointer'))
 								]),
 							{
-								w: $mdgriffith$elm_ui$Element$text('Elm'),
-								C: 'https://elm-lang.org'
+								p: $mdgriffith$elm_ui$Element$text('Elm'),
+								r: 'https://elm-lang.org'
 							}),
 							$mdgriffith$elm_ui$Element$text(' and '),
 							A2(
@@ -13903,8 +14123,8 @@ var $author$project$Main$hero = $author$project$Main$panel(
 									A2($elm$html$Html$Attributes$style, 'cursor', 'pointer'))
 								]),
 							{
-								w: $mdgriffith$elm_ui$Element$text('PocketBase'),
-								C: 'https://pocketbase.io'
+								p: $mdgriffith$elm_ui$Element$text('PocketBase'),
+								r: 'https://pocketbase.io'
 							}),
 							$mdgriffith$elm_ui$Element$text('.')
 						])),
@@ -13957,10 +14177,12 @@ var $author$project$Main$routeView = function (model) {
 		case 3:
 			return $author$project$Main$advancedLanguagePage(model);
 		case 4:
-			return $author$project$Main$advancedRuntimePage(model);
+			return $author$project$Main$advancedLanguageReferencePage;
 		case 5:
-			return $author$project$Main$advancedToolingPage(model);
+			return $author$project$Main$advancedRuntimePage(model);
 		case 6:
+			return $author$project$Main$advancedToolingPage(model);
+		case 7:
 			return $author$project$Main$advancedCompilerPage;
 		default:
 			return $author$project$Main$examplesPage(model);
@@ -13975,6 +14197,8 @@ var $author$project$Main$topLevelRoute = function (route) {
 		case 5:
 			return 2;
 		case 6:
+			return 2;
+		case 7:
 			return 2;
 		default:
 			return route;
@@ -14030,7 +14254,7 @@ var $author$project$Main$topBar = function (route) {
 								A3($author$project$Main$navItem, route, 0, 'Home'),
 								A3($author$project$Main$navItem, route, 1, 'Getting Started'),
 								A3($author$project$Main$navItem, route, 2, 'Advanced'),
-								A3($author$project$Main$navItem, route, 7, 'Examples')
+								A3($author$project$Main$navItem, route, 8, 'Examples')
 							]))
 					]))
 			]));
@@ -14135,12 +14359,14 @@ var $author$project$Main$pageTitle = function (route) {
 		case 2:
 			return 'Belm - Advanced Guide';
 		case 3:
-			return 'Belm - Language Guide';
+			return 'Belm - Fundamentals Guide';
 		case 4:
-			return 'Belm - Runtime Guide';
+			return 'Belm - Language Reference';
 		case 5:
-			return 'Belm - Tooling Guide';
+			return 'Belm - Runtime Guide';
 		case 6:
+			return 'Belm - Tooling Guide';
+		case 7:
 			return 'Belm - Compiler Guide';
 		default:
 			return 'Belm - Examples';

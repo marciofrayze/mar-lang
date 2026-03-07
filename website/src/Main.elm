@@ -18,7 +18,8 @@ type Route
     = Home
     | GettingStarted
     | AdvancedGuide
-    | AdvancedLanguage
+    | AdvancedFundamentals
+    | AdvancedLanguageReference
     | AdvancedRuntime
     | AdvancedTooling
     | AdvancedCompiler
@@ -99,8 +100,11 @@ routeFromUrl url =
         "advanced" ->
             AdvancedGuide
 
-        "advanced/language" ->
-            AdvancedLanguage
+        "advanced/fundamentals" ->
+            AdvancedFundamentals
+
+        "advanced/reference" ->
+            AdvancedLanguageReference
 
         "advanced/runtime" ->
             AdvancedRuntime
@@ -139,8 +143,11 @@ routeHref route =
         AdvancedGuide ->
             "#/advanced"
 
-        AdvancedLanguage ->
-            "#/advanced/language"
+        AdvancedFundamentals ->
+            "#/advanced/fundamentals"
+
+        AdvancedLanguageReference ->
+            "#/advanced/reference"
 
         AdvancedRuntime ->
             "#/advanced/runtime"
@@ -167,8 +174,11 @@ pageTitle route =
         AdvancedGuide ->
             "Belm - Advanced Guide"
 
-        AdvancedLanguage ->
-            "Belm - Language Guide"
+        AdvancedFundamentals ->
+            "Belm - Fundamentals Guide"
+
+        AdvancedLanguageReference ->
+            "Belm - Language Reference"
 
         AdvancedRuntime ->
             "Belm - Runtime Guide"
@@ -238,7 +248,10 @@ navItem current target label =
 topLevelRoute : Route -> Route
 topLevelRoute route =
     case route of
-        AdvancedLanguage ->
+        AdvancedFundamentals ->
+            AdvancedGuide
+
+        AdvancedLanguageReference ->
             AdvancedGuide
 
         AdvancedRuntime ->
@@ -266,8 +279,11 @@ routeView model =
         AdvancedGuide ->
             advancedLanguagePage model
 
-        AdvancedLanguage ->
+        AdvancedFundamentals ->
             advancedLanguagePage model
+
+        AdvancedLanguageReference ->
+            advancedLanguageReferencePage
 
         AdvancedRuntime ->
             advancedRuntimePage model
@@ -367,8 +383,41 @@ advancedLanguagePage model =
         [ advancedSubmenu model.route
         , panel
             [ sectionTitle "Advanced Guide"
-            , bodyText "Belm is a declarative backend DSL inspired by Elm and PocketBase, implemented in Go with focus on readability, maintainability, and simple deployment."
-            , docSubsectionTitle "Language"
+            , paragraph
+                [ Font.size 16
+                , Font.color (rgb255 72 95 123)
+                , width fill
+                ]
+                [ text "Belm is a declarative backend DSL inspired by "
+                , newTabLink
+                    [ Font.color (rgb255 36 82 132)
+                    , Font.semiBold
+                    , htmlAttribute (HtmlAttr.style "cursor" "pointer")
+                    ]
+                    { url = "https://elm-lang.org"
+                    , label = text "Elm"
+                    }
+                , text " and "
+                , newTabLink
+                    [ Font.color (rgb255 36 82 132)
+                    , Font.semiBold
+                    , htmlAttribute (HtmlAttr.style "cursor" "pointer")
+                    ]
+                    { url = "https://pocketbase.io"
+                    , label = text "PocketBase"
+                    }
+                , text ", implemented in "
+                , newTabLink
+                    [ Font.color (rgb255 36 82 132)
+                    , Font.semiBold
+                    , htmlAttribute (HtmlAttr.style "cursor" "pointer")
+                    ]
+                    { url = "https://go.dev"
+                    , label = text "Go"
+                    }
+                , text " with focus on readability, maintainability, and simple deployment."
+                ]
+            , docSubsectionTitle "Fundamentals"
             , bodyText "Belm reads top-to-bottom as a declarative app definition. A Belm app is centered around entities, rules, authorization, optional auth configuration, and typed actions."
             , docSubsectionTitle "Quick Examples"
             , codeFromString model "todo.belm" 450 todoExampleSource
@@ -400,6 +449,59 @@ advancedLanguagePage model =
             , bodyText "Belm currently supports a single .belm entry file per app, without multi-file projects or imports."
             ]
         , advancedPager Nothing (Just AdvancedRuntime)
+        ]
+
+
+advancedLanguageReferencePage : Element Msg
+advancedLanguageReferencePage =
+    column
+        [ width fill
+        , spacing 20
+        ]
+        [ advancedSubmenu AdvancedLanguageReference
+        , panel
+            [ sectionTitle "Advanced Guide"
+            , docSubsectionTitle "Language Reference"
+            , bodyText "This reference lists the current keywords and built-in names used by the language."
+            , languageReferenceGroup "Top-level declarations"
+                [ languageReferenceItem "app" "Declares the app name."
+                , languageReferenceItem "port" "Sets the HTTP port."
+                , languageReferenceItem "database" "Sets the SQLite database file."
+                , languageReferenceItem "public" "Declares embedded static frontend files."
+                , languageReferenceItem "system" "Declares runtime and security settings."
+                , languageReferenceItem "auth" "Declares email-code authentication settings."
+                , languageReferenceItem "entity" "Declares an entity and its generated CRUD surface."
+                , languageReferenceItem "type alias" "Declares a record type, typically for action input."
+                , languageReferenceItem "action" "Declares a custom action endpoint."
+                ]
+            , languageReferenceGroup "Entity fields and modifiers"
+                [ languageReferenceItem "primary" "Marks a field as the primary key."
+                , languageReferenceItem "auto" "Marks a field as auto-generated."
+                , languageReferenceItem "optional" "Marks a field as nullable."
+                ]
+            , languageReferenceGroup "Validation and authorization"
+                [ languageReferenceItem "rule" "Adds entity validation."
+                , languageReferenceItem "when" "Introduces the boolean expression used by a rule or authorization clause."
+                , languageReferenceItem "authorize" "Declares per-operation authorization rules."
+                , languageReferenceItem "list, get, create, update, delete" "The supported CRUD operations for authorize clauses."
+                ]
+            , languageReferenceGroup "Actions"
+                [ languageReferenceItem "input" "Declares the action input type and is also used in expressions such as input.userId."
+                , languageReferenceItem "create" "Adds a create step inside an action."
+                ]
+            , languageReferenceGroup "Public frontend config"
+                [ languageReferenceItem "dir" "Sets the source directory of embedded static files."
+                , languageReferenceItem "mount" "Sets where embedded static files are served."
+                , languageReferenceItem "spa_fallback" "Sets the fallback file used for SPA-style routes."
+                ]
+            , languageReferenceGroup "Built-in functions and values"
+                [ languageReferenceItem "len, contains, startsWith, endsWith, matches" "Built-in helpers available inside rule and authorize expressions."
+                , languageReferenceItem "isRole" "Checks the authenticated user role inside authorize expressions."
+                , languageReferenceItem "auth_authenticated, auth_email, auth_user_id, auth_role" "Built-in authentication values available in expressions."
+                , languageReferenceItem "true, false, null" "Built-in literals."
+                ]
+            ]
+        , advancedPager (Just AdvancedCompiler) Nothing
         ]
 
 
@@ -448,7 +550,7 @@ advancedRuntimePage model =
                 , "When blocked, startup fails with a clear migration error."
                 ]
             ]
-        , advancedPager (Just AdvancedLanguage) (Just AdvancedTooling)
+        , advancedPager (Just AdvancedFundamentals) (Just AdvancedTooling)
         ]
 
 
@@ -467,15 +569,6 @@ advancedToolingPage model =
                 , text " hosts the day-to-day developer workflow, while the generated clients and editor support help keep frontend and backend aligned."
                 ]
             , docSubsectionTitle "Compiler and Runtime Commands"
-            , paragraphWithEmphasis
-                [ text "The "
-                , emphasisText "belm"
-                , text " binary hosts the compiler, development workflow, formatter, and language server. Most day-to-day work starts with "
-                , emphasisText "dev"
-                , text ", and "
-                , emphasisText "compile"
-                , text " is what you use when you are ready to ship."
-                ]
             , commandRow model "1" "Dev" "Runs the app in development mode with hot reload when the .belm file changes." "belm dev store.belm"
             , commandRow model "2" "Compile" "Builds a .belm app into a self-contained executable and generates frontend clients." "belm compile store.belm"
             , commandRow model "3" "Format" "Applies Belm's official formatting style to source files." "belm format store.belm"
@@ -497,7 +590,7 @@ advancedToolingPage model =
                 , "The VSCode extension provides syntax highlighting, hover docs, go to definition, references, rename, formatting, and LSP diagnostics."
                 ]
             ]
-        , advancedPager (Just AdvancedRuntime) (Just AdvancedCompiler)
+        , advancedPager (Just AdvancedRuntime) (Just AdvancedLanguageReference)
         ]
 
 
@@ -514,7 +607,7 @@ advancedCompilerPage =
             , bodyText "The compiler parses a single .belm file into a typed app model, validates it, generates clients, embeds admin/static assets, and then builds a self-contained server executable."
             , architectureDiagram
             ]
-        , advancedPager (Just AdvancedTooling) Nothing
+        , advancedPager (Just AdvancedTooling) (Just AdvancedCompiler)
         ]
 
 
@@ -1081,10 +1174,11 @@ advancedSubmenu : Route -> Element Msg
 advancedSubmenu current =
     panel
         [ row [ width fill, spacing 8 ]
-            [ sectionNavItem current AdvancedLanguage "Language"
+            [ sectionNavItem current AdvancedFundamentals "Fundamentals"
             , sectionNavItem current AdvancedRuntime "Runtime"
             , sectionNavItem current AdvancedTooling "Tooling"
             , sectionNavItem current AdvancedCompiler "Compiler"
+            , sectionNavItem current AdvancedLanguageReference "Language Reference"
             ]
         ]
 
@@ -1094,7 +1188,7 @@ sectionNavItem current target label =
     let
         isCurrent =
             case ( current, target ) of
-                ( AdvancedGuide, AdvancedLanguage ) ->
+                ( AdvancedGuide, AdvancedFundamentals ) ->
                     True
 
                 _ ->
@@ -1127,8 +1221,11 @@ advancedPager previous next =
 routeLabel : Route -> String
 routeLabel route =
     case route of
-        AdvancedLanguage ->
-            "Language"
+        AdvancedFundamentals ->
+            "Fundamentals"
+
+        AdvancedLanguageReference ->
+            "Language Reference"
 
         AdvancedRuntime ->
             "Runtime"
@@ -1192,7 +1289,7 @@ navLink label target isCurrent =
     link
         (if isCurrent then
             [ Font.size 14
-            , Font.bold
+            , Font.semiBold
             , Font.color (rgb255 24 73 126)
             , Background.color (rgb255 226 238 253)
             , Border.width 1
@@ -1206,6 +1303,8 @@ navLink label target isCurrent =
             [ Font.size 14
             , Font.semiBold
             , Font.color (rgb255 64 88 118)
+            , Border.width 1
+            , Border.color (rgb255 230 238 248)
             , Border.rounded 999
             , paddingEach { top = 6, right = 10, bottom = 6, left = 10 }
             , htmlAttribute (HtmlAttr.style "cursor" "pointer")
@@ -1258,6 +1357,53 @@ docListItem value =
             ]
             [ text value ]
         ]
+
+
+languageReferenceGroup : String -> List (Element Msg) -> Element Msg
+languageReferenceGroup label items =
+    column
+        [ spacing 8
+        , width fill
+        , paddingEach { top = 2, right = 0, bottom = 6, left = 0 }
+        ]
+        ([ paragraph
+            [ Font.size 16
+            , Font.semiBold
+            , Font.color (rgb255 39 72 110)
+            ]
+            [ text label ]
+         ]
+            ++ items
+        )
+
+
+languageReferenceItem : String -> String -> Element Msg
+languageReferenceItem keyword description =
+    row
+        [ spacing 8
+        , width fill
+        , paddingEach { top = 0, right = 0, bottom = 0, left = 16 }
+        ]
+        [ el [ Font.color (rgb255 93 107 126), Font.bold ] (text "•")
+        , paragraph
+            [ Font.size 15
+            , Font.color (rgb255 72 95 123)
+            , width fill
+            ]
+            [ languageKeywordText keyword
+            , text " "
+            , text description
+            ]
+        ]
+
+
+languageKeywordText : String -> Element Msg
+languageKeywordText value =
+    el
+        [ Font.semiBold
+        , Font.color (rgb255 28 66 108)
+        ]
+        (text value)
 
 
 codeInline : String -> Element Msg
@@ -1686,7 +1832,7 @@ wordToken word =
     if List.member word [ "list", "get", "create", "update", "delete" ] then
         token "#93D7FF" word
 
-    else if List.member word [ "app", "port", "database", "entity", "rule", "when", "authorize", "auth", "type", "alias", "action", "input", "public", "system", "dir", "mount", "spa_fallback", "transaction" ] then
+    else if List.member word [ "app", "port", "database", "entity", "rule", "when", "authorize", "auth", "type", "alias", "action", "input", "create", "public", "system", "dir", "mount", "spa_fallback" ] then
         token "#7AB8FF" word
 
     else if List.member word [ "Int", "String", "Bool", "Float" ] then
@@ -1953,16 +2099,11 @@ system {
 
 publicConfigSource : String
 publicConfigSource =
-    """-- Embedded frontend files
--- dir is required and is resolved relative to the .belm file.
--- mount defaults to /.
--- spa_fallback serves the frontend entry file for SPA-style routes.
--- Public files are embedded into the final executable.
-
+    """-- Public files are embedded into the final executable.
 public {
-  dir \"./frontend/dist\"
-  mount \"/\"
-  spa_fallback \"index.html\"
+  dir \"./frontend/dist\"      -- required; resolved relative to the .belm file.
+  mount \"/\"                  -- defaults to /.
+  spa_fallback \"index.html\"  -- serves the frontend entry file for SPA-style routes.
 }
 """
 
