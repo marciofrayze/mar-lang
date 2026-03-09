@@ -1,7 +1,7 @@
 package runtime
 
 // schemaPayload builds metadata consumed by the admin UI and generated clients.
-func (r *Runtime) schemaPayload() map[string]any {
+func (r *Runtime) schemaPayload(requestID string) map[string]any {
 	entities := make([]map[string]any, 0, len(r.App.Entities))
 	for _, entity := range r.App.Entities {
 		fields := make([]map[string]any, 0, len(entity.Fields))
@@ -59,7 +59,7 @@ func (r *Runtime) schemaPayload() map[string]any {
 	}
 	cfg := r.authConfig()
 	needsBootstrap := false
-	if totalUsers, err := r.countAuthUsers(); err == nil {
+	if totalUsers, err := r.countAuthUsers(requestID); err == nil {
 		needsBootstrap = totalUsers == 0
 	}
 	userEntityName := internalAuthUsersTable

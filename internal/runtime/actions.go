@@ -10,7 +10,7 @@ import (
 )
 
 // handleAction executes a typed action (with create steps) in a single SQL transaction.
-func (r *Runtime) handleAction(w http.ResponseWriter, actionName string, auth authSession, payload map[string]any) error {
+func (r *Runtime) handleAction(w http.ResponseWriter, requestID, actionName string, auth authSession, payload map[string]any) error {
 	action := r.actionsByName[actionName]
 	if action == nil {
 		return &apiError{Status: http.StatusNotFound, Message: "Action not found"}
@@ -55,7 +55,7 @@ func (r *Runtime) handleAction(w http.ResponseWriter, actionName string, auth au
 		statements = append(statements, stmt)
 	}
 
-	if err := r.DB.ExecTx(statements); err != nil {
+	if err := r.DB.ExecTxTagged(requestID, statements); err != nil {
 		return err
 	}
 

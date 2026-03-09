@@ -54,7 +54,7 @@ func TestLegacyPlainTextCodesAndSessionsStillWork(t *testing.T) {
 	email := "legacy@example.com"
 	_ = requestCodeAndReadDevCode(t, r, email)
 
-	user, found, err := r.loadAuthUserByEmail(email)
+	user, found, err := r.loadAuthUserByEmail("", email)
 	if err != nil {
 		t.Fatalf("load auth user failed: %v", err)
 	}

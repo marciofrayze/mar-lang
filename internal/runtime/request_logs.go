@@ -34,7 +34,7 @@ var (
 )
 
 type dbQueryTrace struct {
-	Seq        uint64
+	RequestID  string
 	Timestamp  time.Time
 	SQL        string
 	DurationMs float64
@@ -72,7 +72,7 @@ func (c *dbQueryCollector) record(event sqlitecli.QueryEvent) {
 
 	c.nextSeq++
 	trace := dbQueryTrace{
-		Seq:        c.nextSeq,
+		RequestID:  strings.TrimSpace(event.RequestID),
 		Timestamp:  time.Now(),
 		SQL:        normalizeSQLForLog(event.SQL),
 		DurationMs: event.DurationMs,
@@ -95,8 +95,12 @@ func (c *dbQueryCollector) latestSeq() uint64 {
 	return c.nextSeq
 }
 
-func (c *dbQueryCollector) rangeSince(startSeq uint64) []dbQueryTrace {
+func (c *dbQueryCollector) rangeByRequestID(requestID string) []dbQueryTrace {
 	if c == nil {
+		return nil
+	}
+	requestID = strings.TrimSpace(requestID)
+	if requestID == "" {
 		return nil
 	}
 	c.mu.RLock()
@@ -106,7 +110,7 @@ func (c *dbQueryCollector) rangeSince(startSeq uint64) []dbQueryTrace {
 	}
 	out := make([]dbQueryTrace, 0, 8)
 	for _, item := range c.items {
-		if item.Seq > startSeq {
+		if item.RequestID == requestID {
 			out = append(out, item)
 		}
 	}
@@ -115,6 +119,7 @@ func (c *dbQueryCollector) rangeSince(startSeq uint64) []dbQueryTrace {
 
 type requestLogQuery struct {
 	SQL        string  `json:"sql"`
+	Reason     string  `json:"reason,omitempty"`
 	DurationMs float64 `json:"durationMs"`
 	RowCount   int     `json:"rowCount"`
 	Error      string  `json:"error,omitempty"`
@@ -235,18 +240,19 @@ func requestLogsBufferSize(app *model.App) int {
 	return clampRequestBuffer(app.System.RequestLogsBuffer)
 }
 
-func (r *Runtime) captureRequestLog(req *http.Request, route string, status int, duration time.Duration, errMessage string, querySeqStart uint64) {
+func (r *Runtime) captureRequestLog(req *http.Request, requestID, route string, status int, duration time.Duration, errMessage string) {
 	if r == nil || r.requestLogs == nil {
 		return
 	}
 
-	rawQueries := r.dbQueries.rangeSince(querySeqStart)
+	rawQueries := r.dbQueries.rangeByRequestID(requestID)
 	queries := make([]requestLogQuery, 0, len(rawQueries))
 	queryTimeMs := 0.0
 	for _, query := range rawQueries {
 		queryTimeMs += query.DurationMs
 		queries = append(queries, requestLogQuery{
 			SQL:        query.SQL,
+			Reason:     r.describeQueryReason(req.Method, route, query.SQL),
 			DurationMs: query.DurationMs,
 			RowCount:   query.RowCount,
 			Error:      query.Error,
@@ -287,6 +293,7 @@ func sanitizeRequestLogs(entries []requestLogEntry) []requestLogEntry {
 		for _, query := range entry.Queries {
 			sanitized.Queries = append(sanitized.Queries, requestLogQuery{
 				SQL:        sanitizeSQLForLogs(query.SQL),
+				Reason:     query.Reason,
 				DurationMs: query.DurationMs,
 				RowCount:   query.RowCount,
 				Error:      sanitizeSensitiveText(query.Error),
@@ -332,6 +339,253 @@ func sanitizeInsertValuesByColumnName(sqlText string) string {
 
 	rebuiltValues := strings.Join(values, ", ")
 	return sqlText[:match[4]] + rebuiltValues + sqlText[match[5]:]
+}
+
+func (r *Runtime) describeQueryReason(method, route, sqlText string) string {
+	route = strings.TrimSpace(route)
+	method = strings.ToUpper(strings.TrimSpace(method))
+	sqlUpper := strings.ToUpper(strings.TrimSpace(sqlText))
+	if sqlUpper == "" {
+		return ""
+	}
+
+	if reason := r.describeAuthAndAdminQueryReason(route, sqlUpper); reason != "" {
+		return reason
+	}
+
+	if reason := r.describeEntityQueryReason(method, route, sqlUpper); reason != "" {
+		return reason
+	}
+
+	if reason := describeActionQueryReason(route, sqlUpper); reason != "" {
+		return reason
+	}
+
+	return describeGenericQueryReason(sqlUpper)
+}
+
+func (r *Runtime) describeAuthAndAdminQueryReason(route, sqlUpper string) string {
+	authUserTable := strings.ToUpper(r.authUserTableName())
+
+	switch route {
+	case "/_mar/schema":
+		if strings.Contains(sqlUpper, "COUNT(*) AS TOTAL") {
+			return "Check whether auth bootstrap is still needed"
+		}
+	case "/auth/login":
+		switch {
+		case strings.Contains(sqlUpper, "FROM MAR_AUTH_CODES"):
+			return "Verify the latest login code for this email"
+		case strings.Contains(sqlUpper, "UPDATE MAR_AUTH_CODES SET USED = 1"):
+			return "Mark the login code as used"
+		case strings.Contains(sqlUpper, "INSERT INTO MAR_SESSIONS"):
+			return "Create a new authenticated session"
+		case isRoleUpdateQuery(sqlUpper):
+			return "Promote the authenticated user to admin"
+		case tableMatchesQuery(sqlUpper, authUserTable):
+			return "Load the authenticated user record"
+		}
+	case "/auth/request-code":
+		switch {
+		case strings.Contains(sqlUpper, "COUNT(*) AS TOTAL"):
+			return "Check whether this is the first auth user"
+		case strings.Contains(sqlUpper, "INSERT INTO MAR_AUTH_CODES"):
+			return "Create a new one-time login code"
+		case strings.Contains(sqlUpper, "INSERT INTO "):
+			return "Auto-create the auth user when allowed"
+		case tableMatchesQuery(sqlUpper, authUserTable):
+			return "Load the auth user for this email"
+		}
+	case "/_mar/bootstrap-admin":
+		switch {
+		case strings.Contains(sqlUpper, "COUNT(*) AS TOTAL"):
+			return "Check whether first-admin bootstrap is still allowed"
+		case strings.Contains(sqlUpper, "INSERT INTO MAR_AUTH_CODES"):
+			return "Create the first-admin verification code"
+		case isRoleUpdateQuery(sqlUpper):
+			return "Promote the first user to admin"
+		case strings.Contains(sqlUpper, "INSERT INTO "):
+			return "Create the first auth user"
+		case tableMatchesQuery(sqlUpper, authUserTable):
+			return "Load the newly created auth user"
+		}
+	case "/auth/logout":
+		if strings.Contains(sqlUpper, "UPDATE MAR_SESSIONS SET REVOKED = 1") {
+			return "Revoke the current session"
+		}
+	case "/auth/me":
+		switch {
+		case strings.Contains(sqlUpper, "FROM MAR_SESSIONS"):
+			return "Load the current session"
+		case tableMatchesQuery(sqlUpper, authUserTable):
+			return "Load the current authenticated user"
+		}
+	}
+
+	switch {
+	case strings.Contains(sqlUpper, "FROM MAR_SESSIONS"):
+		return "Load the current session"
+	case strings.Contains(sqlUpper, "UPDATE MAR_SESSIONS SET REVOKED = 1"):
+		return "Revoke the current session"
+	case route != "/auth/request-code" && route != "/_mar/bootstrap-admin" && tableMatchesQuery(sqlUpper, authUserTable):
+		return "Load the current authenticated user"
+	}
+
+	return ""
+}
+
+func (r *Runtime) describeEntityQueryReason(method, route, sqlUpper string) string {
+	entity, routeKind := r.entityForRouteLabel(route)
+	if entity == nil {
+		return ""
+	}
+	entityTable := strings.ToUpper(entity.Table)
+
+	if !tableMatchesQuery(sqlUpper, entityTable) {
+		return ""
+	}
+
+	switch routeKind {
+	case "collection":
+		switch method {
+		case http.MethodGet:
+			if strings.HasPrefix(sqlUpper, "SELECT ") {
+				return "Load rows for the entity list"
+			}
+		case http.MethodPost:
+			switch {
+			case strings.HasPrefix(sqlUpper, "INSERT INTO "):
+				return "Create a new entity entry"
+			case strings.HasPrefix(sqlUpper, "SELECT "):
+				return "Load the newly created entity entry"
+			}
+		}
+	case "item":
+		switch method {
+		case http.MethodGet:
+			if strings.HasPrefix(sqlUpper, "SELECT ") {
+				return "Load the selected entity entry"
+			}
+		case http.MethodPut, http.MethodPatch:
+			switch {
+			case strings.HasPrefix(sqlUpper, "UPDATE "):
+				return "Update the selected entity entry"
+			case strings.HasPrefix(sqlUpper, "SELECT "):
+				return "Load the selected entity entry"
+			}
+		case http.MethodDelete:
+			switch {
+			case strings.HasPrefix(sqlUpper, "DELETE FROM "):
+				return "Delete the selected entity entry"
+			case strings.HasPrefix(sqlUpper, "SELECT "):
+				return "Load the selected entity entry before deleting it"
+			}
+		}
+	}
+
+	return ""
+}
+
+func describeActionQueryReason(route, sqlUpper string) string {
+	if route != "/actions/:name" {
+		return ""
+	}
+
+	switch {
+	case strings.HasPrefix(sqlUpper, "INSERT INTO "):
+		return "Create rows for this action"
+	case strings.HasPrefix(sqlUpper, "UPDATE "):
+		return "Update rows for this action"
+	case strings.HasPrefix(sqlUpper, "DELETE FROM "):
+		return "Delete rows for this action"
+	case strings.HasPrefix(sqlUpper, "SELECT "):
+		return "Load data needed to run this action"
+	}
+
+	return ""
+}
+
+func describeGenericQueryReason(sqlUpper string) string {
+	switch {
+	case strings.HasPrefix(sqlUpper, "SELECT "):
+		return "Load data needed for this request"
+	case strings.HasPrefix(sqlUpper, "INSERT INTO "):
+		return "Create data needed for this request"
+	case strings.HasPrefix(sqlUpper, "UPDATE "):
+		return "Update data for this request"
+	case strings.HasPrefix(sqlUpper, "DELETE FROM "):
+		return "Delete data for this request"
+	case strings.HasPrefix(sqlUpper, "VACUUM INTO "):
+		return "Create a SQLite backup snapshot"
+	default:
+		return "Run a database operation for this request"
+	}
+}
+
+func (r *Runtime) authUserTableName() string {
+	if r != nil && r.usesAppAuthEntity() {
+		return r.authUser.Table
+	}
+	return internalAuthUsersTable
+}
+
+func (r *Runtime) entityForRouteLabel(route string) (*model.Entity, string) {
+	if r == nil {
+		return nil, ""
+	}
+	for i := range r.App.Entities {
+		entity := &r.App.Entities[i]
+		switch route {
+		case entity.Resource:
+			return entity, "collection"
+		case entity.Resource + "/:id":
+			return entity, "item"
+		}
+	}
+	return nil, ""
+}
+
+func tableMatchesQuery(sqlUpper, expectedTable string) bool {
+	tableName := extractSQLTableName(sqlUpper)
+	return tableName != "" && tableName == expectedTable
+}
+
+func extractSQLTableName(sqlUpper string) string {
+	parts := strings.Fields(sqlUpper)
+	if len(parts) < 2 {
+		return ""
+	}
+
+	switch parts[0] {
+	case "SELECT":
+		for i := 1; i < len(parts)-1; i++ {
+			if parts[i] == "FROM" {
+				return normalizeSQLTableName(parts[i+1])
+			}
+		}
+	case "INSERT":
+		if len(parts) >= 3 && parts[1] == "INTO" {
+			return normalizeSQLTableName(parts[2])
+		}
+	case "UPDATE":
+		return normalizeSQLTableName(parts[1])
+	case "DELETE":
+		if len(parts) >= 3 && parts[1] == "FROM" {
+			return normalizeSQLTableName(parts[2])
+		}
+	}
+
+	return ""
+}
+
+func normalizeSQLTableName(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	trimmed = strings.Trim(trimmed, "\"`[]")
+	return strings.Trim(trimmed, ",")
+}
+
+func isRoleUpdateQuery(sqlUpper string) bool {
+	return strings.Contains(sqlUpper, " SET ") && strings.Contains(sqlUpper, "ROLE") && strings.Contains(sqlUpper, " WHERE ")
 }
 
 func splitSQLCSV(part string) []string {

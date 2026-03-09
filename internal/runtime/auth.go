@@ -40,15 +40,16 @@ func (r *Runtime) usesAppAuthEntity() bool {
 }
 
 // resolveAuth resolves a bearer token into an active session and hydrated auth user.
-func (r *Runtime) resolveAuth(req *http.Request) (authSession, error) {
+func (r *Runtime) resolveAuth(req *http.Request, requestID string) (authSession, error) {
 	token := parseBearerToken(req.Header.Get("Authorization"))
 	if token == "" {
 		return authSession{}, nil
 	}
 	tokenHash := hashAuthSecret(token)
 
-	row, ok, err := queryRow(
+	row, ok, err := queryRowForRequest(
 		r.DB,
+		requestID,
 		`SELECT user_id, email, expires_at, revoked FROM mar_sessions WHERE token = ? OR token = ? LIMIT 1`,
 		token,
 		tokenHash,
@@ -68,7 +69,7 @@ func (r *Runtime) resolveAuth(req *http.Request) (authSession, error) {
 	}
 
 	userID := row["user_id"]
-	userRow, ok, err := r.loadAuthUserByID(userID)
+	userRow, ok, err := r.loadAuthUserByID(requestID, userID)
 	if err != nil {
 		return authSession{}, err
 	}
@@ -110,7 +111,7 @@ func parseBearerToken(header string) string {
 	return strings.TrimSpace(header[len("Bearer "):])
 }
 
-func (r *Runtime) loadAuthUserByEmail(email string) (map[string]any, bool, error) {
+func (r *Runtime) loadAuthUserByEmail(requestID, email string) (map[string]any, bool, error) {
 	cfg := r.authConfig()
 	tableName := internalAuthUsersTable
 	emailFieldName := cfg.EmailField
@@ -120,10 +121,10 @@ func (r *Runtime) loadAuthUserByEmail(email string) (map[string]any, bool, error
 	table, _ := quoteIdentifier(tableName)
 	emailField, _ := quoteIdentifier(emailFieldName)
 	query := fmt.Sprintf("SELECT * FROM %s WHERE %s = ? COLLATE NOCASE LIMIT 1", table, emailField)
-	return queryRow(r.DB, query, email)
+	return queryRowForRequest(r.DB, requestID, query, email)
 }
 
-func (r *Runtime) loadAuthUserByID(id any) (map[string]any, bool, error) {
+func (r *Runtime) loadAuthUserByID(requestID string, id any) (map[string]any, bool, error) {
 	tableName := internalAuthUsersTable
 	primaryKey := "id"
 	if r.usesAppAuthEntity() {
@@ -133,16 +134,16 @@ func (r *Runtime) loadAuthUserByID(id any) (map[string]any, bool, error) {
 	table, _ := quoteIdentifier(tableName)
 	pk, _ := quoteIdentifier(primaryKey)
 	query := fmt.Sprintf("SELECT * FROM %s WHERE %s = ? LIMIT 1", table, pk)
-	return queryRow(r.DB, query, id)
+	return queryRowForRequest(r.DB, requestID, query, id)
 }
 
-func (r *Runtime) countAuthUsers() (int64, error) {
+func (r *Runtime) countAuthUsers(requestID string) (int64, error) {
 	tableName := internalAuthUsersTable
 	if r.usesAppAuthEntity() {
 		tableName = r.authUser.Table
 	}
 	table, _ := quoteIdentifier(tableName)
-	row, ok, err := queryRow(r.DB, fmt.Sprintf("SELECT COUNT(*) AS total FROM %s", table))
+	row, ok, err := queryRowForRequest(r.DB, requestID, fmt.Sprintf("SELECT COUNT(*) AS total FROM %s", table))
 	if err != nil {
 		return 0, err
 	}
@@ -153,10 +154,10 @@ func (r *Runtime) countAuthUsers() (int64, error) {
 	return total, nil
 }
 
-func (r *Runtime) countAuthUsersByRole(role string) (int64, error) {
+func (r *Runtime) countAuthUsersByRole(requestID, role string) (int64, error) {
 	cfg := r.authConfig()
 	if strings.TrimSpace(cfg.RoleField) == "" {
-		return r.countAuthUsers()
+		return r.countAuthUsers(requestID)
 	}
 	tableName := internalAuthUsersTable
 	if r.usesAppAuthEntity() {
@@ -164,7 +165,7 @@ func (r *Runtime) countAuthUsersByRole(role string) (int64, error) {
 	}
 	table, _ := quoteIdentifier(tableName)
 	roleField, _ := quoteIdentifier(cfg.RoleField)
-	row, ok, err := queryRow(r.DB, fmt.Sprintf("SELECT COUNT(*) AS total FROM %s WHERE lower(%s) = lower(?)", table, roleField), role)
+	row, ok, err := queryRowForRequest(r.DB, requestID, fmt.Sprintf("SELECT COUNT(*) AS total FROM %s WHERE lower(%s) = lower(?)", table, roleField), role)
 	if err != nil {
 		return 0, err
 	}
@@ -189,13 +190,13 @@ func parseAuthEmail(payload map[string]any) (string, error) {
 
 // handleAuthRequestCode creates and delivers a one-time login code for an auth user email.
 // If the user does not exist yet, Mar may auto-create it when the auth entity allows it.
-func (r *Runtime) handleAuthRequestCode(w http.ResponseWriter, payload map[string]any) error {
+func (r *Runtime) handleAuthRequestCode(w http.ResponseWriter, requestID string, payload map[string]any) error {
 	email, err := parseAuthEmail(payload)
 	if err != nil {
 		return err
 	}
 
-	user, found, err := r.loadOrCreateAuthUserForRequestCode(email)
+	user, found, err := r.loadOrCreateAuthUserForRequestCode(requestID, email)
 	if err != nil {
 		return err
 	}
@@ -207,18 +208,18 @@ func (r *Runtime) handleAuthRequestCode(w http.ResponseWriter, payload map[strin
 	if r.usesAppAuthEntity() {
 		userID = user[r.authUser.PrimaryKey]
 	}
-	return r.issueAuthCode(w, email, userID, "If this email exists, a code was sent.", "")
+	return r.issueAuthCode(w, requestID, email, userID, "If this email exists, a code was sent.", "")
 }
 
 // handleBootstrapAdmin creates the first auth user and sends a verification code.
 // The user is promoted to admin only after a successful login with that code.
-func (r *Runtime) handleBootstrapAdmin(w http.ResponseWriter, payload map[string]any) error {
+func (r *Runtime) handleBootstrapAdmin(w http.ResponseWriter, requestID string, payload map[string]any) error {
 	cfg := r.authConfig()
 	if strings.TrimSpace(cfg.RoleField) == "" {
 		return &apiError{Status: http.StatusBadRequest, Message: "auth.role_field is required for admin bootstrap"}
 	}
 
-	totalUsers, err := r.countAuthUsers()
+	totalUsers, err := r.countAuthUsers(requestID)
 	if err != nil {
 		return err
 	}
@@ -231,7 +232,7 @@ func (r *Runtime) handleBootstrapAdmin(w http.ResponseWriter, payload map[string
 		return err
 	}
 
-	user, found, err := r.tryAutoCreateAuthUser(email)
+	user, found, err := r.tryAutoCreateAuthUser(requestID, email)
 	if err != nil {
 		return err
 	}
@@ -242,10 +243,10 @@ func (r *Runtime) handleBootstrapAdmin(w http.ResponseWriter, payload map[string
 	if r.usesAppAuthEntity() {
 		userID = user[r.authUser.PrimaryKey]
 	}
-	return r.issueAuthCode(w, email, userID, "First admin verification code sent. Complete login with this code to finish setup.", "admin")
+	return r.issueAuthCode(w, requestID, email, userID, "First admin verification code sent. Complete login with this code to finish setup.", "admin")
 }
 
-func (r *Runtime) issueAuthCode(w http.ResponseWriter, email string, userID any, message string, grantRole string) error {
+func (r *Runtime) issueAuthCode(w http.ResponseWriter, requestID, email string, userID any, message string, grantRole string) error {
 	cfg := r.authConfig()
 	code, err := randomCode6()
 	if err != nil {
@@ -254,7 +255,8 @@ func (r *Runtime) issueAuthCode(w http.ResponseWriter, email string, userID any,
 	now := time.Now().UnixMilli()
 	expiresAt := now + int64(cfg.CodeTTLMinutes)*60_000
 	grantRole = strings.TrimSpace(grantRole)
-	_, err = r.DB.Exec(
+	_, err = r.DB.ExecTagged(
+		requestID,
 		`INSERT INTO mar_auth_codes (email, user_id, code, grant_role, expires_at, used, created_at) VALUES (?, ?, ?, ?, ?, 0, ?)`,
 		email,
 		userID,
@@ -289,37 +291,37 @@ func isMarDevMode() bool {
 }
 
 // loadOrCreateAuthUserForRequestCode loads an auth user by email or auto-creates it when possible.
-func (r *Runtime) loadOrCreateAuthUserForRequestCode(email string) (map[string]any, bool, error) {
-	user, found, err := r.loadAuthUserByEmail(email)
+func (r *Runtime) loadOrCreateAuthUserForRequestCode(requestID, email string) (map[string]any, bool, error) {
+	user, found, err := r.loadAuthUserByEmail(requestID, email)
 	if err != nil || found {
 		return user, found, err
 	}
-	totalUsers, err := r.countAuthUsers()
+	totalUsers, err := r.countAuthUsers(requestID)
 	if err != nil {
 		return nil, false, err
 	}
 	if totalUsers == 0 {
-		return r.tryAutoCreateAuthUserWithRole(email, "admin")
+		return r.tryAutoCreateAuthUserWithRole(requestID, email, "admin")
 	}
-	return r.tryAutoCreateAuthUser(email)
+	return r.tryAutoCreateAuthUser(requestID, email)
 }
 
 // tryAutoCreateAuthUser creates a minimal auth user for passwordless first-login flows.
 // It only succeeds when all required fields can be safely inferred from auth config.
-func (r *Runtime) tryAutoCreateAuthUser(email string) (map[string]any, bool, error) {
-	return r.tryAutoCreateAuthUserWithRole(email, "user")
+func (r *Runtime) tryAutoCreateAuthUser(requestID, email string) (map[string]any, bool, error) {
+	return r.tryAutoCreateAuthUserWithRole(requestID, email, "user")
 }
 
-func (r *Runtime) tryAutoCreateAuthUserWithRole(email, roleValue string) (map[string]any, bool, error) {
+func (r *Runtime) tryAutoCreateAuthUserWithRole(requestID, email, roleValue string) (map[string]any, bool, error) {
 	cfg := r.authConfig()
 	if !r.usesAppAuthEntity() {
-		user, found, err := r.loadAuthUserByEmail(email)
+		user, found, err := r.loadAuthUserByEmail(requestID, email)
 		if err != nil {
 			return nil, false, err
 		}
 		if found {
 			if strings.EqualFold(strings.TrimSpace(roleValue), "admin") {
-				promoted, promoteErr := r.promoteAuthUserToAdmin(user)
+				promoted, promoteErr := r.promoteAuthUserToAdmin(requestID, user)
 				if promoteErr != nil {
 					return nil, false, promoteErr
 				}
@@ -333,19 +335,20 @@ func (r *Runtime) tryAutoCreateAuthUserWithRole(email, roleValue string) (map[st
 		if err != nil {
 			return nil, false, err
 		}
-		if _, err := r.DB.Exec(
+		if _, err := r.DB.ExecTagged(
+			requestID,
 			fmt.Sprintf("INSERT INTO %s (email, role, created_at) VALUES (?, ?, ?)", table),
 			email,
 			roleValue,
 			now,
 		); err != nil {
-			user, found, loadErr := r.loadAuthUserByEmail(email)
+			user, found, loadErr := r.loadAuthUserByEmail(requestID, email)
 			if loadErr == nil && found {
 				return user, true, nil
 			}
 			return nil, false, err
 		}
-		return r.loadAuthUserByEmail(email)
+		return r.loadAuthUserByEmail(requestID, email)
 	}
 
 	columns := make([]string, 0, len(r.authUser.Fields))
@@ -400,16 +403,16 @@ func (r *Runtime) tryAutoCreateAuthUserWithRole(email, roleValue string) (map[st
 		return nil, false, err
 	}
 	insertSQL := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", table, strings.Join(columns, ", "), strings.Join(placeholders, ", "))
-	if _, err := r.DB.Exec(insertSQL, values...); err != nil {
+	if _, err := r.DB.ExecTagged(requestID, insertSQL, values...); err != nil {
 		// If a concurrent request created the same user, load and continue.
-		user, found, loadErr := r.loadAuthUserByEmail(email)
+		user, found, loadErr := r.loadAuthUserByEmail(requestID, email)
 		if loadErr == nil && found {
 			return user, true, nil
 		}
 		return nil, false, err
 	}
 
-	user, found, err := r.loadAuthUserByEmail(email)
+	user, found, err := r.loadAuthUserByEmail(requestID, email)
 	if err != nil {
 		return nil, false, err
 	}
@@ -417,7 +420,7 @@ func (r *Runtime) tryAutoCreateAuthUserWithRole(email, roleValue string) (map[st
 }
 
 // handleAuthLogin verifies an email+code pair and issues a session token.
-func (r *Runtime) handleAuthLogin(w http.ResponseWriter, payload map[string]any) error {
+func (r *Runtime) handleAuthLogin(w http.ResponseWriter, requestID string, payload map[string]any) error {
 	email, err := parseAuthEmail(payload)
 	if err != nil {
 		return err
@@ -431,7 +434,7 @@ func (r *Runtime) handleAuthLogin(w http.ResponseWriter, payload map[string]any)
 		return &apiError{Status: http.StatusBadRequest, Message: "code is required"}
 	}
 
-	row, ok, err := queryRow(r.DB, `SELECT id, user_id, code, grant_role, expires_at, used FROM mar_auth_codes WHERE email = ? ORDER BY id DESC LIMIT 1`, email)
+	row, ok, err := queryRowForRequest(r.DB, requestID, `SELECT id, user_id, code, grant_role, expires_at, used FROM mar_auth_codes WHERE email = ? ORDER BY id DESC LIMIT 1`, email)
 	if err != nil {
 		return err
 	}
@@ -449,10 +452,10 @@ func (r *Runtime) handleAuthLogin(w http.ResponseWriter, payload map[string]any)
 	userID := row["user_id"]
 	grantRole, _ := row["grant_role"].(string)
 
-	if _, err := r.DB.Exec(`UPDATE mar_auth_codes SET used = 1 WHERE id = ?`, codeID); err != nil {
+	if _, err := r.DB.ExecTagged(requestID, `UPDATE mar_auth_codes SET used = 1 WHERE id = ?`, codeID); err != nil {
 		return err
 	}
-	userRow, found, err := r.loadAuthUserByID(userID)
+	userRow, found, err := r.loadAuthUserByID(requestID, userID)
 	if err != nil {
 		return err
 	}
@@ -461,7 +464,7 @@ func (r *Runtime) handleAuthLogin(w http.ResponseWriter, payload map[string]any)
 	}
 
 	if strings.EqualFold(strings.TrimSpace(grantRole), "admin") {
-		promotedUser, promoteErr := r.promoteAuthUserToAdmin(userRow)
+		promotedUser, promoteErr := r.promoteAuthUserToAdmin(requestID, userRow)
 		if promoteErr != nil {
 			return promoteErr
 		}
@@ -480,7 +483,7 @@ func (r *Runtime) handleAuthLogin(w http.ResponseWriter, payload map[string]any)
 	tokenHash := hashAuthSecret(token)
 	cfg := r.authConfig()
 	sessionExpiresAt := now + int64(cfg.SessionTTLHours)*60*60*1000
-	if _, err := r.DB.Exec(`INSERT INTO mar_sessions (token, user_id, email, expires_at, revoked, created_at) VALUES (?, ?, ?, ?, 0, ?)`, tokenHash, userID, email, sessionExpiresAt, now); err != nil {
+	if _, err := r.DB.ExecTagged(requestID, `INSERT INTO mar_sessions (token, user_id, email, expires_at, revoked, created_at) VALUES (?, ?, ?, ?, 0, ?)`, tokenHash, userID, email, sessionExpiresAt, now); err != nil {
 		return err
 	}
 
@@ -499,7 +502,7 @@ func (r *Runtime) handleAuthLogin(w http.ResponseWriter, payload map[string]any)
 	return nil
 }
 
-func (r *Runtime) promoteAuthUserToAdmin(user map[string]any) (map[string]any, error) {
+func (r *Runtime) promoteAuthUserToAdmin(requestID string, user map[string]any) (map[string]any, error) {
 	cfg := r.authConfig()
 	if strings.TrimSpace(cfg.RoleField) == "" {
 		return user, nil
@@ -532,10 +535,10 @@ func (r *Runtime) promoteAuthUserToAdmin(user map[string]any) (map[string]any, e
 		return user, nil
 	}
 
-	if _, err := r.DB.Exec(fmt.Sprintf("UPDATE %s SET %s = ? WHERE %s = ?", table, roleField, pk), "admin", userID); err != nil {
+	if _, err := r.DB.ExecTagged(requestID, fmt.Sprintf("UPDATE %s SET %s = ? WHERE %s = ?", table, roleField, pk), "admin", userID); err != nil {
 		return nil, err
 	}
-	updated, found, err := r.loadAuthUserByID(userID)
+	updated, found, err := r.loadAuthUserByID(requestID, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -546,11 +549,11 @@ func (r *Runtime) promoteAuthUserToAdmin(user map[string]any) (map[string]any, e
 }
 
 // handleAuthLogout revokes the caller session token.
-func (r *Runtime) handleAuthLogout(w http.ResponseWriter, auth authSession) error {
+func (r *Runtime) handleAuthLogout(w http.ResponseWriter, requestID string, auth authSession) error {
 	if !auth.Authenticated || auth.Token == "" {
 		return &apiError{Status: http.StatusUnauthorized, Message: "Authentication required"}
 	}
-	if _, err := r.DB.Exec(`UPDATE mar_sessions SET revoked = 1 WHERE token = ? OR token = ?`, auth.Token, hashAuthSecret(auth.Token)); err != nil {
+	if _, err := r.DB.ExecTagged(requestID, `UPDATE mar_sessions SET revoked = 1 WHERE token = ? OR token = ?`, auth.Token, hashAuthSecret(auth.Token)); err != nil {
 		return err
 	}
 	r.writeJSON(w, http.StatusOK, map[string]any{"ok": true})

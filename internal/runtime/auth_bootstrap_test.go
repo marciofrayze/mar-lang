@@ -17,7 +17,7 @@ func TestBootstrapAdminRequiresCodeLoginToPromoteFirstUser(t *testing.T) {
 	r := mustNewAuthRuntime(t, filepath.Join(t.TempDir(), "bootstrap-empty.db"))
 
 	rec := httptest.NewRecorder()
-	if err := r.handleBootstrapAdmin(rec, map[string]any{"email": "owner@example.com"}); err != nil {
+	if err := r.handleBootstrapAdmin(rec, "", map[string]any{"email": "owner@example.com"}); err != nil {
 		t.Fatalf("bootstrap failed: %v", err)
 	}
 
@@ -33,7 +33,7 @@ func TestBootstrapAdminRequiresCodeLoginToPromoteFirstUser(t *testing.T) {
 		t.Fatalf("expected 1 user after bootstrap, got %d", totalUsers)
 	}
 
-	user, found, err := r.loadAuthUserByEmail("owner@example.com")
+	user, found, err := r.loadAuthUserByEmail("", "owner@example.com")
 	if err != nil {
 		t.Fatalf("load user failed: %v", err)
 	}
@@ -60,7 +60,7 @@ func TestBootstrapAdminRequiresCodeLoginToPromoteFirstUser(t *testing.T) {
 		t.Fatal("expected token after login")
 	}
 
-	user, found, err = r.loadAuthUserByEmail("owner@example.com")
+	user, found, err = r.loadAuthUserByEmail("", "owner@example.com")
 	if err != nil {
 		t.Fatalf("load user after login failed: %v", err)
 	}
@@ -85,13 +85,13 @@ func TestBootstrapAdminBlockedWhenAnyUserAlreadyExists(t *testing.T) {
 
 	// First request-code auto-creates a regular user.
 	requestRec := httptest.NewRecorder()
-	if err := r.handleAuthRequestCode(requestRec, map[string]any{"email": "user@example.com"}); err != nil {
+	if err := r.handleAuthRequestCode(requestRec, "", map[string]any{"email": "user@example.com"}); err != nil {
 		t.Fatalf("request-code failed: %v", err)
 	}
 
 	// Bootstrap must now be blocked because there is already at least one user.
 	bootstrapRec := httptest.NewRecorder()
-	err := r.handleBootstrapAdmin(bootstrapRec, map[string]any{"email": "admin@example.com"})
+	err := r.handleBootstrapAdmin(bootstrapRec, "", map[string]any{"email": "admin@example.com"})
 	if err == nil {
 		t.Fatal("expected bootstrap to be blocked when users already exist")
 	}
@@ -114,11 +114,11 @@ func TestRequestCodeCreatesAdminWhenNoUsersExist(t *testing.T) {
 	r := mustNewAuthRuntime(t, filepath.Join(t.TempDir(), "request-code-first-admin.db"))
 
 	requestRec := httptest.NewRecorder()
-	if err := r.handleAuthRequestCode(requestRec, map[string]any{"email": "first@example.com"}); err != nil {
+	if err := r.handleAuthRequestCode(requestRec, "", map[string]any{"email": "first@example.com"}); err != nil {
 		t.Fatalf("request-code failed: %v", err)
 	}
 
-	user, found, err := r.loadAuthUserByEmail("first@example.com")
+	user, found, err := r.loadAuthUserByEmail("", "first@example.com")
 	if err != nil {
 		t.Fatalf("load user failed: %v", err)
 	}

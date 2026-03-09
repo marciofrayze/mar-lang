@@ -253,6 +253,7 @@ type alias RequestLogEntry =
 
 type alias RequestLogQuery =
     { sql : String
+    , reason : Maybe String
     , durationMs : Float
     , rowCount : Int
     , error : Maybe String
@@ -1577,8 +1578,14 @@ requestLogEntryDecoder =
 
 requestLogQueryDecoder : Decode.Decoder RequestLogQuery
 requestLogQueryDecoder =
-    Decode.map4 RequestLogQuery
+    Decode.map5 RequestLogQuery
         (Decode.field "sql" Decode.string)
+        (Decode.oneOf
+            [ Decode.field "reason" (Decode.map Just Decode.string)
+            , Decode.field "reason" (Decode.null Nothing)
+            , Decode.succeed Nothing
+            ]
+        )
         (Decode.field "durationMs" Decode.float)
         (Decode.field "rowCount" Decode.int)
         (Decode.oneOf
@@ -3284,7 +3291,18 @@ viewRequestLogQuery query =
         , padding 8
         ]
         (List.concat
-            [ [ paragraph
+            [ (case query.reason of
+                Just reasonText ->
+                    if String.trim reasonText == "" then
+                        []
+
+                    else
+                        [ el [ Font.size 12, Font.bold, Font.color (rgb255 82 95 127) ] (text reasonText) ]
+
+                Nothing ->
+                    []
+              )
+            , [ paragraph
                     [ Font.size 12
                     , Font.family [ Font.monospace ]
                     , Font.color (rgb255 44 56 72)

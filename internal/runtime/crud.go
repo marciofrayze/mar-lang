@@ -11,14 +11,14 @@ import (
 )
 
 // handleList returns all rows from an entity resource after authorization.
-func (r *Runtime) handleList(w http.ResponseWriter, entity *model.Entity, auth authSession) error {
+func (r *Runtime) handleList(w http.ResponseWriter, requestID string, entity *model.Entity, auth authSession) error {
 	if err := r.ensureAuthorized(entity, "list", auth, entityNullContext(entity)); err != nil {
 		return err
 	}
 	table, _ := quoteIdentifier(entity.Table)
 	pk, _ := quoteIdentifier(entity.PrimaryKey)
 	query := fmt.Sprintf("SELECT * FROM %s ORDER BY %s DESC", table, pk)
-	rows, err := queryRows(r.DB, query)
+	rows, err := queryRowsForRequest(r.DB, requestID, query)
 	if err != nil {
 		return err
 	}
@@ -31,8 +31,8 @@ func (r *Runtime) handleList(w http.ResponseWriter, entity *model.Entity, auth a
 }
 
 // handleGet returns a single entity row by primary key after authorization.
-func (r *Runtime) handleGet(w http.ResponseWriter, entity *model.Entity, auth authSession, id any) error {
-	row, ok, err := r.fetchByID(entity, id)
+func (r *Runtime) handleGet(w http.ResponseWriter, requestID string, entity *model.Entity, auth authSession, id any) error {
+	row, ok, err := r.fetchByID(requestID, entity, id)
 	if err != nil {
 		return err
 	}
@@ -48,8 +48,8 @@ func (r *Runtime) handleGet(w http.ResponseWriter, entity *model.Entity, auth au
 }
 
 // handleDelete removes a single entity row by primary key after authorization.
-func (r *Runtime) handleDelete(w http.ResponseWriter, entity *model.Entity, auth authSession, id any) error {
-	row, ok, err := r.fetchByID(entity, id)
+func (r *Runtime) handleDelete(w http.ResponseWriter, requestID string, entity *model.Entity, auth authSession, id any) error {
+	row, ok, err := r.fetchByID(requestID, entity, id)
 	if err != nil {
 		return err
 	}
@@ -62,7 +62,7 @@ func (r *Runtime) handleDelete(w http.ResponseWriter, entity *model.Entity, auth
 	}
 	table, _ := quoteIdentifier(entity.Table)
 	pk, _ := quoteIdentifier(entity.PrimaryKey)
-	res, err := r.DB.Exec(fmt.Sprintf("DELETE FROM %s WHERE %s = ?", table, pk), id)
+	res, err := r.DB.ExecTagged(requestID, fmt.Sprintf("DELETE FROM %s WHERE %s = ?", table, pk), id)
 	if err != nil {
 		return err
 	}
@@ -75,7 +75,7 @@ func (r *Runtime) handleDelete(w http.ResponseWriter, entity *model.Entity, auth
 }
 
 // handleCreate validates payload, checks rules/authorization, inserts, and returns the created row.
-func (r *Runtime) handleCreate(w http.ResponseWriter, entity *model.Entity, auth authSession, payload map[string]any) error {
+func (r *Runtime) handleCreate(w http.ResponseWriter, requestID string, entity *model.Entity, auth authSession, payload map[string]any) error {
 	insert, err := buildInsert(entity, payload)
 	if err != nil {
 		return &apiError{Status: http.StatusBadRequest, Message: err.Error()}
@@ -90,7 +90,7 @@ func (r *Runtime) handleCreate(w http.ResponseWriter, entity *model.Entity, auth
 	table, _ := quoteIdentifier(entity.Table)
 	var resultID any
 	if len(insert.Columns) == 0 {
-		res, err := r.DB.Exec(fmt.Sprintf("INSERT INTO %s DEFAULT VALUES", table))
+		res, err := r.DB.ExecTagged(requestID, fmt.Sprintf("INSERT INTO %s DEFAULT VALUES", table))
 		if err != nil {
 			return err
 		}
@@ -106,7 +106,7 @@ func (r *Runtime) handleCreate(w http.ResponseWriter, entity *model.Entity, auth
 			placeholders[i] = "?"
 		}
 		sqlText := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", table, strings.Join(cols, ", "), strings.Join(placeholders, ", "))
-		res, err := r.DB.Exec(sqlText, insert.Values...)
+		res, err := r.DB.ExecTagged(requestID, sqlText, insert.Values...)
 		if err != nil {
 			return err
 		}
@@ -118,7 +118,7 @@ func (r *Runtime) handleCreate(w http.ResponseWriter, entity *model.Entity, auth
 		}
 	}
 
-	created, ok, err := r.fetchByID(entity, resultID)
+	created, ok, err := r.fetchByID(requestID, entity, resultID)
 	if err != nil {
 		return err
 	}
@@ -130,8 +130,8 @@ func (r *Runtime) handleCreate(w http.ResponseWriter, entity *model.Entity, auth
 }
 
 // handleUpdate validates payload, checks rules/authorization, updates, and returns the updated row.
-func (r *Runtime) handleUpdate(w http.ResponseWriter, entity *model.Entity, auth authSession, id any, payload map[string]any) error {
-	row, ok, err := r.fetchByID(entity, id)
+func (r *Runtime) handleUpdate(w http.ResponseWriter, requestID string, entity *model.Entity, auth authSession, id any, payload map[string]any) error {
+	row, ok, err := r.fetchByID(requestID, entity, id)
 	if err != nil {
 		return err
 	}
@@ -159,7 +159,7 @@ func (r *Runtime) handleUpdate(w http.ResponseWriter, entity *model.Entity, auth
 	}
 	args := append(update.Values, id)
 	sqlText := fmt.Sprintf("UPDATE %s SET %s WHERE %s = ?", table, strings.Join(assignments, ", "), pk)
-	res, err := r.DB.Exec(sqlText, args...)
+	res, err := r.DB.ExecTagged(requestID, sqlText, args...)
 	if err != nil {
 		return err
 	}
@@ -168,7 +168,7 @@ func (r *Runtime) handleUpdate(w http.ResponseWriter, entity *model.Entity, auth
 		return &apiError{Status: http.StatusNotFound, Message: entity.Name + " not found"}
 	}
 
-	updated, ok, err := r.fetchByID(entity, id)
+	updated, ok, err := r.fetchByID(requestID, entity, id)
 	if err != nil {
 		return err
 	}
@@ -179,10 +179,10 @@ func (r *Runtime) handleUpdate(w http.ResponseWriter, entity *model.Entity, auth
 	return nil
 }
 
-func (r *Runtime) fetchByID(entity *model.Entity, id any) (map[string]any, bool, error) {
+func (r *Runtime) fetchByID(requestID string, entity *model.Entity, id any) (map[string]any, bool, error) {
 	table, _ := quoteIdentifier(entity.Table)
 	pk, _ := quoteIdentifier(entity.PrimaryKey)
-	return queryRow(r.DB, fmt.Sprintf("SELECT * FROM %s WHERE %s = ?", table, pk), id)
+	return queryRowForRequest(r.DB, requestID, fmt.Sprintf("SELECT * FROM %s WHERE %s = ?", table, pk), id)
 }
 
 func decodeEntityRow(entity *model.Entity, row map[string]any) map[string]any {

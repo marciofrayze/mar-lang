@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -35,6 +36,7 @@ type Runtime struct {
 	dbQueries      *dbQueryCollector
 	authRateLimit  *authRateLimiter
 	authLogOnce    sync.Once
+	requestTraceID uint64
 	publicFS       fs.FS
 	adminFS        fs.FS
 	versionInfo    VersionInfo
@@ -207,8 +209,8 @@ func (r *Runtime) Serve(ctx context.Context) error {
 // handleHTTP applies shared transport behavior before delegating to route.
 func (r *Runtime) handleHTTP(w http.ResponseWriter, req *http.Request) {
 	startedAt := time.Now()
+	requestID := r.nextRequestTraceID()
 	routeLabel := r.metricsRouteLabel(req)
-	querySeqStart := r.dbQueries.latestSeq()
 	writer := &statusRecorder{ResponseWriter: w}
 	if req.Body != nil {
 		req.Body = http.MaxBytesReader(writer, req.Body, httpMaxRequestBodyBytes(r.App))
@@ -222,7 +224,7 @@ func (r *Runtime) handleHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 		duration := time.Since(startedAt)
 		r.metrics.recordRequest(req.Method, routeLabel, status, duration)
-		r.captureRequestLog(req, routeLabel, status, duration, requestError, querySeqStart)
+		r.captureRequestLog(req, requestID, routeLabel, status, duration, requestError)
 	}
 
 	setCORSHeaders(writer)
@@ -233,7 +235,7 @@ func (r *Runtime) handleHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if err := r.route(writer, req); err != nil {
+	if err := r.route(writer, req, requestID); err != nil {
 		requestError = err.Error()
 		r.writeError(writer, err)
 	}
@@ -242,6 +244,14 @@ func (r *Runtime) handleHTTP(w http.ResponseWriter, req *http.Request) {
 		writer.WriteHeader(http.StatusOK)
 	}
 	finishRequest()
+}
+
+func (r *Runtime) nextRequestTraceID() string {
+	if r == nil {
+		return ""
+	}
+	seq := atomic.AddUint64(&r.requestTraceID, 1)
+	return fmt.Sprintf("req-trace-%d", seq)
 }
 
 func httpMaxRequestBodyBytes(app *model.App) int64 {
@@ -253,7 +263,7 @@ func httpMaxRequestBodyBytes(app *model.App) int64 {
 }
 
 // route resolves Mar endpoints for health, schema, auth, and entity CRUD operations.
-func (r *Runtime) route(w http.ResponseWriter, req *http.Request) error {
+func (r *Runtime) route(w http.ResponseWriter, req *http.Request, requestID string) error {
 	path := strings.TrimSuffix(req.URL.Path, "/")
 	if path == "" {
 		path = "/"
@@ -268,7 +278,7 @@ func (r *Runtime) route(w http.ResponseWriter, req *http.Request) error {
 		return err
 	}
 	if method == http.MethodGet && path == "/_mar/schema" {
-		r.writeJSON(w, http.StatusOK, r.schemaPayload())
+		r.writeJSON(w, http.StatusOK, r.schemaPayload(requestID))
 		return nil
 	}
 	if method == http.MethodGet && path == "/_mar/version" {
@@ -280,10 +290,10 @@ func (r *Runtime) route(w http.ResponseWriter, req *http.Request) error {
 		if err != nil {
 			return err
 		}
-		return r.handleBootstrapAdmin(w, payload)
+		return r.handleBootstrapAdmin(w, requestID, payload)
 	}
 
-	auth, err := r.resolveAuth(req)
+	auth, err := r.resolveAuth(req, requestID)
 	if err != nil {
 		return err
 	}
@@ -402,7 +412,7 @@ func (r *Runtime) route(w http.ResponseWriter, req *http.Request) error {
 					Message: "Too many request-code attempts. Try again in one minute.",
 				}
 			}
-			return r.handleAuthRequestCode(w, payload)
+			return r.handleAuthRequestCode(w, requestID, payload)
 		case method == http.MethodPost && path == "/auth/login":
 			payload, err := readJSONBody(req)
 			if err != nil {
@@ -418,9 +428,9 @@ func (r *Runtime) route(w http.ResponseWriter, req *http.Request) error {
 					Message: "Too many login attempts. Try again in one minute.",
 				}
 			}
-			return r.handleAuthLogin(w, payload)
+			return r.handleAuthLogin(w, requestID, payload)
 		case method == http.MethodPost && path == "/auth/logout":
-			return r.handleAuthLogout(w, auth)
+			return r.handleAuthLogout(w, requestID, auth)
 		case method == http.MethodGet && path == "/auth/me":
 			if !auth.Authenticated {
 				return &apiError{Status: http.StatusUnauthorized, Message: "Authentication required"}
@@ -448,7 +458,7 @@ func (r *Runtime) route(w http.ResponseWriter, req *http.Request) error {
 		if err != nil {
 			return err
 		}
-		return r.handleAction(w, name, auth, payload)
+		return r.handleAction(w, requestID, name, auth, payload)
 	}
 
 	for i := range r.App.Entities {
@@ -457,13 +467,13 @@ func (r *Runtime) route(w http.ResponseWriter, req *http.Request) error {
 		if path == base {
 			switch method {
 			case http.MethodGet:
-				return r.handleList(w, entity, auth)
+				return r.handleList(w, requestID, entity, auth)
 			case http.MethodPost:
 				payload, err := readJSONBody(req)
 				if err != nil {
 					return err
 				}
-				return r.handleCreate(w, entity, auth, payload)
+				return r.handleCreate(w, requestID, entity, auth, payload)
 			}
 		}
 
@@ -480,15 +490,15 @@ func (r *Runtime) route(w http.ResponseWriter, req *http.Request) error {
 
 			switch method {
 			case http.MethodGet:
-				return r.handleGet(w, entity, auth, id)
+				return r.handleGet(w, requestID, entity, auth, id)
 			case http.MethodPut, http.MethodPatch:
 				payload, err := readJSONBody(req)
 				if err != nil {
 					return err
 				}
-				return r.handleUpdate(w, entity, auth, id, payload)
+				return r.handleUpdate(w, requestID, entity, auth, id, payload)
 			case http.MethodDelete:
-				return r.handleDelete(w, entity, auth, id)
+				return r.handleDelete(w, requestID, entity, auth, id)
 			}
 		}
 	}

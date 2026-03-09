@@ -35,6 +35,7 @@ type Statement struct {
 }
 
 type QueryEvent struct {
+	RequestID  string
 	SQL        string
 	DurationMs float64
 	RowCount   int
@@ -197,9 +198,15 @@ func (db *DB) SetQueryHook(hook func(QueryEvent)) {
 
 // Exec runs a statement and returns SQLite change metadata for it.
 func (db *DB) Exec(query string, args ...any) (Result, error) {
+	return db.ExecTagged("", query, args...)
+}
+
+// ExecTagged runs a statement and tags its log event with a request identifier.
+func (db *DB) ExecTagged(requestID, query string, args ...any) (Result, error) {
 	logSQL := interpolateSQLForLog(query, args)
 	if err := db.ensureOpen(); err != nil {
 		db.emitQueryEvent(QueryEvent{
+			RequestID:  requestID,
 			SQL:        logSQL,
 			DurationMs: 0,
 			RowCount:   0,
@@ -212,6 +219,7 @@ func (db *DB) Exec(query string, args ...any) (Result, error) {
 	res, err := db.sqlDB.Exec(query, args...)
 	if err != nil {
 		db.emitQueryEvent(QueryEvent{
+			RequestID:  requestID,
 			SQL:        logSQL,
 			DurationMs: elapsedMs(startedAt),
 			RowCount:   0,
@@ -223,6 +231,7 @@ func (db *DB) Exec(query string, args ...any) (Result, error) {
 	changes, _ := res.RowsAffected()
 	lastInsertRow, _ := res.LastInsertId()
 	db.emitQueryEvent(QueryEvent{
+		RequestID:  requestID,
 		SQL:        logSQL,
 		DurationMs: elapsedMs(startedAt),
 		RowCount:   0,
@@ -236,9 +245,15 @@ func (db *DB) Exec(query string, args ...any) (Result, error) {
 
 // QueryRows runs a query and returns all rows as column-name maps.
 func (db *DB) QueryRows(query string, args ...any) ([]map[string]any, error) {
+	return db.QueryRowsTagged("", query, args...)
+}
+
+// QueryRowsTagged runs a query and tags its log event with a request identifier.
+func (db *DB) QueryRowsTagged(requestID, query string, args ...any) ([]map[string]any, error) {
 	logSQL := interpolateSQLForLog(query, args)
 	if err := db.ensureOpen(); err != nil {
 		db.emitQueryEvent(QueryEvent{
+			RequestID:  requestID,
 			SQL:        logSQL,
 			DurationMs: 0,
 			RowCount:   0,
@@ -251,6 +266,7 @@ func (db *DB) QueryRows(query string, args ...any) ([]map[string]any, error) {
 	rows, err := db.sqlDB.Query(query, args...)
 	if err != nil {
 		db.emitQueryEvent(QueryEvent{
+			RequestID:  requestID,
 			SQL:        logSQL,
 			DurationMs: elapsedMs(startedAt),
 			RowCount:   0,
@@ -263,6 +279,7 @@ func (db *DB) QueryRows(query string, args ...any) ([]map[string]any, error) {
 	columns, err := rows.Columns()
 	if err != nil {
 		db.emitQueryEvent(QueryEvent{
+			RequestID:  requestID,
 			SQL:        logSQL,
 			DurationMs: elapsedMs(startedAt),
 			RowCount:   0,
@@ -281,6 +298,7 @@ func (db *DB) QueryRows(query string, args ...any) ([]map[string]any, error) {
 
 		if err := rows.Scan(scanTargets...); err != nil {
 			db.emitQueryEvent(QueryEvent{
+				RequestID:  requestID,
 				SQL:        logSQL,
 				DurationMs: elapsedMs(startedAt),
 				RowCount:   len(result),
@@ -298,6 +316,7 @@ func (db *DB) QueryRows(query string, args ...any) ([]map[string]any, error) {
 
 	if err := rows.Err(); err != nil {
 		db.emitQueryEvent(QueryEvent{
+			RequestID:  requestID,
 			SQL:        logSQL,
 			DurationMs: elapsedMs(startedAt),
 			RowCount:   len(result),
@@ -307,6 +326,7 @@ func (db *DB) QueryRows(query string, args ...any) ([]map[string]any, error) {
 	}
 
 	db.emitQueryEvent(QueryEvent{
+		RequestID:  requestID,
 		SQL:        logSQL,
 		DurationMs: elapsedMs(startedAt),
 		RowCount:   len(result),
@@ -317,7 +337,12 @@ func (db *DB) QueryRows(query string, args ...any) ([]map[string]any, error) {
 
 // QueryRow runs a query and returns the first row, if any.
 func (db *DB) QueryRow(query string, args ...any) (map[string]any, bool, error) {
-	rows, err := db.QueryRows(query, args...)
+	return db.QueryRowTagged("", query, args...)
+}
+
+// QueryRowTagged runs a query and tags its log event with a request identifier.
+func (db *DB) QueryRowTagged(requestID, query string, args ...any) (map[string]any, bool, error) {
+	rows, err := db.QueryRowsTagged(requestID, query, args...)
 	if err != nil {
 		return nil, false, err
 	}
@@ -329,12 +354,18 @@ func (db *DB) QueryRow(query string, args ...any) (map[string]any, bool, error) 
 
 // ExecTx executes statements in a single transaction and rolls back on failure.
 func (db *DB) ExecTx(statements []Statement) error {
+	return db.ExecTxTagged("", statements)
+}
+
+// ExecTxTagged executes statements in a single transaction and tags its log event with a request identifier.
+func (db *DB) ExecTxTagged(requestID string, statements []Statement) error {
 	logSQL := txStatementSummary(statements)
 	if len(statements) == 0 {
 		return nil
 	}
 	if err := db.ensureOpen(); err != nil {
 		db.emitQueryEvent(QueryEvent{
+			RequestID:  requestID,
 			SQL:        logSQL,
 			DurationMs: 0,
 			RowCount:   0,
@@ -347,6 +378,7 @@ func (db *DB) ExecTx(statements []Statement) error {
 	tx, err := db.sqlDB.BeginTx(context.Background(), nil)
 	if err != nil {
 		db.emitQueryEvent(QueryEvent{
+			RequestID:  requestID,
 			SQL:        logSQL,
 			DurationMs: elapsedMs(startedAt),
 			RowCount:   0,
@@ -359,6 +391,7 @@ func (db *DB) ExecTx(statements []Statement) error {
 		if _, err := tx.Exec(stmt.Query, stmt.Args...); err != nil {
 			_ = tx.Rollback()
 			db.emitQueryEvent(QueryEvent{
+				RequestID:  requestID,
 				SQL:        logSQL,
 				DurationMs: elapsedMs(startedAt),
 				RowCount:   0,
@@ -370,6 +403,7 @@ func (db *DB) ExecTx(statements []Statement) error {
 
 	if err := tx.Commit(); err != nil {
 		db.emitQueryEvent(QueryEvent{
+			RequestID:  requestID,
 			SQL:        logSQL,
 			DurationMs: elapsedMs(startedAt),
 			RowCount:   0,
@@ -379,6 +413,7 @@ func (db *DB) ExecTx(statements []Statement) error {
 	}
 
 	db.emitQueryEvent(QueryEvent{
+		RequestID:  requestID,
 		SQL:        logSQL,
 		DurationMs: elapsedMs(startedAt),
 		RowCount:   0,

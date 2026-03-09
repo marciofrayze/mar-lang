@@ -197,3 +197,11 @@ func queryRows(db *sqlitecli.DB, query string, args ...any) ([]map[string]any, e
 func queryRow(db *sqlitecli.DB, query string, args ...any) (map[string]any, bool, error) {
 	return db.QueryRow(query, args...)
 }
+
+func queryRowsForRequest(db *sqlitecli.DB, requestID string, query string, args ...any) ([]map[string]any, error) {
+	return db.QueryRowsTagged(requestID, query, args...)
+}
+
+func queryRowForRequest(db *sqlitecli.DB, requestID string, query string, args ...any) (map[string]any, bool, error) {
+	return db.QueryRowTagged(requestID, query, args...)
+}
