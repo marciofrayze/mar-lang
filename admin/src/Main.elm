@@ -1,6 +1,6 @@
 port module Main exposing (main)
 
-import Mar.Api exposing (ActionInfo, AuthInfo, Entity, Field, InputAliasField, InputAliasInfo, Row, Schema, SystemAuthInfo, decodeRows, decodeSchema, encodePayload, fieldTypeLabel, rowDecoder, valueToString)
+import Mar.Api exposing (ActionInfo, AuthInfo, Entity, Field, FieldType(..), InputAliasField, InputAliasInfo, Row, Schema, SystemAuthInfo, decodeRows, decodeSchema, encodePayload, fieldTypeLabel, rowDecoder, valueToString)
 import Browser
 import Dict exposing (Dict)
 import Element exposing (Element, alignLeft, centerX, centerY, column, el, fill, fillPortion, height, htmlAttribute, inFront, none, padding, paddingEach, paragraph, px, rgb255, rgba255, row, scrollbarY, spacing, text, width)
@@ -304,12 +304,7 @@ init flags =
             , currentSystemRole = Nothing
             , authEmail = ""
             , authCode = ""
-            , authStage =
-                if String.trim flags.authToken /= "" || String.trim flags.systemAuthToken /= "" then
-                    AuthStageSession
-
-                else
-                    AuthStageEmail
+            , authStage = AuthStageEmail
             , authSubmitting = Nothing
             , firstAdminCodeRequested = False
             , authToolsOpen = String.trim flags.authToken == "" && String.trim flags.systemAuthToken == ""
@@ -872,21 +867,64 @@ update msg model =
                     in
                     case scope of
                         AppAuthScope ->
-                            ( { model
-                                | currentEmail = Just response.email
-                                , currentRole = response.role
-                                , authStage = AuthStageSession
-                                , flash = Just ("Authenticated as " ++ response.email ++ roleText)
-                              }
-                            , Cmd.none
-                            )
+                            let
+                                preferredEntity =
+                                    case model.schema of
+                                        Loaded schema ->
+                                            preferredInitialEntity schema
+
+                                        _ ->
+                                            Nothing
+
+                                shouldLoadRows =
+                                    model.selectedEntity == Nothing
+                                        && preferredEntity /= Nothing
+                                        && currentWorkspace model == AppWorkspace
+
+                                nextModel =
+                                    { model
+                                        | currentEmail = Just response.email
+                                        , currentRole = response.role
+                                        , authStage = AuthStageSession
+                                        , authToolsOpen = False
+                                        , selectedEntity =
+                                            if model.selectedEntity == Nothing then
+                                                preferredEntity
+
+                                            else
+                                                model.selectedEntity
+                                        , rows =
+                                            if shouldLoadRows then
+                                                Loading
+
+                                            else
+                                                model.rows
+                                        , flash =
+                                            if currentWorkspace model == AppWorkspace then
+                                                Nothing
+
+                                            else
+                                                Just ("Authenticated as " ++ response.email ++ roleText)
+                                    }
+                            in
+                            if shouldLoadRows then
+                                ( nextModel, loadRows nextModel )
+
+                            else
+                                ( nextModel, Cmd.none )
 
                         SystemAuthScope ->
                             ( { model
                                 | currentSystemEmail = Just response.email
                                 , currentSystemRole = response.role
                                 , authStage = AuthStageSession
-                                , flash = Just ("Admin authenticated as " ++ response.email ++ roleText)
+                                , authToolsOpen = False
+                                , flash =
+                                    if currentWorkspace model == AppWorkspace then
+                                        Nothing
+
+                                    else
+                                        Just ("Admin authenticated as " ++ response.email ++ roleText)
                               }
                             , Cmd.none
                             )
@@ -1820,7 +1858,16 @@ actionFormDefaults model actionInfo =
 
         Just aliasInfo ->
             aliasInfo.fields
-                |> List.map (\field -> ( field.name, "" ))
+                |> List.map
+                    (\field ->
+                        ( field.name
+                        , if field.fieldType == "Bool" then
+                            "false"
+
+                          else
+                            ""
+                        )
+                    )
                 |> Dict.fromList
 
 
@@ -1988,7 +2035,21 @@ formDefaults model =
         Just entity ->
             entity.fields
                 |> List.filter (\field -> not field.primary)
-                |> List.map (\field -> ( field.name, "" ))
+                |> List.map
+                    (\field ->
+                        ( field.name
+                        , case field.fieldType of
+                            BoolType ->
+                                if field.optional then
+                                    ""
+
+                                else
+                                    "false"
+
+                            _ ->
+                                ""
+                        )
+                    )
                 |> Dict.fromList
 
 
@@ -3109,6 +3170,53 @@ authDangerButton onPress labelText =
         }
 
 
+formBooleanField : String -> Bool -> String -> (String -> Msg) -> Element Msg
+formBooleanField labelText isOptional rawValue toMsg =
+    column
+        [ width fill
+        , spacing 8
+        ]
+        [ el [ Font.size 12 ] (text labelText)
+        , row [ width fill, spacing 8 ]
+            (List.concat
+                [ if isOptional then
+                    [ boolChoiceButton (rawValue == "") (Just (toMsg "")) "Unset" ]
+
+                  else
+                    []
+                , [ boolChoiceButton (rawValue == "true") (Just (toMsg "true")) "On"
+                  , boolChoiceButton (rawValue == "false") (Just (toMsg "false")) "Off"
+                  ]
+                ]
+            )
+        ]
+
+
+boolChoiceButton : Bool -> Maybe Msg -> String -> Element Msg
+boolChoiceButton selected onPress labelText =
+    Input.button
+        [ Background.color
+            (if selected then
+                rgb255 84 121 224
+
+             else
+                rgb255 233 236 242
+            )
+        , Font.color
+            (if selected then
+                rgb255 246 248 252
+
+             else
+                rgb255 55 68 87
+            )
+        , Border.rounded 999
+        , paddingEach { top = 8, right = 12, bottom = 8, left = 12 }
+        ]
+        { onPress = onPress
+        , label = text labelText
+        }
+
+
 authInfoFromModel : Model -> Maybe AuthInfo
 authInfoFromModel model =
     case model.schema of
@@ -3244,9 +3352,7 @@ isUnauthorizedError httpError =
 
 hasActiveSession : Model -> Bool
 hasActiveSession model =
-    (String.trim model.authToken /= "")
-        || (String.trim model.systemAuthToken /= "")
-        || (model.currentEmail /= Nothing)
+    (model.currentEmail /= Nothing)
         || (model.currentSystemEmail /= Nothing)
 
 
@@ -3500,23 +3606,31 @@ viewActionPanel model actionInfo =
 
                 fieldInput : InputAliasField -> Element Msg
                 fieldInput field =
-                    Input.text [ width fill ]
-                        { onChange = SetActionField field.name
-                        , text = Dict.get field.name model.actionFormValues |> Maybe.withDefault ""
-                        , placeholder =
-                            Just
-                                (Input.placeholder []
-                                    (text
-                                        (if workspace == AppWorkspace then
-                                            "Enter a value"
+                    if field.fieldType == "Bool" then
+                        formBooleanField
+                            field.name
+                            False
+                            (Dict.get field.name model.actionFormValues |> Maybe.withDefault "false")
+                            (SetActionField field.name)
 
-                                         else
-                                            field.fieldType
+                    else
+                        Input.text [ width fill ]
+                            { onChange = SetActionField field.name
+                            , text = Dict.get field.name model.actionFormValues |> Maybe.withDefault ""
+                            , placeholder =
+                                Just
+                                    (Input.placeholder []
+                                        (text
+                                            (if workspace == AppWorkspace then
+                                                "Enter a value"
+
+                                             else
+                                                field.fieldType
+                                            )
                                         )
                                     )
-                                )
-                        , label = Input.labelAbove [ Font.size 12 ] (text field.name)
-                        }
+                            , label = Input.labelAbove [ Font.size 12 ] (text field.name)
+                            }
             in
             column
                 [ width fill
@@ -4604,23 +4718,40 @@ formCard model entity titleText =
             appVisibleFields entity
 
         fieldInput field =
-            Input.text [ width fill ]
-                { onChange = SetFormField field.name
-                , text = Dict.get field.name model.formValues |> Maybe.withDefault ""
-                , placeholder =
-                    Just
-                        (Input.placeholder []
-                            (text
-                                (if workspace == AppWorkspace then
-                                    "Enter a value"
+            case field.fieldType of
+                BoolType ->
+                    formBooleanField
+                        field.name
+                        field.optional
+                        (Dict.get field.name model.formValues
+                            |> Maybe.withDefault
+                                (if field.optional then
+                                    ""
 
                                  else
-                                    fieldTypeLabel field.fieldType
+                                    "false"
                                 )
-                            )
                         )
-                , label = Input.labelAbove [ Font.size 12 ] (text field.name)
-                }
+                        (SetFormField field.name)
+
+                _ ->
+                    Input.text [ width fill ]
+                        { onChange = SetFormField field.name
+                        , text = Dict.get field.name model.formValues |> Maybe.withDefault ""
+                        , placeholder =
+                            Just
+                                (Input.placeholder []
+                                    (text
+                                        (if workspace == AppWorkspace then
+                                            "Enter a value"
+
+                                         else
+                                            fieldTypeLabel field.fieldType
+                                        )
+                                    )
+                                )
+                        , label = Input.labelAbove [ Font.size 12 ] (text field.name)
+                        }
     in
     column
         [ width fill

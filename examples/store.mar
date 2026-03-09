@@ -2,7 +2,7 @@
 -- Application
 -- =========================================
 
-app BookStoreApi
+app BookStore
 port 4100
 database "bookstore.db"
 

@@ -2,7 +2,7 @@
 -- Application
 -- =========================================
 
-app TodoApi
+app Todo
 port 4100
 database "todo.db"
 
