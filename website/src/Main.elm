@@ -791,15 +791,7 @@ downloadInstallRow =
         ]
         [ stepBadge "1"
         , el [ Font.bold, Font.size 18, width (px installLabelWidth), Font.color (rgb255 28 66 108) ] (text "Download")
-        , newTabLink
-            [ Font.size 16
-            , Font.semiBold
-            , Font.color (rgb255 36 82 132)
-            , htmlAttribute (HtmlAttr.style "cursor" "pointer")
-            ]
-            { url = "https://github.com/marciofrayze/mar-lang/releases"
-            , label = text "github.com/marciofrayze/mar-lang/releases"
-            }
+        , instructionText "Mar is currently in a closed alpha stage and is not available for general use yet."
         ]
 
 
