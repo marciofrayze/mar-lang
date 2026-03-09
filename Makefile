@@ -134,7 +134,7 @@ compiler-assets: check-go admin
 mar: check-go compiler-assets
 	$(call print_title,Mar compiler)
 	$(call print_info,Building ./mar with Go $(GO_VERSION))
-	@GOCACHE="$(GOCACHE)" go build -o mar ./cmd/mar
+	@GOCACHE="$(GOCACHE)" go build -trimpath -ldflags="-s -w" -o mar ./cmd/mar
 	$(call print_ok,Output: ./mar)
 
 todo: mar

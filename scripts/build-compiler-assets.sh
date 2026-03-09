@@ -35,7 +35,7 @@ build_stub() {
   printf "  %s%s%s\n" "$COLOR_INFO" "Building runtime stub for $target" "$COLOR_RESET"
   mkdir -p "$(dirname "$output")"
   env GOCACHE="$GOCACHE_DIR" CGO_ENABLED=0 GOOS="$goos" GOARCH="$goarch" \
-    go build -o "$output" ./cmd/mar-app
+    go build -trimpath -ldflags="-s -w" -o "$output" ./cmd/mar-app
 }
 
 build_stub "darwin-arm64" "darwin" "arm64" "$STUB_ROOT/darwin-arm64/mar-app"
