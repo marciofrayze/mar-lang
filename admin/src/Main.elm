@@ -44,6 +44,17 @@ type AuthScope
     | SystemAuthScope
 
 
+type AuthStage
+    = AuthStageEmail
+    | AuthStageCode
+    | AuthStageSession
+
+
+type AuthSubmitState
+    = AuthSubmitSendingCode
+    | AuthSubmitSigningIn
+
+
 type alias Model =
     { apiBase : String
     , authToken : String
@@ -54,6 +65,8 @@ type alias Model =
     , currentSystemRole : Maybe String
     , authEmail : String
     , authCode : String
+    , authStage : AuthStage
+    , authSubmitting : Maybe AuthSubmitState
     , firstAdminCodeRequested : Bool
     , authToolsOpen : Bool
     , schema : Remote Schema
@@ -105,6 +118,7 @@ type Msg
     | GotBackup (Result Http.Error BackupResponse)
     | SetAuthEmail String
     | SetAuthCode String
+    | BackToAuthEmail
     | SetActionField String String
     | RequestAuthCode
     | GotRequestAuthCode AuthScope (Result Http.Error RequestCodeResponse)
@@ -283,8 +297,15 @@ init flags =
             , currentSystemRole = Nothing
             , authEmail = ""
             , authCode = ""
+            , authStage =
+                if String.trim flags.authToken /= "" || String.trim flags.systemAuthToken /= "" then
+                    AuthStageSession
+
+                else
+                    AuthStageEmail
+            , authSubmitting = Nothing
             , firstAdminCodeRequested = False
-            , authToolsOpen = True
+            , authToolsOpen = String.trim flags.authToken == "" && String.trim flags.systemAuthToken == ""
             , schema = Loading
             , selectedEntity = Nothing
             , selectedAction = Nothing
@@ -372,6 +393,15 @@ update msg model =
                                 , requestLogs = NotAsked
                                 , backups = NotAsked
                                 , adminVersion = NotAsked
+                                , authStage =
+                                    if hasActiveSession model then
+                                        AuthStageSession
+
+                                    else if model.authStage == AuthStageCode || model.firstAdminCodeRequested then
+                                        AuthStageCode
+
+                                    else
+                                        AuthStageEmail
                                 , firstAdminCodeRequested =
                                     model.firstAdminCodeRequested
                                         && String.trim model.authToken == ""
@@ -592,6 +622,9 @@ update msg model =
         SetAuthCode code ->
             ( { model | authCode = code }, Cmd.none )
 
+        BackToAuthEmail ->
+            ( { model | authStage = AuthStageEmail, authCode = "", authSubmitting = Nothing, flash = Nothing }, Cmd.none )
+
         SetActionField fieldName value ->
             ( { model | actionFormValues = Dict.insert fieldName value model.actionFormValues }, Cmd.none )
 
@@ -604,7 +637,7 @@ update msg model =
                     scope =
                         activeAuthScope model
                 in
-                ( { model | flash = Nothing }, requestAuthCode scope model )
+                ( { model | flash = Nothing, authSubmitting = Just AuthSubmitSendingCode }, requestAuthCode scope model )
 
         GotRequestAuthCode scope result ->
             case result of
@@ -613,20 +646,24 @@ update msg model =
                         Just code ->
                             ( { model
                                 | authCode = code
-                                , flash = Just ("Login code sent. Development code: " ++ code ++ ". Enter this code and click Login.")
+                                , authStage = AuthStageCode
+                                , authSubmitting = Nothing
+                                , flash = Nothing
                               }
                             , Cmd.none
                             )
 
                         Nothing ->
                             ( { model
-                                | flash = Just response.message
+                                | authStage = AuthStageCode
+                                , authSubmitting = Nothing
+                                , flash = Nothing
                               }
                             , Cmd.none
                             )
 
                 Err httpError ->
-                    ( { model | flash = Just (httpErrorToString httpError) }, Cmd.none )
+                    ( { model | authSubmitting = Nothing, flash = Just (authRequestCodeErrorToString httpError) }, Cmd.none )
 
         BootstrapFirstAdmin ->
             if String.trim model.authEmail == "" then
@@ -637,7 +674,7 @@ update msg model =
                     scope =
                         activeAuthScope model
                 in
-                ( { model | flash = Nothing }, bootstrapFirstAdmin scope model )
+                ( { model | flash = Nothing, authSubmitting = Just AuthSubmitSendingCode }, bootstrapFirstAdmin scope model )
 
         GotBootstrapFirstAdmin scope result ->
             case result of
@@ -648,8 +685,10 @@ update msg model =
                                 nextModel =
                                     { model
                                         | authCode = code
+                                        , authStage = AuthStageCode
+                                        , authSubmitting = Nothing
                                         , firstAdminCodeRequested = True
-                                        , flash = Just ("First " ++ authScopeLabel scope ++ " admin code sent. Enter the code and click Login.")
+                                        , flash = Nothing
                                     }
                             in
                             ( nextModel
@@ -657,10 +696,10 @@ update msg model =
                             )
 
                         Nothing ->
-                            ( { model | firstAdminCodeRequested = True, flash = Just response.message }, loadSchema model.apiBase )
+                            ( { model | authStage = AuthStageCode, authSubmitting = Nothing, firstAdminCodeRequested = True, flash = Nothing }, loadSchema model.apiBase )
 
                 Err httpError ->
-                    ( { model | flash = Just (httpErrorToString httpError) }, Cmd.none )
+                    ( { model | authSubmitting = Nothing, flash = Just (authRequestCodeErrorToString httpError) }, Cmd.none )
 
         LoginWithCode ->
             if String.trim model.authEmail == "" || String.trim model.authCode == "" then
@@ -671,7 +710,7 @@ update msg model =
                     scope =
                         activeAuthScope model
                 in
-                ( { model | flash = Nothing }, loginWithCode scope model )
+                ( { model | flash = Nothing, authSubmitting = Just AuthSubmitSigningIn }, loginWithCode scope model )
 
         GotLoginWithCode scope result ->
             case result of
@@ -686,7 +725,10 @@ update msg model =
                                         , currentEmail = response.email
                                         , authEmail = ""
                                         , authCode = ""
+                                        , authStage = AuthStageSession
+                                        , authSubmitting = Nothing
                                         , firstAdminCodeRequested = False
+                                        , authToolsOpen = False
                                         , flash = Just "Login successful."
                                     }
 
@@ -718,6 +760,9 @@ update msg model =
                                         , currentSystemEmail = response.email
                                         , authEmail = ""
                                         , authCode = ""
+                                        , authStage = AuthStageSession
+                                        , authSubmitting = Nothing
+                                        , authToolsOpen = False
                                         , flash = Just "Admin login successful."
                                     }
 
@@ -737,7 +782,7 @@ update msg model =
                             ( nextModel, Cmd.batch [ refreshCmd, saveSessionFromModel nextModel ] )
 
                 Err httpError ->
-                    ( { model | flash = Just (httpErrorToString httpError) }, Cmd.none )
+                    ( { model | authSubmitting = Nothing, flash = Just (authLoginErrorToString httpError) }, Cmd.none )
 
         LoadAuthMe ->
             let
@@ -775,6 +820,7 @@ update msg model =
                             ( { model
                                 | currentEmail = Just response.email
                                 , currentRole = response.role
+                                , authStage = AuthStageSession
                                 , flash = Just ("Authenticated as " ++ response.email ++ roleText)
                               }
                             , Cmd.none
@@ -784,6 +830,7 @@ update msg model =
                             ( { model
                                 | currentSystemEmail = Just response.email
                                 , currentSystemRole = response.role
+                                , authStage = AuthStageSession
                                 , flash = Just ("Admin authenticated as " ++ response.email ++ roleText)
                               }
                             , Cmd.none
@@ -799,6 +846,8 @@ update msg model =
                                             | authToken = ""
                                             , currentEmail = Nothing
                                             , currentRole = Nothing
+                                            , authStage = AuthStageEmail
+                                            , authToolsOpen = True
                                             , flash = Just "Session expired. Please login again."
                                         }
                                 in
@@ -811,6 +860,8 @@ update msg model =
                                             | systemAuthToken = ""
                                             , currentSystemEmail = Nothing
                                             , currentSystemRole = Nothing
+                                            , authStage = AuthStageEmail
+                                            , authToolsOpen = True
                                             , flash = Just "Session expired. Please login again."
                                         }
                                 in
@@ -845,22 +896,22 @@ update msg model =
                         AppAuthScope ->
                             let
                                 nextModel =
-                                    { model | authToken = "", currentEmail = Nothing, currentRole = Nothing, flash = Just "User session logged out. Token cleared." }
+                                    { model | authToken = "", currentEmail = Nothing, currentRole = Nothing, authEmail = "", authCode = "", authStage = AuthStageEmail, authSubmitting = Nothing, flash = Just "User session logged out. Token cleared." }
                             in
                             let
                                 finalModel =
-                                    { nextModel | authToolsOpen = not (hasActiveSession nextModel) }
+                                    { nextModel | authToolsOpen = True }
                             in
                             ( finalModel, saveSessionFromModel finalModel )
 
                         SystemAuthScope ->
                             let
                                 nextModel =
-                                    { model | systemAuthToken = "", currentSystemEmail = Nothing, currentSystemRole = Nothing, flash = Just "Admin session logged out. Token cleared." }
+                                    { model | systemAuthToken = "", currentSystemEmail = Nothing, currentSystemRole = Nothing, authEmail = "", authCode = "", authStage = AuthStageEmail, authSubmitting = Nothing, flash = Just "Admin session logged out. Token cleared." }
                             in
                             let
                                 finalModel =
-                                    { nextModel | authToolsOpen = not (hasActiveSession nextModel) }
+                                    { nextModel | authToolsOpen = True }
                             in
                             ( finalModel, saveSessionFromModel finalModel )
 
@@ -902,6 +953,16 @@ update msg model =
                 nextModel =
                     { model
                         | authToolsOpen = True
+                        , authStage =
+                            if hasActiveSession model then
+                                AuthStageSession
+
+                            else if model.authStage == AuthStageCode || model.firstAdminCodeRequested then
+                                AuthStageCode
+
+                            else
+                                AuthStageEmail
+                        , authSubmitting = Nothing
                         , performanceMode = False
                         , requestLogsMode = False
                         , databaseMode = False
@@ -1919,15 +1980,134 @@ view model =
 
 viewLayout : Model -> Element Msg
 viewLayout model =
-    row
+    if hasActiveSession model then
+        row
+            [ width fill
+            , height fill
+            , htmlAttribute (HtmlAttr.style "height" "100vh")
+            , htmlAttribute (HtmlAttr.style "overflow" "hidden")
+            ]
+            [ viewSidebar model
+            , viewContent model
+            ]
+
+    else
+        viewAuthGate model
+
+
+viewAuthGate : Model -> Element Msg
+viewAuthGate model =
+    let
+        firstAdminMode =
+            authFirstAdminMode model
+
+        authStage =
+            currentAuthStage model
+
+        ( stageTitle, stageSubtitle ) =
+            case authStage of
+                AuthStageEmail ->
+                    if firstAdminMode then
+                        ( "Set up the first admin"
+                        , "Enter the email that should receive the first access code."
+                        )
+
+                    else
+                        ( "Sign in"
+                        , "We will send you a 6-digit access code."
+                        )
+
+                AuthStageCode ->
+                    ( "Check your email"
+                    , "Enter the 6-digit code we sent to continue."
+                    )
+
+                AuthStageSession ->
+                    ( "Session ready"
+                    , "Your admin session is active."
+                    )
+
+        authCardBody =
+            case authStage of
+                AuthStageEmail ->
+                    viewAuthEmailStage model firstAdminMode (if firstAdminMode then "Send access code" else "Continue") (if firstAdminMode then BootstrapFirstAdmin else RequestAuthCode) (model.authSubmitting == Just AuthSubmitSendingCode)
+
+                AuthStageCode ->
+                    viewAuthCodeStage model firstAdminMode "Send code again" (if firstAdminMode then BootstrapFirstAdmin else RequestAuthCode) (model.authSubmitting == Just AuthSubmitSigningIn) (model.authSubmitting == Just AuthSubmitSendingCode)
+
+                AuthStageSession ->
+                    viewAuthSessionStage model
+    in
+    el
         [ width fill
         , height fill
-        , htmlAttribute (HtmlAttr.style "height" "100vh")
-        , htmlAttribute (HtmlAttr.style "overflow" "hidden")
+        , padding 24
         ]
-        [ viewSidebar model
-        , viewContent model
-        ]
+        (el
+            [ centerX
+            , centerY
+            , width (px 460)
+            ]
+            (column
+                [ width fill
+                , spacing 14
+                ]
+                [ column
+                    [ width fill
+                    , spacing 18
+                    , padding 28
+                    , Background.color (rgb255 255 255 255)
+                    , Border.rounded 18
+                    , Border.width 1
+                    , Border.color (rgb255 226 232 239)
+                    , htmlAttribute (HtmlAttr.class "auth-stage auth-gate-card")
+                    ]
+                    [ column
+                        [ width fill
+                        , spacing 8
+                        ]
+                        [ el
+                            [ Font.size 28
+                            , Font.bold
+                            , centerX
+                            ]
+                            (text "Mar Admin")
+                        , el
+                            [ Font.size 12
+                            , Font.color (rgb255 84 121 224)
+                            , centerX
+                            ]
+                            (text
+                                (case authStage of
+                                    AuthStageEmail ->
+                                        "Step 1 of 2"
+
+                                    AuthStageCode ->
+                                        "Step 2 of 2"
+
+                                    AuthStageSession ->
+                                        "Ready"
+                                )
+                            )
+                        , paragraph
+                            [ centerX
+                            , Font.size 22
+                            , Font.bold
+                            ]
+                            [ text stageTitle ]
+                        , paragraph
+                            [ centerX
+                            , Font.size 14
+                            , Font.color (rgb255 93 103 120)
+                            ]
+                            [ text stageSubtitle ]
+                        ]
+                    , authCardBody
+                    ]
+                , viewFlash model
+                ]
+            )
+        )
 
 
 viewSidebar : Model -> Element Msg
@@ -2233,6 +2413,9 @@ viewAuthToolsPanel model =
             activeScope =
                 activeAuthScope model
 
+            authStage =
+                currentAuthStage model
+
             activeBadgeText =
                 case activeScope of
                     AppAuthScope ->
@@ -2302,24 +2485,48 @@ viewAuthToolsPanel model =
                         needsBootstrap
 
             authFlowTitle =
-                if firstAdminMode then
-                    "First access"
+                case authStage of
+                    AuthStageEmail ->
+                        if firstAdminMode then
+                            "First access"
 
-                else
-                    "Login flow"
+                        else
+                            "Login"
+
+                    AuthStageCode ->
+                        "Enter code"
+
+                    AuthStageSession ->
+                        "Session"
 
             authFlowSteps =
-                if firstAdminMode then
-                    [ "Enter the email for the first administrator."
-                    , "Click Create first admin to send a 6-digit login code."
-                    , "When the code is received, enter it and click Login."
-                    ]
+                case authStage of
+                    AuthStageEmail ->
+                        if firstAdminMode then
+                            [ "Enter the email for the first administrator."
+                            , "Mar will send a 6-digit verification code for the first admin setup."
+                            ]
 
-                else
-                    [ "Enter your email."
-                    , "Click Request code to receive a 6-digit login code."
-                    , "Enter the code and click Login."
-                    ]
+                        else
+                            [ "Enter your email to receive a 6-digit login code."
+                            , "You will confirm the code on the next screen."
+                            ]
+
+                    AuthStageCode ->
+                        if firstAdminMode then
+                            [ "Use the verification code sent to the first admin email."
+                            , "After a successful login, Mar will open the admin interface."
+                            ]
+
+                        else
+                            [ "Enter the login code sent to your email."
+                            , "After a successful login, Mar will open the admin interface."
+                            ]
+
+                    AuthStageSession ->
+                        [ "Your current session is active."
+                        , "Use the actions below to verify or end it."
+                        ]
 
             authFlowStepRow : Int -> String -> Element Msg
             authFlowStepRow index description =
@@ -2331,7 +2538,10 @@ viewAuthToolsPanel model =
             tabHint =
                 case activeScope of
                     AppAuthScope ->
-                        if firstAdminMode then
+                        if authStage == AuthStageSession then
+                            "Session actions use the same authentication scope as the rest of the admin."
+
+                        else if firstAdminMode then
                             "Complete first admin setup with the same email and login code."
 
                         else
@@ -2343,6 +2553,44 @@ viewAuthToolsPanel model =
 
                         else
                             "Admin authentication is used only for admin features such as Monitoring and Database backups."
+
+            emailActionLabel =
+                if firstAdminMode then
+                    "Create first admin"
+
+                else
+                    "Send code"
+
+            resendActionLabel =
+                if firstAdminMode then
+                    "Send code again"
+
+                else
+                    "Resend code"
+
+            emailSubmitMsg =
+                if firstAdminMode then
+                    BootstrapFirstAdmin
+
+                else
+                    RequestAuthCode
+
+            sendButtonLoading =
+                model.authSubmitting == Just AuthSubmitSendingCode
+
+            loginButtonLoading =
+                model.authSubmitting == Just AuthSubmitSigningIn
+
+            authPanelBody =
+                case authStage of
+                    AuthStageEmail ->
+                        viewAuthEmailStage model firstAdminMode emailActionLabel emailSubmitMsg sendButtonLoading
+
+                    AuthStageCode ->
+                        viewAuthCodeStage model firstAdminMode resendActionLabel emailSubmitMsg loginButtonLoading sendButtonLoading
+
+                    AuthStageSession ->
+                        viewAuthSessionStage model
         in
         if not (hasAnyAuthInfo model) then
             none
@@ -2386,95 +2634,7 @@ viewAuthToolsPanel model =
                     (el [ Font.bold, Font.size 13, Font.color (rgb255 70 89 120) ] (text authFlowTitle)
                         :: List.indexedMap authFlowStepRow authFlowSteps
                     )
-                , if firstAdminMode then
-                    row [ width fill, spacing 10 ]
-                        [ Input.text [ width (fillPortion 3), onEnter BootstrapFirstAdmin ]
-                            { onChange = SetAuthEmail
-                            , text = model.authEmail
-                            , placeholder = Just (Input.placeholder [] (text "admin@email.com"))
-                            , label = Input.labelAbove [ Font.size 12 ] (text "Email")
-                            }
-                        , Input.text [ width (fillPortion 2), onEnter LoginWithCode ]
-                            { onChange = SetAuthCode
-                            , text = model.authCode
-                            , placeholder = Just (Input.placeholder [] (text "6-digit code"))
-                            , label = Input.labelAbove [ Font.size 12 ] (text "Code")
-                            }
-                        , Input.button
-                            [ Element.alignBottom
-                            , Background.color (rgb255 242 180 42)
-                            , Font.color (rgb255 40 33 16)
-                            , Border.rounded 10
-                            , paddingEach { top = 10, right = 12, bottom = 10, left = 12 }
-                            ]
-                            { onPress = Just BootstrapFirstAdmin
-                            , label = text "Create first admin"
-                            }
-                        , Input.button
-                            [ Element.alignBottom
-                            , Background.color (rgb255 34 124 95)
-                            , Font.color (rgb255 246 251 248)
-                            , Border.rounded 10
-                            , paddingEach { top = 10, right = 12, bottom = 10, left = 12 }
-                            ]
-                            { onPress = Just LoginWithCode
-                            , label = text "Login"
-                            }
-                        ]
-
-                  else
-                    row [ width fill, spacing 10 ]
-                        [ Input.text [ width (fillPortion 3), onEnter RequestAuthCode ]
-                            { onChange = SetAuthEmail
-                            , text = model.authEmail
-                            , placeholder = Just (Input.placeholder [] (text "user@email.com"))
-                            , label = Input.labelAbove [ Font.size 12 ] (text "Email")
-                            }
-                        , Input.text [ width (fillPortion 2), onEnter LoginWithCode ]
-                            { onChange = SetAuthCode
-                            , text = model.authCode
-                            , placeholder = Just (Input.placeholder [] (text "6-digit code"))
-                            , label = Input.labelAbove [ Font.size 12 ] (text "Code")
-                            }
-                        , Input.button
-                            [ Element.alignBottom
-                            , Background.color (rgb255 84 121 224)
-                            , Font.color (rgb255 246 248 252)
-                            , Border.rounded 10
-                            , paddingEach { top = 10, right = 12, bottom = 10, left = 12 }
-                            ]
-                            { onPress = Just RequestAuthCode
-                            , label = text "Request code"
-                            }
-                        , Input.button
-                            [ Element.alignBottom
-                            , Background.color (rgb255 34 124 95)
-                            , Font.color (rgb255 246 251 248)
-                            , Border.rounded 10
-                            , paddingEach { top = 10, right = 12, bottom = 10, left = 12 }
-                            ]
-                            { onPress = Just LoginWithCode
-                            , label = text "Login"
-                            }
-                        , Input.button
-                            [ Element.alignBottom
-                            , Background.color (rgb255 224 231 241)
-                            , Border.rounded 10
-                            , paddingEach { top = 10, right = 12, bottom = 10, left = 12 }
-                            ]
-                            { onPress = Just LoadAuthMe
-                            , label = text "Me"
-                            }
-                        , Input.button
-                            [ Element.alignBottom
-                            , Background.color (rgb255 248 226 226)
-                            , Border.rounded 10
-                            , paddingEach { top = 10, right = 12, bottom = 10, left = 12 }
-                            ]
-                            { onPress = Just LogoutSession
-                            , label = text "Logout"
-                            }
-                        ]
+                , authPanelBody
                 , el
                     [ Font.size 12
                     , Font.color
@@ -2487,6 +2647,245 @@ viewAuthToolsPanel model =
                     ]
                     (text tabHint)
                 ]
+
+
+viewAuthEmailStage : Model -> Bool -> String -> Msg -> Bool -> Element Msg
+viewAuthEmailStage model firstAdminMode actionLabel submitMsg isLoading =
+    let
+        emailPlaceholder =
+            if firstAdminMode then
+                "admin@email.com"
+
+            else
+                "user@email.com"
+    in
+    column
+        [ width fill
+        , spacing 12
+        , htmlAttribute (HtmlAttr.class "auth-stage auth-stage-email")
+        ]
+        [ Input.text
+            (width fill
+                :: if isLoading then
+                    []
+
+                   else
+                    [ onEnter submitMsg ]
+            )
+            { onChange = SetAuthEmail
+            , text = model.authEmail
+            , placeholder = Just (Input.placeholder [] (text emailPlaceholder))
+            , label = Input.labelAbove [ Font.size 12 ] (text "Email")
+            }
+        , el [ width fill ]
+            (authActionButton
+                (if firstAdminMode then
+                    rgb255 242 180 42
+
+                 else
+                    rgb255 84 121 224
+                )
+                (if firstAdminMode then
+                    rgb255 40 33 16
+
+                 else
+                    rgb255 246 248 252
+                )
+                (if isLoading then
+                    Nothing
+
+                 else
+                    Just submitMsg
+                )
+                (if isLoading then
+                    actionLabel ++ "..."
+
+                 else
+                    actionLabel
+                )
+            )
+        ]
+
+
+viewAuthCodeStage : Model -> Bool -> String -> Msg -> Bool -> Bool -> Element Msg
+viewAuthCodeStage model firstAdminMode resendLabel resendMsg loginLoading resendLoading =
+    let
+        emailText =
+            String.trim model.authEmail
+    in
+    column
+        [ width fill
+        , spacing 12
+        , htmlAttribute (HtmlAttr.class "auth-stage auth-stage-code")
+        ]
+        [ column
+            [ width fill
+            , spacing 6
+            , Background.color (rgb255 247 249 253)
+            , Border.rounded 10
+            , Border.width 1
+            , Border.color (rgb255 226 232 239)
+            , padding 10
+            ]
+            [ el [ Font.size 12, Font.color (rgb255 93 103 120) ] (text "Code sent to")
+            , el [ Font.bold, Font.size 14, Font.color (rgb255 44 56 72) ] (text emailText)
+            ]
+        , Input.text
+            (width fill
+                :: if loginLoading || resendLoading then
+                    []
+
+                   else
+                    [ onEnter LoginWithCode ]
+            )
+            { onChange = SetAuthCode
+            , text = model.authCode
+            , placeholder = Just (Input.placeholder [] (text "6-digit code"))
+            , label = Input.labelAbove [ Font.size 12 ] (text "Login code")
+            }
+        , row [ width fill, spacing 10 ]
+            [ if firstAdminMode then
+                none
+
+              else
+                authSecondaryButton
+                    (if loginLoading || resendLoading then
+                        Nothing
+
+                     else
+                        Just BackToAuthEmail
+                    )
+                    "Use another email"
+            , authSecondaryButton
+                (if loginLoading || resendLoading then
+                    Nothing
+
+                 else
+                    Just resendMsg
+                )
+                (if resendLoading then
+                    resendLabel ++ "..."
+
+                 else
+                    resendLabel
+                )
+            ]
+        , el [ width fill ]
+            (authActionButton
+                (rgb255 34 124 95)
+                (rgb255 246 251 248)
+                (if loginLoading || resendLoading then
+                    Nothing
+
+                 else
+                    Just LoginWithCode
+                )
+                (if loginLoading then
+                    "Signing in..."
+
+                 else
+                    "Login"
+                )
+            )
+        ]
+
+
+viewAuthSessionStage : Model -> Element Msg
+viewAuthSessionStage model =
+    let
+        emailText =
+            case model.currentEmail of
+                Just email ->
+                    email
+
+                Nothing ->
+                    case model.currentSystemEmail of
+                        Just email ->
+                            email
+
+                        Nothing ->
+                            "Authenticated session"
+
+        roleText =
+            case model.currentRole of
+                Just role ->
+                    String.trim role
+
+                Nothing ->
+                    case model.currentSystemRole of
+                        Just role ->
+                            String.trim role
+
+                        Nothing ->
+                            ""
+    in
+    column
+        [ width fill
+        , spacing 12
+        , htmlAttribute (HtmlAttr.class "auth-stage auth-stage-session")
+        ]
+        [ column
+            [ width fill
+            , spacing 6
+            , Background.color (rgb255 243 248 245)
+            , Border.rounded 10
+            , Border.width 1
+            , Border.color (rgb255 198 222 209)
+            , padding 10
+            ]
+            [ el [ Font.size 12, Font.color (rgb255 93 103 120) ] (text "Authenticated as")
+            , el [ Font.bold, Font.size 14, Font.color (rgb255 44 56 72) ] (text emailText)
+            , if roleText == "" then
+                none
+
+              else
+                el [ Font.size 12, Font.color (rgb255 93 103 120) ] (text ("Role: " ++ roleText))
+            ]
+        , row [ width fill, spacing 10 ]
+            [ authSecondaryButton (Just LoadAuthMe) "Refresh session"
+            , authDangerButton (Just LogoutSession) "Logout"
+            ]
+        ]
+
+
+authActionButton : Element.Color -> Element.Color -> Maybe Msg -> String -> Element Msg
+authActionButton backgroundColor textColor onPress labelText =
+    Input.button
+        [ width fill
+        , Background.color backgroundColor
+        , Font.color textColor
+        , Border.rounded 10
+        , paddingEach { top = 10, right = 14, bottom = 10, left = 14 }
+        ]
+        { onPress = onPress
+        , label = text labelText
+        }
+
+
+authSecondaryButton : Maybe Msg -> String -> Element Msg
+authSecondaryButton onPress labelText =
+    Input.button
+        [ Background.color (rgb255 224 231 241)
+        , Font.color (rgb255 55 68 87)
+        , Border.rounded 10
+        , paddingEach { top = 10, right = 14, bottom = 10, left = 14 }
+        ]
+        { onPress = onPress
+        , label = text labelText
+        }
+
+
+authDangerButton : Maybe Msg -> String -> Element Msg
+authDangerButton onPress labelText =
+    Input.button
+        [ Background.color (rgb255 248 226 226)
+        , Font.color (rgb255 126 43 43)
+        , Border.rounded 10
+        , paddingEach { top = 10, right = 14, bottom = 10, left = 14 }
+        ]
+        { onPress = onPress
+        , label = text labelText
+        }
 
 
 authInfoFromModel : Model -> Maybe AuthInfo
@@ -2512,6 +2911,45 @@ systemAuthInfoFromModel model =
 hasAnyAuthInfo : Model -> Bool
 hasAnyAuthInfo model =
     authInfoFromModel model /= Nothing
+
+
+currentAuthStage : Model -> AuthStage
+currentAuthStage model =
+    if hasActiveSession model then
+        AuthStageSession
+
+    else
+        model.authStage
+
+
+authFirstAdminMode : Model -> Bool
+authFirstAdminMode model =
+    let
+        maybeAppAuth =
+            authInfoFromModel model
+
+        maybeSystemAuth =
+            systemAuthInfoFromModel model
+
+        needsBootstrap =
+            case activeAuthScope model of
+                AppAuthScope ->
+                    case maybeAppAuth of
+                        Just appAuth ->
+                            appAuth.needsBootstrap
+
+                        Nothing ->
+                            False
+
+                SystemAuthScope ->
+                    case maybeSystemAuth of
+                        Just systemAuth ->
+                            systemAuth.needsBootstrap
+
+                        Nothing ->
+                            False
+    in
+    needsBootstrap || model.firstAdminCodeRequested
 
 
 activeAuthScope : Model -> AuthScope
@@ -2626,6 +3064,14 @@ viewFlash model =
             none
 
         Just message ->
+            let
+                titleText =
+                    if not (hasActiveSession model) then
+                        "Something went wrong"
+
+                    else
+                        "Service response"
+            in
             column
                 [ width fill
                 , Background.color (rgb255 244 248 255)
@@ -2635,7 +3081,7 @@ viewFlash model =
                 , padding 12
                 , spacing 10
                 ]
-                [ el [ Font.size 11, Font.bold, Font.color (rgb255 70 89 120) ] (text "Service response")
+                [ el [ Font.size 11, Font.bold, Font.color (rgb255 70 89 120) ] (text titleText)
                 , row
                     [ width fill
                     , spacing 12
@@ -3882,6 +4328,46 @@ httpErrorToString httpError =
 
         Http.BadBody message ->
             message
+
+
+authRequestCodeErrorToString : Http.Error -> String
+authRequestCodeErrorToString httpError =
+    case httpError of
+        Http.Timeout ->
+            "We could not send the code in time. Please try again."
+
+        Http.NetworkError ->
+            "We could not reach the server. Check your connection and try again."
+
+        Http.BadBody message ->
+            if String.contains "Too many request-code attempts" message then
+                "You requested too many codes. Please wait a minute and try again."
+
+            else
+                message
+
+        _ ->
+            httpErrorToString httpError
+
+
+authLoginErrorToString : Http.Error -> String
+authLoginErrorToString httpError =
+    case httpError of
+        Http.Timeout ->
+            "We could not complete the sign-in in time. Please try again."
+
+        Http.NetworkError ->
+            "We could not reach the server. Check your connection and try again."
+
+        Http.BadBody message ->
+            if String.contains "Invalid or expired code" message then
+                "That code is invalid or expired. Request a new one and try again."
+
+            else
+                message
+
+        _ ->
+            httpErrorToString httpError
 
 
 shouldReloadCrudAfterLogin : Model -> Bool

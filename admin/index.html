@@ -15,6 +15,24 @@
         height: 100%;
         background: radial-gradient(circle at top left, #f3f7ff, #eef2f8 50%, #e8eef5 100%);
       }
+
+      .auth-stage-email,
+      .auth-stage-code,
+      .auth-stage-session {
+        animation: auth-stage-enter 160ms ease-out;
+      }
+
+      @keyframes auth-stage-enter {
+        from {
+          opacity: 0;
+          transform: translateY(8px);
+        }
+
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
     </style>
   </head>
   <body>
