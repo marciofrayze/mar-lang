@@ -43,6 +43,14 @@
     <script>
       const app = Elm.Main.init({ node: document.getElementById('app') });
 
+      const scheduleScrollToTop = () => {
+        const run = () => window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+
+        run();
+        window.requestAnimationFrame(run);
+        window.setTimeout(run, 0);
+      };
+
       if (app.ports && app.ports.copyToClipboard) {
         app.ports.copyToClipboard.subscribe((value) => {
           if (typeof value === 'string' && navigator.clipboard && navigator.clipboard.writeText) {
@@ -50,6 +58,14 @@
           }
         });
       }
+
+      if (app.ports && app.ports.scrollToTop) {
+        app.ports.scrollToTop.subscribe(() => {
+          scheduleScrollToTop();
+        });
+      }
+
+      window.addEventListener('hashchange', scheduleScrollToTop);
     </script>
   </body>
 </html>

@@ -42,6 +42,9 @@ type Msg
 port copyToClipboard : String -> Cmd msg
 
 
+port scrollToTop : () -> Cmd msg
+
+
 main : Program () Model Msg
 main =
     Browser.application
@@ -76,7 +79,7 @@ update msg model =
                     ( model, Nav.load href )
 
         UrlChanged url ->
-            ( { model | route = routeFromUrl url, copiedText = Nothing }, Cmd.none )
+            ( { model | route = routeFromUrl url, copiedText = Nothing }, scrollToTop () )
 
         CopyText source ->
             ( { model | copiedText = Just source }, copyToClipboard source )
@@ -430,6 +433,41 @@ gettingStartedPage model =
                 , "Manage records with the built-in CRUD actions."
                 , "Access monitoring, logs, and database tools with an admin account."
                 ]
+            ]
+        , gettingStartedAdvancedCta
+        ]
+
+
+gettingStartedAdvancedCta : Element Msg
+gettingStartedAdvancedCta =
+    panel
+        [ column
+            [ width fill
+            , spacing 12
+            , centerX
+            ]
+            [ paragraph
+                [ Font.size 24
+                , Font.bold
+                , Font.color (rgb255 20 53 89)
+                , centerX
+                ]
+                [ text "Ready for the next step?" ]
+            , paragraph
+                [ Font.size 16
+                , Font.color (rgb255 72 95 123)
+                , centerX
+                ]
+                [ text "Continue to the Advanced Guide to understand the language, runtime, and compiler in more depth." ]
+            , link
+                (buttonAttributes
+                    (rgb255 45 126 210)
+                    (rgb255 245 250 255)
+                    ++ [ centerX ]
+                )
+                { url = routeHref AdvancedGuide
+                , label = text "Go to Advanced Guide"
+                }
             ]
         ]
 
@@ -2408,7 +2446,7 @@ advancedPager previous next =
                         (buttonAttributes
                             (rgb255 230 239 250)
                             (rgb255 36 82 132)
-                            ++ [ width (fill |> maximum 320), centerX ]
+                            ++ [ width (fill |> maximum 320) ]
                         )
                         { url = routeHref previousRoute
                         , label = text ("Previous: " ++ routeLabel previousRoute)
@@ -2420,7 +2458,7 @@ advancedPager previous next =
                         (buttonAttributes
                             (rgb255 45 126 210)
                             (rgb255 245 250 255)
-                            ++ [ width (fill |> maximum 320), centerX ]
+                            ++ [ width (fill |> maximum 320), htmlAttribute (HtmlAttr.style "margin-left" "auto") ]
                         )
                         { url = routeHref nextRoute
                         , label = text ("Next: " ++ routeLabel nextRoute)
