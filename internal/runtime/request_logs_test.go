@@ -35,8 +35,8 @@ func TestRequestLogsEndpointRequiresAuthAndReturnsCapturedLogs(t *testing.T) {
 		t.Fatalf("expected 401 without auth, got %d body=%s", unauthRec.Code, unauthRec.Body.String())
 	}
 
-	devCode := requestCodeAndReadDevCode(t, r, "owner@example.com")
-	token := loginWithCodeAndReadToken(t, r, "owner@example.com", devCode)
+	loginCode := requestCodeAndUseKnownCode(t, r, "owner@example.com")
+	token := loginWithCodeAndReadToken(t, r, "owner@example.com", loginCode)
 
 	listRec := doRuntimeRequest(r, http.MethodGet, "/todos", "", token)
 	if listRec.Code != http.StatusOK {
@@ -112,8 +112,8 @@ func TestRequestLogsGiveReasonsToAllQueriesInEntityRequest(t *testing.T) {
 	requireSQLite3(t)
 
 	r := mustNewAuthRuntime(t, filepath.Join(t.TempDir(), "request-logs-entity-reasons.db"))
-	devCode := requestCodeAndReadDevCode(t, r, "owner@example.com")
-	token := loginWithCodeAndReadToken(t, r, "owner@example.com", devCode)
+	loginCode := requestCodeAndUseKnownCode(t, r, "owner@example.com")
+	token := loginWithCodeAndReadToken(t, r, "owner@example.com", loginCode)
 
 	rec := doRuntimeRequest(r, http.MethodGet, "/todos", "", token)
 	if rec.Code != http.StatusOK {
@@ -173,9 +173,9 @@ func TestRequestLogsAddAuthQueryReasons(t *testing.T) {
 	requireSQLite3(t)
 
 	r := mustNewAuthRuntime(t, filepath.Join(t.TempDir(), "request-logs-auth-reasons.db"))
-	devCode := requestCodeAndReadDevCode(t, r, "owner@example.com")
+	loginCode := requestCodeAndUseKnownCode(t, r, "owner@example.com")
 
-	rec := doRuntimeRequest(r, http.MethodPost, "/auth/login", `{"email":"owner@example.com","code":"`+devCode+`"}`, "")
+	rec := doRuntimeRequest(r, http.MethodPost, "/auth/login", `{"email":"owner@example.com","code":"`+loginCode+`"}`, "")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("login failed: status=%d body=%s", rec.Code, rec.Body.String())
 	}
@@ -235,8 +235,8 @@ func TestRequestLogsEndpointMasksSensitiveValues(t *testing.T) {
 	requireSQLite3(t)
 
 	r := mustNewAuthRuntime(t, filepath.Join(t.TempDir(), "request-logs-masked.db"))
-	devCode := requestCodeAndReadDevCode(t, r, "owner@example.com")
-	token := loginWithCodeAndReadToken(t, r, "owner@example.com", devCode)
+	loginCode := requestCodeAndUseKnownCode(t, r, "owner@example.com")
+	token := loginWithCodeAndReadToken(t, r, "owner@example.com", loginCode)
 
 	rawEmail := "secret.owner@example.com"
 	rawCode := "654321"
@@ -251,7 +251,7 @@ func TestRequestLogsEndpointMasksSensitiveValues(t *testing.T) {
 		Timestamp:    "2026-03-04 10:10:10",
 		QueryCount:   2,
 		QueryTimeMs:  3.4,
-		ErrorMessage: "Authorization: Bearer " + rawToken + " devCode: " + rawCode + " email: " + rawEmail,
+		ErrorMessage: "Authorization: Bearer " + rawToken + " code: " + rawCode + " email: " + rawEmail,
 		Queries: []requestLogQuery{
 			{SQL: "SELECT * FROM mar_auth_codes WHERE email = '" + rawEmail + "' AND code = '" + rawCode + "'"},
 			{SQL: "INSERT INTO mar_sessions (token, user_id, email) VALUES ('" + rawToken + "', 1, '" + rawEmail + "')"},
@@ -285,23 +285,32 @@ func TestRequestLogsEndpointMasksSensitiveValues(t *testing.T) {
 	}
 }
 
-func requestCodeAndReadDevCode(t *testing.T, r *Runtime, email string) string {
+func requestCodeAndUseKnownCode(t *testing.T, r *Runtime, email string) string {
 	t.Helper()
 	body := `{"email":"` + email + `"}`
 	rec := doRuntimeRequest(r, http.MethodPost, "/auth/request-code", body, "")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("request-code failed: status=%d body=%s", rec.Code, rec.Body.String())
 	}
-	var response struct {
-		DevCode string `json:"devCode"`
+
+	return overwriteLatestCodeForEmail(t, r, email)
+}
+
+func overwriteLatestCodeForEmail(t *testing.T, r *Runtime, email string) string {
+	t.Helper()
+
+	const knownCode = "123456"
+	codeRow, ok, err := queryRow(r.DB, `SELECT id FROM mar_auth_codes WHERE email = ? ORDER BY id DESC LIMIT 1`, email)
+	if err != nil {
+		t.Fatalf("load latest auth code failed: %v", err)
 	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
-		t.Fatalf("decode request-code response failed: %v body=%s", err, rec.Body.String())
+	if !ok {
+		t.Fatalf("expected auth code row for %s", email)
 	}
-	if strings.TrimSpace(response.DevCode) == "" {
-		t.Fatalf("expected devCode in response, got body=%s", rec.Body.String())
+	if _, err := r.DB.Exec(`UPDATE mar_auth_codes SET code = ? WHERE id = ?`, hashAuthSecret(knownCode), codeRow["id"]); err != nil {
+		t.Fatalf("update auth code failed: %v", err)
 	}
-	return response.DevCode
+	return knownCode
 }
 
 func loginWithCodeAndReadToken(t *testing.T, r *Runtime, email, code string) string {

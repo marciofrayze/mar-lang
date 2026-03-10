@@ -14,7 +14,7 @@ func TestAuthCodesAndSessionsAreStoredAsHashes(t *testing.T) {
 	r := mustNewAuthRuntime(t, filepath.Join(t.TempDir(), "auth-hashing.db"))
 	email := "hashed@example.com"
 
-	devCode := requestCodeAndReadDevCode(t, r, email)
+	loginCode := requestCodeAndUseKnownCode(t, r, email)
 	codeRow, ok, err := queryRow(r.DB, `SELECT code FROM mar_auth_codes WHERE email = ? ORDER BY id DESC LIMIT 1`, email)
 	if err != nil {
 		t.Fatalf("load auth code failed: %v", err)
@@ -23,14 +23,14 @@ func TestAuthCodesAndSessionsAreStoredAsHashes(t *testing.T) {
 		t.Fatal("expected auth code row")
 	}
 	storedCode, _ := codeRow["code"].(string)
-	if storedCode == strings.TrimSpace(devCode) {
+	if storedCode == strings.TrimSpace(loginCode) {
 		t.Fatalf("expected auth code to be stored hashed, got raw value %q", storedCode)
 	}
 	if !strings.HasPrefix(storedCode, "sha256:") {
 		t.Fatalf("expected auth code hash prefix, got %q", storedCode)
 	}
 
-	token := loginWithCodeAndReadToken(t, r, email, devCode)
+	token := loginWithCodeAndReadToken(t, r, email, loginCode)
 	sessionRow, ok, err := queryRow(r.DB, `SELECT token FROM mar_sessions WHERE email = ? ORDER BY created_at DESC LIMIT 1`, email)
 	if err != nil {
 		t.Fatalf("load session failed: %v", err)
@@ -52,7 +52,7 @@ func TestLegacyPlainTextCodesAndSessionsStillWork(t *testing.T) {
 
 	r := mustNewAuthRuntime(t, filepath.Join(t.TempDir(), "auth-legacy-compat.db"))
 	email := "legacy@example.com"
-	_ = requestCodeAndReadDevCode(t, r, email)
+	_ = requestCodeAndUseKnownCode(t, r, email)
 
 	user, found, err := r.loadAuthUserByEmail("", email)
 	if err != nil {

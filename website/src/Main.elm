@@ -514,6 +514,23 @@ advancedLanguageReferencePage =
                 [ languageReferenceItem "input" "Declares the action input type and is also used in expressions such as input.userId."
                 , languageReferenceItem "create" "Adds a create step inside an action."
                 ]
+            , languageReferenceGroup "Auth config"
+                [ languageReferenceItem "user_entity" "Sets which entity stores authenticated users."
+                , languageReferenceItem "email_field" "Sets which user field is used as the login email."
+                , languageReferenceItem "role_field" "Sets which user field is used for role checks."
+                , languageReferenceItem "code_ttl_minutes" "Sets how long login codes remain valid."
+                , languageReferenceItem "session_ttl_hours" "Sets the default session lifetime."
+                , languageReferenceItem "email_transport, email_from, email_subject, sendmail_path" "Configure how login codes are delivered."
+                ]
+            , languageReferenceGroup "System config"
+                [ languageReferenceItem "request_logs_buffer" "Sets how many recent requests stay in memory for monitoring."
+                , languageReferenceItem "http_max_request_body_mb" "Limits request body size."
+                , languageReferenceItem "auth_request_code_rate_limit_per_minute, auth_login_rate_limit_per_minute" "Configure auth rate limits."
+                , languageReferenceItem "admin_ui_session_ttl_hours" "Sets a separate session lifetime for the embedded admin UI."
+                , languageReferenceItem "security_frame_policy, security_referrer_policy, security_content_type_nosniff" "Configure security response headers."
+                , languageReferenceItem "sqlite_journal_mode, sqlite_synchronous, sqlite_foreign_keys" "Configure core SQLite behavior."
+                , languageReferenceItem "sqlite_busy_timeout_ms, sqlite_wal_autocheckpoint, sqlite_journal_size_limit_mb, sqlite_mmap_size_mb, sqlite_cache_size_kb" "Configure SQLite performance tuning."
+                ]
             , languageReferenceGroup "Public frontend config"
                 [ languageReferenceItem "dir" "Sets the source directory of embedded static files."
                 , languageReferenceItem "mount" "Sets where embedded static files are served."
@@ -545,13 +562,14 @@ advancedRuntimePage model =
             , paragraphWithEmphasis
                 [ text "Use "
                 , emphasisText "system"
-                , text " when you need to tune runtime behavior. This is where request logging, body limits, auth rate limits, security headers, and SQLite pragmas are configured."
+                , text " when you need to tune runtime behavior. This is where request logging, body limits, auth rate limits, admin UI session lifetime, security headers, and SQLite pragmas are configured."
                 ]
             , codeFromString model "system.mar" 0 systemConfigSource
             , docList
                 [ "request_logs_buffer controls how many recent requests stay in memory for monitoring."
                 , "http_max_request_body_mb limits request body size and returns HTTP 413 when exceeded."
                 , "Auth rate limits control request-code and login attempts per minute."
+                , "admin_ui_session_ttl_hours can shorten the embedded admin UI session without changing REST client sessions."
                 , "Security settings apply response headers such as frame policy, referrer policy, and nosniff."
                 , "SQLite settings are performance-first by default and can be overridden per app."
                 ]
@@ -1868,7 +1886,7 @@ wordToken word =
     if List.member word [ "list", "get", "create", "update", "delete" ] then
         token "#93D7FF" word
 
-    else if List.member word [ "app", "port", "database", "entity", "rule", "when", "authorize", "auth", "type", "alias", "action", "input", "create", "public", "system", "dir", "mount", "spa_fallback" ] then
+    else if List.member word [ "app", "port", "database", "entity", "rule", "when", "authorize", "auth", "type", "alias", "action", "input", "create", "public", "system", "dir", "mount", "spa_fallback", "user_entity", "email_field", "role_field", "code_ttl_minutes", "session_ttl_hours", "email_transport", "email_from", "email_subject", "sendmail_path", "request_logs_buffer", "http_max_request_body_mb", "auth_request_code_rate_limit_per_minute", "auth_login_rate_limit_per_minute", "admin_ui_session_ttl_hours", "security_frame_policy", "security_referrer_policy", "security_content_type_nosniff", "sqlite_journal_mode", "sqlite_synchronous", "sqlite_foreign_keys", "sqlite_busy_timeout_ms", "sqlite_wal_autocheckpoint", "sqlite_journal_size_limit_mb", "sqlite_mmap_size_mb", "sqlite_cache_size_kb" ] then
         token "#7AB8FF" word
 
     else if List.member word [ "Int", "String", "Bool", "Float" ] then
@@ -2118,6 +2136,7 @@ system {
   http_max_request_body_mb 1
   auth_request_code_rate_limit_per_minute 5
   auth_login_rate_limit_per_minute 10
+  admin_ui_session_ttl_hours 2
   security_frame_policy sameorigin
   security_referrer_policy strict-origin-when-cross-origin
   security_content_type_nosniff true

@@ -29,7 +29,6 @@
       "  email_transport console",
       "  email_from \"no-reply@example.local\"",
       "  email_subject \"Your ${1:MyApi} login code\"",
-      "  dev_expose_code true",
       "}",
       "",
       "type alias ${6:RegisterUserInput} =",
@@ -86,7 +85,6 @@
       "  email_from \"${7:no-reply@example.local}\"",
       "  email_subject \"${8:Your login code}\"",
       "  sendmail_path \"${9:/usr/sbin/sendmail}\"",
-      "  dev_expose_code ${10|false,true|}",
       "}"
     ]
   },

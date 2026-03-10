@@ -3,7 +3,7 @@ GO_MIN_VERSION := 1.26
 ELM_REQUIRED_VERSION := 0.19.1
 GO_VERSION := $(shell go version | awk '{print $$3}' 2>/dev/null | sed 's/^go//')
 
-.PHONY: all check check-go check-elm check-elm-live check-python3 admin website website-serve website-dev compiler-assets mar todo dev-todo test clean distclean
+.PHONY: all check check-go check-elm check-elm-live check-python3 check-node check-npx admin website website-serve website-dev vscode-plugin compiler-assets mar test clean distclean
 
 define print_title
 	@sh -c 'if [ -n "$$NO_COLOR" ] || ! [ -t 1 ]; then printf "\n%s\n" "$(1)"; else printf "\n\033[1;36m%s\033[0m\n" "$(1)"; fi'
@@ -30,6 +30,7 @@ all:
 	$(call print_title,Mar compiler ready)
 	$(call print_ok,./mar)
 	@$(MAKE) --no-print-directory website
+	@$(MAKE) --no-print-directory vscode-plugin
 	@printf "\n"
 
 check: check-go check-elm
@@ -89,6 +90,22 @@ check-python3:
 		exit 1; \
 	}
 
+check-node:
+	@command -v node >/dev/null 2>&1 || { \
+		printf "\n"; \
+		if [ -n "$$NO_COLOR" ] || ! [ -t 1 ]; then printf "%s\n" "Node.js is required to package the VS Code extension. Install Node.js and try again."; else printf "\033[1;31m%s\033[0m\n" "Node.js is required to package the VS Code extension. Install Node.js and try again."; fi; \
+		printf "\n"; \
+		exit 1; \
+	}
+
+check-npx: check-node
+	@command -v npx >/dev/null 2>&1 || { \
+		printf "\n"; \
+		if [ -n "$$NO_COLOR" ] || ! [ -t 1 ]; then printf "%s\n" "npx is required to package the VS Code extension. Install Node.js and try again."; else printf "\033[1;31m%s\033[0m\n" "npx is required to package the VS Code extension. Install Node.js and try again."; fi; \
+		printf "\n"; \
+		exit 1; \
+	}
+
 admin: check-elm
 	$(call print_title,Admin UI)
 	$(call print_info,Building admin/dist/app.js with Elm $(ELM_REQUIRED_VERSION))
@@ -124,6 +141,24 @@ website-dev: check-elm check-elm-live
 	$(call print_info,Press Ctrl+C to stop)
 	@cd website && elm-live src/Main.elm --dir=. --port=8080 --open -- --output=dist/app.js
 
+vscode-plugin: check-npx
+	$(call print_title,VS Code extension)
+	$(call print_info,Packaging vscode-mar into a .vsix)
+	@cd vscode-mar && sh -c '\
+		publisher=$$(node -p "require(\"./package.json\").publisher"); \
+		name=$$(node -p "require(\"./package.json\").name"); \
+		version=$$(node -p "require(\"./package.json\").version"); \
+		out="../dist/vscode/$$publisher.$$name-$$version.vsix"; \
+		mkdir -p ../dist/vscode; \
+		output=$$(npx @vscode/vsce package --out "$$out" 2>&1) || { printf "%s\n" "$$output"; exit 1; }; \
+		if [ -n "$$NO_COLOR" ] || ! [ -t 1 ]; then \
+			printf "  %s\n" "Output: $${out#../}"; \
+			printf "  %s\n" "Install in VS Code with: code --install-extension $${out#../} --force"; \
+		else \
+			printf "  \033[1;32mOutput: %s\033[0m\n" "$${out#../}"; \
+			printf "  Install in VS Code with: \033[1;32mcode --install-extension %s --force\033[0m\n" "$${out#../}"; \
+		fi'
+
 compiler-assets: check-go admin
 	$(call print_title,Compiler assets)
 	$(call print_info,Refreshing embedded admin assets and runtime stubs)
@@ -136,16 +171,6 @@ mar: check-go compiler-assets
 	$(call print_info,Building ./mar with Go $(GO_VERSION))
 	@GOCACHE="$(GOCACHE)" go build -trimpath -ldflags="-s -w" -o mar ./cmd/mar
 	$(call print_ok,Output: ./mar)
-
-todo: mar
-	$(call print_title,Example app)
-	$(call print_info,Compiling examples/todo.mar into dist/)
-	@./mar compile examples/todo.mar
-
-dev-todo: mar
-	$(call print_title,Example app)
-	$(call print_info,Starting dev mode for examples/todo.mar)
-	@./mar dev examples/todo.mar
 
 test: check-go
 	$(call print_title,Tests)
@@ -160,3 +185,4 @@ clean:
 distclean: clean
 	$(call print_info,Removing dist/)
 	@rm -rf "$(CURDIR)/dist"
+	@printf "\n"

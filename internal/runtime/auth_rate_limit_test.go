@@ -52,9 +52,9 @@ func TestAuthLoginRateLimitUsesDefaultPerMinute(t *testing.T) {
 
 	r := mustNewAuthRuntimeWithSystem(t, filepath.Join(t.TempDir(), "auth-rate-default-login.db"), "")
 	email := "rate-login@example.com"
-	devCode := requestCodeAndReadDevCode(t, r, email)
-	if strings.TrimSpace(devCode) == "" {
-		t.Fatal("expected dev code")
+	loginCode := requestCodeAndUseKnownCode(t, r, email)
+	if strings.TrimSpace(loginCode) == "" {
+		t.Fatal("expected login code")
 	}
 
 	for i := 0; i < defaultAuthLoginRateLimitPerMinute; i++ {
@@ -134,7 +134,6 @@ auth {
   email_field email
   role_field role
   email_transport console
-  dev_expose_code true
 }
 `) + "\n"
 

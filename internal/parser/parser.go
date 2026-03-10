@@ -16,6 +16,54 @@ var (
 	fieldNameRe = regexp.MustCompile(`^[a-z][A-Za-z0-9_]*$`)
 )
 
+var (
+	topLevelStatementCandidates = []string{
+		"app",
+		"port",
+		"database",
+		"system",
+		"public",
+		"auth",
+		"entity",
+		"type alias",
+		"action",
+	}
+	authStatementCandidates = []string{
+		"user_entity",
+		"email_field",
+		"role_field",
+		"code_ttl_minutes",
+		"session_ttl_hours",
+		"email_transport",
+		"email_from",
+		"email_subject",
+		"sendmail_path",
+	}
+	publicStatementCandidates = []string{
+		"dir",
+		"mount",
+		"spa_fallback",
+	}
+	systemStatementCandidates = []string{
+		"request_logs_buffer",
+		"http_max_request_body_mb",
+		"auth_request_code_rate_limit_per_minute",
+		"auth_login_rate_limit_per_minute",
+		"admin_ui_session_ttl_hours",
+		"security_frame_policy",
+		"security_referrer_policy",
+		"security_content_type_nosniff",
+		"sqlite_journal_mode",
+		"sqlite_synchronous",
+		"sqlite_foreign_keys",
+		"sqlite_busy_timeout_ms",
+		"sqlite_wal_autocheckpoint",
+		"sqlite_journal_size_limit_mb",
+		"sqlite_mmap_size_mb",
+		"sqlite_cache_size_kb",
+	}
+)
+
 const (
 	defaultRequestLogsBuffer = 200
 	minRequestLogsBuffer     = 10
@@ -171,7 +219,7 @@ func Parse(source string) (*model.App, error) {
 			continue
 		}
 
-		return nil, fmt.Errorf("line %d: unknown statement %q", cur.number, trimmed)
+		return nil, unknownStatementError(cur.number, "", trimmed, topLevelStatementCandidates)
 	}
 
 	if app.AppName == "" {
@@ -201,7 +249,6 @@ func parseAuthBlock(lines []line, idx *int) (*model.AuthConfig, error) {
 		EmailFrom:       "no-reply@mar.local",
 		EmailSubject:    "Your Mar login code",
 		SendmailPath:    "/usr/sbin/sendmail",
-		DevExposeCode:   false,
 	}
 
 	(*idx)++
@@ -275,13 +322,8 @@ func parseAuthBlock(lines []line, idx *int) (*model.AuthConfig, error) {
 			auth.SendmailPath = m[1]
 			matched = true
 		}
-		if m := match(`^dev_expose_code\s+(true|false)$`, trimmed); m != nil {
-			auth.DevExposeCode = m[1] == "true"
-			matched = true
-		}
-
 		if !matched {
-			return nil, fmt.Errorf("line %d: unknown auth statement %q", ln.number, trimmed)
+			return nil, unknownStatementError(ln.number, "auth", trimmed, authStatementCandidates)
 		}
 		(*idx)++
 	}
@@ -339,7 +381,7 @@ func parsePublicBlock(lines []line, idx *int) (*model.PublicConfig, error) {
 		}
 
 		if !matched {
-			return nil, fmt.Errorf("line %d: unknown public statement %q", ln.number, trimmed)
+			return nil, unknownStatementError(ln.number, "public", trimmed, publicStatementCandidates)
 		}
 		(*idx)++
 	}
@@ -569,7 +611,7 @@ func parseSystemBlock(lines []line, idx *int) (*model.SystemConfig, error) {
 			continue
 		}
 
-		return nil, fmt.Errorf("line %d: unknown system statement %q", ln.number, trimmed)
+		return nil, unknownStatementError(ln.number, "system", trimmed, systemStatementCandidates)
 	}
 
 	return nil, fmt.Errorf("system block is missing closing }")
@@ -585,6 +627,28 @@ func intPtr(v int) *int {
 
 func boolPtr(v bool) *bool {
 	return &v
+}
+
+func unknownStatementError(lineNumber int, scope, trimmed string, candidates []string) error {
+	label := "unknown statement"
+	if strings.TrimSpace(scope) != "" {
+		label = "unknown " + strings.TrimSpace(scope) + " statement"
+	}
+	return fmt.Errorf("line %d: %s %q%s", lineNumber, label, trimmed, suggest.DidYouMeanSuffix(statementSuggestionKey(trimmed), candidates))
+}
+
+func statementSuggestionKey(trimmed string) string {
+	parts := strings.Fields(strings.TrimSpace(trimmed))
+	if len(parts) == 0 {
+		return ""
+	}
+	if parts[0] == "type" && len(parts) == 1 {
+		return parts[0]
+	}
+	if parts[0] == "type" && len(parts) > 1 {
+		return parts[0] + " " + parts[1]
+	}
+	return parts[0]
 }
 
 // parseEntityBlock parses a single entity body including fields, rules, and authorize clauses.

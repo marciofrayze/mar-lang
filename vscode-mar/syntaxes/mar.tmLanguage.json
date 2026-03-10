@@ -252,7 +252,7 @@
         },
         {
           "name": "keyword.other.auth.mar",
-          "match": "\\b(user_entity|email_field|role_field|code_ttl_minutes|session_ttl_hours|email_transport|email_from|email_subject|sendmail_path|dev_expose_code)\\b"
+          "match": "\\b(user_entity|email_field|role_field|code_ttl_minutes|session_ttl_hours|email_transport|email_from|email_subject|sendmail_path)\\b"
         },
         {
           "name": "keyword.other.public.mar",

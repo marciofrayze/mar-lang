@@ -17,7 +17,6 @@ auth {
   email_transport console
   email_from "no-reply@bookstore.local"
   email_subject "Your BookStore login code"
-  dev_expose_code true
 }
 
 -- =========================================

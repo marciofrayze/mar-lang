@@ -166,9 +166,7 @@ type Msg
 
 
 type alias RequestCodeResponse =
-    { message : String
-    , devCode : Maybe String
-    }
+    { message : String }
 
 
 type alias LoginResponse =
@@ -696,25 +694,13 @@ update msg model =
         GotRequestAuthCode scope result ->
             case result of
                 Ok response ->
-                    case response.devCode of
-                        Just code ->
-                            ( { model
-                                | authCode = code
-                                , authStage = AuthStageCode
-                                , authSubmitting = Nothing
-                                , flash = Nothing
-                              }
-                            , Cmd.none
-                            )
-
-                        Nothing ->
-                            ( { model
-                                | authStage = AuthStageCode
-                                , authSubmitting = Nothing
-                                , flash = Nothing
-                              }
-                            , Cmd.none
-                            )
+                    ( { model
+                        | authStage = AuthStageCode
+                        , authSubmitting = Nothing
+                        , flash = Nothing
+                      }
+                    , Cmd.none
+                    )
 
                 Err httpError ->
                     ( { model | authSubmitting = Nothing, flash = Just (authRequestCodeErrorToString model httpError) }, Cmd.none )
@@ -733,24 +719,7 @@ update msg model =
         GotBootstrapFirstAdmin scope result ->
             case result of
                 Ok response ->
-                    case response.devCode of
-                        Just code ->
-                            let
-                                nextModel =
-                                    { model
-                                        | authCode = code
-                                        , authStage = AuthStageCode
-                                        , authSubmitting = Nothing
-                                        , firstAdminCodeRequested = True
-                                        , flash = Nothing
-                                    }
-                            in
-                            ( nextModel
-                            , loadSchema model.apiBase
-                            )
-
-                        Nothing ->
-                            ( { model | authStage = AuthStageCode, authSubmitting = Nothing, firstAdminCodeRequested = True, flash = Nothing }, loadSchema model.apiBase )
+                    ( { model | authStage = AuthStageCode, authSubmitting = Nothing, firstAdminCodeRequested = True, flash = Nothing }, loadSchema model.apiBase )
 
                 Err httpError ->
                     ( { model | authSubmitting = Nothing, flash = Just (authRequestCodeErrorToString model httpError) }, Cmd.none )
@@ -1152,7 +1121,7 @@ update msg model =
                                 _ ->
                                     model.rows
                     in
-                    ( { model | rows = nextRows, formMode = FormHidden, formValues = Dict.empty, flash = Just "Created successfully" }, Cmd.none )
+                    ( { model | rows = nextRows, formMode = FormHidden, formValues = Dict.empty, flash = Nothing }, Cmd.none )
 
                 Err httpError ->
                     ( { model | flash = Just (httpErrorToString model httpError) }, Cmd.none )
@@ -1574,13 +1543,8 @@ apiErrorDecoder =
 
 requestCodeDecoder : Decode.Decoder RequestCodeResponse
 requestCodeDecoder =
-    Decode.map2 RequestCodeResponse
+    Decode.map RequestCodeResponse
         (Decode.field "message" Decode.string)
-        (Decode.oneOf
-            [ Decode.field "devCode" (Decode.map Just Decode.string)
-            , Decode.succeed Nothing
-            ]
-        )
 
 
 loginResponseDecoder : Decode.Decoder LoginResponse
@@ -3883,7 +3847,15 @@ viewRows model =
 
         ( Just entity, Loaded records ) ->
             if List.isEmpty records then
-                paragraph [] [ text (if currentWorkspace model == AppWorkspace then "Nothing here yet." else "No records yet.") ]
+                paragraph []
+                    [ text
+                        (if currentWorkspace model == AppWorkspace then
+                            "Nothing here yet. Create the first one to get started."
+
+                         else
+                            "No records yet."
+                        )
+                    ]
 
             else
                 column [ width fill, spacing 8 ]

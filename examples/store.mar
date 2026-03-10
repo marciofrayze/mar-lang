@@ -8,7 +8,7 @@ database "bookstore.db"
 
 -- Authentication is built into the framework.
 -- Users login with one-time email codes via /auth/request-code and /auth/login.
-auth {
+aut {
   user_entity User
   email_field email
   role_field role
@@ -17,7 +17,6 @@ auth {
   email_transport console
   email_from "no-reply@bookstore.local"
   email_subject "Your BookStore login code"
-  dev_expose_code true
 }
 
 -- =========================================

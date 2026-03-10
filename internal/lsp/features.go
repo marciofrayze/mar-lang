@@ -64,7 +64,6 @@ var (
 		"email_from":                              "Sets the sender email used by auth code messages.",
 		"email_subject":                           "Sets the subject used by auth code messages.",
 		"sendmail_path":                           "Sets the sendmail binary path when `email_transport sendmail` is used.",
-		"dev_expose_code":                         "When `true`, request-code responses include `devCode` for development flows. Default `false`.",
 		"rule":                                    "Adds validation logic for entity records.",
 		"authorize":                               "Adds authorization rules for CRUD actions.",
 		"type":                                    "Used with `type alias` to define an action input record.",

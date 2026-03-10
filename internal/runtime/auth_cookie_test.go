@@ -17,9 +17,9 @@ func TestAuthSessionCookieSupportsAdminFrontendFlow(t *testing.T) {
 	requireSQLite3(t)
 
 	r := mustNewAuthRuntime(t, filepath.Join(t.TempDir(), "auth-cookie.db"))
-	devCode := requestCodeAndReadDevCode(t, r, "owner@example.com")
+	loginCode := requestCodeAndUseKnownCode(t, r, "owner@example.com")
 
-	loginRec := doRuntimeRequest(r, http.MethodPost, "/auth/login", `{"email":"owner@example.com","code":"`+devCode+`"}`, "")
+	loginRec := doRuntimeRequest(r, http.MethodPost, "/auth/login", `{"email":"owner@example.com","code":"`+loginCode+`"}`, "")
 	if loginRec.Code != http.StatusOK {
 		t.Fatalf("expected 200 from /auth/login, got %d body=%s", loginRec.Code, loginRec.Body.String())
 	}
@@ -78,7 +78,6 @@ entity User {
 auth {
   user_entity User
   session_ttl_hours 24
-  dev_expose_code true
 }
 `
 
@@ -93,13 +92,13 @@ auth {
 	}
 	defer r.Close()
 
-	devCode := requestCodeAndReadDevCode(t, r, "owner@example.com")
+	loginCode := requestCodeAndUseKnownCode(t, r, "owner@example.com")
 
 	loginRec := doRuntimeRequestWithHeaders(
 		r,
 		http.MethodPost,
 		"/auth/login",
-		`{"email":"owner@example.com","code":"`+devCode+`"}`,
+		`{"email":"owner@example.com","code":"`+loginCode+`"}`,
 		map[string]string{adminUISessionHeader: "true"},
 	)
 	if loginRec.Code != http.StatusOK {

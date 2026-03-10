@@ -33,7 +33,6 @@ func (r *Runtime) authConfig() model.AuthConfig {
 		EmailFrom:       "no-reply@mar.local",
 		EmailSubject:    "Your Mar login code",
 		SendmailPath:    "/usr/sbin/sendmail",
-		DevExposeCode:   false,
 	}
 }
 
@@ -341,11 +340,7 @@ func (r *Runtime) issueAuthCode(w http.ResponseWriter, requestID, email string, 
 		responseMessage = "Login code generated. You are running in dev mode with email transport set to console, so check there."
 	}
 
-	resp := map[string]any{"ok": true, "message": responseMessage}
-	if cfg.DevExposeCode {
-		resp["devCode"] = code
-	}
-	r.writeJSON(w, http.StatusOK, resp)
+	r.writeJSON(w, http.StatusOK, map[string]any{"ok": true, "message": responseMessage})
 	return nil
 }
 
@@ -630,12 +625,6 @@ func (r *Runtime) handleAuthLogout(w http.ResponseWriter, req *http.Request, req
 // deliverEmailCode dispatches login codes through the configured transport.
 func (r *Runtime) deliverEmailCode(toEmail, code string) error {
 	cfg := r.authConfig()
-	if cfg.DevExposeCode {
-		r.printAuthLogHeader()
-		r.printAuthLogSection("Code generated")
-		r.printAuthLogFieldCommand("Dev code", code)
-		r.printAuthLogField("Email", toEmail)
-	}
 
 	switch cfg.EmailTransport {
 	case "console":

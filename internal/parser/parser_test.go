@@ -94,6 +94,24 @@ entity Todo {
 	}
 }
 
+func TestParseUnknownTopLevelStatementSuggestsClosestKeyword(t *testing.T) {
+	src := `
+app TodoApi
+
+entiti Todo {
+  title: String
+}
+`
+
+	_, err := Parse(src)
+	if err == nil {
+		t.Fatal("expected parse error for unknown top-level statement")
+	}
+	if !strings.Contains(err.Error(), `Did you mean "entity"?`) {
+		t.Fatalf("expected top-level Did you mean suggestion, got: %v", err)
+	}
+}
+
 func TestParseAuthDefaults(t *testing.T) {
 	src := `
 app AuthApi
@@ -127,9 +145,6 @@ auth {
 	}
 	if app.Auth.SessionTTLHours != 24 {
 		t.Fatalf("unexpected default session_ttl_hours: %d", app.Auth.SessionTTLHours)
-	}
-	if app.Auth.DevExposeCode {
-		t.Fatalf("unexpected default dev_expose_code: %v", app.Auth.DevExposeCode)
 	}
 }
 
@@ -178,6 +193,75 @@ auth {
 	}
 	if !strings.Contains(err.Error(), "auth.session_ttl_hours must be between") {
 		t.Fatalf("unexpected error message: %v", err)
+	}
+}
+
+func TestParseUnknownAuthStatementSuggestsClosestKeyword(t *testing.T) {
+	src := `
+app AuthApi
+
+entity User {
+  email: String
+  role: String
+}
+
+auth {
+  rol_field role
+  user_entity User
+}
+`
+
+	_, err := Parse(src)
+	if err == nil {
+		t.Fatal("expected parse error for unknown auth statement")
+	}
+	if !strings.Contains(err.Error(), `Did you mean "role_field"?`) {
+		t.Fatalf("expected auth Did you mean suggestion, got: %v", err)
+	}
+}
+
+func TestParseUnknownPublicStatementSuggestsClosestKeyword(t *testing.T) {
+	src := `
+app Demo
+
+public {
+  mout "/"
+  dir "./dist"
+}
+
+entity Todo {
+  title: String
+}
+`
+
+	_, err := Parse(src)
+	if err == nil {
+		t.Fatal("expected parse error for unknown public statement")
+	}
+	if !strings.Contains(err.Error(), `Did you mean "mount"?`) {
+		t.Fatalf("expected public Did you mean suggestion, got: %v", err)
+	}
+}
+
+func TestParseUnknownSystemStatementSuggestsClosestKeyword(t *testing.T) {
+	src := `
+app Demo
+
+system {
+  sqlite_buzy_timeout_ms 5000
+}
+
+entity Todo {
+  title: String
+}
+`
+
+	_, err := Parse(src)
+	if err == nil {
+		t.Fatal("expected parse error for unknown system statement")
+	}
+	if !strings.Contains(err.Error(), `Did you mean "sqlite_busy_timeout_ms"?`) {
+		t.Fatalf("expected system Did you mean suggestion, got: %v", err)
 	}
 }
 

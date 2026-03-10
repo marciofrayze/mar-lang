@@ -60,8 +60,8 @@ func TestVersionEndpointAdminRequiresAdminRole(t *testing.T) {
 		t.Fatalf("expected 401 without auth, got %d body=%s", unauth.Code, unauth.Body.String())
 	}
 
-	devCode := requestCodeAndReadDevCode(t, r, "admin@example.com")
-	token := loginWithCodeAndReadToken(t, r, "admin@example.com", devCode)
+	loginCode := requestCodeAndUseKnownCode(t, r, "admin@example.com")
+	token := loginWithCodeAndReadToken(t, r, "admin@example.com", loginCode)
 
 	rec := doRuntimeRequest(r, http.MethodGet, "/_mar/version/admin", "", token)
 	if rec.Code != http.StatusOK {

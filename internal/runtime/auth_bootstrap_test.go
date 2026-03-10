@@ -1,7 +1,6 @@
 package runtime
 
 import (
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -45,17 +44,8 @@ func TestBootstrapAdminRequiresCodeLoginToPromoteFirstUser(t *testing.T) {
 		t.Fatalf("expected role user before login, got %q", role)
 	}
 
-	var bootstrapResp struct {
-		DevCode string `json:"devCode"`
-	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &bootstrapResp); err != nil {
-		t.Fatalf("decode bootstrap response failed: %v body=%s", err, rec.Body.String())
-	}
-	if strings.TrimSpace(bootstrapResp.DevCode) == "" {
-		t.Fatalf("expected bootstrap response to include devCode, got body=%s", rec.Body.String())
-	}
-
-	token := loginWithCodeAndReadToken(t, r, "owner@example.com", bootstrapResp.DevCode)
+	loginCode := overwriteLatestCodeForEmail(t, r, "owner@example.com")
+	token := loginWithCodeAndReadToken(t, r, "owner@example.com", loginCode)
 	if strings.TrimSpace(token) == "" {
 		t.Fatal("expected token after login")
 	}
@@ -164,7 +154,6 @@ auth {
   email_field email
   role_field role
   email_transport console
-  dev_expose_code true
 }
 `) + "\n")
 	if err != nil {

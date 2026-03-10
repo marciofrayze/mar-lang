@@ -22,17 +22,13 @@ func TestRequestCodeMessageIncludesDevConsoleHintInDevMode(t *testing.T) {
 	}
 
 	var response struct {
-		Message string  `json:"message"`
-		DevCode *string `json:"devCode"`
+		Message string `json:"message"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
 		t.Fatalf("decode request-code response failed: %v body=%s", err, rec.Body.String())
 	}
 	if !strings.Contains(response.Message, "You are running in dev mode with email transport set to console, so check there.") {
 		t.Fatalf("expected dev-mode console hint in message, got %q", response.Message)
-	}
-	if response.DevCode != nil {
-		t.Fatalf("expected no devCode when dev_expose_code is false, got %q", *response.DevCode)
 	}
 }
 
@@ -81,4 +77,3 @@ entity Todo {
 	}
 	return r
 }
-

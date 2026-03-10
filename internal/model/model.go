@@ -47,7 +47,6 @@ type AuthConfig struct {
 	EmailFrom       string `json:"emailFrom"`
 	EmailSubject    string `json:"emailSubject"`
 	SendmailPath    string `json:"sendmailPath"`
-	DevExposeCode   bool   `json:"devExposeCode"`
 }
 
 type Entity struct {

@@ -437,7 +437,6 @@ func keywordCompletionItems() []map[string]any {
 		"email_from",
 		"email_subject",
 		"sendmail_path",
-		"dev_expose_code",
 		"dir",
 		"mount",
 		"spa_fallback",
