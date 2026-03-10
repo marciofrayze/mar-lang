@@ -741,6 +741,9 @@ update msg model =
                     case scope of
                         AppAuthScope ->
                             let
+                                nextWorkspace =
+                                    workspaceForRole response.role
+
                                 nextModel =
                                     { model
                                         | authToken = ""
@@ -753,6 +756,7 @@ update msg model =
                                         , sessionRestorePending = False
                                         , firstAdminCodeRequested = False
                                         , authToolsOpen = False
+                                        , workspace = nextWorkspace
                                         , flash = Just "Login successful."
                                     }
 
@@ -777,6 +781,9 @@ update msg model =
 
                         SystemAuthScope ->
                             let
+                                nextWorkspace =
+                                    workspaceForRole response.role
+
                                 nextModel =
                                     { model
                                         | systemAuthToken = ""
@@ -788,6 +795,7 @@ update msg model =
                                         , authSubmitting = Nothing
                                         , sessionRestorePending = False
                                         , authToolsOpen = False
+                                        , workspace = nextWorkspace
                                         , flash = Just "Admin login successful."
                                     }
 
@@ -831,6 +839,9 @@ update msg model =
                     case scope of
                         AppAuthScope ->
                             let
+                                nextWorkspace =
+                                    workspaceForRole response.role
+
                                 preferredEntity =
                                     case model.schema of
                                         Loaded schema ->
@@ -842,7 +853,7 @@ update msg model =
                                 shouldLoadRows =
                                     model.selectedEntity == Nothing
                                         && preferredEntity /= Nothing
-                                        && currentWorkspace model == AppWorkspace
+                                        && nextWorkspace == AppWorkspace
 
                                 nextModel =
                                     { model
@@ -851,6 +862,7 @@ update msg model =
                                         , authStage = AuthStageSession
                                         , sessionRestorePending = False
                                         , authToolsOpen = False
+                                        , workspace = nextWorkspace
                                         , selectedEntity =
                                             if model.selectedEntity == Nothing then
                                                 preferredEntity
@@ -863,12 +875,7 @@ update msg model =
 
                                             else
                                                 model.rows
-                                        , flash =
-                                            if currentWorkspace model == AppWorkspace then
-                                                Nothing
-
-                                            else
-                                                Just ("Authenticated as " ++ response.email ++ roleText)
+                                        , flash = Nothing
                                     }
                             in
                             if shouldLoadRows then
@@ -884,12 +891,8 @@ update msg model =
                                 , authStage = AuthStageSession
                                 , sessionRestorePending = False
                                 , authToolsOpen = False
-                                , flash =
-                                    if currentWorkspace model == AppWorkspace then
-                                        Nothing
-
-                                    else
-                                        Just ("Admin authenticated as " ++ response.email ++ roleText)
+                                , workspace = workspaceForRole response.role
+                                , flash = Nothing
                               }
                             , Cmd.none
                             )
@@ -1963,6 +1966,11 @@ fieldLabel =
     humanizeIdentifier
 
 
+entityDisplayName : Entity -> String
+entityDisplayName entity =
+    humanizeIdentifier entity.name
+
+
 humanizeIdentifier : String -> String
 humanizeIdentifier identifier =
     let
@@ -2153,6 +2161,10 @@ viewLayout model =
 viewAuthGate : Model -> Element Msg
 viewAuthGate model =
     let
+        authDisplayAppName =
+            currentAppName model
+                |> humanizeIdentifier
+
         firstAdminMode =
             authFirstAdminMode model
 
@@ -2226,7 +2238,7 @@ viewAuthGate model =
                             , Font.bold
                             , centerX
                             ]
-                            (text (currentAppName model))
+                            (text authDisplayAppName)
                         , el
                             [ Font.size 12
                             , Font.color (rgb255 84 121 224)
@@ -3415,6 +3427,15 @@ currentWorkspace model =
         AppWorkspace
 
 
+workspaceForRole : Maybe String -> WorkspaceMode
+workspaceForRole maybeRole =
+    if isAdminRole maybeRole then
+        AdminWorkspace
+
+    else
+        AppWorkspace
+
+
 currentAppName : Model -> String
 currentAppName model =
     case model.schema of
@@ -3442,17 +3463,17 @@ authScopeLabel scope =
 
 isAdminProfile : Model -> Bool
 isAdminProfile model =
-    case model.currentRole of
+    isAdminRole model.currentRole || isAdminRole model.currentSystemRole
+
+
+isAdminRole : Maybe String -> Bool
+isAdminRole maybeRole =
+    case maybeRole of
         Just role ->
             String.toLower (String.trim role) == "admin"
 
         Nothing ->
-            case model.currentSystemRole of
-                Just role ->
-                    String.toLower (String.trim role) == "admin"
-
-                Nothing ->
-                    False
+            False
 
 
 saveSessionFromModel : Model -> Cmd Msg
@@ -3659,17 +3680,26 @@ viewDataPanel model =
 
                         Just entity ->
                             if workspace == AppWorkspace then
-                                entity.name
+                                entityDisplayName entity
 
                             else
-                                entity.name ++ " records"
+                                entityDisplayName entity ++ " records"
 
                 createLabel =
-                    if workspace == AppWorkspace then
-                        "Create"
+                    case model.selectedEntity of
+                        Just entity ->
+                            if workspace == AppWorkspace then
+                                "New " ++ entityDisplayName entity
 
-                    else
-                        "New"
+                            else
+                                "New " ++ entityDisplayName entity
+
+                        Nothing ->
+                            if workspace == AppWorkspace then
+                                "Create"
+
+                            else
+                                "New"
             in
             column
                 [ width (fillPortion 3)
@@ -4404,8 +4434,7 @@ viewDatabasePanelAdmin model =
                         ]
 
                 Nothing ->
-                    paragraph [ Font.size 13, Font.color (rgb255 93 103 120) ]
-                        [ text "No backup executed in this admin session yet." ]
+                    none
 
         backupsSection =
             case model.backups of
@@ -4886,10 +4915,10 @@ viewFormPanel : Model -> Element Msg
 viewFormPanel model =
     case ( model.selectedEntity, model.formMode ) of
         ( Just entity, FormCreate ) ->
-            formCard model entity "Create record"
+            formCard model entity ("Create new " ++ entityDisplayName entity)
 
         ( Just entity, FormEdit _ ) ->
-            formCard model entity "Edit record"
+            formCard model entity ("Edit " ++ entityDisplayName entity)
 
         _ ->
             none
@@ -5025,7 +5054,7 @@ viewSelectedRow model =
 
 networkErrorMessage : String
 networkErrorMessage =
-    "We could not reach the app right now. Please try again in a moment."
+    "We could not connect right now. Please try again in a moment."
 
 
 httpErrorToString : Model -> Http.Error -> String
