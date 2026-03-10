@@ -707,12 +707,12 @@ hero =
                     }
                 , text "."
                 ]
-            , column [ width fill, spacing 10, paddingEach { top = 6, right = 0, bottom = 0, left = 0 } ]
+            , wrappedRow [ width fill, spacing 10, paddingEach { top = 6, right = 0, bottom = 0, left = 0 }, centerX ]
                 [ link
                     (buttonAttributes
                         (rgb255 45 126 210)
                         (rgb255 245 250 255)
-                        ++ [ width (fill |> maximum 260), centerX ]
+                        ++ [ width (px 220) ]
                     )
                     { url = routeHref GettingStarted
                     , label = text "Get Started"
@@ -721,7 +721,7 @@ hero =
                     (buttonAttributes
                         (rgb255 230 239 250)
                         (rgb255 36 82 132)
-                        ++ [ width (fill |> maximum 260), centerX ]
+                        ++ [ width (px 220) ]
                     )
                     { url = routeHref AdvancedGuide
                     , label = text "Advanced Guide"
@@ -1539,6 +1539,13 @@ copyLink model source =
             else
                 "⎘"
 
+        fontSize =
+            if isCopied then
+                "18px"
+
+            else
+                "20px"
+
         titleText =
             if isCopied then
                 "Copied"
@@ -1558,11 +1565,16 @@ copyLink model source =
             [ HtmlAttr.type_ "button"
             , HtmlAttr.class "copy-link"
             , HtmlAttr.style "cursor" "pointer"
-            , HtmlAttr.style "font-size" "17px"
+            , HtmlAttr.style "font-size" fontSize
             , HtmlAttr.style "font-weight" "600"
             , HtmlAttr.style "color" color
             , HtmlAttr.style "line-height" "1"
-            , HtmlAttr.style "padding" "3px 4px"
+            , HtmlAttr.style "padding" "4px 6px"
+            , HtmlAttr.style "width" "30px"
+            , HtmlAttr.style "height" "30px"
+            , HtmlAttr.style "display" "inline-flex"
+            , HtmlAttr.style "align-items" "center"
+            , HtmlAttr.style "justify-content" "center"
             , HtmlAttr.style "background" "transparent"
             , HtmlAttr.style "border" "none"
             , HtmlAttr.style "outline" "none"
