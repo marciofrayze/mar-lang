@@ -914,22 +914,7 @@ features : Element Msg
 features =
     panel
         [ sectionTitle "Why Mar"
-        , whyRow
-            "Friendly errors"
-            "Clear feedback when something is wrong."
-            "Actionable compiler and runtime errors."
-        , whyRow
-            "Secure defaults"
-            "Safe behavior without heavy setup."
-            "Conservative runtime defaults from day one."
-        , whyRow
-            "Typed actions"
-            "Reliable multi-entity writes."
-            "Transactional actions with compile-time checks."
-        , whyRow
-            "Built-in auth and admin"
-            "Core app operations available immediately."
-            "Email auth, role checks, admin panel, monitoring, and backups."
+        , whyLayoutChosen
         ]
 
 
@@ -1087,26 +1072,349 @@ architectureArrow =
         (text "↓")
 
 
-whyRow : String -> String -> String -> Element Msg
-whyRow title text1 text2 =
+whyOptionLabel : String -> Element Msg
+whyOptionLabel label =
+    el
+        [ Font.size 13
+        , Font.semiBold
+        , Font.color (rgb255 84 108 136)
+        , Background.color (rgb255 239 245 252)
+        , Border.rounded 999
+        , paddingEach { top = 4, right = 10, bottom = 4, left = 10 }
+        ]
+        (text label)
+
+
+whyHeadline : Element Msg
+whyHeadline =
+    paragraph [ Font.size 30, Font.bold, Font.color (rgb255 19 49 84), width fill ]
+        [ text "Less glue code. More backend." ]
+
+
+whyDeclarative : Element Msg
+whyDeclarative =
+    whyFeatureStrip "Declarative at its core" "You describe the system at a higher level."
+
+
+whyOpinionated : Element Msg
+whyOpinionated =
+    whyFeatureStrip "Opinionated on purpose" "Mar chooses a coherent runtime instead of exposing endless assembly decisions."
+
+
+whyBundled : Element Msg
+whyBundled =
+    whyFeatureStrip "Everything bundled" "Authentication, authorization, admin tools, logs, monitoring, and built-in database backups come together."
+
+
+whyLayoutOne : Element Msg
+whyLayoutOne =
+    wrappedRow [ width fill, spacing 18 ]
+        [ column
+            [ width (fill |> maximum 360)
+            , spacing 12
+            , padding 20
+            , Background.color (rgb255 22 49 82)
+            , Border.rounded 16
+            ]
+            [ paragraph [ Font.size 30, Font.bold, Font.color (rgb255 246 250 255), width fill ]
+                [ text "Less glue code. More backend." ]
+            ]
+        , column
+            [ width fill
+            , spacing 10
+            ]
+            [ whyDeclarative
+            , whyOpinionated
+            , whyBundled
+            ]
+        ]
+
+
+whyLayoutChosen : Element Msg
+whyLayoutChosen =
+    wrappedRow [ width fill, spacing 18 ]
+        [ column
+            [ width (fill |> maximum 380)
+            , spacing 14
+            , padding 22
+            , Background.color (rgb255 22 49 82)
+            , Border.width 1
+            , Border.color (rgb255 35 74 117)
+            , Border.rounded 16
+            ]
+            [ paragraph [ Font.size 32, Font.bold, Font.color (rgb255 246 250 255), width fill ]
+                [ text "Less glue code. More backend." ]
+            , paragraph [ Font.size 16, Font.color (rgb255 205 220 238), width fill ]
+                [ text "Declarative at its core. Opinionated on purpose. Everything bundled." ]
+            ]
+        , column
+            [ width fill
+            , spacing 10
+            ]
+            [ whyDeclarative
+            , whyOpinionated
+            , whyBundled
+            ]
+        ]
+
+
+whyLayoutTwo : Element Msg
+whyLayoutTwo =
     column
         [ width fill
-        , spacing 14
-        , padding 12
-        , Background.color (rgb255 246 250 255)
+        , spacing 12
+        , padding 18
+        , Background.color (rgb255 247 250 255)
         , Border.width 1
-        , Border.color (rgb255 211 224 241)
-        , Border.rounded 10
+        , Border.color (rgb255 214 225 239)
+        , Border.rounded 16
+        ]
+        [ whyHeadline
+        , wrappedRow [ width fill, spacing 12 ]
+            [ whyGridCard "Declarative by default" "You describe the system at a higher level."
+            , whyGridCard "Opinionated on purpose" "Mar chooses a coherent runtime instead of exposing endless assembly decisions."
+            , whyGridCard "Everything bundled" "Authentication, authorization, admin tools, logs, monitoring, and built-in database backups come together."
+            ]
+        ]
+
+
+whyLayoutThree : Element Msg
+whyLayoutThree =
+    column
+        [ width fill
+        , spacing 12
+        ]
+        [ whyHeadline
+        , whyBand "Declarative by default" "You describe the system at a higher level."
+        , whyBand "Opinionated on purpose" "Mar chooses a coherent runtime instead of exposing endless assembly decisions."
+        , whyBand "Everything bundled" "Authentication, authorization, admin tools, logs, monitoring, and built-in database backups come together."
+        ]
+
+
+whyGridCard : String -> String -> Element Msg
+whyGridCard title description =
+    column
+        [ width (fill |> maximum 500)
+        , spacing 8
+        , padding 16
+        , Background.color (rgb255 248 251 255)
+        , Border.width 1
+        , Border.color (rgb255 214 225 239)
+        , Border.rounded 14
+        ]
+        [ paragraph [ Font.size 19, Font.bold, Font.color (rgb255 31 51 76), width fill ]
+            [ text title ]
+        , paragraph [ Font.size 15, Font.color (rgb255 83 101 124), width fill ]
+            [ text description ]
+        ]
+
+
+whyLayoutFour : Element Msg
+whyLayoutFour =
+    wrappedRow [ width fill, spacing 12 ]
+        [ whyMiniCard "Less glue code. More backend." " "
+        , whyMiniCard "Declarative by default" "You describe the system at a higher level."
+        , whyMiniCard "Opinionated on purpose" "Mar chooses a coherent runtime instead of exposing endless assembly decisions."
+        , whyMiniCard "Everything bundled" "Authentication, authorization, admin tools, logs, monitoring, and built-in database backups come together."
+        ]
+
+
+whyLayoutFive : Element Msg
+whyLayoutFive =
+    column [ width fill, spacing 10 ]
+        [ whyHeadline
+        , wrappedRow [ width fill, spacing 10 ]
+            [ whyMinimalCard "Declarative by default"
+            , whyMinimalCard "Opinionated on purpose"
+            , whyMinimalCard "Everything bundled"
+            ]
+        ]
+
+
+whyLayoutSix : Element Msg
+whyLayoutSix =
+    wrappedRow [ width fill, spacing 18 ]
+        [ column [ width (fill |> maximum 320), spacing 10 ]
+            [ whyHeadline
+            , bodyText "A backend should not require a long trail of handwritten infrastructure before it starts to feel whole."
+            ]
+        , column [ width fill, spacing 8 ]
+            [ whyChecklistItem "Declarative by default"
+            , whyChecklistItem "Opinionated on purpose"
+            , whyChecklistItem "Everything bundled"
+            ]
+        ]
+
+
+whyLayoutSeven : Element Msg
+whyLayoutSeven =
+    column
+        [ width fill
+        , spacing 12
+        , padding 22
+        , Background.color (rgb255 22 49 82)
+        , Border.width 1
+        , Border.color (rgb255 35 74 117)
+        , Border.rounded 16
+        ]
+        [ paragraph [ Font.size 32, Font.bold, Font.color (rgb255 246 250 255), width fill, centerX ]
+            [ text "Less glue code. More backend." ]
+        , paragraph [ Font.size 16, Font.color (rgb255 205 220 238), width fill, centerX ]
+            [ text "Declarative by default. Opinionated on purpose. Everything bundled." ]
+        ]
+
+
+whyLayoutEight : Element Msg
+whyLayoutEight =
+    column [ width fill, spacing 10 ]
+        [ whyHeadline
+        , wrappedRow [ width fill, spacing 10 ]
+            [ whyFeatureStrip "Declarative by default" "You describe the system at a higher level."
+            , whyFeatureStrip "Opinionated on purpose" "Mar chooses a coherent runtime instead of exposing endless assembly decisions."
+            ]
+        , whyFeatureStrip "Everything bundled" "Authentication, authorization, admin tools, logs, monitoring, and built-in database backups come together."
+        ]
+
+
+whyLayoutNine : Element Msg
+whyLayoutNine =
+    wrappedRow [ width fill, spacing 14 ]
+        [ column
+            [ width (fill |> maximum 420)
+            , spacing 12
+            ]
+            [ whyHeadline
+            , bodyText "Mar is most compelling when you want the backend stack to make stronger decisions for you."
+            ]
+        , column
+            [ width fill
+            , spacing 8
+            ]
+            [ whySimpleBullet "Declarative by default"
+            , whySimpleBullet "Opinionated on purpose"
+            , whySimpleBullet "Everything bundled"
+            ]
+        ]
+
+
+whyLayoutTen : Element Msg
+whyLayoutTen =
+    column [ width fill, spacing 12 ]
+        [ whyHeadline
+        , column
+            [ width fill
+            , spacing 8
+            , padding 18
+            , Background.color (rgb255 248 251 255)
+            , Border.width 1
+            , Border.color (rgb255 214 225 239)
+            , Border.rounded 16
+            ]
+            [ whySimpleBullet "Declarative by default"
+            , whySimpleBullet "Opinionated on purpose"
+            , whySimpleBullet "Everything bundled"
+            ]
+        ]
+
+
+whyMiniCard : String -> String -> Element Msg
+whyMiniCard title description =
+    column
+        [ width (fill |> maximum 240)
+        , spacing 6
+        , padding 14
+        , Background.color (rgb255 248 251 255)
+        , Border.width 1
+        , Border.color (rgb255 214 225 239)
+        , Border.rounded 14
+        ]
+        [ paragraph [ Font.size 17, Font.bold, Font.color (rgb255 30 48 72), width fill ]
+            [ text title ]
+        , paragraph [ Font.size 14, Font.color (rgb255 83 101 124), width fill ]
+            [ text description ]
+        ]
+
+
+whyChecklistItem : String -> Element Msg
+whyChecklistItem value =
+    row [ width fill, spacing 10 ]
+        [ el
+            [ Font.size 14
+            , Font.bold
+            , Font.color (rgb255 28 122 84)
+            , Background.color (rgb255 232 247 240)
+            , Border.rounded 999
+            , paddingEach { top = 3, right = 7, bottom = 3, left = 7 }
+            ]
+            (text "✓")
+        , paragraph [ width fill, Font.size 15, Font.color (rgb255 76 93 117) ] [ text value ]
+        ]
+
+
+whySimpleBullet : String -> Element Msg
+whySimpleBullet value =
+    row [ width fill, spacing 10 ]
+        [ el [ Font.color (rgb255 101 122 148), Font.bold ] (text "•")
+        , paragraph [ width fill, Font.size 15, Font.color (rgb255 76 93 117) ] [ text value ]
+        ]
+
+
+whyBand : String -> String -> Element Msg
+whyBand title description =
+    column
+        [ width fill
+        , spacing 4
+        , padding 16
+        , Background.color (rgb255 247 250 255)
+        , Border.width 1
+        , Border.color (rgb255 216 226 239)
+        , Border.rounded 14
+        ]
+        [ paragraph [ Font.size 21, Font.bold, Font.color (rgb255 30 48 72), width fill ]
+            [ text title ]
+        , paragraph [ Font.size 15, Font.color (rgb255 83 101 124), width fill ]
+            [ text description ]
+        ]
+
+
+whyMinimalCard : String -> Element Msg
+whyMinimalCard title =
+    el
+        [ Background.color (rgb255 246 250 255)
+        , Border.width 1
+        , Border.color (rgb255 214 225 239)
+        , Border.rounded 999
+        , paddingEach { top = 10, right = 14, bottom = 10, left = 14 }
+        , Font.size 15
+        , Font.semiBold
+        , Font.color (rgb255 33 56 84)
+        ]
+        (text title)
+
+
+whyFeatureStrip : String -> String -> Element Msg
+whyFeatureStrip title description =
+    row
+        [ width fill
+        , spacing 14
+        , padding 14
+        , Background.color (rgb255 248 251 255)
+        , Border.width 1
+        , Border.color (rgb255 214 225 239)
+        , Border.rounded 14
         ]
         [ el
-            [ Font.size 18
+            [ Font.size 22
             , Font.bold
-            , Font.color (rgb255 42 58 77)
+            , Font.color (rgb255 92 126 168)
+            , paddingEach { top = 2, right = 6, bottom = 0, left = 2 }
             ]
-            (text title)
+            (text "→")
         , column [ width fill, spacing 4 ]
-            [ paragraph [ Font.size 16, Font.color (rgb255 93 107 126) ] [ text text1 ]
-            , paragraph [ Font.size 16, Font.color (rgb255 68 86 108), Font.semiBold ] [ text text2 ]
+            [ paragraph [ Font.size 19, Font.bold, Font.color (rgb255 31 51 76), width fill ]
+                [ text title ]
+            , paragraph [ Font.size 15, Font.color (rgb255 83 101 124), width fill ]
+                [ text description ]
             ]
         ]
 
