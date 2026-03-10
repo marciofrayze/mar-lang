@@ -23,7 +23,7 @@ var (
 
 	entityFieldRe = regexp.MustCompile(`^([a-z][A-Za-z0-9_]*)\s*:\s*(Int|String|Bool|Float)(?:\s+(.*))?$`)
 	ruleRe        = regexp.MustCompile(`^rule\s+"([^"]+)"\s+when\s+(.+)$`)
-	authorizeRe   = regexp.MustCompile(`^authorize\s+(list|get|create|update|delete)\s+when\s+(.+)$`)
+	authorizeRe   = regexp.MustCompile(`^authorize\s+(all|list|get|create|update|delete)\s+when\s+(.+)$`)
 	systemIntRe   = regexp.MustCompile(`^(request_logs_buffer|sqlite_busy_timeout_ms|sqlite_wal_autocheckpoint|auth_request_code_rate_limit_per_minute|auth_login_rate_limit_per_minute|admin_ui_session_ttl_hours)\s+([0-9]{1,7})$`)
 	systemModeRe  = regexp.MustCompile(`^(sqlite_journal_mode)\s+(wal|delete|truncate|persist|memory|off)$`)
 	systemSyncRe  = regexp.MustCompile(`^(sqlite_synchronous)\s+(off|normal|full|extra)$`)
@@ -34,7 +34,7 @@ var (
 	systemMBRe    = regexp.MustCompile(`^(sqlite_mmap_size_mb|http_max_request_body_mb)\s+([0-9]{1,5})$`)
 	systemKBRe    = regexp.MustCompile(`^(sqlite_cache_size_kb)\s+([0-9]{1,7})$`)
 	publicQuoteRe = regexp.MustCompile(`^(dir|mount|spa_fallback)\s+"([^"]+)"$`)
-	authStmtRe    = regexp.MustCompile(`^(user_entity|email_field|role_field|code_ttl_minutes|session_ttl_hours|email_transport)\s+(.+)$`)
+	authStmtRe    = regexp.MustCompile(`^(code_ttl_minutes|session_ttl_hours|email_transport)\s+(.+)$`)
 	authQuoteRe   = regexp.MustCompile(`^(email_from|email_subject|sendmail_path)\s+"([^"]+)"$`)
 
 	aliasFieldRe        = regexp.MustCompile(`^([a-z][A-Za-z0-9_]*)\s*:\s*(Int|String|Bool|Float)\s*$`)

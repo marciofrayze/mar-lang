@@ -16,7 +16,6 @@ import (
 	"mar/internal/model"
 )
 
-const internalAuthUsersTable = "mar_auth_users"
 const sessionCookieName = "mar_session"
 const adminUISessionHeader = "X-Mar-Admin-UI"
 
@@ -25,6 +24,7 @@ func (r *Runtime) authConfig() model.AuthConfig {
 		return *r.App.Auth
 	}
 	return model.AuthConfig{
+		UserEntity:      "User",
 		EmailField:      "email",
 		RoleField:       "role",
 		CodeTTLMinutes:  10,
@@ -37,7 +37,7 @@ func (r *Runtime) authConfig() model.AuthConfig {
 }
 
 func (r *Runtime) usesAppAuthEntity() bool {
-	return r.appAuthEnabled() && r.authUser != nil
+	return r.authUser != nil
 }
 
 // resolveAuth resolves a bearer token into an active session and hydrated auth user.
@@ -80,17 +80,9 @@ func (r *Runtime) resolveAuth(req *http.Request, requestID string) (authSession,
 	if !ok {
 		return authSession{}, nil
 	}
-	user := userRow
+	user := decodeEntityRow(r.authUser, userRow)
 	cfg := r.authConfig()
-	role := any(nil)
-	if r.usesAppAuthEntity() {
-		user = decodeEntityRow(r.authUser, userRow)
-		if cfg.RoleField != "" {
-			role = user[cfg.RoleField]
-		}
-	} else {
-		role = userRow["role"]
-	}
+	role := user[cfg.RoleField]
 
 	email, _ := row["email"].(string)
 	return authSession{
@@ -176,36 +168,21 @@ func (r *Runtime) requestedAdminUISessionTTLHours(req *http.Request) int {
 
 func (r *Runtime) loadAuthUserByEmail(requestID, email string) (map[string]any, bool, error) {
 	cfg := r.authConfig()
-	tableName := internalAuthUsersTable
-	emailFieldName := cfg.EmailField
-	if r.usesAppAuthEntity() {
-		tableName = r.authUser.Table
-	}
-	table, _ := quoteIdentifier(tableName)
-	emailField, _ := quoteIdentifier(emailFieldName)
+	table, _ := quoteIdentifier(r.authUser.Table)
+	emailField, _ := quoteIdentifier(cfg.EmailField)
 	query := fmt.Sprintf("SELECT * FROM %s WHERE %s = ? COLLATE NOCASE LIMIT 1", table, emailField)
 	return queryRowForRequest(r.DB, requestID, query, email)
 }
 
 func (r *Runtime) loadAuthUserByID(requestID string, id any) (map[string]any, bool, error) {
-	tableName := internalAuthUsersTable
-	primaryKey := "id"
-	if r.usesAppAuthEntity() {
-		tableName = r.authUser.Table
-		primaryKey = r.authUser.PrimaryKey
-	}
-	table, _ := quoteIdentifier(tableName)
-	pk, _ := quoteIdentifier(primaryKey)
+	table, _ := quoteIdentifier(r.authUser.Table)
+	pk, _ := quoteIdentifier(r.authUser.PrimaryKey)
 	query := fmt.Sprintf("SELECT * FROM %s WHERE %s = ? LIMIT 1", table, pk)
 	return queryRowForRequest(r.DB, requestID, query, id)
 }
 
 func (r *Runtime) countAuthUsers(requestID string) (int64, error) {
-	tableName := internalAuthUsersTable
-	if r.usesAppAuthEntity() {
-		tableName = r.authUser.Table
-	}
-	table, _ := quoteIdentifier(tableName)
+	table, _ := quoteIdentifier(r.authUser.Table)
 	row, ok, err := queryRowForRequest(r.DB, requestID, fmt.Sprintf("SELECT COUNT(*) AS total FROM %s", table))
 	if err != nil {
 		return 0, err
@@ -222,11 +199,7 @@ func (r *Runtime) countAuthUsersByRole(requestID, role string) (int64, error) {
 	if strings.TrimSpace(cfg.RoleField) == "" {
 		return r.countAuthUsers(requestID)
 	}
-	tableName := internalAuthUsersTable
-	if r.usesAppAuthEntity() {
-		tableName = r.authUser.Table
-	}
-	table, _ := quoteIdentifier(tableName)
+	table, _ := quoteIdentifier(r.authUser.Table)
 	roleField, _ := quoteIdentifier(cfg.RoleField)
 	row, ok, err := queryRowForRequest(r.DB, requestID, fmt.Sprintf("SELECT COUNT(*) AS total FROM %s WHERE lower(%s) = lower(?)", table, roleField), role)
 	if err != nil {
@@ -267,21 +240,13 @@ func (r *Runtime) handleAuthRequestCode(w http.ResponseWriter, requestID string,
 		r.writeJSON(w, http.StatusOK, map[string]any{"ok": true, "message": "If this email exists, a code was sent."})
 		return nil
 	}
-	userID := user["id"]
-	if r.usesAppAuthEntity() {
-		userID = user[r.authUser.PrimaryKey]
-	}
+	userID := user[r.authUser.PrimaryKey]
 	return r.issueAuthCode(w, requestID, email, userID, "If this email exists, a code was sent.", "")
 }
 
 // handleBootstrapAdmin creates the first auth user and sends a verification code.
 // The user is promoted to admin only after a successful login with that code.
 func (r *Runtime) handleBootstrapAdmin(w http.ResponseWriter, requestID string, payload map[string]any) error {
-	cfg := r.authConfig()
-	if strings.TrimSpace(cfg.RoleField) == "" {
-		return newAPIError(http.StatusBadRequest, "bootstrap_role_field_required", "auth.role_field is required for admin bootstrap")
-	}
-
 	totalUsers, err := r.countAuthUsers(requestID)
 	if err != nil {
 		return err
@@ -303,9 +268,6 @@ func (r *Runtime) handleBootstrapAdmin(w http.ResponseWriter, requestID string, 
 		return newAPIError(http.StatusUnprocessableEntity, "bootstrap_user_creation_failed", "Could not create first user. Add optional/default fields or create one manually.")
 	}
 	userID := user["id"]
-	if r.usesAppAuthEntity() {
-		userID = user[r.authUser.PrimaryKey]
-	}
 	return r.issueAuthCode(w, requestID, email, userID, "First admin verification code sent. Complete login with this code to finish setup.", "admin")
 }
 
@@ -373,43 +335,6 @@ func (r *Runtime) tryAutoCreateAuthUser(requestID, email string) (map[string]any
 
 func (r *Runtime) tryAutoCreateAuthUserWithRole(requestID, email, roleValue string) (map[string]any, bool, error) {
 	cfg := r.authConfig()
-	if !r.usesAppAuthEntity() {
-		user, found, err := r.loadAuthUserByEmail(requestID, email)
-		if err != nil {
-			return nil, false, err
-		}
-		if found {
-			if strings.EqualFold(strings.TrimSpace(roleValue), "admin") {
-				promoted, promoteErr := r.promoteAuthUserToAdmin(requestID, user)
-				if promoteErr != nil {
-					return nil, false, promoteErr
-				}
-				return promoted, true, nil
-			}
-			return user, true, nil
-		}
-
-		now := time.Now().UnixMilli()
-		table, err := quoteIdentifier(internalAuthUsersTable)
-		if err != nil {
-			return nil, false, err
-		}
-		if _, err := r.DB.ExecTagged(
-			requestID,
-			fmt.Sprintf("INSERT INTO %s (email, role, created_at) VALUES (?, ?, ?)", table),
-			email,
-			roleValue,
-			now,
-		); err != nil {
-			user, found, loadErr := r.loadAuthUserByEmail(requestID, email)
-			if loadErr == nil && found {
-				return user, true, nil
-			}
-			return nil, false, err
-		}
-		return r.loadAuthUserByEmail(requestID, email)
-	}
-
 	columns := make([]string, 0, len(r.authUser.Fields))
 	placeholders := make([]string, 0, len(r.authUser.Fields))
 	values := make([]any, 0, len(r.authUser.Fields))
@@ -530,10 +455,7 @@ func (r *Runtime) handleAuthLogin(w http.ResponseWriter, req *http.Request, requ
 		userRow = promotedUser
 	}
 
-	decodedUser := userRow
-	if r.usesAppAuthEntity() {
-		decodedUser = decodeEntityRow(r.authUser, userRow)
-	}
+	decodedUser := decodeEntityRow(r.authUser, userRow)
 
 	token, err := randomToken(32)
 	if err != nil {
@@ -569,17 +491,11 @@ func (r *Runtime) promoteAuthUserToAdmin(requestID string, user map[string]any) 
 		return user, nil
 	}
 
-	tableName := internalAuthUsersTable
-	primaryKey := "id"
-	if r.usesAppAuthEntity() {
-		tableName = r.authUser.Table
-		primaryKey = r.authUser.PrimaryKey
-	}
-	table, err := quoteIdentifier(tableName)
+	table, err := quoteIdentifier(r.authUser.Table)
 	if err != nil {
 		return nil, err
 	}
-	pk, err := quoteIdentifier(primaryKey)
+	pk, err := quoteIdentifier(r.authUser.PrimaryKey)
 	if err != nil {
 		return nil, err
 	}
@@ -588,10 +504,7 @@ func (r *Runtime) promoteAuthUserToAdmin(requestID string, user map[string]any) 
 		return nil, err
 	}
 
-	userID := user["id"]
-	if r.usesAppAuthEntity() {
-		userID = user[r.authUser.PrimaryKey]
-	}
+	userID := user[r.authUser.PrimaryKey]
 	if userID == nil {
 		return user, nil
 	}

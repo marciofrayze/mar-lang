@@ -2,7 +2,7 @@
 -- Application
 -- =========================================
 
-app TodoApi
+app Todo
 port 4100
 database "todo.db"
 
@@ -14,4 +14,6 @@ entity Todo {
   id: Int primary auto
   title: String
   done: Bool
+
+  authorize all when auth_authenticated
 }

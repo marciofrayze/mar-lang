@@ -131,18 +131,6 @@
           }
         },
         {
-          "name": "meta.auth.user-entity.mar",
-          "match": "\\b(user_entity)\\s+([A-Z][A-Za-z0-9_]*)\\b",
-          "captures": {
-            "1": {
-              "name": "keyword.other.auth.mar"
-            },
-            "2": {
-              "name": "entity.name.type.mar"
-            }
-          }
-        },
-        {
           "name": "meta.action.declaration.mar",
           "match": "\\b(action)\\s+([a-z][A-Za-z0-9_]*)\\s*(\\{)",
           "captures": {
@@ -201,7 +189,7 @@
         },
         {
           "name": "meta.authorize.action.mar",
-          "match": "\\b(authorize)\\s+(list|get|create|update|delete)\\b",
+          "match": "\\b(authorize)\\s+(all|list|get|create|update|delete)\\b",
           "captures": {
             "1": {
               "name": "keyword.control.authorization.mar"
@@ -252,7 +240,7 @@
         },
         {
           "name": "keyword.other.auth.mar",
-          "match": "\\b(user_entity|email_field|role_field|code_ttl_minutes|session_ttl_hours|email_transport|email_from|email_subject|sendmail_path)\\b"
+          "match": "\\b(code_ttl_minutes|session_ttl_hours|email_transport|email_from|email_subject|sendmail_path)\\b"
         },
         {
           "name": "keyword.other.public.mar",

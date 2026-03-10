@@ -29,9 +29,6 @@ var (
 		"action",
 	}
 	authStatementCandidates = []string{
-		"user_entity",
-		"email_field",
-		"role_field",
 		"code_ttl_minutes",
 		"session_ttl_hours",
 		"email_transport",
@@ -106,6 +103,8 @@ type line struct {
 func Parse(source string) (*model.App, error) {
 	lines := splitLines(source)
 	idx := 0
+	var userExtension *model.Entity
+	seenEntities := map[string]bool{}
 
 	app := &model.App{
 		Port:     3000,
@@ -193,10 +192,25 @@ func Parse(source string) (*model.App, error) {
 
 		if m := match(`^entity\s+([A-Za-z][A-Za-z0-9_]*)\s*\{$`, trimmed); m != nil {
 			entityName := m[1]
+			if entityName == "User" {
+				if userExtension != nil {
+					return nil, fmt.Errorf("line %d: entity User already declared", cur.number)
+				}
+				entity, err := parseUserExtensionBlock(lines, &idx)
+				if err != nil {
+					return nil, err
+				}
+				userExtension = entity
+				continue
+			}
+			if seenEntities[entityName] {
+				return nil, fmt.Errorf("line %d: entity %q already declared", cur.number, entityName)
+			}
 			entity, err := parseEntityBlock(lines, &idx, entityName)
 			if err != nil {
 				return nil, err
 			}
+			seenEntities[entityName] = true
 			app.Entities = append(app.Entities, *entity)
 			continue
 		}
@@ -225,8 +239,11 @@ func Parse(source string) (*model.App, error) {
 	if app.AppName == "" {
 		return nil, fmt.Errorf("missing app declaration")
 	}
-	if len(app.Entities) == 0 {
-		return nil, fmt.Errorf("at least one entity is required")
+	if app.Auth == nil {
+		app.Auth = defaultAuthConfig()
+	}
+	if err := injectImplicitUserEntity(app, userExtension); err != nil {
+		return nil, err
 	}
 	if err := validateAuthConfig(app); err != nil {
 		return nil, err
@@ -238,9 +255,9 @@ func Parse(source string) (*model.App, error) {
 	return app, nil
 }
 
-// parseAuthBlock parses the auth configuration block and applies defaults.
-func parseAuthBlock(lines []line, idx *int) (*model.AuthConfig, error) {
-	auth := &model.AuthConfig{
+func defaultAuthConfig() *model.AuthConfig {
+	return &model.AuthConfig{
+		UserEntity:      "User",
 		EmailField:      "email",
 		RoleField:       "role",
 		CodeTTLMinutes:  10,
@@ -250,6 +267,11 @@ func parseAuthBlock(lines []line, idx *int) (*model.AuthConfig, error) {
 		EmailSubject:    "Your Mar login code",
 		SendmailPath:    "/usr/sbin/sendmail",
 	}
+}
+
+// parseAuthBlock parses the auth configuration block and applies defaults.
+func parseAuthBlock(lines []line, idx *int) (*model.AuthConfig, error) {
+	auth := defaultAuthConfig()
 
 	(*idx)++
 	for *idx < len(lines) {
@@ -261,25 +283,10 @@ func parseAuthBlock(lines []line, idx *int) (*model.AuthConfig, error) {
 		}
 		if trimmed == "}" {
 			(*idx)++
-			if auth.UserEntity == "" {
-				return nil, fmt.Errorf("line %d: auth.user_entity is required", ln.number)
-			}
 			return auth, nil
 		}
 
 		var matched bool
-		if m := match(`^user_entity\s+([A-Za-z][A-Za-z0-9_]*)$`, trimmed); m != nil {
-			auth.UserEntity = m[1]
-			matched = true
-		}
-		if m := match(`^email_field\s+([a-z][A-Za-z0-9_]*)$`, trimmed); m != nil {
-			auth.EmailField = m[1]
-			matched = true
-		}
-		if m := match(`^role_field\s+([a-z][A-Za-z0-9_]*)$`, trimmed); m != nil {
-			auth.RoleField = m[1]
-			matched = true
-		}
 		if m := match(`^code_ttl_minutes\s+([0-9]{1,4})$`, trimmed); m != nil {
 			value := mustInt(m[1])
 			if value < minCodeTTLMinutes || value > maxCodeTTLMinutes {
@@ -329,6 +336,116 @@ func parseAuthBlock(lines []line, idx *int) (*model.AuthConfig, error) {
 	}
 
 	return nil, fmt.Errorf("auth block is missing closing }")
+}
+
+func parseUserExtensionBlock(lines []line, idx *int) (*model.Entity, error) {
+	ent := &model.Entity{Name: "User"}
+	rawRules := make([]model.Rule, 0, 4)
+	rawAuthz := make([]model.Authorization, 0, 4)
+
+	(*idx)++
+	for *idx < len(lines) {
+		ln := lines[*idx]
+		trimmed := strings.TrimSpace(ln.text)
+		if isCommentOrBlank(trimmed) {
+			(*idx)++
+			continue
+		}
+		if trimmed == "}" {
+			(*idx)++
+			ent.Rules = rawRules
+			ent.Authorizations = rawAuthz
+			return ent, nil
+		}
+
+		if m := match(`^rule\s+"([^"]+)"\s+when\s+(.+)$`, trimmed); m != nil {
+			rawRules = append(rawRules, model.Rule{Message: strings.TrimSpace(m[1]), Expression: strings.TrimSpace(m[2])})
+			(*idx)++
+			continue
+		}
+
+		if m := match(`^authorize\s+(all|list|get|create|update|delete)\s+when\s+(.+)$`, trimmed); m != nil {
+			rawAuthz = append(rawAuthz, model.Authorization{Action: m[1], Expression: strings.TrimSpace(m[2])})
+			(*idx)++
+			continue
+		}
+
+		if m := match(`^([a-z][A-Za-z0-9_]*)\s*:\s*(Int|String|Bool|Float)(?:\s+(.*))?$`, trimmed); m != nil {
+			fieldName := m[1]
+			field := model.Field{Name: fieldName, Type: m[2]}
+			attrs := strings.Fields(strings.TrimSpace(m[3]))
+			for _, attr := range attrs {
+				switch attr {
+				case "primary":
+					field.Primary = true
+				case "auto":
+					field.Auto = true
+				case "optional":
+					field.Optional = true
+				case "":
+				default:
+					return nil, fmt.Errorf("line %d: unknown field attribute %q", ln.number, attr)
+				}
+			}
+			if isBuiltInUserField(fieldName) {
+				if !matchesBuiltInUserField(field) {
+					return nil, fmt.Errorf("line %d: entity User cannot redefine built-in field %q", ln.number, fieldName)
+				}
+				(*idx)++
+				continue
+			}
+			ent.Fields = append(ent.Fields, field)
+			(*idx)++
+			continue
+		}
+
+		return nil, fmt.Errorf("line %d: invalid entity statement %q", ln.number, trimmed)
+	}
+
+	return nil, fmt.Errorf("entity User is missing closing }")
+}
+
+func isBuiltInUserField(name string) bool {
+	return name == "id" || name == "email" || name == "role"
+}
+
+func matchesBuiltInUserField(field model.Field) bool {
+	switch field.Name {
+	case "id":
+		return field.Type == "Int" && field.Primary && field.Auto && !field.Optional
+	case "email":
+		return field.Type == "String" && !field.Primary && !field.Auto && !field.Optional
+	case "role":
+		return field.Type == "String" && !field.Primary && !field.Auto && !field.Optional
+	default:
+		return false
+	}
+}
+
+func injectImplicitUserEntity(app *model.App, extension *model.Entity) error {
+	user := model.Entity{
+		Name: "User",
+		Fields: []model.Field{
+			{Name: "id", Type: "Int", Primary: true, Auto: true},
+			{Name: "email", Type: "String"},
+			{Name: "role", Type: "String"},
+		},
+	}
+
+	rawRules := []model.Rule{}
+	rawAuthz := []model.Authorization{}
+	if extension != nil {
+		user.Fields = append(user.Fields, extension.Fields...)
+		rawRules = append(rawRules, extension.Rules...)
+		rawAuthz = append(rawAuthz, extension.Authorizations...)
+	}
+
+	if err := finalizeEntity(&user, rawRules, rawAuthz); err != nil {
+		return err
+	}
+
+	app.Entities = append([]model.Entity{user}, app.Entities...)
+	return nil
 }
 
 // parsePublicBlock parses static frontend embedding config.
@@ -683,7 +800,7 @@ func parseEntityBlock(lines []line, idx *int, name string) (*model.Entity, error
 			continue
 		}
 
-		if m := match(`^authorize\s+(list|get|create|update|delete)\s+when\s+(.+)$`, trimmed); m != nil {
+		if m := match(`^authorize\s+(all|list|get|create|update|delete)\s+when\s+(.+)$`, trimmed); m != nil {
 			rawAuthz = append(rawAuthz, model.Authorization{Action: m[1], Expression: strings.TrimSpace(m[2])})
 			(*idx)++
 			continue
@@ -724,10 +841,15 @@ func finalizeEntity(ent *model.Entity, rawRules []model.Rule, rawAuthz []model.A
 	}
 
 	primaryCount := 0
+	seenFields := map[string]bool{}
 	for _, f := range ent.Fields {
 		if !fieldNameRe.MatchString(f.Name) {
 			return fmt.Errorf("field name %q in %s is invalid", f.Name, ent.Name)
 		}
+		if seenFields[f.Name] {
+			return fmt.Errorf("duplicate field %q in %s", f.Name, ent.Name)
+		}
+		seenFields[f.Name] = true
 		if f.Primary {
 			primaryCount++
 		}
@@ -774,7 +896,6 @@ func finalizeEntity(ent *model.Entity, rawRules []model.Rule, rawAuthz []model.A
 		ent.Rules = append(ent.Rules, rule)
 	}
 
-	seenAction := map[string]bool{}
 	authVars := map[string]struct{}{
 		"auth_authenticated": {},
 		"auth_email":         {},
@@ -784,6 +905,10 @@ func finalizeEntity(ent *model.Entity, rawRules []model.Rule, rawAuthz []model.A
 	for name := range allowedVars {
 		authVars[name] = struct{}{}
 	}
+	authorizeOps := []string{"list", "get", "create", "update", "delete"}
+	seenAction := map[string]bool{}
+	var allExpression string
+	var hasAll bool
 	for _, authz := range rawAuthz {
 		if seenAction[authz.Action] {
 			return fmt.Errorf("duplicate authorize rule for %q", authz.Action)
@@ -792,7 +917,27 @@ func finalizeEntity(ent *model.Entity, rawRules []model.Rule, rawAuthz []model.A
 		if _, err := expr.Parse(authz.Expression, expr.ParserOptions{AllowedVariables: authVars, AllowRoleFunc: true}); err != nil {
 			return fmt.Errorf("invalid authorization expression %q (%w)", authz.Expression, err)
 		}
+		if authz.Action == "all" {
+			hasAll = true
+			allExpression = authz.Expression
+			continue
+		}
 		ent.Authorizations = append(ent.Authorizations, authz)
+	}
+	if hasAll {
+		resolved := make([]model.Authorization, 0, len(authorizeOps))
+		specificByAction := map[string]string{}
+		for _, authz := range ent.Authorizations {
+			specificByAction[authz.Action] = authz.Expression
+		}
+		for _, action := range authorizeOps {
+			expression := allExpression
+			if specific, ok := specificByAction[action]; ok {
+				expression = specific
+			}
+			resolved = append(resolved, model.Authorization{Action: action, Expression: expression})
+		}
+		ent.Authorizations = resolved
 	}
 
 	return nil

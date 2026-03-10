@@ -50,7 +50,7 @@ func (r *Runtime) compileExpressions() error {
 	}
 
 	if r.appAuthEnabled() && r.authUser == nil {
-		return fmt.Errorf("auth.user_entity %q not found", r.App.Auth.UserEntity)
+		return fmt.Errorf("built-in User entity not found")
 	}
 	return nil
 }

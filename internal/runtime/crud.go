@@ -226,7 +226,7 @@ func (r *Runtime) ensureAuthorized(entity *model.Entity, action string, auth aut
 		if !auth.Authenticated {
 			return newAPIError(http.StatusUnauthorized, "auth_required", "Authentication required")
 		}
-		return nil
+		return newAPIError(http.StatusForbidden, "not_authorized", fmt.Sprintf("Not authorized to %s %s", action, entity.Name))
 	}
 
 	ctx := map[string]any{}

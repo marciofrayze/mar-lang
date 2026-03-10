@@ -156,13 +156,13 @@ entity Todo {
 		t.Fatalf("runtime.New failed: %v", err)
 	}
 
-	_, err = r.DB.Exec(`INSERT INTO mar_auth_users (email, role, created_at) VALUES (?, ?, 0)`, "user@example.com", "user")
+	_, err = r.DB.Exec(`INSERT INTO users (email, role) VALUES (?, ?)`, "user@example.com", "user")
 	if err != nil {
 		t.Fatalf("first insert failed: %v", err)
 	}
-	_, err = r.DB.Exec(`INSERT INTO mar_auth_users (email, role, created_at) VALUES (?, ?, 0)`, "USER@example.com", "admin")
+	_, err = r.DB.Exec(`INSERT INTO users (email, role) VALUES (?, ?)`, "USER@example.com", "admin")
 	if err == nil {
-		t.Fatal("expected duplicate internal auth email to fail")
+		t.Fatal("expected duplicate built-in auth email to fail")
 	}
 	if !strings.Contains(strings.ToLower(err.Error()), "unique") {
 		t.Fatalf("expected unique constraint error, got %v", err)
@@ -183,9 +183,6 @@ entity User {
 }
 
 auth {
-  user_entity User
-  email_field email
-  role_field role
 }
 `)
 	app.Database = dbPath

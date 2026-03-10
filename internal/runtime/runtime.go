@@ -152,9 +152,7 @@ func New(app *model.App) (*Runtime, error) {
 		action := &app.Actions[i]
 		r.actionsByName[action.Name] = action
 	}
-	if app.Auth != nil {
-		r.authUser = r.entitiesByName[app.Auth.UserEntity]
-	}
+	r.authUser = r.entitiesByName["User"]
 
 	if err := r.compileExpressions(); err != nil {
 		return nil, err
@@ -573,7 +571,7 @@ func (r *Runtime) authEnabled() bool {
 }
 
 func (r *Runtime) appAuthEnabled() bool {
-	return r.App.Auth != nil
+	return r != nil && r.authUser != nil
 }
 
 var identifierRe = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)

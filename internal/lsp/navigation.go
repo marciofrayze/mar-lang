@@ -75,12 +75,10 @@ var (
 	actionInputRefRe    = regexp.MustCompile(`\binput\.([a-z][A-Za-z0-9_]*)\b`)
 
 	ruleLineRe      = regexp.MustCompile(`^\s*rule\s+"[^"]+"\s+when\s+(.+)$`)
-	authorizeLineRe = regexp.MustCompile(`^\s*authorize\s+(?:list|get|create|update|delete)\s+when\s+(.+)$`)
+	authorizeLineRe = regexp.MustCompile(`^\s*authorize\s+(?:all|list|get|create|update|delete)\s+when\s+(.+)$`)
 	wordRe          = regexp.MustCompile(`\b[A-Za-z_][A-Za-z0-9_]*\b`)
 
-	authOpenRe       = regexp.MustCompile(`^\s*auth\s*\{\s*$`)
-	authUserEntityRe = regexp.MustCompile(`^\s*user_entity\s+([A-Za-z][A-Za-z0-9_]*)\s*$`)
-	authFieldRefRe   = regexp.MustCompile(`^\s*(email_field|role_field)\s+([a-z][A-Za-z0-9_]*)\s*$`)
+	authOpenRe = regexp.MustCompile(`^\s*auth\s*\{\s*$`)
 
 	upperIdentifierRe = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_]*$`)
 	lowerIdentifierRe = regexp.MustCompile(`^[a-z][A-Za-z0-9_]*$`)
@@ -407,7 +405,6 @@ func indexReferences(uri, text string, catalog *symbolCatalog, index *workspaceS
 	currentEntity := ""
 	currentAlias := ""
 	inAuth := false
-	authUserEntity := ""
 	activeAction := ""
 	activeActionInputAlias := ""
 	activeCreateEntity := ""
@@ -443,41 +440,12 @@ func indexReferences(uri, text string, catalog *symbolCatalog, index *workspaceS
 		if inAuth {
 			if trimmed == "}" {
 				inAuth = false
-				authUserEntity = ""
-				continue
-			}
-			if match := authUserEntityRe.FindStringSubmatchIndex(line); match != nil {
-				entityName := line[match[2]:match[3]]
-				authUserEntity = entityName
-				if key, ok := catalog.entities[entityName]; ok {
-					index.add(symbolOccurrence{
-						URI:   uri,
-						Range: makeRange(lineNo, match[2], match[3]),
-						Key:   key,
-						Name:  entityName,
-						Kind:  symbolEntity,
-					})
-				}
-				continue
-			}
-			if match := authFieldRefRe.FindStringSubmatchIndex(line); match != nil {
-				fieldName := line[match[4]:match[5]]
-				if key, ok := catalog.lookupEntityField(authUserEntity, fieldName); ok {
-					index.add(symbolOccurrence{
-						URI:   uri,
-						Range: makeRange(lineNo, match[4], match[5]),
-						Key:   key,
-						Name:  fieldName,
-						Kind:  symbolEntityField,
-					})
-				}
 				continue
 			}
 		}
 
 		if authOpenRe.MatchString(line) {
 			inAuth = true
-			authUserEntity = ""
 			continue
 		}
 

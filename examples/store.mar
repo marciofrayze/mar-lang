@@ -9,9 +9,6 @@ database "bookstore.db"
 -- Authentication is built into the framework.
 -- Users login with one-time email codes via /auth/request-code and /auth/login.
 auth {
-  user_entity User
-  email_field email
-  role_field role
   code_ttl_minutes 10
   session_ttl_hours 24
   email_transport console
@@ -26,18 +23,14 @@ auth {
 -- User is both identity and profile for auth.
 -- First login can auto-provision the user when fields are inferable.
 entity User {
-  id: Int primary auto
-  email: String
-  role: String
   displayName: String optional
   phone: String optional
 
   rule "User email must be valid" when matches(email, "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")
   rule "Role must be admin or user" when role == "admin" or role == "user"
 
-  authorize list when isRole("admin")
+  authorize all when isRole("admin")
   authorize get when auth_authenticated and (id == auth_user_id or isRole("admin"))
-  authorize create when isRole("admin")
   authorize update when auth_authenticated and ((id == auth_user_id and role == auth_role) or isRole("admin"))
   authorize delete when isRole("admin")
 }
@@ -55,8 +48,7 @@ entity Book {
   rule "Price must be greater than zero" when price > 0
   rule "Stock cannot be negative" when stock >= 0
 
-  authorize list when true
-  authorize get when true
+  authorize all when true
   authorize create when auth_authenticated
   authorize update when isRole("admin")
   authorize delete when isRole("admin")

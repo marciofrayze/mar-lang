@@ -523,10 +523,10 @@ func describeGenericQueryReason(sqlUpper string) string {
 }
 
 func (r *Runtime) authUserTableName() string {
-	if r != nil && r.usesAppAuthEntity() {
+	if r != nil && r.authUser != nil {
 		return r.authUser.Table
 	}
-	return internalAuthUsersTable
+	return "users"
 }
 
 func (r *Runtime) entityForRouteLabel(route string) (*model.Entity, string) {

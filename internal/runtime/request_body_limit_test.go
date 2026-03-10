@@ -16,6 +16,8 @@ app BodyLimitApi
 
 entity Todo {
   title: String
+
+  authorize create when true
 }
 `)
 	app.Database = filepath.Join(t.TempDir(), "body-limit-default.db")
@@ -52,6 +54,8 @@ system {
 
 entity Todo {
   title: String
+
+  authorize create when true
 }
 `)
 	app.Database = filepath.Join(t.TempDir(), "body-limit-custom.db")

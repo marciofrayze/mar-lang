@@ -62,13 +62,9 @@ func (r *Runtime) schemaPayload(requestID string) map[string]any {
 	if totalUsers, err := r.countAuthUsers(requestID); err == nil {
 		needsBootstrap = totalUsers == 0
 	}
-	userEntityName := internalAuthUsersTable
-	if r.usesAppAuthEntity() {
-		userEntityName = r.App.Auth.UserEntity
-	}
 	payload["auth"] = map[string]any{
 		"enabled":        true,
-		"userEntity":     userEntityName,
+		"userEntity":     "User",
 		"emailField":     cfg.EmailField,
 		"roleField":      cfg.RoleField,
 		"emailTransport": cfg.EmailTransport,

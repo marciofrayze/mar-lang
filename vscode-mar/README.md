@@ -2,6 +2,8 @@
 
 This extension adds syntax highlighting, snippets/autocomplete, and LSP features for `.mar` files.
 
+Mar has a built-in `User` entity in every app, and entity operations are protected by default. The extension reflects that model in snippets and editor support.
+
 ## Features
 
 - Syntax highlighting for:
@@ -10,7 +12,8 @@ This extension adds syntax highlighting, snippets/autocomplete, and LSP features
 - System config (`system`, `request_logs_buffer`, `http_max_request_body_mb`, auth rate limits, security headers like `security_frame_policy`/`security_referrer_policy`/`security_content_type_nosniff`, and `sqlite_*` options like `sqlite_mmap_size_mb` and `sqlite_cache_size_kb`)
 - Rule/authz keywords (`rule`, `when`, `authorize`)
 - Action syntax (`action <name> { input: Alias ... create Entity { ... } }`)
-- Auth config keys (`user_entity`, `email_field`, etc.)
+- Auth config keys (`code_ttl_minutes`, `session_ttl_hours`, `email_transport`, etc.)
+- Built-in `User` entity support and auth-aware snippets
 - Field modifiers (`primary`, `auto`, `optional`)
 - Built-in types (`Int`, `String`, `Bool`, `Float`)
 - Built-in functions (`contains`, `startsWith`, `endsWith`, `len`, `matches`, `isRole`)
@@ -23,6 +26,7 @@ This extension adds syntax highlighting, snippets/autocomplete, and LSP features
 - `rule`
 - `authorize`
 - `auth`
+- `User`
 - `public`
 - `system`
 - `authzcrud`
@@ -70,3 +74,6 @@ If needed, set `mar.languageServer.path` in VSCode settings (examples: `mar`, `/
 ## Notes
 
 - Keep `mar` available in your `PATH` so the extension can start LSP and formatting.
+- `User` is built into every Mar app. Use `entity User { ... }` only to extend it with extra fields, rules, or authorization.
+- Entity CRUD is deny-by-default. Add explicit `authorize` rules for every operation you want to expose.
+- `authorize all when ...` is available as a shorthand for applying the same rule to `list`, `get`, `create`, `update`, and `delete`.

@@ -3,6 +3,8 @@ package parser
 import (
 	"strings"
 	"testing"
+
+	"mar/internal/model"
 )
 
 func TestParseValidAppDerivesEntityMetadata(t *testing.T) {
@@ -31,11 +33,25 @@ entity Book {
 	if app.Database != "./bookstore.db" {
 		t.Fatalf("unexpected database: %q", app.Database)
 	}
-	if len(app.Entities) != 1 {
-		t.Fatalf("expected 1 entity, got %d", len(app.Entities))
+	if len(app.Entities) != 2 {
+		t.Fatalf("expected 2 entities (including built-in User), got %d", len(app.Entities))
 	}
 
-	book := app.Entities[0]
+	var bookFound bool
+	var bookEntityName string
+	var book = app.Entities[0]
+	for _, entity := range app.Entities {
+		if entity.Name == "Book" {
+			book = entity
+			bookFound = true
+			bookEntityName = entity.Name
+			break
+		}
+	}
+	if !bookFound || bookEntityName != "Book" {
+		t.Fatal("expected Book entity to be present")
+	}
+
 	if book.Table != "books" {
 		t.Fatalf("unexpected table: %q", book.Table)
 	}
@@ -122,7 +138,6 @@ entity User {
 }
 
 auth {
-  user_entity User
 }
 `
 
@@ -158,7 +173,6 @@ entity User {
 }
 
 auth {
-  user_entity User
   code_ttl_minutes 0
 }
 `
@@ -182,7 +196,6 @@ entity User {
 }
 
 auth {
-  user_entity User
   session_ttl_hours 9999
 }
 `
@@ -206,8 +219,7 @@ entity User {
 }
 
 auth {
-  rol_field role
-  user_entity User
+  email_subjet "Login"
 }
 `
 
@@ -215,8 +227,92 @@ auth {
 	if err == nil {
 		t.Fatal("expected parse error for unknown auth statement")
 	}
-	if !strings.Contains(err.Error(), `Did you mean "role_field"?`) {
+	if !strings.Contains(err.Error(), `Did you mean "email_subject"?`) {
 		t.Fatalf("expected auth Did you mean suggestion, got: %v", err)
+	}
+}
+
+func TestParseAuthorizeAllExpandsToCrudOperations(t *testing.T) {
+	src := `
+app TodoApi
+
+entity Todo {
+  title: String
+  authorize all when auth_authenticated
+}
+`
+
+	app, err := Parse(src)
+	if err != nil {
+		t.Fatalf("Parse returned error: %v", err)
+	}
+
+	var todo model.Entity
+	var found bool
+	for _, entity := range app.Entities {
+		if entity.Name == "Todo" {
+			todo = entity
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatal("expected Todo entity")
+	}
+
+	if len(todo.Authorizations) != 5 {
+		t.Fatalf("expected 5 expanded authorization rules, got %d", len(todo.Authorizations))
+	}
+
+	expected := map[string]string{
+		"list":   "auth_authenticated",
+		"get":    "auth_authenticated",
+		"create": "auth_authenticated",
+		"update": "auth_authenticated",
+		"delete": "auth_authenticated",
+	}
+	for _, authz := range todo.Authorizations {
+		if expected[authz.Action] != authz.Expression {
+			t.Fatalf("unexpected authorization for %s: %q", authz.Action, authz.Expression)
+		}
+	}
+}
+
+func TestParseAuthorizeAllAllowsSpecificOverride(t *testing.T) {
+	src := `
+app TodoApi
+
+entity Todo {
+  title: String
+  authorize all when auth_authenticated
+  authorize delete when isRole("admin")
+}
+`
+
+	app, err := Parse(src)
+	if err != nil {
+		t.Fatalf("Parse returned error: %v", err)
+	}
+
+	var todo model.Entity
+	for _, entity := range app.Entities {
+		if entity.Name == "Todo" {
+			todo = entity
+			break
+		}
+	}
+
+	expected := map[string]string{
+		"list":   "auth_authenticated",
+		"get":    "auth_authenticated",
+		"create": "auth_authenticated",
+		"update": "auth_authenticated",
+		"delete": `isRole("admin")`,
+	}
+	for _, authz := range todo.Authorizations {
+		if expected[authz.Action] != authz.Expression {
+			t.Fatalf("unexpected authorization for %s: %q", authz.Action, authz.Expression)
+		}
 	}
 }
 
@@ -279,7 +375,6 @@ entity User {
 }
 
 auth {
-  user_entity User
 }
 `
 
@@ -312,7 +407,6 @@ entity User {
 }
 
 auth {
-  user_entity User
 }
 `
 

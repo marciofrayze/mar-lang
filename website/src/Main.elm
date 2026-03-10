@@ -532,8 +532,9 @@ advancedLanguagePage model =
             , codeFromString model "authorize.mar" 300 authorizeExampleSource
             , docList
                 [ "Authentication endpoints are always available."
-                , "When auth { ... } is defined, Mar uses your configured user entity and fields."
-                , "When auth { ... } is omitted, Mar still provides a built-in auth user store."
+                , "Every Mar app includes a built-in User entity that you may extend."
+                , "Entity access is deny-by-default unless you declare authorize rules."
+                , "`authorize all when ...` sets a default rule for list, get, create, update, and delete, and specific operations can still override it."
                 , "System features use the same session and require role == \"admin\"."
                 ]
             , docSubsectionTitle "Rules and Typed Actions"
@@ -581,16 +582,14 @@ advancedLanguageReferencePage =
                 [ languageReferenceItem "rule" "Adds entity validation."
                 , languageReferenceItem "when" "Introduces the boolean expression used by a rule or authorization clause."
                 , languageReferenceItem "authorize" "Declares per-operation authorization rules."
-                , languageReferenceItem "list, get, create, update, delete" "The supported CRUD operations for authorize clauses."
+                , languageReferenceItem "all, list, get, create, update, delete" "The supported operations for authorize clauses. `all` sets a default rule for every CRUD operation."
                 ]
             , languageReferenceGroup "Actions"
                 [ languageReferenceItem "input" "Declares the action input type and is also used in expressions such as input.userId."
                 , languageReferenceItem "create" "Adds a create step inside an action."
                 ]
             , languageReferenceGroup "Auth config"
-                [ languageReferenceItem "user_entity" "Sets which entity stores authenticated users."
-                , languageReferenceItem "email_field" "Sets which user field is used as the login email."
-                , languageReferenceItem "role_field" "Sets which user field is used for role checks."
+                [ languageReferenceItem "User" "Built-in user entity present in every Mar app. You may extend it with extra fields and authorization rules."
                 , languageReferenceItem "code_ttl_minutes" "Sets how long login codes remain valid."
                 , languageReferenceItem "session_ttl_hours" "Sets the default session lifetime."
                 , languageReferenceItem "email_transport, email_from, email_subject, sendmail_path" "Configure how login codes are delivered."
@@ -3122,10 +3121,10 @@ isPunctuationChar char =
 
 wordToken : String -> Html.Html msg
 wordToken word =
-    if List.member word [ "list", "get", "create", "update", "delete" ] then
+    if List.member word [ "all", "list", "get", "create", "update", "delete" ] then
         token "#93D7FF" word
 
-    else if List.member word [ "app", "port", "database", "entity", "rule", "when", "authorize", "auth", "type", "alias", "action", "input", "create", "public", "system", "dir", "mount", "spa_fallback", "user_entity", "email_field", "role_field", "code_ttl_minutes", "session_ttl_hours", "email_transport", "email_from", "email_subject", "sendmail_path", "request_logs_buffer", "http_max_request_body_mb", "auth_request_code_rate_limit_per_minute", "auth_login_rate_limit_per_minute", "admin_ui_session_ttl_hours", "security_frame_policy", "security_referrer_policy", "security_content_type_nosniff", "sqlite_journal_mode", "sqlite_synchronous", "sqlite_foreign_keys", "sqlite_busy_timeout_ms", "sqlite_wal_autocheckpoint", "sqlite_journal_size_limit_mb", "sqlite_mmap_size_mb", "sqlite_cache_size_kb" ] then
+    else if List.member word [ "app", "port", "database", "entity", "rule", "when", "authorize", "auth", "type", "alias", "action", "input", "create", "public", "system", "dir", "mount", "spa_fallback", "code_ttl_minutes", "session_ttl_hours", "email_transport", "email_from", "email_subject", "sendmail_path", "request_logs_buffer", "http_max_request_body_mb", "auth_request_code_rate_limit_per_minute", "auth_login_rate_limit_per_minute", "admin_ui_session_ttl_hours", "security_frame_policy", "security_referrer_policy", "security_content_type_nosniff", "sqlite_journal_mode", "sqlite_synchronous", "sqlite_foreign_keys", "sqlite_busy_timeout_ms", "sqlite_wal_autocheckpoint", "sqlite_journal_size_limit_mb", "sqlite_mmap_size_mb", "sqlite_cache_size_kb" ] then
         token "#7AB8FF" word
 
     else if List.member word [ "Int", "String", "Bool", "Float" ] then
@@ -3331,8 +3330,7 @@ entity Todo {
   done: Bool
 
   rule \"Title must have at least 3 chars\" when len(title) >= 3
-  authorize list when auth_authenticated
-  authorize create when auth_authenticated
+  authorize all when auth_authenticated
 }
 """
 
@@ -3406,9 +3404,6 @@ authConfigSource : String
 authConfigSource =
     """-- Email-code authentication
 auth {
-  user_entity User
-  email_field email
-  role_field role
   code_ttl_minutes 10
   session_ttl_hours 24
   email_transport console
@@ -3420,16 +3415,12 @@ auth {
 
 authorizeExampleSource : String
 authorizeExampleSource =
-    """-- Per-operation authorization inside an entity
+    """-- Per-operation authorization inside the built-in User entity
 entity User {
-  id: Int primary auto
-  email: String
-  role: String
+  displayName: String optional
 
-  authorize list when isRole(\"admin\")
+  authorize all when isRole(\"admin\")
   authorize get when auth_authenticated and (id == auth_user_id or isRole(\"admin\"))
-  authorize create when true
-  authorize update when auth_authenticated and (id == auth_user_id or isRole(\"admin\"))
   authorize delete when isRole(\"admin\")
 }
 """
@@ -3442,9 +3433,6 @@ port 4100
 database \"bookstore.db\"
 
 auth {
-  user_entity User
-  email_field email
-  role_field role
   code_ttl_minutes 10
   session_ttl_hours 24
   email_transport console
@@ -3453,14 +3441,10 @@ auth {
 }
 
 entity User {
-  id: Int primary auto
-  email: String
-  role: String
   displayName: String optional
 
-  authorize list when isRole(\"admin\")
+  authorize all when isRole(\"admin\")
   authorize get when auth_authenticated and (id == auth_user_id or isRole(\"admin\"))
-  authorize create when isRole(\"admin\")
   authorize update when auth_authenticated and ((id == auth_user_id and role == auth_role) or isRole(\"admin\"))
   authorize delete when isRole(\"admin\")
 }
@@ -3476,8 +3460,7 @@ entity Book {
   rule \"Book title cannot be empty\" when title != \"\"
   rule \"Price must be greater than zero\" when price > 0
 
-  authorize list when true
-  authorize get when true
+  authorize all when true
   authorize create when auth_authenticated
   authorize update when isRole(\"admin\")
   authorize delete when isRole(\"admin\")

@@ -147,12 +147,15 @@ entity User {
 entity Todo {
   id: Int primary auto
   title: String
+
+  authorize list when auth_authenticated
+  authorize get when auth_authenticated
+  authorize create when auth_authenticated
+  authorize update when auth_authenticated
+  authorize delete when auth_authenticated
 }
 
 auth {
-  user_entity User
-  email_field email
-  role_field role
   email_transport console
 }
 `) + "\n")

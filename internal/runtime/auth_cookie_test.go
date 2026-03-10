@@ -76,7 +76,6 @@ entity User {
 }
 
 auth {
-  user_entity User
   session_ttl_hours 24
 }
 `

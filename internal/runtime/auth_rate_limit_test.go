@@ -136,9 +136,6 @@ entity Todo {
 }
 
 auth {
-  user_entity User
-  email_field email
-  role_field role
   email_transport console
 }
 `) + "\n"

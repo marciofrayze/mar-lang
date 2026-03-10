@@ -48,30 +48,12 @@ func (r *Runtime) runMigrations() error {
 	}
 
 	cfg := r.authConfig()
-	if !r.appAuthEnabled() {
-		if err := r.migrateStaticTable(internalAuthUsersTable, []staticColumn{
-			{Name: "id", Type: "INTEGER", Primary: true, Auto: true},
-			{Name: "email", Type: "TEXT", NotNull: true},
-			{Name: "role", Type: "TEXT", NotNull: true, DefaultSQL: "'user'"},
-			{Name: "created_at", Type: "INTEGER", NotNull: true},
-		}); err != nil {
-			return err
-		}
-		if err := r.migrateUniqueNoCaseIndex(
-			authEmailUniqueIndexName(internalAuthUsersTable, cfg.EmailField),
-			internalAuthUsersTable,
-			cfg.EmailField,
-		); err != nil {
-			return err
-		}
-	} else {
-		if err := r.migrateUniqueNoCaseIndex(
-			authEmailUniqueIndexName(r.authUser.Table, cfg.EmailField),
-			r.authUser.Table,
-			cfg.EmailField,
-		); err != nil {
-			return err
-		}
+	if err := r.migrateUniqueNoCaseIndex(
+		authEmailUniqueIndexName(r.authUser.Table, cfg.EmailField),
+		r.authUser.Table,
+		cfg.EmailField,
+	); err != nil {
+		return err
 	}
 	return nil
 }
