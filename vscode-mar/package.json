@@ -6,16 +6,13 @@
   "publisher": "marciofrayze",
   "repository": {
     "type": "git",
-    "url": "https://github.com/marcio/mar.git"
+    "url": "https://github.com/marciofrayze/mar-lang.git"
   },
   "license": "MIT",
   "engines": {
     "vscode": "^1.85.0"
   },
   "main": "./extension.js",
-  "activationEvents": [
-    "onLanguage:mar"
-  ],
   "categories": [
     "Programming Languages",
     "Formatters"
