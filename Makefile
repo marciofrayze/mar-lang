@@ -117,6 +117,7 @@ website: check-elm
 	$(call print_info,Building website/dist/app.js with Elm $(ELM_REQUIRED_VERSION))
 	@cd website && elm make src/Main.elm --output=dist/app.js
 	$(call print_ok,Output: website/dist/app.js)
+	@printf "\n"
 
 website-serve: website check-python3
 	$(call print_title,Website)
