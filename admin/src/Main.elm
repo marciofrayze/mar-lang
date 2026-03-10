@@ -2,6 +2,7 @@ port module Main exposing (main)
 
 import Mar.Api exposing (ActionInfo, AuthInfo, Entity, Field, FieldType(..), InputAliasField, InputAliasInfo, Row, Schema, SystemAuthInfo, decodeRows, decodeSchema, encodePayload, fieldTypeLabel, rowDecoder, valueToString)
 import Browser
+import Char
 import Dict exposing (Dict)
 import Element exposing (Element, alignLeft, centerX, centerY, column, el, fill, fillPortion, height, htmlAttribute, inFront, minimum, none, padding, paddingEach, paragraph, px, rgb255, rgba255, row, scrollbarY, spacing, text, width, wrappedRow)
 import Element.Background as Background
@@ -1902,7 +1903,7 @@ encodeActionField valuesByName field partialResult =
                         |> String.trim
             in
             if rawValue == "" then
-                Err ("Field " ++ field.name ++ " is required")
+                Err (fieldLabel field.name ++ " is required")
 
             else
                 case field.fieldType of
@@ -1915,7 +1916,7 @@ encodeActionField valuesByName field partialResult =
                                 Ok (( field.name, Encode.int value ) :: items)
 
                             Nothing ->
-                                Err ("Field " ++ field.name ++ " expects Int")
+                                Err (fieldLabel field.name ++ " expects a whole number")
 
                     "Float" ->
                         case String.toFloat rawValue of
@@ -1923,7 +1924,7 @@ encodeActionField valuesByName field partialResult =
                                 Ok (( field.name, Encode.float value ) :: items)
 
                             Nothing ->
-                                Err ("Field " ++ field.name ++ " expects Float")
+                                Err (fieldLabel field.name ++ " expects a decimal number")
 
                     "Bool" ->
                         let
@@ -1937,10 +1938,10 @@ encodeActionField valuesByName field partialResult =
                             Ok (( field.name, Encode.bool False ) :: items)
 
                         else
-                            Err ("Field " ++ field.name ++ " expects Bool (true/false)")
+                            Err (fieldLabel field.name ++ " expects a yes or no value")
 
                     _ ->
-                        Err ("Unsupported input type " ++ field.fieldType ++ " for field " ++ field.name)
+                        Err ("Unsupported input type " ++ field.fieldType ++ " for " ++ fieldLabel field.name)
 
 
 rowId : Entity -> Row -> Maybe String
@@ -1991,6 +1992,75 @@ entityLabel entity =
     entity.name
         |> String.trim
         |> String.toLower
+
+
+fieldLabel : String -> String
+fieldLabel =
+    humanizeIdentifier
+
+
+humanizeIdentifier : String -> String
+humanizeIdentifier identifier =
+    let
+        words =
+            splitIdentifierWords identifier
+                |> List.map String.toLower
+    in
+    case words of
+        [] ->
+            String.trim identifier
+
+        first :: rest ->
+            String.join " " (capitalizeWord first :: rest)
+
+
+splitIdentifierWords : String -> List String
+splitIdentifierWords identifier =
+    let
+        flushWord acc =
+            if List.isEmpty acc.current then
+                acc
+
+            else
+                { acc
+                    | current = []
+                    , words = String.fromList (List.reverse acc.current) :: acc.words
+                }
+
+        pushChar char acc =
+            { acc
+                | current = char :: acc.current
+                , prevWasLowerOrDigit = Char.isLower char || Char.isDigit char
+            }
+
+        step char acc =
+            if char == '_' || char == '-' || char == ' ' || char == '\n' || char == '\t' || char == '\r' then
+                flushWord acc
+                    |> (\state -> { state | prevWasLowerOrDigit = False })
+
+            else if Char.isUpper char && acc.prevWasLowerOrDigit then
+                flushWord acc
+                    |> pushChar char
+
+            else
+                pushChar char acc
+
+        finalState =
+            String.toList (String.trim identifier)
+                |> List.foldl step { current = [], words = [], prevWasLowerOrDigit = False }
+                |> flushWord
+    in
+    List.reverse finalState.words
+
+
+capitalizeWord : String -> String
+capitalizeWord word =
+    case String.uncons word of
+        Just ( first, rest ) ->
+            String.fromChar (Char.toUpper first) ++ rest
+
+        Nothing ->
+            ""
 
 
 uniqueStrings : List String -> List String
@@ -3699,7 +3769,7 @@ viewActionPanel model actionInfo =
                 fieldInput field =
                     if field.fieldType == "Bool" then
                         formBooleanField
-                            field.name
+                            (fieldLabel field.name)
                             False
                             (Dict.get field.name model.actionFormValues |> Maybe.withDefault "false")
                             (SetActionField field.name)
@@ -3720,7 +3790,7 @@ viewActionPanel model actionInfo =
                                             )
                                         )
                                     )
-                            , label = Input.labelAbove [ Font.size 12 ] (text field.name)
+                            , label = Input.labelAbove [ Font.size 12 ] (text (fieldLabel field.name))
                             }
             in
             column
@@ -3841,7 +3911,7 @@ viewRowCard workspace entity rowValue =
                             textValue
 
                         else
-                            field.name ++ ": " ++ textValue
+                            fieldLabel field.name ++ ": " ++ textValue
                     )
                 |> String.join "  |  "
 
@@ -4806,7 +4876,7 @@ viewEntitySchema model =
                 :: List.map
                     (\field ->
                         row [ width fill, spacing 8 ]
-                            [ el [ Font.bold ] (text field.name)
+                            [ el [ Font.bold ] (text (fieldLabel field.name))
                             , el [ Font.size 12, Font.color (rgb255 93 103 120) ] (text (fieldTypeLabel field.fieldType))
                             , if field.primary then
                                 badge "primary"
@@ -4866,7 +4936,7 @@ formCard model entity titleText =
             case field.fieldType of
                 BoolType ->
                     formBooleanField
-                        field.name
+                        (fieldLabel field.name)
                         field.optional
                         (Dict.get field.name model.formValues
                             |> Maybe.withDefault
@@ -4895,7 +4965,7 @@ formCard model entity titleText =
                                         )
                                     )
                                 )
-                        , label = Input.labelAbove [ Font.size 12 ] (text field.name)
+                        , label = Input.labelAbove [ Font.size 12 ] (text (fieldLabel field.name))
                         }
     in
     column
@@ -4973,7 +5043,7 @@ viewSelectedRow model =
                                     |> List.map
                                         (\( key, value ) ->
                                             row [ width fill, spacing 8 ]
-                                                [ el [ Font.bold ] (text key)
+                                                [ el [ Font.bold ] (text (fieldLabel key))
                                                 , paragraph [ Font.size 13, Font.color (rgb255 82 92 108) ] [ text (valueToString value) ]
                                                 ]
                                         )
