@@ -201,7 +201,7 @@
         },
         {
           "name": "meta.rule.declaration.mar",
-          "match": "\\b(rule)\\s+(\"[^\"]*\")\\s+(when)\\b",
+          "match": "\\b(rule)\\s+(\"[^\"]*\")\\s+(expect)\\b",
           "captures": {
             "1": {
               "name": "keyword.control.rule.mar"
@@ -236,7 +236,7 @@
         },
         {
           "name": "keyword.control.rule.mar",
-          "match": "\\b(rule|when|authorize|action|create)\\b"
+          "match": "\\b(rule|expect|when|authorize|action|create)\\b"
         },
         {
           "name": "keyword.other.auth.mar",

@@ -10,8 +10,8 @@
       "-- Extend the built-in User with extra profile fields if needed.",
       "entity User {",
       "  ${4:displayName}: String optional",
-      "  ${5:rule \\\"Email must be valid\\\" when matches(email, \\\"^[^@\\\\s]+@[^@\\\\s]+\\\\.[^@\\\\s]+$\\\")}",
-      "  rule \"Role must be admin or user\" when role == \"admin\" or role == \"user\"",
+      "  ${5:rule \\\"Email must be valid\\\" expect matches(email, \\\"^[^@\\\\s]+@[^@\\\\s]+\\\\.[^@\\\\s]+$\\\")}",
+      "  rule \"Role must be admin or user\" expect role == \"admin\" or role == \"user\"",
       "  authorize all when isRole(\"admin\")",
       "  authorize get when auth_authenticated and (id == auth_user_id or isRole(\"admin\"))",
       "  authorize update when auth_authenticated and (id == auth_user_id or isRole(\"admin\"))",
@@ -53,7 +53,7 @@
       "entity ${1:EntityName} {",
       "  id: Int primary auto",
       "  ${2:name}: ${3:String}",
-      "  ${4:rule \\\"Validation message\\\" when true}",
+      "  ${4:rule \\\"Validation message\\\" expect true}",
       "  authorize all when ${5:auth_authenticated}",
       "}"
     ]
@@ -66,7 +66,7 @@
   "Mar Rule": {
     "prefix": "rule",
     "description": "Create a business rule inside an entity",
-    "body": "rule \"${1:Validation message}\" when ${2:expression}"
+    "body": "rule \"${1:Validation message}\" expect ${2:expression}"
   },
   "Mar Authorize": {
     "prefix": "authorize",

@@ -602,7 +602,8 @@ advancedLanguageReferencePage =
                 ]
             , languageReferenceGroup "Validation and authorization"
                 [ languageReferenceItem "rule" "Adds entity validation."
-                , languageReferenceItem "when" "Introduces the boolean expression used by a rule or authorization clause."
+                , languageReferenceItem "expect" "Introduces the boolean expression enforced by a rule."
+                , languageReferenceItem "when" "Introduces the boolean expression used by an authorization clause."
                 , languageReferenceItem "authorize" "Declares per-operation authorization rules."
                 , languageReferenceItem "all, list, get, create, update, delete" "The supported operations for authorize clauses. `all` sets a default rule for every CRUD operation."
                 ]
@@ -3367,7 +3368,7 @@ wordToken word =
     if List.member word [ "all", "list", "get", "create", "update", "delete" ] then
         token "#93D7FF" word
 
-    else if List.member word [ "app", "port", "database", "entity", "rule", "when", "authorize", "auth", "type", "alias", "action", "input", "create", "public", "system", "dir", "mount", "spa_fallback", "code_ttl_minutes", "session_ttl_hours", "email_transport", "email_from", "email_subject", "smtp_host", "smtp_port", "smtp_username", "smtp_password_env", "smtp_starttls", "request_logs_buffer", "http_max_request_body_mb", "auth_request_code_rate_limit_per_minute", "auth_login_rate_limit_per_minute", "admin_ui_session_ttl_hours", "security_frame_policy", "security_referrer_policy", "security_content_type_nosniff", "sqlite_journal_mode", "sqlite_synchronous", "sqlite_foreign_keys", "sqlite_busy_timeout_ms", "sqlite_wal_autocheckpoint", "sqlite_journal_size_limit_mb", "sqlite_mmap_size_mb", "sqlite_cache_size_kb" ] then
+    else if List.member word [ "app", "port", "database", "entity", "rule", "expect", "when", "authorize", "auth", "type", "alias", "action", "input", "create", "public", "system", "dir", "mount", "spa_fallback", "code_ttl_minutes", "session_ttl_hours", "email_transport", "email_from", "email_subject", "smtp_host", "smtp_port", "smtp_username", "smtp_password_env", "smtp_starttls", "request_logs_buffer", "http_max_request_body_mb", "auth_request_code_rate_limit_per_minute", "auth_login_rate_limit_per_minute", "admin_ui_session_ttl_hours", "security_frame_policy", "security_referrer_policy", "security_content_type_nosniff", "sqlite_journal_mode", "sqlite_synchronous", "sqlite_foreign_keys", "sqlite_busy_timeout_ms", "sqlite_wal_autocheckpoint", "sqlite_journal_size_limit_mb", "sqlite_mmap_size_mb", "sqlite_cache_size_kb" ] then
         token "#7AB8FF" word
 
     else if List.member word [ "Int", "String", "Bool", "Float" ] then
@@ -3456,7 +3457,7 @@ codeSnippet =
     , Html.text " "
     , codeString "\"Title must have at least 3 chars\""
     , Html.text " "
-    , codeKeyword "when"
+    , codeKeyword "expect"
     , Html.text " "
     , codeFunction "len"
     , codePunctuation "("
@@ -3572,7 +3573,7 @@ entity Todo {
   title: String
   done: Bool
 
-  rule \"Title must have at least 3 chars\" when len(title) >= 3
+  rule \"Title must have at least 3 chars\" expect len(title) >= 3
   authorize all when auth_authenticated
 }
 """
@@ -3739,8 +3740,8 @@ entity Book {
   price: Float
   stock: Int
 
-  rule \"Book title cannot be empty\" when title != \"\"
-  rule \"Price must be greater than zero\" when price > 0
+  rule \"Book title cannot be empty\" expect title != \"\"
+  rule \"Price must be greater than zero\" expect price > 0
 
   authorize all when true
   authorize create when auth_authenticated

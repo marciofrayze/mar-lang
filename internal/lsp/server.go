@@ -423,6 +423,7 @@ func keywordCompletionItems() []map[string]any {
 		"auth",
 		"type alias",
 		"rule",
+		"expect",
 		"authorize",
 		"all",
 		"action",

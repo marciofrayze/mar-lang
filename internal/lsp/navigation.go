@@ -74,7 +74,7 @@ var (
 	actionFieldAssignRe = regexp.MustCompile(`^\s*([a-z][A-Za-z0-9_]*)\s*:\s*(.+)$`)
 	actionInputRefRe    = regexp.MustCompile(`\binput\.([a-z][A-Za-z0-9_]*)\b`)
 
-	ruleLineRe      = regexp.MustCompile(`^\s*rule\s+"[^"]+"\s+when\s+(.+)$`)
+	ruleLineRe      = regexp.MustCompile(`^\s*rule\s+"[^"]+"\s+expect\s+(.+)$`)
 	authorizeLineRe = regexp.MustCompile(`^\s*authorize\s+(?:all|list|get|create|update|delete)\s+when\s+(.+)$`)
 	wordRe          = regexp.MustCompile(`\b[A-Za-z_][A-Za-z0-9_]*\b`)
 

@@ -384,7 +384,7 @@ func parseUserExtensionBlock(lines []line, idx *int) (*model.Entity, error) {
 			return ent, nil
 		}
 
-		if m := match(`^rule\s+"([^"]+)"\s+when\s+(.+)$`, trimmed); m != nil {
+		if m := match(`^rule\s+"([^"]+)"\s+expect\s+(.+)$`, trimmed); m != nil {
 			rawRules = append(rawRules, model.Rule{Message: strings.TrimSpace(m[1]), Expression: strings.TrimSpace(m[2])})
 			(*idx)++
 			continue
@@ -820,7 +820,7 @@ func parseEntityBlock(lines []line, idx *int, name string) (*model.Entity, error
 			return ent, nil
 		}
 
-		if m := match(`^rule\s+"([^"]+)"\s+when\s+(.+)$`, trimmed); m != nil {
+		if m := match(`^rule\s+"([^"]+)"\s+expect\s+(.+)$`, trimmed); m != nil {
 			rawRules = append(rawRules, model.Rule{Message: strings.TrimSpace(m[1]), Expression: strings.TrimSpace(m[2])})
 			(*idx)++
 			continue

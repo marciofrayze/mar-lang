@@ -118,13 +118,13 @@ admin: check-elm
 	$(call print_title,Admin UI)
 	$(call print_info,Building admin/dist/app.js with Elm $(ELM_REQUIRED_VERSION))
 	@cd admin && elm make src/Main.elm --output=dist/app.js
-	$(call print_ok,Output: admin/dist/app.js)
+	@sh -c 'if [ -n "$$NO_COLOR" ] || ! [ -t 1 ]; then printf "  %s\n" "Output: admin/dist/app.js"; else printf "  Output: \033[1;32madmin/dist/app.js\033[0m\n"; fi'
 
 website: check-elm
 	$(call print_title,Website)
 	$(call print_info,Building website/dist/app.js with Elm $(ELM_REQUIRED_VERSION))
 	@cd website && elm make src/Main.elm --output=dist/app.js
-	$(call print_ok,Output: website/dist/app.js)
+	@sh -c 'if [ -n "$$NO_COLOR" ] || ! [ -t 1 ]; then printf "  %s\n" "Output: website/dist/app.js"; else printf "  Output: \033[1;32mwebsite/dist/app.js\033[0m\n"; fi'
 	@printf "\n"
 
 website-serve: website check-python3
@@ -152,7 +152,7 @@ website-dev: check-elm check-elm-live
 
 vscode-plugin: check-npx check-npm
 	$(call print_title,VS Code extension)
-	$(call print_info,Installing vscode-mar dependencies with npm ci)
+	@sh -c 'if [ -n "$$NO_COLOR" ] || ! [ -t 1 ]; then printf "  %s\n" "Installing vscode-mar dependencies with npm ci"; else printf "  Installing vscode-mar dependencies with \033[1;34mnpm ci\033[0m\n"; fi'
 	$(call print_info,Packaging vscode-mar into a .vsix)
 	@cd vscode-mar && sh -c '\
 		publisher=$$(node -p "require(\"./package.json\").publisher"); \
@@ -166,7 +166,7 @@ vscode-plugin: check-npx check-npm
 			printf "  %s\n" "Output: $${out#../}"; \
 			printf "  %s\n" "Install in VS Code with: code --install-extension $${out#../} --force"; \
 		else \
-			printf "  \033[1;32mOutput: %s\033[0m\n" "$${out#../}"; \
+			printf "  Output: \033[1;32m%s\033[0m\n" "$${out#../}"; \
 			printf "  Install in VS Code with: \033[1;32mcode --install-extension %s --force\033[0m\n" "$${out#../}"; \
 		fi'
 
@@ -174,14 +174,14 @@ compiler-assets: check-go admin
 	$(call print_title,Compiler assets)
 	$(call print_info,Refreshing embedded admin assets and runtime stubs)
 	@GOCACHE="$(GOCACHE)" ./scripts/build-compiler-assets.sh
-	$(call print_ok,Embedded admin assets: internal/cli/compiler_assets/admin)
-	$(call print_ok,Runtime stubs: internal/cli/runtime_stubs)
+	@sh -c 'if [ -n "$$NO_COLOR" ] || ! [ -t 1 ]; then printf "  %s\n" "Embedded admin assets: internal/cli/compiler_assets/admin"; else printf "  Embedded admin assets: \033[1;32minternal/cli/compiler_assets/admin\033[0m\n"; fi'
+	@sh -c 'if [ -n "$$NO_COLOR" ] || ! [ -t 1 ]; then printf "  %s\n" "Runtime stubs: internal/cli/runtime_stubs"; else printf "  Runtime stubs: \033[1;32minternal/cli/runtime_stubs\033[0m\n"; fi'
 
 mar: check-go compiler-assets
 	$(call print_title,Mar compiler)
 	$(call print_info,Building ./mar with Go $(GO_VERSION))
 	@GOCACHE="$(GOCACHE)" go build -trimpath -ldflags="-s -w" -o mar ./cmd/mar
-	$(call print_ok,Output: ./mar)
+	@sh -c 'if [ -n "$$NO_COLOR" ] || ! [ -t 1 ]; then printf "  %s\n" "Output: ./mar"; else printf "  Output: \033[1;32m./mar\033[0m\n"; fi'
 
 test: check-go
 	$(call print_title,Tests)
@@ -192,6 +192,7 @@ clean:
 	$(call print_title,Clean)
 	$(call print_info,Removing Go cache)
 	@rm -rf "$(GOCACHE)"
+	@printf "\n"
 
 distclean: clean
 	$(call print_info,Removing dist/)

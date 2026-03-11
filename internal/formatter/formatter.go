@@ -22,7 +22,7 @@ var (
 	actionCreateRe = regexp.MustCompile(`^create\s+([A-Za-z][A-Za-z0-9_]*)\s*\{$`)
 
 	entityFieldRe = regexp.MustCompile(`^([a-z][A-Za-z0-9_]*)\s*:\s*(Int|String|Bool|Float)(?:\s+(.*))?$`)
-	ruleRe        = regexp.MustCompile(`^rule\s+"([^"]+)"\s+when\s+(.+)$`)
+	ruleRe        = regexp.MustCompile(`^rule\s+"([^"]+)"\s+expect\s+(.+)$`)
 	authorizeRe   = regexp.MustCompile(`^authorize\s+(all|list|get|create|update|delete)\s+when\s+(.+)$`)
 	systemIntRe   = regexp.MustCompile(`^(request_logs_buffer|sqlite_busy_timeout_ms|sqlite_wal_autocheckpoint|auth_request_code_rate_limit_per_minute|auth_login_rate_limit_per_minute|admin_ui_session_ttl_hours)\s+([0-9]{1,7})$`)
 	systemModeRe  = regexp.MustCompile(`^(sqlite_journal_mode)\s+(wal|delete|truncate|persist|memory|off)$`)
@@ -242,7 +242,7 @@ func normalizeLine(trimmed string, state *formatState) string {
 			return m[1] + ": " + m[2] + " " + collapseSpaces(attrs)
 		}
 		if m := ruleRe.FindStringSubmatch(trimmed); m != nil {
-			return `rule "` + m[1] + `" when ` + strings.TrimSpace(m[2])
+			return `rule "` + m[1] + `" expect ` + strings.TrimSpace(m[2])
 		}
 		if m := authorizeRe.FindStringSubmatch(trimmed); m != nil {
 			return "authorize " + m[1] + " when " + strings.TrimSpace(m[2])

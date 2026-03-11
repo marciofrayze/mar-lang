@@ -12,7 +12,7 @@ import (
 
 func TestRequestCodeMessageIncludesDevConsoleHintInDevMode(t *testing.T) {
 	requireSQLite3(t)
-	t.Setenv("BELM_DEV_MODE", "1")
+	t.Setenv("MAR_DEV_MODE", "1")
 
 	r := mustNewRuntimeWithoutExplicitAuth(t, filepath.Join(t.TempDir(), "request-code-dev-message.db"))
 
@@ -34,7 +34,7 @@ func TestRequestCodeMessageIncludesDevConsoleHintInDevMode(t *testing.T) {
 
 func TestRequestCodeMessageStaysGenericOutsideDevMode(t *testing.T) {
 	requireSQLite3(t)
-	t.Setenv("BELM_DEV_MODE", "")
+	t.Setenv("MAR_DEV_MODE", "")
 
 	r := mustNewRuntimeWithoutExplicitAuth(t, filepath.Join(t.TempDir(), "request-code-generic-message.db"))
 

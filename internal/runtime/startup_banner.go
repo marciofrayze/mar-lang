@@ -11,7 +11,7 @@ const (
 	ansiReset   = "\033[0m"
 	ansiTitle   = "\033[1m"
 	ansiLabel   = "\033[1;36m"
-	ansiSection = "\033[1;34m"
+	ansiSection = "\033[1;38;5;61m"
 	ansiHint    = "\033[1;33m"
 	ansiCommand = "\033[1;32m"
 )

@@ -398,6 +398,44 @@ entity Todo {
 	}
 }
 
+func TestParseRuleExpectSyntax(t *testing.T) {
+	src := `
+app TodoApi
+
+entity Todo {
+  title: String
+  rule "Title must have at least 3 chars" expect len(title) >= 3
+}
+`
+
+	app, err := Parse(src)
+	if err != nil {
+		t.Fatalf("Parse returned error: %v", err)
+	}
+
+	var todo model.Entity
+	var found bool
+	for _, entity := range app.Entities {
+		if entity.Name == "Todo" {
+			todo = entity
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatal("expected Todo entity")
+	}
+	if len(todo.Rules) != 1 {
+		t.Fatalf("expected 1 rule, got %d", len(todo.Rules))
+	}
+	if todo.Rules[0].Message != "Title must have at least 3 chars" {
+		t.Fatalf("unexpected rule message: %q", todo.Rules[0].Message)
+	}
+	if todo.Rules[0].Expression != "len(title) >= 3" {
+		t.Fatalf("unexpected rule expression: %q", todo.Rules[0].Expression)
+	}
+}
+
 func TestParseUnknownPublicStatementSuggestsClosestKeyword(t *testing.T) {
 	src := `
 app Demo

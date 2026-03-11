@@ -68,6 +68,16 @@ func runDev(binaryName, inputPath, outputPath string) error {
 			fmt.Printf("%s %s\n", colorizeCLI(useColor, "\033[1;31m", "Build failed:"), parseErr)
 			return
 		}
+		if app.Auth != nil && strings.EqualFold(strings.TrimSpace(app.Auth.EmailTransport), "smtp") {
+			fmt.Printf(
+				"  %s %s %s %s %s\n",
+				colorizeCLI(useColor, "\033[1;36m", "Login emails"),
+				"use",
+				colorizeCLI(useColor, "\033[1;32m", "console"),
+				"in dev. Production still uses the configured",
+				colorizeCLI(useColor, "\033[1;33m", "smtp."),
+			)
+		}
 		if buildErr := buildExecutableWithOptions(app, absOutput, buildOptions{
 			PrintSummary: false,
 			SourcePath:   absInput,
@@ -91,7 +101,7 @@ func runDev(binaryName, inputPath, outputPath string) error {
 			adminURL := fmt.Sprintf("http://127.0.0.1:%d/_mar/admin", app.Port)
 			healthURL := fmt.Sprintf("http://127.0.0.1:%d/health", app.Port)
 			if err := waitForDevServer(healthURL, 8*time.Second); err != nil {
-				fmt.Printf("%s %s\n", colorizeCLI(useColor, "\033[1;33m", "Warning:"), "server is still starting; open "+adminURL+" manually if needed")
+				fmt.Printf("%s %s\n", colorizeCLI(useColor, "\033[1;33m", "Warning:"), "server is still starting; open "+adminURL+" manually if needed.")
 			} else if err := openBrowser(adminURL); err != nil {
 				fmt.Printf("%s %s\n", colorizeCLI(useColor, "\033[1;33m", "Warning:"), "could not open browser: "+err.Error())
 			}
@@ -99,7 +109,7 @@ func runDev(binaryName, inputPath, outputPath string) error {
 		}
 
 		fmt.Printf(
-			"%s %s (%d ms)\n",
+			"\n%s %s (%d ms)\n",
 			colorizeCLI(useColor, "\033[1;32m", "Build succeeded"),
 			filepath.Base(absOutput),
 			time.Since(started).Milliseconds(),
@@ -177,7 +187,7 @@ func startDevProcess(outputPath string, launchCWD string) (*devProcess, error) {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = nil
-	cmd.Env = append(os.Environ(), "BELM_DEV_MODE=1")
+	cmd.Env = append(os.Environ(), "MAR_DEV_MODE=1")
 	if strings.TrimSpace(launchCWD) != "" {
 		cmd.Env = append(cmd.Env, "MAR_DEV_LAUNCH_CWD="+launchCWD)
 	}

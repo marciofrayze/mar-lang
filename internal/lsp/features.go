@@ -66,6 +66,7 @@ var (
 		"smtp_password_env":                       "Sets the environment variable name that holds the SMTP password.",
 		"smtp_starttls":                           "Controls whether Mar upgrades the SMTP connection with STARTTLS.",
 		"rule":                                    "Adds validation logic for entity records.",
+		"expect":                                  "Used in `rule` clauses to declare the condition that must be true.",
 		"authorize":                               "Adds authorization rules for CRUD actions. Use `authorize all when ...` to set a default for every operation and override specific operations when needed.",
 		"type":                                    "Used with `type alias` to define an action input record.",
 		"alias":                                   "Used with `type alias` to define an action input record.",

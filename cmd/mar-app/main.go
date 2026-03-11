@@ -137,8 +137,13 @@ func runServe(app *model.App, bundle *appbundle.Bundle) error {
 		return err
 	}
 
+	useColor := appSupportsANSI(os.Stdout)
 	adminURL := fmt.Sprintf("http://127.0.0.1:%d/_mar/admin", app.Port)
-	fmt.Printf("\nAdmin panel: %s\n", adminURL)
+	fmt.Printf(
+		"\n%s %s\n",
+		appColorize(useColor, "\033[1;36m", "Admin panel:"),
+		appColorize(useColor, "\033[1;34m", adminURL),
+	)
 	return r.Serve(context.Background())
 }
 

@@ -77,6 +77,34 @@ auth {
 	}
 }
 
+func TestSMTPStartupCheckIsSkippedInDevMode(t *testing.T) {
+	requireSQLite3(t)
+
+	t.Setenv("MAR_DEV_MODE", "1")
+
+	r := mustNewRuntimeFromSource(t, filepath.Join(t.TempDir(), "smtp-dev-override.db"), `
+app MailApi
+
+auth {
+  email_transport smtp
+  email_from "no-reply@example.com"
+  email_subject "Your login code"
+  smtp_host "smtp.example.com"
+  smtp_port 587
+  smtp_username "resend"
+  smtp_password_env "MISSING_SMTP_PASSWORD"
+  smtp_starttls true
+}
+`)
+
+	if err := r.runStartupChecks(); err != nil {
+		t.Fatalf("expected SMTP startup check to be skipped in dev mode, got %v", err)
+	}
+	if got := r.authConfig().EmailTransport; got != "console" {
+		t.Fatalf("expected dev mode to override SMTP to console, got %q", got)
+	}
+}
+
 func stubSMTPDial(t *testing.T) func() {
 	t.Helper()
 

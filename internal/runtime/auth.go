@@ -14,21 +14,29 @@ const sessionCookieName = "mar_session"
 const adminUISessionHeader = "X-Mar-Admin-UI"
 
 func (r *Runtime) authConfig() model.AuthConfig {
+	var cfg model.AuthConfig
 	if r.App.Auth != nil {
-		return *r.App.Auth
+		cfg = *r.App.Auth
+	} else {
+		cfg = model.AuthConfig{
+			UserEntity:      "User",
+			EmailField:      "email",
+			RoleField:       "role",
+			CodeTTLMinutes:  10,
+			SessionTTLHours: 24,
+			EmailTransport:  "console",
+			EmailFrom:       "no-reply@mar.local",
+			EmailSubject:    "Your Mar login code",
+			SMTPPort:        587,
+			SMTPStartTLS:    true,
+		}
 	}
-	return model.AuthConfig{
-		UserEntity:      "User",
-		EmailField:      "email",
-		RoleField:       "role",
-		CodeTTLMinutes:  10,
-		SessionTTLHours: 24,
-		EmailTransport:  "console",
-		EmailFrom:       "no-reply@mar.local",
-		EmailSubject:    "Your Mar login code",
-		SMTPPort:        587,
-		SMTPStartTLS:    true,
+
+	if isMarDevMode() && strings.EqualFold(strings.TrimSpace(cfg.EmailTransport), "smtp") {
+		cfg.EmailTransport = "console"
 	}
+
+	return cfg
 }
 
 func (r *Runtime) usesAppAuthEntity() bool {
@@ -302,7 +310,7 @@ func (r *Runtime) issueAuthCode(w http.ResponseWriter, requestID, email string, 
 }
 
 func isMarDevMode() bool {
-	value := strings.ToLower(strings.TrimSpace(os.Getenv("BELM_DEV_MODE")))
+	value := strings.ToLower(strings.TrimSpace(os.Getenv("MAR_DEV_MODE")))
 	return value == "1" || value == "true" || value == "yes" || value == "on"
 }
 

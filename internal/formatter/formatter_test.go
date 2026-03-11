@@ -224,3 +224,29 @@ title:String
 		t.Fatalf("unexpected formatted output\n--- expected ---\n%s\n--- got ---\n%s", expected, formatted)
 	}
 }
+
+func TestFormatPreservesRuleExpectSyntax(t *testing.T) {
+	src := `
+app TodoApi
+entity Todo {
+title:String
+rule "Title must have at least 3 chars" expect len(title) >= 3
+}
+`
+
+	formatted, err := Format(src)
+	if err != nil {
+		t.Fatalf("format failed: %v", err)
+	}
+
+	expected := "" +
+		"app TodoApi\n" +
+		"entity Todo {\n" +
+		"  title: String\n" +
+		"  rule \"Title must have at least 3 chars\" expect len(title) >= 3\n" +
+		"}\n"
+
+	if formatted != expected {
+		t.Fatalf("unexpected formatted output\n--- expected ---\n%s\n--- got ---\n%s", expected, formatted)
+	}
+}
