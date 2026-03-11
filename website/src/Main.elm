@@ -444,8 +444,8 @@ topSearch model =
         , Border.width 1
         , Border.color (rgb255 209 222 239)
         , Border.rounded 10
-        , paddingEach { top = 12, right = 12, bottom = 12, left = 12 }
-        , Font.size 16
+        , paddingEach { top = 10, right = 10, bottom = 10, left = 10 }
+        , Font.size 14
         , htmlAttribute (HtmlEvents.onFocus FocusDocsSearch)
         , htmlAttribute (HtmlEvents.onBlur BlurDocsSearch)
         ]
@@ -4146,7 +4146,7 @@ todoExampleSource =
 -- Application
 app TodoApi
 port 4100
-database \"todo.db\"
+database "todo.db"
 
 -- Entity
 entity Todo {
@@ -4154,7 +4154,7 @@ entity Todo {
   title: String
   done: Bool
 
-  rule \"Title must have at least 3 chars\" expect len(title) >= 3
+  rule "Title must have at least 3 chars" expect len(title) >= 3
   authorize all when auth_authenticated
 }
 """
@@ -4179,12 +4179,12 @@ action placeOrder {
   create Order {
     userId: input.userId
     total: input.total
-    status: \"created\"
+    status: "created"
   }
 
   create AuditLog {
     userId: input.userId
-    event: \"order created\"
+    event: "order created"
   }
 }
 """
@@ -4218,9 +4218,9 @@ publicConfigSource : String
 publicConfigSource =
     """-- Public files are embedded into the final executable.
 public {
-  dir \"./frontend/dist\"      -- required; resolved relative to the .mar file.
-  mount \"/\"                  -- defaults to /.
-  spa_fallback \"index.html\"  -- serves the frontend entry file for SPA-style routes.
+  dir "./frontend/dist"      -- required; resolved relative to the .mar file.
+  mount "/"                  -- defaults to /.
+  spa_fallback "index.html"  -- serves the frontend entry file for SPA-style routes.
 }
 """
 
@@ -4232,12 +4232,12 @@ auth {
   code_ttl_minutes 10
   session_ttl_hours 24
   email_transport smtp
-  email_from \"no-reply@store.example\"
-  email_subject \"Your StoreApi login code\"
-  smtp_host \"smtp.example.com\"
+  email_from "no-reply@store.example"
+  email_subject "Your StoreApi login code"
+  smtp_host "smtp.example.com"
   smtp_port 587
-  smtp_username \"username\"
-  smtp_password_env \"SMTP_PASSWORD\"
+  smtp_username "username"
+  smtp_password_env "SMTP_PASSWORD"
   smtp_starttls true
 }
 """
@@ -4264,12 +4264,12 @@ smtpDeploySource =
     """-- In your app.mar file
 auth {
   email_transport smtp
-  email_from \"no-reply@yourdomain.com\"
-  email_subject \"Your login code\"
-  smtp_host \"smtp.resend.com\"
+  email_from "no-reply@yourdomain.com"
+  email_subject "Your login code"
+  smtp_host "smtp.resend.com"
   smtp_port 587
-  smtp_username \"resend\"
-  smtp_password_env \"RESEND_API_KEY\"
+  smtp_username "resend"
+  smtp_password_env "RESEND_API_KEY"
   smtp_starttls true
 }
 """
@@ -4283,9 +4283,9 @@ entity User {
 
   -- Admin always has read-only access to User, even without explicit rules.
   -- These rules are still useful when non-admin user access should be allowed.
-  authorize all when isRole(\"admin\")
-  authorize get when auth_authenticated and (id == auth_user_id or isRole(\"admin\"))
-  authorize delete when isRole(\"admin\")
+  authorize all when isRole("admin")
+  authorize get when auth_authenticated and (id == auth_user_id or isRole("admin"))
+  authorize delete when isRole("admin")
 }
 """
 
@@ -4294,23 +4294,23 @@ storeExampleSource : String
 storeExampleSource =
     """app BookStoreApi
 port 4100
-database \"bookstore.db\"
+database "bookstore.db"
 
 auth {
   code_ttl_minutes 10
   session_ttl_hours 24
   email_transport console
-  email_from \"no-reply@bookstore.local\"
-  email_subject \"Your BookStore login code\"
+  email_from "no-reply@bookstore.local"
+  email_subject "Your BookStore login code"
 }
 
 entity User {
   displayName: String optional
 
-  authorize all when isRole(\"admin\")
-  authorize get when auth_authenticated and (id == auth_user_id or isRole(\"admin\"))
-  authorize update when auth_authenticated and ((id == auth_user_id and role == auth_role) or isRole(\"admin\"))
-  authorize delete when isRole(\"admin\")
+  authorize all when isRole("admin")
+  authorize get when auth_authenticated and (id == auth_user_id or isRole("admin"))
+  authorize update when auth_authenticated and ((id == auth_user_id and role == auth_role) or isRole("admin"))
+  authorize delete when isRole("admin")
 }
 
 entity Book {
@@ -4321,13 +4321,13 @@ entity Book {
   price: Float
   stock: Int
 
-  rule \"Book title cannot be empty\" expect title != \"\"
-  rule \"Price must be greater than zero\" expect price > 0
+  rule "Book title cannot be empty" expect title != ""
+  rule "Price must be greater than zero" expect price > 0
 
   authorize all when true
   authorize create when auth_authenticated
-  authorize update when isRole(\"admin\")
-  authorize delete when isRole(\"admin\")
+  authorize update when isRole("admin")
+  authorize delete when isRole("admin")
 }
 
 type alias PlaceBookOrderInput =
@@ -4347,9 +4347,9 @@ action placeBookOrder {
   create Order {
     orderRef: input.orderRef
     userId: input.userId
-    status: \"confirmed\"
+    status: "confirmed"
     total: input.orderTotal
-    currency: \"BRL\"
+    currency: "BRL"
     notes: input.notes
   }
 
@@ -4364,7 +4364,7 @@ action placeBookOrder {
 
   create AuditLog {
     userId: input.userId
-    event: \"book order created\"
+    event: "book order created"
     orderRef: input.orderRef
   }
 }
