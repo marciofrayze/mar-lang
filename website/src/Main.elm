@@ -831,32 +831,6 @@ gettingStartedPage model =
             ]
         , install model
         , quickStart model
-        , panel
-            [ sectionTitle "Use the Admin UI while developing"
-            , paragraph [ Font.size 16, Font.color (rgb255 72 95 123), width fill ]
-                [ text "When you run "
-                , el [ Font.family [ Font.typeface "IBM Plex Mono", Font.monospace ], Font.bold ] (text "mar dev")
-                , text ", Mar opens the Admin UI automatically. In production or when you run the executable directly, use this URL:"
-                ]
-            , paragraph [ Font.size 16, Font.color (rgb255 72 95 123), width fill ]
-                [ text "Admin UI URL: "
-                , newTabLink
-                    [ Font.bold
-                    , Font.family [ Font.typeface "IBM Plex Mono", Font.monospace ]
-                    , Font.color (rgb255 36 82 132)
-                    , htmlAttribute (HtmlAttr.style "cursor" "pointer")
-                    ]
-                    { url = "http://localhost:4100/_mar/admin"
-                    , label = text "http://localhost:4100/_mar/admin"
-                    }
-                ]
-            , bulletList
-                [ "Sign in through Authentication."
-                , "Navigate entities from the left sidebar."
-                , "Manage records with the built-in CRUD actions."
-                , "Access monitoring, logs, and database tools with an admin account."
-                ]
-            ]
         , gettingStartedAdvancedCta
         ]
 
@@ -867,30 +841,29 @@ gettingStartedAdvancedCta =
         [ column
             [ width fill
             , spacing 12
-            , centerX
             ]
             [ paragraph
                 [ Font.size 24
                 , Font.bold
                 , Font.color (rgb255 20 53 89)
-                , centerX
                 ]
                 [ text "Ready for the next step?" ]
             , paragraph
                 [ Font.size 16
                 , Font.color (rgb255 72 95 123)
-                , centerX
                 ]
                 [ text "Continue to the Advanced Guide to understand the language, runtime, and compiler in more depth." ]
-            , link
-                (buttonAttributes
-                    (rgb255 45 126 210)
-                    (rgb255 245 250 255)
-                    ++ [ centerX ]
-                )
-                { url = routeHref AdvancedGuide
-                , label = text "Go to Advanced Guide"
-                }
+            , row [ width fill ]
+                [ el [ width fill ] none
+                , link
+                    (buttonAttributes
+                        (rgb255 45 126 210)
+                        (rgb255 245 250 255)
+                    )
+                    { url = routeHref AdvancedGuide
+                    , label = text "Next: Advanced Guide"
+                    }
+                ]
             ]
         ]
 
@@ -962,7 +935,12 @@ advancedLanguagePage model =
                 , "System features use the same session and require role == \"admin\"."
                 ]
             , docSubsectionTitle "Rules and Typed Actions"
-            , bodyText "Rules are for validation close to the entity definition. Actions are for multi-step writes that must succeed or fail together."
+            , paragraphWithEmphasis
+                [ el [ Font.bold, Font.color (rgb255 20 53 89) ] (text "Rules")
+                , text " are for validation close to the entity definition. "
+                , el [ Font.bold, Font.color (rgb255 20 53 89) ] (text "Actions")
+                , text " are for multi-step writes that must succeed or fail together."
+                ]
             , docList
                 [ "rule validates entity data and returns HTTP 422 with details when validation fails."
                 , "Actions run in a single atomic transaction."
@@ -1398,9 +1376,10 @@ quickStart model =
     panel
         [ sectionTitle "Quick Start"
         , quickStartCreateCard model "1" "Create" "todo.mar" todoExampleSource
-        , commandRow model "2" "Develop" "Runs the app locally with hot reload while you edit todo.mar." "mar dev todo.mar"
+        , commandRow model "2" "Develop" "Runs the app locally with hot reload and opens the Admin UI while you edit todo.mar." "mar dev todo.mar"
         , commandRow model "3" "Compile" "Packages production executables for all supported platforms and generates the frontend clients." "mar compile todo.mar"
-        , commandRow model "4" "Run" "Choose the target folder for your platform, start that executable, and open the printed Admin URL." "cd dist/todo/darwin-arm64 && ./todo serve"
+        , commandRow model "4" "Run" "Choose the target folder for your platform, start that executable, and open the printed Admin URL." """cd dist/todo/darwin-arm64
+./todo serve"""
         , paragraph [ Font.size 16, Font.color (rgb255 72 95 123), width fill ]
             [ text "Mar compile produces a single self-contained executable per target platform. Each one already includes API, auth, embedded Admin UI, monitoring dashboards, request logs, and SQLite backup tools." ]
         ]
@@ -1486,7 +1465,8 @@ pathInstallRow model =
             [ width fill
             , spacing 8
             ]
-            [ installSubitem model "macOS/Linux" "mv mar /usr/local/bin/mar && chmod +x /usr/local/bin/mar"
+            [ installSubitem model "macOS/Linux" """mv mar /usr/local/bin/mar
+chmod +x /usr/local/bin/mar"""
             , installSubitem model "Windows" "setx PATH \"%PATH%;C:\\Tools\\mar\""
             ]
         ]
@@ -2916,9 +2896,7 @@ commandRow model number label description command =
             [ width fill
             , spacing 8
             ]
-            [ codeInline command
-            , copyLink model command
-            ]
+            [ commandSnippet model command ]
         , paragraph
             [ Font.size 14
             , Font.color (rgb255 83 105 132)
@@ -2926,6 +2904,21 @@ commandRow model number label description command =
             ]
             [ text description ]
         ]
+
+
+commandSnippet : Model -> String -> Element Msg
+commandSnippet model command =
+    if String.contains "\n" command then
+        terminalFromString model command
+
+    else
+        wrappedRow
+            [ width fill
+            , spacing 8
+            ]
+            [ codeInline command
+            , copyLink model command
+            ]
 
 
 resourceCard : String -> String -> Element Msg
@@ -3172,11 +3165,20 @@ installSubitem model platform command =
         , paddingEach { top = 10, right = 10, bottom = 10, left = 10 }
         ]
         [ el [ Font.size 13, Font.semiBold, Font.color (rgb255 70 93 121) ] (text platform)
-        , wrappedRow [ width fill, spacing 8 ]
+        , installCommandSnippet model command
+        ]
+
+
+installCommandSnippet : Model -> String -> Element Msg
+installCommandSnippet model command =
+    if String.contains "\n" command then
+        terminalFromString model command
+
+    else
+        wrappedRow [ width fill, spacing 8 ]
             [ codeInlineSmall command
             , copyLink model command
             ]
-        ]
 
 
 bulletList : List String -> Element Msg
@@ -3401,13 +3403,35 @@ findTerminalHighlight value =
 
 terminalHighlightWords : List String
 terminalHighlightWords =
-    [ "eval", "source", "mar", "zsh", "bash", "fish" ]
+    [ "eval"
+    , "source"
+    , "cd"
+    , "mv"
+    , "chmod"
+    , "mar"
+    , "zsh"
+    , "bash"
+    , "fish"
+    , "./todo"
+    , "./todo.exe"
+    , "dist/todo/darwin-arm64"
+    , "dist/todo/linux-<your-arch>"
+    , "dist/todo/windows-amd64"
+    , "dist/todo/<your-target-folder>"
+    , "/usr/local/bin/mar"
+    ]
 
 
 terminalHighlightColor : String -> String
 terminalHighlightColor value =
     case value of
         "mar" ->
+            "#A6E3A1"
+
+        "./todo" ->
+            "#A6E3A1"
+
+        "./todo.exe" ->
             "#A6E3A1"
 
         "zsh" ->
@@ -3418,6 +3442,21 @@ terminalHighlightColor value =
 
         "fish" ->
             "#C792EA"
+
+        "dist/todo/darwin-arm64" ->
+            "#F6C177"
+
+        "dist/todo/linux-<your-arch>" ->
+            "#F6C177"
+
+        "dist/todo/windows-amd64" ->
+            "#F6C177"
+
+        "dist/todo/<your-target-folder>" ->
+            "#F6C177"
+
+        "/usr/local/bin/mar" ->
+            "#F6C177"
 
         _ ->
             "#8BE9FD"
