@@ -756,11 +756,24 @@ advancedDeployPage model =
                 , "SQLite keeps the data model simple: one database file, no separate database service required."
                 ]
             , docSubsectionTitle "Email delivery"
-            , bodyText "If your app uses email login codes, configure a real SMTP provider before deploying. We currently recommend Resend because it is simple to set up and works well with Mar's SMTP configuration."
+            , paragraphWithEmphasis
+                [ text "If your app uses email login codes, configure a real SMTP provider before deploying. We currently recommend "
+                , newTabLink
+                    [ Font.color (rgb255 36 82 132)
+                    , Font.semiBold
+                    , htmlAttribute (HtmlAttr.style "cursor" "pointer")
+                    ]
+                    { url = "https://resend.com"
+                    , label = text "Resend"
+                    }
+                , text " because it is simple to set up and works well with Mar's SMTP configuration."
+                ]
             , docList
                 [ "Set the SMTP password as an environment variable on your provider."
                 , "Any SMTP-compatible provider can work, but Resend is the simplest place to start."
                 ]
+            , codeFromString model "app.mar" 0 smtpDeploySource
+            , bodyText "In this example, smtp_password_env points to RESEND_API_KEY. That means your deploy environment must define a RESEND_API_KEY variable with the SMTP password before the app starts."
             , docSubsectionTitle "What production still needs"
             , bodyText "Mar keeps deployment lightweight, but production still has a few practical requirements."
             , docList
@@ -781,18 +794,22 @@ advancedDeployPage model =
                 , text " because it fits that model well and keeps the setup small."
                 ]
             , docSubsectionTitle "Deploy on Fly.io"
-            , bodyText "The Fly.io workflow is meant to stay practical. First prepare the deployment files, then follow the commands Mar prints for your app."
+            , paragraphWithEmphasis
+                [ text "Mar already has a dedicated Fly.io workflow. Start with "
+                , inlineCommand "mar fly init"
+                , text ", and Mar will prepare the Fly deployment files for your app."
+                ]
             , terminalFromString model flyInitSource
             , docList
-                [ "Pick the Fly app name you want."
+                [ "Choose the Fly app name you want to create on Fly.io."
                 , "Choose the Fly region closest to your users."
-                , "Let Mar generate the deployment files."
+                , "Let Mar generate the Fly deployment files for you."
                 ]
-            , bodyText "After that, create the Fly app, create its volume, set the SMTP secret, and deploy."
+            , bodyText "After that, follow the commands Mar shows you: create the Fly app, create its volume, set the SMTP secret, and deploy."
             , terminalFromString model flyDeploySource
-            , docSubsectionTitle "Current limits to keep in mind"
+            , docSubsectionTitle "Current limitations"
             , docList
-                [ "SQLite needs persistent disk storage."
+                [ "SQLite needs persistent disk storage so your data survives restarts and redeploys in production."
                 , "A single-machine setup is the simplest path when using SQLite."
                 , "If your provider cannot run a binary with persistent storage, it is not a good fit for Mar today."
                 ]
@@ -1134,6 +1151,19 @@ emphasisText : String -> Element Msg
 emphasisText value =
     el
         [ Font.semiBold
+        , Font.color (rgb255 28 66 108)
+        ]
+        (text value)
+
+
+inlineCommand : String -> Element Msg
+inlineCommand value =
+    el
+        [ Background.color (rgb255 233 242 252)
+        , Border.rounded 6
+        , paddingEach { top = 2, right = 6, bottom = 2, left = 6 }
+        , Font.family [ Font.typeface "IBM Plex Mono", Font.monospace ]
+        , Font.size 13
         , Font.color (rgb255 28 66 108)
         ]
         (text value)
@@ -3641,9 +3671,25 @@ flyDeploySource : String
 flyDeploySource =
     """fly auth login
 fly apps create app
-fly volumes create app_data --region gru --size 1 -a app
+fly volumes create app_data --region <fly-region-code> --size <size-in-gb> -a app
 fly secrets set RESEND_API_KEY=... -a app
 mar fly deploy app.mar
+"""
+
+
+smtpDeploySource : String
+smtpDeploySource =
+    """-- In your app.mar file
+auth {
+  email_transport smtp
+  email_from \"no-reply@yourdomain.com\"
+  email_subject \"Your login code\"
+  smtp_host \"smtp.resend.com\"
+  smtp_port 587
+  smtp_username \"resend\"
+  smtp_password_env \"RESEND_API_KEY\"
+  smtp_starttls true
+}
 """
 
 
