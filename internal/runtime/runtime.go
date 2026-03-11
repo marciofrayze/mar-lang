@@ -309,6 +309,11 @@ func (r *Runtime) route(w http.ResponseWriter, req *http.Request, requestID stri
 	}
 	method := req.Method
 
+	if method == http.MethodGet && path == "/" && (r.App == nil || r.App.Public == nil) {
+		http.Redirect(w, req, "/_mar/admin", http.StatusFound)
+		return nil
+	}
+
 	if method == http.MethodGet && path == "/health" {
 		r.writeJSON(w, http.StatusOK, map[string]any{"ok": true, "app": r.App.AppName})
 		return nil

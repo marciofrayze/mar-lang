@@ -80,13 +80,17 @@ func runDev(binaryName, inputPath, outputPath string) error {
 			process = nil
 		}
 
-		nextProcess, runErr := startDevProcess(absOutput, adminOpened, launchCWD)
+		nextProcess, runErr := startDevProcess(absOutput, launchCWD)
 		if runErr != nil {
 			fmt.Printf("%s %s\n", colorizeCLI(useColor, "\033[1;31m", "Run failed:"), runErr)
 			return
 		}
 		process = nextProcess
 		if !adminOpened {
+			adminURL := fmt.Sprintf("http://127.0.0.1:%d/_mar/admin", app.Port)
+			if err := openBrowser(adminURL); err != nil {
+				fmt.Printf("%s %s\n", colorizeCLI(useColor, "\033[1;33m", "Warning:"), "could not open browser: "+err.Error())
+			}
 			adminOpened = true
 		}
 
@@ -162,7 +166,7 @@ func readWatchedState(path string) (watchedFileState, error) {
 	}, nil
 }
 
-func startDevProcess(outputPath string, noOpen bool, launchCWD string) (*devProcess, error) {
+func startDevProcess(outputPath string, launchCWD string) (*devProcess, error) {
 	runDir := filepath.Dir(outputPath)
 	cmd := exec.Command(outputPath, "serve")
 	cmd.Dir = runDir
@@ -172,9 +176,6 @@ func startDevProcess(outputPath string, noOpen bool, launchCWD string) (*devProc
 	cmd.Env = append(os.Environ(), "BELM_DEV_MODE=1")
 	if strings.TrimSpace(launchCWD) != "" {
 		cmd.Env = append(cmd.Env, "MAR_DEV_LAUNCH_CWD="+launchCWD)
-	}
-	if noOpen {
-		cmd.Env = append(cmd.Env, "BELM_ADMIN_NO_OPEN=1")
 	}
 	if err := cmd.Start(); err != nil {
 		return nil, err

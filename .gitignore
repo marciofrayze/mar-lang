@@ -18,3 +18,4 @@ mar
 mar.exe
 internal/cli/compiler_assets/
 internal/cli/runtime_stubs/
+deploy/

@@ -6,6 +6,8 @@ import (
 	"strings"
 )
 
+const databasePathOverrideEnv = "MAR_DATABASE_PATH"
+
 // ResolvePathRelativeToExecutable anchors a relative app path at the executable directory.
 func ResolvePathRelativeToExecutable(path string) string {
 	trimmed := strings.TrimSpace(path)
@@ -23,4 +25,13 @@ func ResolvePathRelativeToExecutable(path string) string {
 		return cleaned
 	}
 	return filepath.Join(filepath.Dir(exePath), cleaned)
+}
+
+// ResolveDatabasePath uses MAR_DATABASE_PATH when present, otherwise it anchors
+// the app database path at the executable directory.
+func ResolveDatabasePath(path string) string {
+	if override := strings.TrimSpace(os.Getenv(databasePathOverrideEnv)); override != "" {
+		return ResolvePathRelativeToExecutable(override)
+	}
+	return ResolvePathRelativeToExecutable(path)
 }

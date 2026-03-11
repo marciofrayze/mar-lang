@@ -5068,49 +5068,50 @@ formCard model entity titleText =
 
 viewSelectedRow : Model -> Element Msg
 viewSelectedRow model =
-    case model.selectedRow of
-        Nothing ->
-            none
+    if currentWorkspace model == AppWorkspace then
+        none
 
-        Just rowValue ->
-            case model.selectedEntity of
-                Nothing ->
-                    none
+    else
+        case model.selectedRow of
+            Nothing ->
+                none
 
-                Just entity ->
-                    let
-                        workspace =
-                            currentWorkspace model
+            Just rowValue ->
+                case model.selectedEntity of
+                    Nothing ->
+                        none
 
-                        visibleFieldNames =
-                            displayFieldsForEntity workspace entity
-                                |> List.map .name
+                    Just entity ->
+                        let
+                            visibleFieldNames =
+                                displayFieldsForEntity AdminWorkspace entity
+                                    |> List.map .name
 
-                        visibleRows =
-                            rowValue
-                                |> Dict.toList
-                                |> List.filter (\( key, _ ) -> List.member key visibleFieldNames)
-                    in
-                    column
-                        [ width fill
-                        , spacing 8
-                        , Background.color (rgb255 255 255 255)
-                        , Border.rounded 14
-                        , Border.width 1
-                        , Border.color (rgb255 226 232 239)
-                        , padding 14
-                        ]
-                        (el [ Font.bold, Font.size 18 ] (text (if workspace == AppWorkspace then "Details" else "Record detail"))
-                            :: (visibleRows
-                                    |> List.map
-                                        (\( key, value ) ->
-                                            row [ width fill, spacing 8 ]
-                                                [ el [ Font.bold ] (text (fieldLabel key))
-                                                , paragraph [ Font.size 13, Font.color (rgb255 82 92 108) ] [ text (valueToString value) ]
-                                                ]
-                                        )
-                               )
-                        )
+                            visibleRows =
+                                rowValue
+                                    |> Dict.toList
+                                    |> List.filter (\( key, _ ) -> List.member key visibleFieldNames)
+                        in
+                        column
+                            [ width fill
+                            , spacing 8
+                            , Background.color (rgb255 255 255 255)
+                            , Border.rounded 14
+                            , Border.width 1
+                            , Border.color (rgb255 226 232 239)
+                            , padding 14
+                            ]
+                            (el [ Font.bold, Font.size 18 ] (text "Record detail")
+                                :: (visibleRows
+                                        |> List.map
+                                            (\( key, value ) ->
+                                                row [ width fill, spacing 8 ]
+                                                    [ el [ Font.bold ] (text (fieldLabel key))
+                                                    , paragraph [ Font.size 13, Font.color (rgb255 82 92 108) ] [ text (valueToString value) ]
+                                                    ]
+                                            )
+                                   )
+                            )
 
 
 networkErrorMessage : String

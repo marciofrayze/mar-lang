@@ -62,3 +62,32 @@ func TestHighlightParseCLIMessageColorsUnknownInputFieldInRed(t *testing.T) {
 		t.Fatalf("expected suggested token to remain green, got %q", msg)
 	}
 }
+
+func TestFlyUsageErrorUsesStyledCLIFormat(t *testing.T) {
+	t.Setenv("NO_COLOR", "1")
+
+	err := flyUsageError("mar")
+	if err == nil {
+		t.Fatal("expected fly usage error")
+	}
+
+	msg := err.Error()
+	if !strings.Contains(msg, "Fly usage") {
+		t.Fatalf("expected fly usage title, got %q", msg)
+	}
+	if !strings.Contains(msg, "mar fly init <input.mar> [fly-app-name]") {
+		t.Fatalf("expected fly usage command, got %q", msg)
+	}
+	if !strings.Contains(msg, "mar fly deploy <input.mar>") {
+		t.Fatalf("expected fly deploy usage command, got %q", msg)
+	}
+	if !strings.Contains(msg, "Hint:\n  Prepare Fly.io deployment files with: mar fly init <input.mar>") {
+		t.Fatalf("expected fly usage hint, got %q", msg)
+	}
+	if !strings.Contains(msg, "Deploy the current app with: mar fly deploy <input.mar>") {
+		t.Fatalf("expected fly deploy hint, got %q", msg)
+	}
+	if !strings.HasSuffix(msg, "\n") {
+		t.Fatalf("expected fly usage message to end with newline, got %q", msg)
+	}
+}

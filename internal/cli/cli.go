@@ -75,6 +75,8 @@ func Run(binaryName string, args []string) error {
 			outputPath = defaultOutputPath(args[1], args[2])
 		}
 		return runDev(binaryName, args[1], outputPath)
+	case "fly":
+		return runFly(binaryName, args[1:])
 	case "format":
 		return runFormat(binaryName, args[1:])
 	case "lsp":
@@ -328,6 +330,7 @@ func printUsage(binaryName string) {
 	fmt.Printf("%s\n", colorizeCLI(useColor, "\033[1;36m", "Available commands"))
 	fmt.Printf("  %-45s %s\n", fmt.Sprintf("%s dev <input.mar> [output-name]", binaryName), "Run development mode with hot reload.")
 	fmt.Printf("  %-45s %s\n", fmt.Sprintf("%s compile <input.mar> [output-name]", binaryName), "Compile a .mar app into executables for all supported platforms and generate its frontend clients.")
+	fmt.Printf("  %-45s %s\n", fmt.Sprintf("%s fly init <input.mar> [fly-app-name]", binaryName), "Prepare Fly.io deployment files and a Linux executable.")
 	fmt.Printf("  %-45s %s\n", fmt.Sprintf("%s format [--check] [--stdin] [files...]", binaryName), "Format Mar source files.")
 	fmt.Printf("  %-45s %s\n", fmt.Sprintf("%s lsp", binaryName), "Start the Mar Language Server (for editors).")
 	fmt.Printf("  %-45s %s\n", fmt.Sprintf("%s version", binaryName), "Show version and build information.")
@@ -343,6 +346,7 @@ func unknownCommandError(binaryName, provided string) error {
 	fmt.Fprintf(&b, "%s\n", colorizeCLI(useColor, "\033[1;36m", "Available commands:"))
 	fmt.Fprintf(&b, "  %s\n", fmt.Sprintf("%s dev <input.mar> [output-name]", binaryName))
 	fmt.Fprintf(&b, "  %s\n", fmt.Sprintf("%s compile <input.mar> [output-name]", binaryName))
+	fmt.Fprintf(&b, "  %s\n", fmt.Sprintf("%s fly init <input.mar> [fly-app-name]", binaryName))
 	fmt.Fprintf(&b, "  %s\n", fmt.Sprintf("%s format [--check] [--stdin] [files...]", binaryName))
 	fmt.Fprintf(&b, "  %s\n", fmt.Sprintf("%s lsp", binaryName))
 	fmt.Fprintf(&b, "  %s\n", fmt.Sprintf("%s version", binaryName))

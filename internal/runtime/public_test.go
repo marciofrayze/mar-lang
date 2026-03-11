@@ -146,6 +146,38 @@ entity Todo {
 	}
 }
 
+func TestRootRedirectsToAdminWhenNoPublicAppIsConfigured(t *testing.T) {
+	requireSQLite3(t)
+
+	app := mustParseApp(t, `
+app TodoApi
+database "./todo.db"
+
+entity Todo {
+  title: String
+}
+`)
+	app.Database = filepath.Join(t.TempDir(), "root-redirect.db")
+
+	r, err := New(app)
+	if err != nil {
+		t.Fatalf("runtime.New failed: %v", err)
+	}
+	r.SetAdminFiles(fstest.MapFS{
+		"index.html": &fstest.MapFile{Data: []byte("<html><body>admin</body></html>")},
+	})
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	r.handleHTTP(rec, req)
+	if rec.Code != http.StatusFound {
+		t.Fatalf("expected 302 for / without public app, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	if location := rec.Header().Get("Location"); location != "/_mar/admin" {
+		t.Fatalf("expected redirect to /_mar/admin, got %q", location)
+	}
+}
+
 func TestAdminPanelServedUnderMarPrefix(t *testing.T) {
 	requireSQLite3(t)
 

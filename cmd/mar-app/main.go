@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"os/exec"
-	"runtime"
 	"strings"
 
 	"mar/internal/appbundle"
@@ -31,7 +29,7 @@ func main() {
 	}
 
 	app := *bundle.App
-	app.Database = marruntime.ResolvePathRelativeToExecutable(app.Database)
+	app.Database = marruntime.ResolveDatabasePath(app.Database)
 
 	switch {
 	case len(os.Args) == 1:
@@ -57,10 +55,10 @@ func printAppUsage(binaryName string) {
 	useColor := appSupportsANSI(os.Stdout)
 	fmt.Println()
 	fmt.Printf("%s\n", appColorize(useColor, "\033[1m", "Available commands"))
-	fmt.Printf("  %s  %s\n", appColorize(useColor, "\033[1;32m", binaryName+" serve "), "Start the API server and open Mar Admin.")
+	fmt.Printf("  %s  %s\n", appColorize(useColor, "\033[1;32m", binaryName+" serve "), "Start the API server and show the Mar Admin URL.")
 	fmt.Printf("  %s  %s\n", appColorize(useColor, "\033[1;32m", binaryName+" backup"), "Create a SQLite backup in ./backups.")
 	fmt.Printf(
-		"\n%s Use %s to start the API server and open Mar Admin.\n",
+		"\n%s Use %s to start the API server and show the Mar Admin URL.\n",
 		appColorize(useColor, "\033[1;33m", "Hint:"),
 		appColorize(useColor, "\033[1;32m", binaryName+" serve"),
 	)
@@ -80,7 +78,7 @@ func printAppUnknownCommand(binaryName string, args []string) {
 	fmt.Fprintf(os.Stderr, "  %s\n", binaryName+" backup")
 	fmt.Fprintf(
 		os.Stderr,
-		"\n%s Use %s to start the API server and open Mar Admin.\n",
+		"\n%s Use %s to start the API server and show the Mar Admin URL.\n",
 		appColorize(useColor, "\033[1;33m", "Hint:"),
 		appColorize(useColor, "\033[1;32m", binaryName+" serve"),
 	)
@@ -141,11 +139,6 @@ func runServe(app *model.App, bundle *appbundle.Bundle) error {
 
 	adminURL := fmt.Sprintf("http://127.0.0.1:%d/_mar/admin", app.Port)
 	fmt.Printf("\nAdmin panel: %s\n", adminURL)
-	if strings.TrimSpace(os.Getenv("BELM_ADMIN_NO_OPEN")) == "" {
-		if err := openBrowser(adminURL); err != nil {
-			fmt.Fprintln(os.Stderr, "warning: could not open browser:", err)
-		}
-	}
 	return r.Serve(context.Background())
 }
 
@@ -168,17 +161,4 @@ func runBackup(app *model.App) error {
 	}
 	fmt.Println()
 	return nil
-}
-
-func openBrowser(target string) error {
-	var cmd *exec.Cmd
-	switch runtime.GOOS {
-	case "darwin":
-		cmd = exec.Command("open", target)
-	case "windows":
-		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", target)
-	default:
-		cmd = exec.Command("xdg-open", target)
-	}
-	return cmd.Start()
 }

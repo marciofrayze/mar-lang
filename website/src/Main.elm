@@ -416,6 +416,11 @@ gettingStartedPage model =
         , panel
             [ sectionTitle "Use the Admin UI while developing"
             , paragraph [ Font.size 16, Font.color (rgb255 72 95 123), width fill ]
+                [ text "When you run "
+                , el [ Font.family [ Font.typeface "IBM Plex Mono", Font.monospace ], Font.bold ] (text "mar dev")
+                , text ", Mar opens the Admin UI automatically. In production or when you run the executable directly, use this URL:"
+                ]
+            , paragraph [ Font.size 16, Font.color (rgb255 72 95 123), width fill ]
                 [ text "Admin UI URL: "
                 , newTabLink
                     [ Font.bold
@@ -433,6 +438,21 @@ gettingStartedPage model =
                 , "Manage records with the built-in CRUD actions."
                 , "Access monitoring, logs, and database tools with an admin account."
                 ]
+            ]
+        , panel
+            [ sectionTitle "Deploy on Fly.io"
+            , paragraph [ Font.size 16, Font.color (rgb255 72 95 123), width fill ]
+                [ text "Mar can prepare Fly.io deployment files for you. The generated setup keeps the app as a single executable, mounts SQLite at /data on Fly, and leaves SMTP secrets in environment variables." ]
+            , codeFromString model "fly-init.sh" 0 flyInitSource
+            , bulletList
+                [ "`mar fly init todo.mar` generates deploy/fly/Dockerfile and deploy/fly/fly.toml."
+                , "Choose a Fly region during init. That region is written into fly.toml and reused in the volume command."
+                , "Fly uses a persistent volume for SQLite, and Mar rewrites a relative database like todo.db to /data/todo.db for that deployment."
+                , "If auth uses SMTP, set the configured password env var on Fly, such as RESEND_API_KEY."
+                ]
+            , codeFromString model "fly-deploy.sh" 0 flyDeploySource
+            , paragraph [ Font.size 14, Font.color (rgb255 96 116 140), width fill ]
+                [ text "If auth.email_from still uses a placeholder value, mar fly init warns before you deploy. Use a real sender address from a verified domain in your email provider." ]
             ]
         , gettingStartedAdvancedCta
         ]
@@ -686,8 +706,10 @@ advancedToolingPage model =
             , docSubsectionTitle "Compiler and Runtime Commands"
             , commandRow model "1" "Dev" "Runs the app in development mode with hot reload when the .mar file changes." "mar dev store.mar"
             , commandRow model "2" "Compile" "Packages self-contained executables for all supported platforms and generates frontend clients." "mar compile store.mar"
-            , commandRow model "3" "Format" "Applies Mar's official formatting style to source files." "mar format store.mar"
-            , commandRow model "4" "LSP" "Starts the language server used by the VSCode extension for diagnostics, hovers, and navigation. Usually started by the editor plugin." "mar lsp"
+            , commandRow model "3" "Fly init" "Generates deploy/fly/Dockerfile and deploy/fly/fly.toml for a Fly.io deployment." "mar fly init store.mar"
+            , commandRow model "4" "Fly deploy" "Rebuilds the Linux executable for the current app and runs fly deploy with the generated Fly config." "mar fly deploy store.mar"
+            , commandRow model "5" "Format" "Applies Mar's official formatting style to source files." "mar format store.mar"
+            , commandRow model "6" "LSP" "Starts the language server used by the VSCode extension for diagnostics, hovers, and navigation. Usually started by the editor plugin." "mar lsp"
             , docSubsectionTitle "Generated Client Output"
             , bodyText "When you compile an app, Mar also generates frontend clients for Elm and TypeScript. These clients wrap the generated HTTP API with named functions, so you do not need to hand-write fetch calls, URLs, or request payload shapes."
             , docList
@@ -829,7 +851,7 @@ quickStart model =
         , quickStartCreateCard model "1" "Create" "todo.mar" todoExampleSource
         , commandRow model "2" "Develop" "Runs the app locally with hot reload while you edit todo.mar." "mar dev todo.mar"
         , commandRow model "3" "Compile" "Packages production executables for all supported platforms and generates the frontend clients." "mar compile todo.mar"
-        , commandRow model "4" "Deploy" "Choose the target folder for your platform and start that executable." "cd dist/todo/darwin-arm64 && ./todo serve"
+        , commandRow model "4" "Run" "Choose the target folder for your platform, start that executable, and open the printed Admin URL." "cd dist/todo/darwin-arm64 && ./todo serve"
         , paragraph [ Font.size 16, Font.color (rgb255 72 95 123), width fill ]
             [ text "Mar compile produces a single self-contained executable per target platform. Each one already includes API, auth, embedded Admin UI, monitoring dashboards, request logs, and SQLite backup tools." ]
         ]
@@ -3415,6 +3437,24 @@ auth {
   smtp_password_env \"SMTP_PASSWORD\"
   smtp_starttls true
 }
+"""
+
+
+flyInitSource : String
+flyInitSource =
+    """# Prepare Fly.io deployment files
+mar fly init todo.mar
+"""
+
+
+flyDeploySource : String
+flyDeploySource =
+    """# Follow the generated next steps
+fly auth login
+fly apps create todo
+fly volumes create todo_data --region gru --size 1 -a todo
+fly secrets set RESEND_API_KEY=... -a todo
+mar fly deploy todo.mar
 """
 
 
