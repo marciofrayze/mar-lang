@@ -3033,11 +3033,13 @@ viewAuthEmailStage model firstAdminMode actionLabel submitMsg isLoading =
                 )
                 actionLabel
             )
-        , if isLoading then
-            paragraph [ Font.size 13, Font.color (rgb255 93 103 120), centerX ] [ text "Sending code..." ]
+        , authStatusLine
+            (if isLoading then
+                Just "Sending code..."
 
-          else
-            none
+             else
+                Nothing
+            )
         ]
 
 
@@ -3111,14 +3113,16 @@ viewAuthCodeStage model firstAdminMode resendLabel resendMsg loginLoading resend
                 )
                 "Login"
             )
-        , if loginLoading then
-            paragraph [ Font.size 13, Font.color (rgb255 93 103 120), centerX ] [ text "Signing in..." ]
+        , authStatusLine
+            (if loginLoading then
+                Just "Signing in..."
 
-          else if resendLoading then
-            paragraph [ Font.size 13, Font.color (rgb255 93 103 120), centerX ] [ text "Sending code..." ]
+             else if resendLoading then
+                Just "Sending code..."
 
-          else
-            none
+             else
+                Nothing
+            )
         ]
 
 
@@ -3215,6 +3219,22 @@ authActionButton backgroundColor textColor onPress labelText =
         { onPress = onPress
         , label = text labelText
         }
+
+
+authStatusLine : Maybe String -> Element Msg
+authStatusLine maybeMessage =
+    el
+        [ width fill
+        , height (px 20)
+        , centerX
+        ]
+        (case maybeMessage of
+            Just message ->
+                paragraph [ Font.size 13, Font.color (rgb255 93 103 120), centerX ] [ text message ]
+
+            Nothing ->
+                none
+        )
 
 
 authSecondaryButton : Maybe Msg -> String -> Element Msg
