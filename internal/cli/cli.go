@@ -52,7 +52,7 @@ func Run(binaryName string, args []string) error {
 	switch args[0] {
 	case "compile":
 		if len(args) != 2 && len(args) != 3 {
-			return fmt.Errorf("usage: %s compile <input.mar> [output-name]", binaryName)
+			return fmt.Errorf("usage: %s compile <app.mar> [output-name]", binaryName)
 		}
 		app, err := parseMarFile(args[1])
 		if err != nil {
@@ -68,7 +68,7 @@ func Run(binaryName string, args []string) error {
 		})
 	case "dev":
 		if len(args) != 2 && len(args) != 3 {
-			return fmt.Errorf("usage: %s dev <input.mar> [output-name]", binaryName)
+			return fmt.Errorf("usage: %s dev <app.mar> [output-name]", binaryName)
 		}
 		outputPath := defaultOutputPath(args[1], "")
 		if len(args) == 3 {
@@ -328,14 +328,15 @@ func printUsage(binaryName string) {
 
 	fmt.Println()
 	fmt.Printf("%s\n", colorizeCLI(useColor, "\033[1;36m", "Available commands"))
-	fmt.Printf("  %-45s %s\n", fmt.Sprintf("%s dev <input.mar> [output-name]", binaryName), "Run development mode with hot reload.")
-	fmt.Printf("  %-45s %s\n", fmt.Sprintf("%s compile <input.mar> [output-name]", binaryName), "Compile a .mar app into executables for all supported platforms and generate its frontend clients.")
-	fmt.Printf("  %-45s %s\n", fmt.Sprintf("%s fly init <input.mar> [fly-app-name]", binaryName), "Prepare Fly.io deployment files and a Linux executable.")
+	fmt.Printf("  %-45s %s\n", fmt.Sprintf("%s dev <app.mar> [output-name]", binaryName), "Run development mode with hot reload.")
+	fmt.Printf("  %-45s %s\n", fmt.Sprintf("%s compile <app.mar> [output-name]", binaryName), "Compile a .mar app into executables for all supported platforms and generate its frontend clients.")
+	fmt.Printf("  %-45s %s\n", fmt.Sprintf("%s fly init <app.mar> [fly-app-name]", binaryName), "Prepare Fly.io deployment files and a Linux executable.")
+	fmt.Printf("  %-45s %s\n", fmt.Sprintf("%s fly deploy <app.mar>", binaryName), "Rebuild the Linux executable for Fly.io and run fly deploy.")
 	fmt.Printf("  %-45s %s\n", fmt.Sprintf("%s format [--check] [--stdin] [files...]", binaryName), "Format Mar source files.")
 	fmt.Printf("  %-45s %s\n", fmt.Sprintf("%s lsp", binaryName), "Start the Mar Language Server (for editors).")
 	fmt.Printf("  %-45s %s\n", fmt.Sprintf("%s version", binaryName), "Show version and build information.")
 	fmt.Printf("\n%s\n", colorizeCLI(useColor, "\033[1;33m", "Hint:"))
-	fmt.Printf("  Start in development mode with: %s\n", colorizeCLI(useColor, "\033[1;32m", fmt.Sprintf("%s dev <input.mar>", binaryName)))
+	fmt.Printf("  Start in development mode with: %s\n", colorizeCLI(useColor, "\033[1;32m", fmt.Sprintf("%s dev <app.mar>", binaryName)))
 	fmt.Println()
 }
 
@@ -344,9 +345,10 @@ func unknownCommandError(binaryName, provided string) error {
 	var b strings.Builder
 	fmt.Fprintf(&b, "%s %q\n\n", colorizeCLI(useColor, "\033[1;31m", "unknown command"), provided)
 	fmt.Fprintf(&b, "%s\n", colorizeCLI(useColor, "\033[1;36m", "Available commands:"))
-	fmt.Fprintf(&b, "  %s\n", fmt.Sprintf("%s dev <input.mar> [output-name]", binaryName))
-	fmt.Fprintf(&b, "  %s\n", fmt.Sprintf("%s compile <input.mar> [output-name]", binaryName))
-	fmt.Fprintf(&b, "  %s\n", fmt.Sprintf("%s fly init <input.mar> [fly-app-name]", binaryName))
+	fmt.Fprintf(&b, "  %s\n", fmt.Sprintf("%s dev <app.mar> [output-name]", binaryName))
+	fmt.Fprintf(&b, "  %s\n", fmt.Sprintf("%s compile <app.mar> [output-name]", binaryName))
+	fmt.Fprintf(&b, "  %s\n", fmt.Sprintf("%s fly init <app.mar> [fly-app-name]", binaryName))
+	fmt.Fprintf(&b, "  %s\n", fmt.Sprintf("%s fly deploy <app.mar>", binaryName))
 	fmt.Fprintf(&b, "  %s\n", fmt.Sprintf("%s format [--check] [--stdin] [files...]", binaryName))
 	fmt.Fprintf(&b, "  %s\n", fmt.Sprintf("%s lsp", binaryName))
 	fmt.Fprintf(&b, "  %s\n", fmt.Sprintf("%s version", binaryName))
@@ -356,7 +358,7 @@ func unknownCommandError(binaryName, provided string) error {
 		fmt.Fprintf(&b, "  Try: %s\n", colorizeCLI(useColor, "\033[1;32m", fmt.Sprintf("%s dev %s", binaryName, provided)))
 	} else {
 		fmt.Fprintf(&b, "\n%s\n", colorizeCLI(useColor, "\033[1;33m", "Hint:"))
-		fmt.Fprintf(&b, "  Start in development mode with: %s\n", colorizeCLI(useColor, "\033[1;32m", fmt.Sprintf("%s dev <input.mar>", binaryName)))
+		fmt.Fprintf(&b, "  Start in development mode with: %s\n", colorizeCLI(useColor, "\033[1;32m", fmt.Sprintf("%s dev <app.mar>", binaryName)))
 	}
 	return errors.New(b.String())
 }

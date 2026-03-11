@@ -75,16 +75,16 @@ func TestFlyUsageErrorUsesStyledCLIFormat(t *testing.T) {
 	if !strings.Contains(msg, "Fly usage") {
 		t.Fatalf("expected fly usage title, got %q", msg)
 	}
-	if !strings.Contains(msg, "mar fly init <input.mar> [fly-app-name]") {
+	if !strings.Contains(msg, "mar fly init <app.mar> [fly-app-name]") {
 		t.Fatalf("expected fly usage command, got %q", msg)
 	}
-	if !strings.Contains(msg, "mar fly deploy <input.mar>") {
+	if !strings.Contains(msg, "mar fly deploy <app.mar>") {
 		t.Fatalf("expected fly deploy usage command, got %q", msg)
 	}
-	if !strings.Contains(msg, "Hint:\n  Prepare Fly.io deployment files with: mar fly init <input.mar>") {
+	if !strings.Contains(msg, "Hint:\n  Prepare Fly.io deployment files with: mar fly init <app.mar>") {
 		t.Fatalf("expected fly usage hint, got %q", msg)
 	}
-	if !strings.Contains(msg, "Deploy the current app with: mar fly deploy <input.mar>") {
+	if !strings.Contains(msg, "Deploy the current app with: mar fly deploy <app.mar>") {
 		t.Fatalf("expected fly deploy hint, got %q", msg)
 	}
 	if !strings.HasSuffix(msg, "\n") {

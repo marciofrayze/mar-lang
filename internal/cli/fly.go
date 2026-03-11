@@ -86,11 +86,11 @@ func flyUsageError(binaryName string) error {
 	useColor := cliSupportsANSIStream(os.Stderr)
 	var b strings.Builder
 	fmt.Fprintf(&b, "%s\n", colorizeCLI(useColor, "\033[1;31m", "Fly usage"))
-	fmt.Fprintf(&b, "  %s\n", fmt.Sprintf("%s fly init <input.mar> [fly-app-name]", binaryName))
-	fmt.Fprintf(&b, "  %s\n", fmt.Sprintf("%s fly deploy <input.mar>", binaryName))
+	fmt.Fprintf(&b, "  %s\n", fmt.Sprintf("%s fly init <app.mar> [fly-app-name]", binaryName))
+	fmt.Fprintf(&b, "  %s\n", fmt.Sprintf("%s fly deploy <app.mar>", binaryName))
 	fmt.Fprintf(&b, "\n%s\n", colorizeCLI(useColor, "\033[1;33m", "Hint:"))
-	fmt.Fprintf(&b, "  Prepare Fly.io deployment files with: %s\n", colorizeCLI(useColor, "\033[1;32m", fmt.Sprintf("%s fly init <input.mar>", binaryName)))
-	fmt.Fprintf(&b, "  Deploy the current app with: %s\n", colorizeCLI(useColor, "\033[1;32m", fmt.Sprintf("%s fly deploy <input.mar>", binaryName)))
+	fmt.Fprintf(&b, "  Prepare Fly.io deployment files with: %s\n", colorizeCLI(useColor, "\033[1;32m", fmt.Sprintf("%s fly init <app.mar>", binaryName)))
+	fmt.Fprintf(&b, "  Deploy the current app with: %s\n", colorizeCLI(useColor, "\033[1;32m", fmt.Sprintf("%s fly deploy <app.mar>", binaryName)))
 	return styledCLIError(strings.TrimRight(b.String(), "\n") + "\n")
 }
 
@@ -319,7 +319,7 @@ func requireFlyDeployFiles(dockerfilePath, flyTomlPath string) error {
 		fmt.Fprintf(&b, "  %s\n", path)
 	}
 	fmt.Fprintf(&b, "\n%s\n", colorizeCLI(useColor, "\033[1;33m", "Hint:"))
-	fmt.Fprintf(&b, "  Run: %s\n", colorizeCLI(useColor, "\033[1;32m", "mar fly init <input.mar>"))
+	fmt.Fprintf(&b, "  Run: %s\n", colorizeCLI(useColor, "\033[1;32m", "mar fly init <app.mar>"))
 	return styledCLIError(strings.TrimRight(b.String(), "\n") + "\n")
 }
 
