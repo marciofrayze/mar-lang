@@ -22,6 +22,7 @@ type Route
     | AdvancedLanguageReference
     | AdvancedRuntime
     | AdvancedTooling
+    | AdvancedDeploy
     | AdvancedCompiler
     | Examples
 
@@ -115,6 +116,9 @@ routeFromUrl url =
         "advanced/tooling" ->
             AdvancedTooling
 
+        "advanced/deploy" ->
+            AdvancedDeploy
+
         "advanced/compiler" ->
             AdvancedCompiler
 
@@ -158,6 +162,9 @@ routeHref route =
         AdvancedTooling ->
             "#/advanced/tooling"
 
+        AdvancedDeploy ->
+            "#/advanced/deploy"
+
         AdvancedCompiler ->
             "#/advanced/compiler"
 
@@ -188,6 +195,9 @@ pageTitle route =
 
         AdvancedTooling ->
             "Mar - Tooling Guide"
+
+        AdvancedDeploy ->
+            "Mar - Deploy Guide"
 
         AdvancedCompiler ->
             "Mar - Compiler Guide"
@@ -263,6 +273,9 @@ topLevelRoute route =
         AdvancedTooling ->
             AdvancedGuide
 
+        AdvancedDeploy ->
+            AdvancedGuide
+
         AdvancedCompiler ->
             AdvancedGuide
 
@@ -293,6 +306,9 @@ routeView model =
 
         AdvancedTooling ->
             advancedToolingPage model
+
+        AdvancedDeploy ->
+            advancedDeployPage model
 
         AdvancedCompiler ->
             advancedCompilerPage
@@ -692,10 +708,15 @@ advancedToolingPage model =
             , docSubsectionTitle "Compiler and Runtime Commands"
             , commandRow model "1" "Dev" "Runs the app in development mode with hot reload when the .mar file changes." "mar dev store.mar"
             , commandRow model "2" "Compile" "Packages self-contained executables for all supported platforms and generates frontend clients." "mar compile store.mar"
-            , commandRow model "3" "Fly init" "Generates deploy/fly/Dockerfile and deploy/fly/fly.toml for a Fly.io deployment." "mar fly init store.mar"
+            , commandRow model "3" "Fly init" "Prepares Fly.io deployment files for your app." "mar fly init store.mar"
             , commandRow model "4" "Fly deploy" "Rebuilds the Linux executable for the current app and runs fly deploy with the generated Fly config." "mar fly deploy store.mar"
             , commandRow model "5" "Format" "Applies Mar's official formatting style to source files." "mar format store.mar"
             , commandRow model "6" "LSP" "Starts the language server used by the VSCode extension for diagnostics, hovers, and navigation. Usually started by the editor plugin." "mar lsp"
+            , paragraphWithEmphasis
+                [ text "For a production walkthrough, see the "
+                , link [ Font.color (rgb255 36 82 132), Font.semiBold ] { url = routeHref AdvancedDeploy, label = text "Deploy" }
+                , text " guide."
+                ]
             , docSubsectionTitle "Generated Client Output"
             , bodyText "When you compile an app, Mar also generates frontend clients for Elm and TypeScript. These clients wrap the generated HTTP API with named functions, so you do not need to hand-write fetch calls, URLs, or request payload shapes."
             , docList
@@ -713,7 +734,70 @@ advancedToolingPage model =
                 , "The VSCode extension provides syntax highlighting, hover docs, go to definition, references, rename, formatting, and LSP diagnostics."
                 ]
             ]
-        , advancedPager (Just AdvancedRuntime) (Just AdvancedCompiler)
+        , advancedPager (Just AdvancedRuntime) (Just AdvancedDeploy)
+        ]
+
+
+advancedDeployPage : Model -> Element Msg
+advancedDeployPage model =
+    column
+        [ width fill
+        , spacing 20
+        ]
+        [ advancedSubmenu AdvancedDeploy
+        , panel
+            [ sectionTitle "Advanced Guide"
+            , docSubsectionTitle "Deploy"
+            , bodyText "Mar is intentionally simple to deploy. In production, you usually need just two things: the executable for your target platform and a persistent place to store the SQLite database."
+            , docSubsectionTitle "Why deployment is simple"
+            , docList
+                [ "Mar compile produces a single executable per target platform."
+                , "The runtime already includes the API, authentication, admin tools, logs, monitoring, and backup features."
+                , "SQLite keeps the data model simple: one database file, no separate database service required."
+                ]
+            , docSubsectionTitle "Email delivery"
+            , bodyText "If your app uses email login codes, configure a real SMTP provider before deploying. We currently recommend Resend because it is simple to set up and works well with Mar's SMTP configuration."
+            , docList
+                [ "Set the SMTP password as an environment variable on your provider."
+                , "Any SMTP-compatible provider can work, but Resend is the simplest place to start."
+                ]
+            , docSubsectionTitle "What production still needs"
+            , bodyText "Mar keeps deployment lightweight, but production still has a few practical requirements."
+            , docList
+                [ "A persistent disk for the SQLite database. An ephemeral disk will lose your data."
+                , "A real email provider to send login codes."
+                ]
+            , docSubsectionTitle "Where you can deploy it"
+            , paragraphWithEmphasis
+                [ text "You can deploy a Mar app on any provider that can run a binary and give you persistent storage for the database file. Today, we recommend "
+                , newTabLink
+                    [ Font.color (rgb255 36 82 132)
+                    , Font.semiBold
+                    , htmlAttribute (HtmlAttr.style "cursor" "pointer")
+                    ]
+                    { url = "https://fly.io"
+                    , label = text "Fly.io"
+                    }
+                , text " because it fits that model well and keeps the setup small."
+                ]
+            , docSubsectionTitle "Deploy on Fly.io"
+            , bodyText "The Fly.io workflow is meant to stay practical. First prepare the deployment files, then follow the commands Mar prints for your app."
+            , terminalFromString model flyInitSource
+            , docList
+                [ "Pick the Fly app name you want."
+                , "Choose the Fly region closest to your users."
+                , "Let Mar generate the deployment files."
+                ]
+            , bodyText "After that, create the Fly app, create its volume, set the SMTP secret, and deploy."
+            , terminalFromString model flyDeploySource
+            , docSubsectionTitle "Current limits to keep in mind"
+            , docList
+                [ "SQLite needs persistent disk storage."
+                , "A single-machine setup is the simplest path when using SQLite."
+                , "If your provider cannot run a binary with persistent storage, it is not a good fit for Mar today."
+                ]
+            ]
+        , advancedPager (Just AdvancedTooling) (Just AdvancedCompiler)
         ]
 
 
@@ -730,7 +814,7 @@ advancedCompilerPage =
             , bodyText "The compiler parses a single .mar file into a typed app model, validates it, generates clients, packages a manifest bundle with admin/public assets, and stamps that bundle into prebuilt runtime executables for all supported platforms."
             , architectureDiagram
             ]
-        , advancedPager (Just AdvancedTooling) (Just AdvancedLanguageReference)
+        , advancedPager (Just AdvancedDeploy) (Just AdvancedLanguageReference)
         ]
 
 
@@ -2398,6 +2482,7 @@ advancedSubmenu current =
             [ sectionNavItem current AdvancedFundamentals "Fundamentals"
             , sectionNavItem current AdvancedRuntime "Runtime"
             , sectionNavItem current AdvancedTooling "Tooling"
+            , sectionNavItem current AdvancedDeploy "Deploy"
             , sectionNavItem current AdvancedCompiler "Compiler"
             , sectionNavItem current AdvancedLanguageReference "Language Reference"
             ]
@@ -2492,6 +2577,9 @@ routeLabel route =
 
         AdvancedTooling ->
             "Tooling"
+
+        AdvancedDeploy ->
+            "Deploy"
 
         AdvancedCompiler ->
             "Compiler"
@@ -2726,6 +2814,108 @@ codeInlineSmall source =
         )
 
 
+terminalFromString : Model -> String -> Element Msg
+terminalFromString model source =
+    let
+        lines =
+            source
+                |> String.split "\n"
+                |> trimTrailingEmptyLine
+    in
+    wrappedRow
+        [ width fill
+        , spacing 8
+        ]
+        [ el
+            [ width fill
+            , scrollbarX
+            , Background.color (rgb255 16 34 54)
+            , Border.width 1
+            , Border.color (rgb255 38 70 105)
+            , Border.rounded 10
+            , paddingEach { top = 12, right = 14, bottom = 12, left = 14 }
+            ]
+            (html
+                (Html.pre
+                    [ HtmlAttr.style "margin" "0"
+                    , HtmlAttr.style "white-space" "pre"
+                    , HtmlAttr.style "font-family" "IBM Plex Mono, ui-monospace, SFMono-Regular, Menlo, monospace"
+                    , HtmlAttr.style "font-size" "14px"
+                    , HtmlAttr.style "line-height" "1.55"
+                    , HtmlAttr.style "color" "#D8E7F8"
+                    ]
+                    (List.map terminalLineView lines)
+                )
+            )
+        , copyLink model source
+        ]
+
+
+terminalLineView : String -> Html.Html msg
+terminalLineView lineText =
+    Html.div
+        [ HtmlAttr.style "min-height" "22px" ]
+        (if String.isEmpty lineText then
+            [ Html.text " " ]
+
+         else
+            highlightTerminalLine lineText
+        )
+
+
+highlightTerminalLine : String -> List (Html.Html msg)
+highlightTerminalLine lineText =
+    let
+        tokens =
+            String.words lineText
+    in
+    case tokens of
+        [] ->
+            [ Html.text lineText ]
+
+        first :: rest ->
+            highlightTerminalTokens 0 (first :: rest)
+
+
+highlightTerminalTokens : Int -> List String -> List (Html.Html msg)
+highlightTerminalTokens index tokens =
+    case tokens of
+        [] ->
+            []
+
+        chunk :: rest ->
+            let
+                tokenColor =
+                    if String.startsWith "--" chunk || String.startsWith "-" chunk then
+                        "#7ED0FF"
+
+                    else if index == 0 then
+                        "#8BE9FD"
+
+                    else if index == 1 then
+                        "#7AA2F7"
+
+                    else if String.contains "=" chunk || String.endsWith ".mar" chunk then
+                        "#F6C177"
+
+                    else if String.all (\c -> Char.isUpper c || Char.isDigit c || c == '_') chunk then
+                        "#A6E3A1"
+
+                    else
+                        "#D8E7F8"
+            in
+            Html.span
+                [ HtmlAttr.style "color" tokenColor ]
+                [ Html.text chunk ]
+                :: (case rest of
+                        [] ->
+                            []
+
+                        _ ->
+                            Html.text " " :: highlightTerminalTokens (index + 1) rest
+                   )
+
+
 copyLink : Model -> String -> Element Msg
 copyLink model source =
     let
@@ -2801,57 +2991,72 @@ codeFromString model fileName boxHeight source =
 
         autoHeight =
             max boxHeight ((List.length lines * 22) + 30)
-    in
-    column
-        [ width fill
-        , spacing 0
-        ]
-        [ row
-            [ width fill
-            , paddingEach { top = 0, right = 4, bottom = 0, left = 0 }
-            ]
-            [ el
-                [ Background.color (rgb255 24 47 73)
-                , Border.widthEach { top = 1, right = 1, bottom = 0, left = 1 }
+
+        hasHeader =
+            String.trim fileName /= ""
+
+        codeBox topLeft topRight =
+            el
+                [ width fill
+                , height (px autoHeight)
+                , scrollbarX
+                , scrollbarY
+                , Background.color (rgb255 18 38 61)
+                , Border.widthEach { top = 1, right = 1, bottom = 1, left = 1 }
                 , Border.color (rgb255 38 70 105)
-                , Border.roundEach { topLeft = 10, topRight = 10, bottomLeft = 0, bottomRight = 0 }
-                , paddingEach { top = 8, right = 12, bottom = 8, left = 12 }
-                , Font.family [ Font.typeface "IBM Plex Mono", Font.monospace ]
-                , Font.size 13
-                , Font.color (rgb255 176 199 225)
+                , Border.roundEach
+                    { topLeft = topLeft
+                    , topRight = topRight
+                    , bottomLeft = 10
+                    , bottomRight = 10
+                    }
+                , paddingEach { top = 12, right = 14, bottom = 12, left = 14 }
                 ]
-                (text fileName)
-            , el [ width fill ] (text "")
-            , copyLink model source
-            ]
-        , el
-            [ width fill
-            , height (px autoHeight)
-            , scrollbarX
-            , scrollbarY
-            , Background.color (rgb255 18 38 61)
-            , Border.widthEach { top = 1, right = 1, bottom = 1, left = 1 }
-            , Border.color (rgb255 38 70 105)
-            , Border.roundEach { topLeft = 0, topRight = 0, bottomLeft = 10, bottomRight = 10 }
-            , paddingEach { top = 12, right = 14, bottom = 12, left = 14 }
-            ]
-            (html
-                (Html.pre
-                    [ HtmlAttr.style "margin" "0"
-                    , HtmlAttr.style "white-space" "pre"
-                    , HtmlAttr.style "overflow-wrap" "break-word"
-                    , HtmlAttr.style "font-family" "IBM Plex Mono, ui-monospace, SFMono-Regular, Menlo, monospace"
-                    , HtmlAttr.style "font-size" "14px"
-                    , HtmlAttr.style "line-height" "1.55"
-                    , HtmlAttr.style "color" "#D8E9FF"
-                    ]
-                    [ Html.div
-                        [ HtmlAttr.style "min-width" "max-content" ]
-                        (List.indexedMap codeEditorLineView lines)
-                    ]
+                (html
+                    (Html.pre
+                        [ HtmlAttr.style "margin" "0"
+                        , HtmlAttr.style "white-space" "pre"
+                        , HtmlAttr.style "overflow-wrap" "break-word"
+                        , HtmlAttr.style "font-family" "IBM Plex Mono, ui-monospace, SFMono-Regular, Menlo, monospace"
+                        , HtmlAttr.style "font-size" "14px"
+                        , HtmlAttr.style "line-height" "1.55"
+                        , HtmlAttr.style "color" "#D8E9FF"
+                        ]
+                        [ Html.div
+                            [ HtmlAttr.style "min-width" "max-content" ]
+                            (List.indexedMap codeEditorLineView lines)
+                        ]
+                    )
                 )
-            )
-        ]
+    in
+    if hasHeader then
+        column
+            [ width fill
+            , spacing 0
+            ]
+            [ row
+                [ width fill
+                , paddingEach { top = 0, right = 4, bottom = 0, left = 0 }
+                ]
+                [ el
+                    [ Background.color (rgb255 24 47 73)
+                    , Border.widthEach { top = 1, right = 1, bottom = 0, left = 1 }
+                    , Border.color (rgb255 38 70 105)
+                    , Border.roundEach { topLeft = 10, topRight = 10, bottomLeft = 0, bottomRight = 0 }
+                    , paddingEach { top = 8, right = 12, bottom = 8, left = 12 }
+                    , Font.family [ Font.typeface "IBM Plex Mono", Font.monospace ]
+                    , Font.size 13
+                    , Font.color (rgb255 176 199 225)
+                    ]
+                    (text fileName)
+                , el [ width fill ] (text "")
+                , copyLink model source
+                ]
+            , codeBox 0 0
+            ]
+
+    else
+        codeBox 10 10
 
 
 trimTrailingEmptyLine : List String -> List String
@@ -3428,19 +3633,17 @@ auth {
 
 flyInitSource : String
 flyInitSource =
-    """# Prepare Fly.io deployment files for your app
-mar fly init todo.mar
+    """mar fly init app.mar
 """
 
 
 flyDeploySource : String
 flyDeploySource =
-    """# Follow the commands printed by mar fly init
-fly auth login
-fly apps create todo
-fly volumes create todo_data --region gru --size 1 -a todo
-fly secrets set RESEND_API_KEY=... -a todo
-mar fly deploy todo.mar
+    """fly auth login
+fly apps create app
+fly volumes create app_data --region gru --size 1 -a app
+fly secrets set RESEND_API_KEY=... -a app
+mar fly deploy app.mar
 """
 
 
