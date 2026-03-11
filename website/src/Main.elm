@@ -34,6 +34,7 @@ type alias Model =
     , route : Route
     , copiedText : Maybe String
     , docsSearch : String
+    , docsSearchOpen : Bool
     }
 
 
@@ -44,6 +45,8 @@ type Msg
     | UpdateDocsSearch String
     | DismissDocsSearch
     | NoOp
+    | FocusDocsSearch
+    | BlurDocsSearch
 
 
 type alias DocSearchEntry =
@@ -78,6 +81,7 @@ init _ url key =
       , route = routeFromUrl url
       , copiedText = Nothing
       , docsSearch = ""
+      , docsSearchOpen = False
       }
     , Cmd.none
     )
@@ -95,18 +99,24 @@ update msg model =
                     ( model, Nav.load href )
 
         UrlChanged url ->
-            ( { model | route = routeFromUrl url, copiedText = Nothing, docsSearch = "" }, scrollToTop () )
+            ( { model | route = routeFromUrl url, copiedText = Nothing, docsSearch = "", docsSearchOpen = False }, scrollToTop () )
 
         CopyText source ->
             ( { model | copiedText = Just source }, copyToClipboard source )
 
         UpdateDocsSearch value ->
-            ( { model | docsSearch = value }, Cmd.none )
+            ( { model | docsSearch = value, docsSearchOpen = String.trim value /= "" }, Cmd.none )
 
         DismissDocsSearch ->
-            ( { model | docsSearch = "" }, Cmd.none )
+            ( { model | docsSearchOpen = False }, Cmd.none )
 
         NoOp ->
+            ( model, Cmd.none )
+
+        FocusDocsSearch ->
+            ( { model | docsSearchOpen = String.trim model.docsSearch /= "" }, Cmd.none )
+
+        BlurDocsSearch ->
             ( model, Cmd.none )
 
 
@@ -253,7 +263,7 @@ page model =
     el
         [ width fill
         , inFront
-            (if String.trim model.docsSearch == "" then
+            (if not model.docsSearchOpen || String.trim model.docsSearch == "" then
                 none
 
              else
@@ -295,7 +305,7 @@ topBar model =
 topSearchArea : Model -> Element Msg
 topSearchArea model =
     el
-        [ width (fill |> maximum 190)
+        [ width (fill |> maximum 170)
         ]
         (topSearch model)
 
@@ -429,13 +439,15 @@ warningBanner =
 topSearch : Model -> Element Msg
 topSearch model =
     Input.text
-        [ width (fill |> maximum 190)
+        [ width (fill |> maximum 170)
         , Background.color (rgb255 248 251 255)
         , Border.width 1
         , Border.color (rgb255 209 222 239)
         , Border.rounded 10
         , paddingEach { top = 12, right = 12, bottom = 12, left = 12 }
         , Font.size 16
+        , htmlAttribute (HtmlEvents.onFocus FocusDocsSearch)
+        , htmlAttribute (HtmlEvents.onBlur BlurDocsSearch)
         ]
         { onChange = UpdateDocsSearch
         , text = model.docsSearch
@@ -588,7 +600,17 @@ docSearchRouteText route =
 
 docSearchEntries : List DocSearchEntry
 docSearchEntries =
-    [ { title = "Getting Started"
+    [ { title = "Why Mar"
+      , route = Home
+      , summary = "Less glue code. More backend. Declarative at its core, opinionated on purpose, and everything bundled."
+      , keywords = [ "declarative", "opinionated", "everything bundled", "less glue code", "more backend", "auth", "admin tools", "logs", "monitoring", "backups" ]
+      }
+    , { title = "Who Mar Is For"
+      , route = Home
+      , summary = "A strong fit for teams that want the backend to stay boring in the best way: simple to run, easy to update, and operational from day one."
+      , keywords = [ "boring", "backend", "mvp", "lean teams", "small teams", "simple deploy", "easy maintenance", "one binary" ]
+      }
+    , { title = "Getting Started"
       , route = GettingStarted
       , summary = "Install Mar, run your first app, and open the Admin UI while developing."
       , keywords = [ "install", "quick start", "admin ui", "mar dev" ]
