@@ -232,6 +232,88 @@ auth {
 	}
 }
 
+func TestParseAuthSMTPConfig(t *testing.T) {
+	src := `
+app AuthApi
+
+auth {
+  email_transport smtp
+  email_from "no-reply@example.com"
+  email_subject "Your login code"
+  smtp_host "smtp.example.com"
+  smtp_port 587
+  smtp_username "resend"
+  smtp_password_env "RESEND_API_KEY"
+  smtp_starttls true
+}
+`
+
+	app, err := Parse(src)
+	if err != nil {
+		t.Fatalf("Parse returned error: %v", err)
+	}
+	if app.Auth == nil {
+		t.Fatal("expected auth block to be parsed")
+	}
+	if app.Auth.EmailTransport != "smtp" {
+		t.Fatalf("unexpected email transport: %q", app.Auth.EmailTransport)
+	}
+	if app.Auth.SMTPHost != "smtp.example.com" {
+		t.Fatalf("unexpected smtp_host: %q", app.Auth.SMTPHost)
+	}
+	if app.Auth.SMTPPort != 587 {
+		t.Fatalf("unexpected smtp_port: %d", app.Auth.SMTPPort)
+	}
+	if app.Auth.SMTPUsername != "resend" {
+		t.Fatalf("unexpected smtp_username: %q", app.Auth.SMTPUsername)
+	}
+	if app.Auth.SMTPPasswordEnv != "RESEND_API_KEY" {
+		t.Fatalf("unexpected smtp_password_env: %q", app.Auth.SMTPPasswordEnv)
+	}
+	if !app.Auth.SMTPStartTLS {
+		t.Fatal("expected smtp_starttls true")
+	}
+}
+
+func TestParseAuthSMTPRequiresHost(t *testing.T) {
+	src := `
+app AuthApi
+
+auth {
+  email_transport smtp
+  smtp_username "resend"
+  smtp_password_env "RESEND_API_KEY"
+}
+`
+
+	_, err := Parse(src)
+	if err == nil {
+		t.Fatal("expected parse error for missing smtp_host")
+	}
+	if !strings.Contains(err.Error(), "auth.smtp_host is required") {
+		t.Fatalf("unexpected error message: %v", err)
+	}
+}
+
+func TestParseAuthSMTPRejectsConsoleWithSMTPKeys(t *testing.T) {
+	src := `
+app AuthApi
+
+auth {
+  email_transport console
+  smtp_host "smtp.example.com"
+}
+`
+
+	_, err := Parse(src)
+	if err == nil {
+		t.Fatal("expected parse error for smtp_host with console transport")
+	}
+	if !strings.Contains(err.Error(), "auth.smtp_host can only be used") {
+		t.Fatalf("unexpected error message: %v", err)
+	}
+}
+
 func TestParseAuthorizeAllExpandsToCrudOperations(t *testing.T) {
 	src := `
 app TodoApi

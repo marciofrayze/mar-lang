@@ -592,7 +592,7 @@ advancedLanguageReferencePage =
                 [ languageReferenceItem "User" "Built-in user entity present in every Mar app. You may extend it with extra fields and authorization rules."
                 , languageReferenceItem "code_ttl_minutes" "Sets how long login codes remain valid."
                 , languageReferenceItem "session_ttl_hours" "Sets the default session lifetime."
-                , languageReferenceItem "email_transport, email_from, email_subject, sendmail_path" "Configure how login codes are delivered."
+                , languageReferenceItem "email_transport, email_from, email_subject, smtp_host, smtp_port, smtp_username, smtp_password_env, smtp_starttls" "Configure how login codes are delivered."
                 ]
             , languageReferenceGroup "System config"
                 [ languageReferenceItem "request_logs_buffer" "Sets how many recent requests stay in memory for monitoring."
@@ -3124,7 +3124,7 @@ wordToken word =
     if List.member word [ "all", "list", "get", "create", "update", "delete" ] then
         token "#93D7FF" word
 
-    else if List.member word [ "app", "port", "database", "entity", "rule", "when", "authorize", "auth", "type", "alias", "action", "input", "create", "public", "system", "dir", "mount", "spa_fallback", "code_ttl_minutes", "session_ttl_hours", "email_transport", "email_from", "email_subject", "sendmail_path", "request_logs_buffer", "http_max_request_body_mb", "auth_request_code_rate_limit_per_minute", "auth_login_rate_limit_per_minute", "admin_ui_session_ttl_hours", "security_frame_policy", "security_referrer_policy", "security_content_type_nosniff", "sqlite_journal_mode", "sqlite_synchronous", "sqlite_foreign_keys", "sqlite_busy_timeout_ms", "sqlite_wal_autocheckpoint", "sqlite_journal_size_limit_mb", "sqlite_mmap_size_mb", "sqlite_cache_size_kb" ] then
+    else if List.member word [ "app", "port", "database", "entity", "rule", "when", "authorize", "auth", "type", "alias", "action", "input", "create", "public", "system", "dir", "mount", "spa_fallback", "code_ttl_minutes", "session_ttl_hours", "email_transport", "email_from", "email_subject", "smtp_host", "smtp_port", "smtp_username", "smtp_password_env", "smtp_starttls", "request_logs_buffer", "http_max_request_body_mb", "auth_request_code_rate_limit_per_minute", "auth_login_rate_limit_per_minute", "admin_ui_session_ttl_hours", "security_frame_policy", "security_referrer_policy", "security_content_type_nosniff", "sqlite_journal_mode", "sqlite_synchronous", "sqlite_foreign_keys", "sqlite_busy_timeout_ms", "sqlite_wal_autocheckpoint", "sqlite_journal_size_limit_mb", "sqlite_mmap_size_mb", "sqlite_cache_size_kb" ] then
         token "#7AB8FF" word
 
     else if List.member word [ "Int", "String", "Bool", "Float" ] then
@@ -3402,13 +3402,18 @@ public {
 
 authConfigSource : String
 authConfigSource =
-    """-- Email-code authentication
+    """-- Email-code authentication with direct SMTP delivery
 auth {
   code_ttl_minutes 10
   session_ttl_hours 24
-  email_transport console
-  email_from \"no-reply@store.local\"
+  email_transport smtp
+  email_from \"no-reply@store.example\"
   email_subject \"Your StoreApi login code\"
+  smtp_host \"smtp.example.com\"
+  smtp_port 587
+  smtp_username \"username\"
+  smtp_password_env \"SMTP_PASSWORD\"
+  smtp_starttls true
 }
 """
 

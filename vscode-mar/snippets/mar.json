@@ -80,10 +80,14 @@
       "auth {",
       "  code_ttl_minutes ${1:10}",
       "  session_ttl_hours ${2:24}",
-      "  email_transport ${3|console,sendmail|}",
+      "  email_transport ${3|console,smtp|}",
       "  email_from \"${4:no-reply@example.local}\"",
       "  email_subject \"${5:Your login code}\"",
-      "  sendmail_path \"${6:/usr/sbin/sendmail}\"",
+      "  smtp_host \"${6:smtp.example.com}\"",
+      "  smtp_port ${7:587}",
+      "  smtp_username \"${8:username}\"",
+      "  smtp_password_env \"${9:SMTP_PASSWORD}\"",
+      "  smtp_starttls ${10|true,false|}",
       "}"
     ]
   },

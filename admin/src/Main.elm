@@ -973,7 +973,7 @@ update msg model =
                         AppAuthScope ->
                             let
                                 nextModel =
-                                    { model | authToken = "", currentEmail = Nothing, currentRole = Nothing, authEmail = "", authCode = "", authStage = AuthStageEmail, authSubmitting = Nothing, sessionRestorePending = False, flash = Just "User session logged out." }
+                                    { model | authToken = "", currentEmail = Nothing, currentRole = Nothing, authEmail = "", authCode = "", authStage = AuthStageEmail, authSubmitting = Nothing, sessionRestorePending = False, flash = Nothing }
                             in
                             let
                                 finalModel =
@@ -984,7 +984,7 @@ update msg model =
                         SystemAuthScope ->
                             let
                                 nextModel =
-                                    { model | systemAuthToken = "", currentSystemEmail = Nothing, currentSystemRole = Nothing, authEmail = "", authCode = "", authStage = AuthStageEmail, authSubmitting = Nothing, sessionRestorePending = False, flash = Just "Admin session logged out." }
+                                    { model | systemAuthToken = "", currentSystemEmail = Nothing, currentSystemRole = Nothing, authEmail = "", authCode = "", authStage = AuthStageEmail, authSubmitting = Nothing, sessionRestorePending = False, flash = Nothing }
                             in
                             let
                                 finalModel =
@@ -3031,13 +3031,13 @@ viewAuthEmailStage model firstAdminMode actionLabel submitMsg isLoading =
                  else
                     Just submitMsg
                 )
-                (if isLoading then
-                    actionLabel ++ "..."
-
-                 else
-                    actionLabel
-                )
+                actionLabel
             )
+        , if isLoading then
+            paragraph [ Font.size 13, Font.color (rgb255 93 103 120), centerX ] [ text "Sending code..." ]
+
+          else
+            none
         ]
 
 
@@ -3097,12 +3097,7 @@ viewAuthCodeStage model firstAdminMode resendLabel resendMsg loginLoading resend
                  else
                     Just resendMsg
                 )
-                (if resendLoading then
-                    resendLabel ++ "..."
-
-                 else
-                    resendLabel
-                )
+                resendLabel
             ]
         , el [ width fill ]
             (authActionButton
@@ -3114,13 +3109,16 @@ viewAuthCodeStage model firstAdminMode resendLabel resendMsg loginLoading resend
                  else
                     Just LoginWithCode
                 )
-                (if loginLoading then
-                    "Signing in..."
-
-                 else
-                    "Login"
-                )
+                "Login"
             )
+        , if loginLoading then
+            paragraph [ Font.size 13, Font.color (rgb255 93 103 120), centerX ] [ text "Signing in..." ]
+
+          else if resendLoading then
+            paragraph [ Font.size 13, Font.color (rgb255 93 103 120), centerX ] [ text "Sending code..." ]
+
+          else
+            none
         ]
 
 
@@ -3182,13 +3180,38 @@ viewAuthSessionStage model =
 
 authActionButton : Element.Color -> Element.Color -> Maybe Msg -> String -> Element Msg
 authActionButton backgroundColor textColor onPress labelText =
+    let
+        isDisabled =
+            onPress == Nothing
+    in
     Input.button
-        [ width fill
-        , Background.color backgroundColor
-        , Font.color textColor
-        , Border.rounded 10
-        , paddingEach { top = 10, right = 14, bottom = 10, left = 14 }
-        ]
+        ([ width fill
+         , Background.color
+            (if isDisabled then
+                rgb255 214 221 231
+
+             else
+                backgroundColor
+            )
+         , Font.color
+            (if isDisabled then
+                rgb255 110 120 136
+
+             else
+                textColor
+            )
+         , Border.rounded 10
+         , paddingEach { top = 10, right = 14, bottom = 10, left = 14 }
+         ]
+            ++ (if isDisabled then
+                    [ Border.width 1
+                    , Border.color (rgb255 196 204 216)
+                    ]
+
+                else
+                    []
+               )
+        )
         { onPress = onPress
         , label = text labelText
         }

@@ -1,15 +1,9 @@
 package runtime
 
 import (
-	"crypto/rand"
-	"crypto/sha256"
-	"crypto/subtle"
-	"encoding/hex"
 	"fmt"
-	"math/big"
 	"net/http"
 	"os"
-	"os/exec"
 	"strings"
 	"time"
 
@@ -32,7 +26,8 @@ func (r *Runtime) authConfig() model.AuthConfig {
 		EmailTransport:  "console",
 		EmailFrom:       "no-reply@mar.local",
 		EmailSubject:    "Your Mar login code",
-		SendmailPath:    "/usr/sbin/sendmail",
+		SMTPPort:        587,
+		SMTPStartTLS:    true,
 	}
 }
 
@@ -543,21 +538,21 @@ func (r *Runtime) deliverEmailCode(toEmail, code string) error {
 	case "console":
 		body := buildAuthEmailBody(code, cfg.CodeTTLMinutes)
 		r.printAuthLogHeader()
-		r.printAuthLogSection("Email delivery")
+		r.printAuthLogSection("Login code delivery")
 		r.printAuthLogFieldCommand("Status", "sent")
 		r.printAuthLogField("Transport", "console")
 		r.printAuthLogField("To", toEmail)
 		r.printAuthLogSection("Email body")
 		r.printAuthLogMultiline(body)
 		return nil
-	case "sendmail":
-		if err := sendWithSendmail(cfg.SendmailPath, cfg.EmailFrom, cfg.EmailSubject, toEmail, code, cfg.CodeTTLMinutes); err != nil {
+	case "smtp":
+		if err := sendWithSMTP(cfg, toEmail, code); err != nil {
 			return err
 		}
 		r.printAuthLogHeader()
-		r.printAuthLogSection("Email delivery")
+		r.printAuthLogSection("Login code delivery")
 		r.printAuthLogFieldCommand("Status", "sent")
-		r.printAuthLogField("Transport", "sendmail")
+		r.printAuthLogField("Transport", "smtp")
 		r.printAuthLogField("To", toEmail)
 		return nil
 	default:
@@ -607,31 +602,6 @@ func (r *Runtime) printAuthLogMultiline(content string) {
 	}
 }
 
-// sendWithSendmail sends plain-text email by invoking the local sendmail binary.
-func sendWithSendmail(sendmailPath, from, subject, to, code string, ttlMinutes int) error {
-	msg := buildAuthEmailMessage(from, subject, to, code, ttlMinutes)
-
-	cmd := exec.Command(sendmailPath, "-t", "-i")
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
-		return err
-	}
-	if err := cmd.Start(); err != nil {
-		return err
-	}
-	if _, err := stdin.Write([]byte(msg)); err != nil {
-		_ = stdin.Close()
-		return err
-	}
-	if err := stdin.Close(); err != nil {
-		return err
-	}
-	if err := cmd.Wait(); err != nil {
-		return err
-	}
-	return nil
-}
-
 func buildAuthEmailMessage(from, subject, to, code string, ttlMinutes int) string {
 	return strings.Join([]string{
 		"From: " + from,
@@ -652,39 +622,4 @@ func buildAuthEmailBody(code string, ttlMinutes int) string {
 		"",
 		"If you did not request this code, ignore this email.",
 	}, "\n")
-}
-
-// randomCode6 returns a zero-padded 6-digit cryptographically random code.
-func randomCode6() (string, error) {
-	n, err := rand.Int(rand.Reader, big.NewInt(1_000_000))
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("%06d", n.Int64()), nil
-}
-
-// randomToken returns a hex-encoded cryptographically random token.
-func randomToken(bytesLen int) (string, error) {
-	buf := make([]byte, bytesLen)
-	if _, err := rand.Read(buf); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(buf), nil
-}
-
-func hashAuthSecret(value string) string {
-	sum := sha256.Sum256([]byte(value))
-	return "sha256:" + hex.EncodeToString(sum[:])
-}
-
-func storedSecretMatches(storedValue, rawValue string) bool {
-	stored := strings.TrimSpace(storedValue)
-	raw := strings.TrimSpace(rawValue)
-	if stored == "" || raw == "" {
-		return false
-	}
-	if subtle.ConstantTimeCompare([]byte(stored), []byte(raw)) == 1 {
-		return true
-	}
-	return subtle.ConstantTimeCompare([]byte(stored), []byte(hashAuthSecret(raw))) == 1
 }

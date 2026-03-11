@@ -46,7 +46,11 @@ type AuthConfig struct {
 	EmailTransport  string `json:"emailTransport"`
 	EmailFrom       string `json:"emailFrom"`
 	EmailSubject    string `json:"emailSubject"`
-	SendmailPath    string `json:"sendmailPath"`
+	SMTPHost        string `json:"smtpHost"`
+	SMTPPort        int    `json:"smtpPort"`
+	SMTPUsername    string `json:"smtpUsername"`
+	SMTPPasswordEnv string `json:"smtpPasswordEnv"`
+	SMTPStartTLS    bool   `json:"smtpStartTls"`
 }
 
 type Entity struct {

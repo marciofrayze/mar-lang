@@ -37,6 +37,7 @@ type Runtime struct {
 	authRateLimit  *authRateLimiter
 	authLogOnce    sync.Once
 	requestTraceID uint64
+	startupValid   bool
 	publicFS       fs.FS
 	adminFS        fs.FS
 	versionInfo    VersionInfo
@@ -211,6 +212,10 @@ func (r *Runtime) Close() error {
 
 // Serve starts the HTTP server and blocks until shutdown or an unrecoverable server error.
 func (r *Runtime) Serve(ctx context.Context) error {
+	if err := r.ValidateStartup(); err != nil {
+		return err
+	}
+
 	server := &http.Server{
 		Addr:         fmt.Sprintf(":%d", r.App.Port),
 		Handler:      http.HandlerFunc(r.handleHTTP),

@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"regexp"
@@ -38,9 +39,39 @@ type migrationBlockedInfo struct {
 	ExpectedType string
 }
 
+type startupDetail struct {
+	Label string
+	Value string
+}
+
+type startupFriendlyError struct {
+	Title   string
+	Message string
+	Details []startupDetail
+	Hints   []string
+}
+
+func (e *startupFriendlyError) Error() string {
+	if e == nil {
+		return ""
+	}
+	if strings.TrimSpace(e.Message) == "" {
+		return strings.TrimSpace(e.Title)
+	}
+	if strings.TrimSpace(e.Title) == "" {
+		return strings.TrimSpace(e.Message)
+	}
+	return strings.TrimSpace(e.Title) + ": " + strings.TrimSpace(e.Message)
+}
+
 // PrintStartupError formats startup errors with friendlier diagnostics for migration blocks.
 func PrintStartupError(err error, _ string) {
 	if err == nil {
+		return
+	}
+	var startupErr *startupFriendlyError
+	if errors.As(err, &startupErr) {
+		printFriendlyStartupError(startupErr)
 		return
 	}
 	msg := strings.TrimSpace(err.Error())
@@ -77,6 +108,42 @@ func PrintStartupError(err error, _ string) {
 		fmt.Fprintln(os.Stderr, "  Remove duplicate values for this field in the current database.")
 	} else {
 		fmt.Fprintln(os.Stderr, "  Run a manual SQL migration, or update your Mar schema to match the current database.")
+	}
+	fmt.Fprintln(os.Stderr)
+}
+
+func printFriendlyStartupError(err *startupFriendlyError) {
+	if err == nil {
+		return
+	}
+	useColor := supportsANSIOn(os.Stderr)
+	red := "\033[1;31m"
+	yellow := "\033[1;33m"
+	cyan := "\033[1;36m"
+
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, colorize(useColor, red, strings.TrimSpace(err.Title)))
+	if msg := strings.TrimSpace(err.Message); msg != "" {
+		fmt.Fprintln(os.Stderr, msg)
+	}
+	if len(err.Details) > 0 {
+		fmt.Fprintln(os.Stderr)
+		for _, detail := range err.Details {
+			if strings.TrimSpace(detail.Label) == "" || strings.TrimSpace(detail.Value) == "" {
+				continue
+			}
+			fmt.Fprintf(os.Stderr, "  %s %s\n", colorize(useColor, cyan, detail.Label+":"), detail.Value)
+		}
+	}
+	if len(err.Hints) > 0 {
+		fmt.Fprintln(os.Stderr)
+		fmt.Fprintln(os.Stderr, colorize(useColor, yellow, "Hint:"))
+		for _, hint := range err.Hints {
+			if strings.TrimSpace(hint) == "" {
+				continue
+			}
+			fmt.Fprintf(os.Stderr, "  %s\n", hint)
+		}
 	}
 	fmt.Fprintln(os.Stderr)
 }

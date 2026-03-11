@@ -240,7 +240,7 @@
         },
         {
           "name": "keyword.other.auth.mar",
-          "match": "\\b(code_ttl_minutes|session_ttl_hours|email_transport|email_from|email_subject|sendmail_path)\\b"
+          "match": "\\b(code_ttl_minutes|session_ttl_hours|email_transport|email_from|email_subject|smtp_host|smtp_port|smtp_username|smtp_password_env|smtp_starttls)\\b"
         },
         {
           "name": "keyword.other.public.mar",
