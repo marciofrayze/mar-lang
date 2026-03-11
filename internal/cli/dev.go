@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -88,7 +89,10 @@ func runDev(binaryName, inputPath, outputPath string) error {
 		process = nextProcess
 		if !adminOpened {
 			adminURL := fmt.Sprintf("http://127.0.0.1:%d/_mar/admin", app.Port)
-			if err := openBrowser(adminURL); err != nil {
+			healthURL := fmt.Sprintf("http://127.0.0.1:%d/health", app.Port)
+			if err := waitForDevServer(healthURL, 8*time.Second); err != nil {
+				fmt.Printf("%s %s\n", colorizeCLI(useColor, "\033[1;33m", "Warning:"), "server is still starting; open "+adminURL+" manually if needed")
+			} else if err := openBrowser(adminURL); err != nil {
 				fmt.Printf("%s %s\n", colorizeCLI(useColor, "\033[1;33m", "Warning:"), "could not open browser: "+err.Error())
 			}
 			adminOpened = true
@@ -232,4 +236,22 @@ func displayDevPath(originalPath, absolutePath string) string {
 	}
 
 	return filepath.Base(absolutePath)
+}
+
+func waitForDevServer(url string, timeout time.Duration) error {
+	client := &http.Client{Timeout: 500 * time.Millisecond}
+	deadline := time.Now().Add(timeout)
+
+	for time.Now().Before(deadline) {
+		resp, err := client.Get(url)
+		if err == nil {
+			_ = resp.Body.Close()
+			if resp.StatusCode >= 200 && resp.StatusCode < 500 {
+				return nil
+			}
+		}
+		time.Sleep(150 * time.Millisecond)
+	}
+
+	return fmt.Errorf("timed out waiting for %s", url)
 }
