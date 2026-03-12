@@ -515,7 +515,7 @@ func (e *marEditor) refreshScreen() {
 	e.drawMessageBar(&out)
 
 	cursorRow := e.cy - e.rowOffset + 1
-	cursorCol := e.renderCursorX() - e.colOffset + e.lineNumberWidth() + 3
+	cursorCol := e.renderCursorX() - e.colOffset + e.lineNumberWidth() + 4
 	out.WriteString(fmt.Sprintf("\x1b[%d;%dH", cursorRow, cursorCol))
 	out.WriteString("\x1b[?25h")
 	fmt.Print(out.String())
