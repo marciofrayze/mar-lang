@@ -51,6 +51,21 @@
         window.setTimeout(run, 0);
       };
 
+      const scheduleScrollToElement = (id) => {
+        const run = () => {
+          const element = document.getElementById(id);
+
+          if (!element) return;
+
+          const top = element.getBoundingClientRect().top + window.scrollY - 88;
+          window.scrollTo({ top, left: 0, behavior: 'auto' });
+        };
+
+        run();
+        window.requestAnimationFrame(run);
+        window.setTimeout(run, 0);
+      };
+
       if (app.ports && app.ports.copyToClipboard) {
         app.ports.copyToClipboard.subscribe((value) => {
           if (typeof value === 'string' && navigator.clipboard && navigator.clipboard.writeText) {
@@ -65,7 +80,13 @@
         });
       }
 
-      window.addEventListener('hashchange', scheduleScrollToTop);
+      if (app.ports && app.ports.scrollToElement) {
+        app.ports.scrollToElement.subscribe((id) => {
+          if (typeof id === 'string' && id.length > 0) {
+            scheduleScrollToElement(id);
+          }
+        });
+      }
     </script>
   </body>
 </html>

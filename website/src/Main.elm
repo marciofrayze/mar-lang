@@ -52,6 +52,7 @@ type Msg
 type alias DocSearchEntry =
     { title : String
     , route : Route
+    , sectionId : Maybe String
     , summary : String
     , keywords : List String
     }
@@ -61,6 +62,9 @@ port copyToClipboard : String -> Cmd msg
 
 
 port scrollToTop : () -> Cmd msg
+
+
+port scrollToElement : String -> Cmd msg
 
 
 main : Program () Model Msg
@@ -99,7 +103,19 @@ update msg model =
                     ( model, Nav.load href )
 
         UrlChanged url ->
-            ( { model | route = routeFromUrl url, copiedText = Nothing, docsSearch = "", docsSearchOpen = False }, scrollToTop () )
+            let
+                location =
+                    routeLocationFromUrl url
+
+                scrollCmd =
+                    case location.sectionId of
+                        Just sectionId ->
+                            scrollToElement sectionId
+
+                        Nothing ->
+                            scrollToTop ()
+            in
+            ( { model | route = location.route, copiedText = Nothing, docsSearch = "", docsSearchOpen = False }, scrollCmd )
 
         CopyText source ->
             ( { model | copiedText = Just source }, copyToClipboard source )
@@ -120,47 +136,64 @@ update msg model =
             ( model, Cmd.none )
 
 
+type alias RouteLocation =
+    { route : Route
+    , sectionId : Maybe String
+    }
+
+
 routeFromUrl : Url -> Route
 routeFromUrl url =
+    (routeLocationFromUrl url).route
+
+
+routeLocationFromUrl : Url -> RouteLocation
+routeLocationFromUrl url =
     let
         fragment =
             url.fragment
                 |> Maybe.withDefault ""
                 |> normalizeFragment
+
+        ( routeFragment, sectionId ) =
+            splitFragmentSection fragment
     in
-    case fragment of
-        "" ->
-            Home
+    { route =
+        case routeFragment of
+            "" ->
+                Home
 
-        "getting-started" ->
-            GettingStarted
+            "getting-started" ->
+                GettingStarted
 
-        "advanced" ->
-            AdvancedGuide
+            "advanced" ->
+                AdvancedGuide
 
-        "advanced/fundamentals" ->
-            AdvancedFundamentals
+            "advanced/fundamentals" ->
+                AdvancedFundamentals
 
-        "advanced/reference" ->
-            AdvancedLanguageReference
+            "advanced/reference" ->
+                AdvancedLanguageReference
 
-        "advanced/runtime" ->
-            AdvancedRuntime
+            "advanced/runtime" ->
+                AdvancedRuntime
 
-        "advanced/tooling" ->
-            AdvancedTooling
+            "advanced/tooling" ->
+                AdvancedTooling
 
-        "advanced/deploy" ->
-            AdvancedDeploy
+            "advanced/deploy" ->
+                AdvancedDeploy
 
-        "advanced/compiler" ->
-            AdvancedCompiler
+            "advanced/compiler" ->
+                AdvancedCompiler
 
-        "examples" ->
-            Examples
+            "examples" ->
+                Examples
 
-        _ ->
-            Home
+            _ ->
+                Home
+    , sectionId = sectionId
+    }
 
 
 normalizeFragment : String -> String
@@ -170,6 +203,22 @@ normalizeFragment fragment =
 
     else
         fragment
+
+
+splitFragmentSection : String -> ( String, Maybe String )
+splitFragmentSection fragment =
+    case String.split "::" fragment of
+        routePart :: sectionPart :: _ ->
+            ( routePart
+            , if String.trim sectionPart == "" then
+                Nothing
+
+              else
+                Just sectionPart
+            )
+
+        _ ->
+            ( fragment, Nothing )
 
 
 routeHref : Route -> String
@@ -204,6 +253,16 @@ routeHref route =
 
         Examples ->
             "#/examples"
+
+
+routeHrefWithSection : Route -> Maybe String -> String
+routeHrefWithSection route sectionId =
+    case sectionId of
+        Just value ->
+            routeHref route ++ "::" ++ value
+
+        Nothing ->
+            routeHref route
 
 
 pageTitle : Route -> String
@@ -260,27 +319,32 @@ view model =
 
 page : Model -> Element Msg
 page model =
-    el
+    column
         [ width fill
-        , inFront
-            (if not model.docsSearchOpen || String.trim model.docsSearch == "" then
-                none
+        , spacing 20
+        , paddingEach { top = 20, right = 20, bottom = 28, left = 20 }
+        ]
+        [ topBar model
+        , el
+            [ width fill
+            , inFront
+                (if not model.docsSearchOpen || String.trim model.docsSearch == "" then
+                    none
 
-             else
-                pageSearchOverlay model
+                 else
+                    pageSearchOverlay model
+                )
+            ]
+            (column
+                [ width fill
+                , spacing 20
+                ]
+                [ warningBanner
+                , routeView model
+                , footer
+                ]
             )
         ]
-        (column
-            [ width fill
-            , spacing 20
-            , paddingEach { top = 20, right = 20, bottom = 28, left = 20 }
-            ]
-            [ topBar model
-            , warningBanner
-            , routeView model
-            , footer
-            ]
-        )
 
 
 topBar : Model -> Element Msg
@@ -501,7 +565,7 @@ docSearchResultView entry =
         , paddingEach { top = 10, right = 10, bottom = 10, left = 10 }
         , htmlAttribute (HtmlAttr.style "cursor" "pointer")
         ]
-        { url = routeHref entry.route
+        { url = routeHrefWithSection entry.route entry.sectionId
         , label =
             column [ width fill, spacing 4 ]
                 [ paragraph [ Font.size 16, Font.bold, Font.color (rgb255 28 66 108), width fill ] [ text entry.title ]
@@ -568,10 +632,10 @@ docSearchRouteText : Route -> String
 docSearchRouteText route =
     case route of
         Home ->
-            "Mar compiles declarative source into a self-contained server executable with API authentication authorization admin tools request logs monitoring and database backups. Less glue code. More backend. Declarative at its core. Opinionated on purpose. Everything bundled. Search docs getting started advanced guide examples."
+            "A simple declarative backend language. Mar compiles declarative source into a self-contained server executable with API authentication authorization admin tools request logs monitoring and database backups. Less glue code. More backend. Declarative at its core. Opinionated on purpose. Everything bundled. Search docs getting started advanced guide examples."
 
         GettingStarted ->
-            "Getting started install Mar run mar dev app.mar run mar compile app.mar open the Admin UI while developing use the printed admin URL in production sign in through Authentication navigate entities from the left sidebar manage records with built-in CRUD actions access monitoring logs and database tools with an admin account."
+            "Getting started install Mar download release move mar to PATH check mar version use VSCode extension Mar Language Support run mar dev app.mar run mar compile app.mar open the Admin UI while developing use the printed admin URL in production sign in through Authentication navigate entities from the left sidebar manage records with built-in CRUD actions access monitoring logs and database tools with an admin account cd dist/todo/darwin-arm64 ./todo serve mv mar /usr/local/bin/mar chmod +x /usr/local/bin/mar."
 
         AdvancedGuide ->
             "Advanced guide fundamentals language reference runtime tooling deploy compiler."
@@ -595,150 +659,214 @@ docSearchRouteText route =
             "Compiler parse validate generate clients build bundle stamp prebuilt runtimes runtime stubs executables single executable per target platform typed clients packaged executables."
 
         Examples ->
-            "Examples store todo examples examples of Mar apps."
+            "Examples todo store minimal CRUD auth roles transactional action todo.mar store.mar examples of Mar apps."
 
 
 docSearchEntries : List DocSearchEntry
 docSearchEntries =
-    [ { title = "Why Mar"
+    [ { title = "Home"
       , route = Home
+      , sectionId = Just "home-hero"
+      , summary = "A simple declarative backend language."
+      , keywords = [ "simple", "declarative", "backend language", "home", "Elm", "PocketBase", "Go" ]
+      }
+    , { title = "Why Mar"
+      , route = Home
+      , sectionId = Just "why-mar"
       , summary = "Less glue code. More backend. Declarative at its core, opinionated on purpose, and everything bundled."
       , keywords = [ "declarative", "opinionated", "everything bundled", "less glue code", "more backend", "auth", "admin tools", "logs", "monitoring", "backups" ]
       }
     , { title = "Who Mar Is For"
       , route = Home
+      , sectionId = Just "who-mar-is-for"
       , summary = "A strong fit for teams that want the backend to stay boring in the best way: simple to run, easy to update, and operational from day one."
       , keywords = [ "boring", "backend", "mvp", "lean teams", "small teams", "simple deploy", "easy maintenance", "one binary" ]
       }
     , { title = "Getting Started"
       , route = GettingStarted
+      , sectionId = Just "getting-started-intro"
       , summary = "Install Mar, run your first app, and open the Admin UI while developing."
       , keywords = [ "install", "quick start", "admin ui", "mar dev" ]
       }
-    , { title = "Admin UI while developing"
+    , { title = "Install"
       , route = GettingStarted
-      , summary = "Use the built-in Admin UI during development and open the printed admin URL in production."
-      , keywords = [ "admin", "admin ui", "_mar/admin", "browser", "dev", "serve" ]
+      , sectionId = Just "install"
+      , summary = "Download Mar, add it to your PATH, and verify the installation."
+      , keywords = [ "install", "download", "path", "mar version", "binary", "PATH", "VSCode", "extension" ]
+      }
+    , { title = "Quick Start"
+      , route = GettingStarted
+      , sectionId = Just "quick-start"
+      , summary = "Create, develop, compile, and run your first Mar app."
+      , keywords = [ "quick start", "admin", "admin ui", "_mar/admin", "browser", "dev", "serve" ]
+      }
+    , { title = "Code editor"
+      , route = GettingStarted
+      , sectionId = Just "install"
+      , summary = "Use the VSCode extension for syntax highlighting, LSP, and formatting."
+      , keywords = [ "vscode", "editor", "extension", "formatting", "lsp", "syntax highlighting", "Mar Language Support" ]
       }
     , { title = "Advanced Fundamentals"
       , route = AdvancedFundamentals
+      , sectionId = Just "advanced-fundamentals"
       , summary = "Understand the core syntax, built-in User model, rules, and authorization."
       , keywords = [ "language", "entities", "rules", "authorize", "user", "auth" ]
       }
     , { title = "Syntax model"
       , route = AdvancedFundamentals
+      , sectionId = Just "syntax-model"
       , summary = "Top-level statements, fields, comments, and the basic shape of a Mar app."
       , keywords = [ "app", "port", "database", "public", "system", "auth", "entity", "type alias", "action", "comments" ]
       }
     , { title = "Authentication and authorization"
       , route = AdvancedFundamentals
+      , sectionId = Just "authentication-and-authorization"
       , summary = "Built-in User entity, email-code login, deny-by-default access, and authorize rules."
       , keywords = [ "authentication", "authorization", "auth", "user", "authorize", "all", "list", "get", "create", "update", "delete" ]
       }
     , { title = "Rules and typed actions"
       , route = AdvancedFundamentals
+      , sectionId = Just "rules-and-typed-actions"
       , summary = "Entity validation with rule/expect and multi-step transactional actions."
       , keywords = [ "rule", "expect", "validation", "typed actions", "transactions", "input", "create" ]
       }
     , { title = "Language Reference"
       , route = AdvancedLanguageReference
+      , sectionId = Just "language-reference"
       , summary = "Browse the current keywords, built-in names, functions, and configuration options."
       , keywords = [ "reference", "keywords", "functions", "system", "auth", "public" ]
       }
     , { title = "Validation and authorization reference"
       , route = AdvancedLanguageReference
+      , sectionId = Just "validation-and-authorization-reference"
       , summary = "Reference for rule, expect, when, authorize, and CRUD operations."
       , keywords = [ "rule", "expect", "when", "authorize", "all", "list", "get", "create", "update", "delete" ]
       }
     , { title = "Auth config reference"
       , route = AdvancedLanguageReference
+      , sectionId = Just "auth-config-reference"
       , summary = "Reference for User, code/session TTL, and SMTP email configuration."
       , keywords = [ "user", "code_ttl_minutes", "session_ttl_hours", "email_transport", "smtp_host", "smtp_port", "smtp_username", "smtp_password_env", "smtp_starttls" ]
       }
     , { title = "System config reference"
       , route = AdvancedLanguageReference
+      , sectionId = Just "system-config-reference"
       , summary = "Reference for request logs, body limits, rate limits, admin UI session lifetime, and SQLite tuning."
       , keywords = [ "system", "request_logs_buffer", "http_max_request_body_mb", "admin_ui_session_ttl_hours", "sqlite", "security headers" ]
       }
     , { title = "Runtime"
       , route = AdvancedRuntime
+      , sectionId = Just "runtime"
       , summary = "See generated endpoints, auth flow, system settings, migrations, and runtime behavior."
       , keywords = [ "runtime", "endpoints", "migrations", "system", "auth", "sqlite" ]
       }
     , { title = "System configuration"
       , route = AdvancedRuntime
+      , sectionId = Just "system-configuration"
       , summary = "Tune runtime behavior such as request logging, body limits, rate limits, admin sessions, and SQLite settings."
       , keywords = [ "system", "runtime", "request logs", "body limits", "rate limits", "admin session", "sqlite" ]
       }
     , { title = "Public static frontend"
       , route = AdvancedRuntime
+      , sectionId = Just "public-static-frontend"
       , summary = "Embed static frontend files into the final executable and optionally serve an SPA fallback."
       , keywords = [ "public", "frontend", "spa", "embedded", "static files", "mount", "dir", "spa_fallback" ]
       }
     , { title = "Generated endpoints"
       , route = AdvancedRuntime
+      , sectionId = Just "generated-endpoints"
       , summary = "Understand generated CRUD, auth, action, health, schema, version, and admin endpoints."
       , keywords = [ "endpoints", "crud", "auth", "actions", "health", "schema", "version", "request logs", "backups" ]
       }
     , { title = "Migrations"
       , route = AdvancedRuntime
+      , sectionId = Just "migrations"
       , summary = "Automatic migrations on startup with safe changes applied and unsafe changes blocked."
       , keywords = [ "migrations", "startup", "schema changes", "blocked changes", "safe changes" ]
       }
     , { title = "Tooling"
       , route = AdvancedTooling
+      , sectionId = Just "tooling"
       , summary = "Use dev, compile, fly, format, completion, and LSP commands."
       , keywords = [ "tooling", "cli", "completion", "lsp", "fly", "format", "compile", "shell", "zsh", "bash", "fish", "autocomplete" ]
       }
     , { title = "Compiler and runtime commands"
       , route = AdvancedTooling
+      , sectionId = Just "compiler-and-runtime-commands"
       , summary = "Use mar dev, mar compile, mar fly init, mar fly deploy, mar format, mar completion, and mar lsp."
       , keywords = [ "mar dev", "mar compile", "mar fly init", "mar fly deploy", "mar format", "mar completion", "mar lsp", "version" ]
       }
     , { title = "Shell completion"
       , route = AdvancedTooling
+      , sectionId = Just "shell-completion"
       , summary = "Enable shell completion for zsh, bash, and fish."
       , keywords = [ "shell completion", "zsh", "bash", "fish", "autocomplete", "eval", "source", ".zshrc", ".bashrc", "config.fish" ]
       }
     , { title = "Generated client output"
       , route = AdvancedTooling
+      , sectionId = Just "generated-client-output"
       , summary = "Generated Elm and TypeScript clients for CRUD, actions, auth, and version endpoints."
       , keywords = [ "clients", "elm", "typescript", "generated client", "frontend", "api client" ]
       }
     , { title = "Admin UI and editor support"
       , route = AdvancedTooling
+      , sectionId = Just "admin-ui-and-editor-support"
       , summary = "Embedded Admin UI plus VS Code support with syntax highlighting, hovers, navigation, rename, and formatting."
       , keywords = [ "admin ui", "editor", "vscode", "lsp", "hover", "rename", "formatting", "syntax highlighting" ]
       }
     , { title = "Deploy"
       , route = AdvancedDeploy
+      , sectionId = Just "deploy"
       , summary = "Deploy Mar apps with a single executable, persistent SQLite storage, SMTP, and Fly.io."
       , keywords = [ "deploy", "fly", "smtp", "resend", "sqlite", "volume" ]
       }
     , { title = "Email delivery"
       , route = AdvancedDeploy
+      , sectionId = Just "email-delivery"
       , summary = "Configure a real SMTP provider and set the SMTP password as an environment variable before production deploys."
       , keywords = [ "email delivery", "smtp", "resend", "smtp_password_env", "RESEND_API_KEY", "login codes" ]
       }
     , { title = "Deploy on Fly.io"
       , route = AdvancedDeploy
+      , sectionId = Just "deploy-on-fly-io"
       , summary = "Use mar fly init and mar fly deploy to prepare files, create the app, attach a volume, set secrets, and deploy."
       , keywords = [ "fly", "fly.io", "fly init", "fly deploy", "volume", "secret", "persistent disk", "region" ]
       }
     , { title = "Current limitations"
       , route = AdvancedDeploy
+      , sectionId = Just "current-limitations"
       , summary = "SQLite needs persistent disk storage, and single-machine deployments are the simplest path today."
       , keywords = [ "limitations", "sqlite", "persistent disk", "restarts", "redeploys", "single machine" ]
       }
     , { title = "Compiler"
       , route = AdvancedCompiler
+      , sectionId = Just "compiler"
       , summary = "Learn how Mar turns a single .mar file into typed clients and packaged executables."
       , keywords = [ "compiler", "clients", "bundle", "executables", "runtime stubs" ]
       }
     , { title = "Compiler pipeline"
       , route = AdvancedCompiler
+      , sectionId = Just "compiler-pipeline"
       , summary = "Parse, validate, generate clients, build the bundle, and stamp prebuilt runtimes."
       , keywords = [ "parse", "validate", "generate clients", "bundle", "runtime executables", "prebuilt runtime" ]
+      }
+    , { title = "Examples"
+      , route = Examples
+      , sectionId = Just "examples"
+      , summary = "Browse the Todo API and BookStore API examples."
+      , keywords = [ "examples", "todo", "store", "bookstore", "sample apps" ]
+      }
+    , { title = "Todo API example"
+      , route = Examples
+      , sectionId = Just "todo-api-example"
+      , summary = "Minimal CRUD example using todo.mar."
+      , keywords = [ "todo", "todo.mar", "minimal crud", "example" ]
+      }
+    , { title = "BookStore API example"
+      , route = Examples
+      , sectionId = Just "bookstore-api-example"
+      , summary = "Auth, roles, and transactional action example using store.mar."
+      , keywords = [ "store", "store.mar", "bookstore", "auth", "roles", "transactional action", "placeBookOrder" ]
       }
     ]
 
@@ -825,9 +953,11 @@ gettingStartedPage model =
         , spacing 20
         ]
         [ panel
-            [ sectionTitle "Getting Started"
-            , paragraph [ Font.size 16, Font.color (rgb255 72 95 123), width fill ]
-                [ text "Install Mar, iterate quickly with hot reload, and deploy as a single executable." ]
+            [ anchoredSection "getting-started-intro"
+                [ sectionTitle "Getting Started"
+                , paragraph [ Font.size 16, Font.color (rgb255 72 95 123), width fill ]
+                    [ text "Install Mar, iterate quickly with hot reload, and deploy as a single executable." ]
+                ]
             ]
         , install model
         , quickStart model
@@ -876,78 +1006,88 @@ advancedLanguagePage model =
         ]
         [ advancedSubmenu model.route
         , panel
-            [ sectionTitle "Advanced Guide"
-            , paragraph
-                [ Font.size 16
-                , Font.color (rgb255 72 95 123)
-                , width fill
-                ]
-                [ text "Mar is a declarative backend DSL inspired by "
-                , newTabLink
-                    [ Font.color (rgb255 36 82 132)
-                    , Font.semiBold
-                    , htmlAttribute (HtmlAttr.style "cursor" "pointer")
+            [ anchoredSection "advanced-fundamentals"
+                [ sectionTitle "Advanced Guide"
+                , paragraph
+                    [ Font.size 16
+                    , Font.color (rgb255 72 95 123)
+                    , width fill
                     ]
-                    { url = "https://elm-lang.org"
-                    , label = text "Elm"
-                    }
-                , text " and "
-                , newTabLink
-                    [ Font.color (rgb255 36 82 132)
-                    , Font.semiBold
-                    , htmlAttribute (HtmlAttr.style "cursor" "pointer")
+                    [ text "Mar is a declarative backend DSL inspired by "
+                    , newTabLink
+                        [ Font.color (rgb255 36 82 132)
+                        , Font.semiBold
+                        , htmlAttribute (HtmlAttr.style "cursor" "pointer")
+                        ]
+                        { url = "https://elm-lang.org"
+                        , label = text "Elm"
+                        }
+                    , text " and "
+                    , newTabLink
+                        [ Font.color (rgb255 36 82 132)
+                        , Font.semiBold
+                        , htmlAttribute (HtmlAttr.style "cursor" "pointer")
+                        ]
+                        { url = "https://pocketbase.io"
+                        , label = text "PocketBase"
+                        }
+                    , text ", implemented in "
+                    , newTabLink
+                        [ Font.color (rgb255 36 82 132)
+                        , Font.semiBold
+                        , htmlAttribute (HtmlAttr.style "cursor" "pointer")
+                        ]
+                        { url = "https://go.dev"
+                        , label = text "Go"
+                        }
+                    , text " with focus on readability, maintainability, and simple deployment."
                     ]
-                    { url = "https://pocketbase.io"
-                    , label = text "PocketBase"
-                    }
-                , text ", implemented in "
-                , newTabLink
-                    [ Font.color (rgb255 36 82 132)
-                    , Font.semiBold
-                    , htmlAttribute (HtmlAttr.style "cursor" "pointer")
+                , docSubsectionTitle "Fundamentals"
+                , bodyText "Mar reads top-to-bottom as a declarative app definition. A Mar app is centered around entities, rules, authorization, optional auth configuration, and typed actions."
+                , docSubsectionTitle "Quick Examples"
+                , codeFromString model "todo.mar" 450 todoExampleSource
+                , codeFromString model "action.mar" 575 actionExampleSource
+                ]
+            , anchoredSection "syntax-model"
+                [ docSubsectionTitle "Syntax Model"
+                , docList
+                    [ "Top-level statements: app, port, database, public, system, auth, entity, type alias, action."
+                    , "Fields use the form fieldName: Type with optional modifiers such as primary, auto, and optional."
+                    , "Comments use Elm-style line comments: -- this is a comment."
                     ]
-                    { url = "https://go.dev"
-                    , label = text "Go"
-                    }
-                , text " with focus on readability, maintainability, and simple deployment."
                 ]
-            , docSubsectionTitle "Fundamentals"
-            , bodyText "Mar reads top-to-bottom as a declarative app definition. A Mar app is centered around entities, rules, authorization, optional auth configuration, and typed actions."
-            , docSubsectionTitle "Quick Examples"
-            , codeFromString model "todo.mar" 450 todoExampleSource
-            , codeFromString model "action.mar" 575 actionExampleSource
-            , docSubsectionTitle "Syntax Model"
-            , docList
-                [ "Top-level statements: app, port, database, public, system, auth, entity, type alias, action."
-                , "Fields use the form fieldName: Type with optional modifiers such as primary, auto, and optional."
-                , "Comments use Elm-style line comments: -- this is a comment."
+            , anchoredSection "authentication-and-authorization"
+                [ docSubsectionTitle "Authentication and Authorization"
+                , bodyText "Mar includes a built-in email-code login flow and per-operation authorization rules. The same auth model is also used by system-level tooling such as monitoring, logs, and backups."
+                , codeFromString model "auth.mar" 272 authConfigSource
+                , codeFromString model "authorize.mar" 300 authorizeExampleSource
+                , docList
+                    [ "Authentication endpoints are always available."
+                    , "Every Mar app includes a built-in User entity that you may extend."
+                    , "Entity access is deny-by-default unless you declare authorize rules."
+                    , "Admin always has read-only access to the built-in User entity, even without explicit authorize rules."
+                    , "`authorize all when ...` sets a default rule for list, get, create, update, and delete, and specific operations can still override it."
+                    , "System features use the same session and require role == \"admin\"."
+                    ]
                 ]
-            , docSubsectionTitle "Authentication and Authorization"
-            , bodyText "Mar includes a built-in email-code login flow and per-operation authorization rules. The same auth model is also used by system-level tooling such as monitoring, logs, and backups."
-            , codeFromString model "auth.mar" 272 authConfigSource
-            , codeFromString model "authorize.mar" 300 authorizeExampleSource
-            , docList
-                [ "Authentication endpoints are always available."
-                , "Every Mar app includes a built-in User entity that you may extend."
-                , "Entity access is deny-by-default unless you declare authorize rules."
-                , "Admin always has read-only access to the built-in User entity, even without explicit authorize rules."
-                , "`authorize all when ...` sets a default rule for list, get, create, update, and delete, and specific operations can still override it."
-                , "System features use the same session and require role == \"admin\"."
+            , anchoredSection "rules-and-typed-actions"
+                [ docSubsectionTitle "Rules and Typed Actions"
+                , paragraphWithEmphasis
+                    [ el [ Font.bold, Font.color (rgb255 20 53 89) ] (text "Rules")
+                    , text " are for validation close to the entity definition. "
+                    , el [ Font.bold, Font.color (rgb255 20 53 89) ] (text "Actions")
+                    , text " are for multi-step writes that must succeed or fail together."
+                    ]
+                , docList
+                    [ "rule validates entity data and returns HTTP 422 with details when validation fails."
+                    , "Actions run in a single atomic transaction."
+                    , "Mar checks input types and assigned entity fields at compile time."
+                    ]
                 ]
-            , docSubsectionTitle "Rules and Typed Actions"
-            , paragraphWithEmphasis
-                [ el [ Font.bold, Font.color (rgb255 20 53 89) ] (text "Rules")
-                , text " are for validation close to the entity definition. "
-                , el [ Font.bold, Font.color (rgb255 20 53 89) ] (text "Actions")
-                , text " are for multi-step writes that must succeed or fail together."
+            , anchoredSection "current-limitations-fundamentals"
+                [ docSubsectionTitle "Current Limitations"
+                , bodyText "Mar currently supports a single .mar entry file per app, without multi-file projects or imports."
                 ]
-            , docList
-                [ "rule validates entity data and returns HTTP 422 with details when validation fails."
-                , "Actions run in a single atomic transaction."
-                , "Mar checks input types and assigned entity fields at compile time."
-                ]
-            , docSubsectionTitle "Current Limitations"
-            , bodyText "Mar currently supports a single .mar entry file per app, without multi-file projects or imports."
             ]
         , advancedPager Nothing (Just AdvancedRuntime)
         ]
@@ -961,61 +1101,69 @@ advancedLanguageReferencePage model =
         ]
         [ advancedSubmenu AdvancedLanguageReference
         , panel
-            [ sectionTitle "Advanced Guide"
-            , docSubsectionTitle "Language Reference"
-            , bodyText "This reference lists the current keywords and built-in names used by the language."
-            , languageReferenceGroup "Top-level declarations"
-                [ languageReferenceItem "app" "Declares the app name."
-                , languageReferenceItem "port" "Sets the HTTP port."
-                , languageReferenceItem "database" "Sets the SQLite database file."
-                , languageReferenceItem "public" "Declares embedded static frontend files."
-                , languageReferenceItem "system" "Declares runtime and security settings."
-                , languageReferenceItem "auth" "Declares email-code authentication settings."
-                , languageReferenceItem "entity" "Declares an entity and its generated CRUD surface."
-                , languageReferenceItem "type alias" "Declares a record type, typically for action input."
-                , languageReferenceItem "action" "Declares a custom action endpoint."
+            [ anchoredSection "language-reference"
+                [ sectionTitle "Advanced Guide"
+                , docSubsectionTitle "Language Reference"
+                , bodyText "This reference lists the current keywords and built-in names used by the language."
+                , languageReferenceGroup "Top-level declarations"
+                    [ languageReferenceItem "app" "Declares the app name."
+                    , languageReferenceItem "port" "Sets the HTTP port."
+                    , languageReferenceItem "database" "Sets the SQLite database file."
+                    , languageReferenceItem "public" "Declares embedded static frontend files."
+                    , languageReferenceItem "system" "Declares runtime and security settings."
+                    , languageReferenceItem "auth" "Declares email-code authentication settings."
+                    , languageReferenceItem "entity" "Declares an entity and its generated CRUD surface."
+                    , languageReferenceItem "type alias" "Declares a record type, typically for action input."
+                    , languageReferenceItem "action" "Declares a custom action endpoint."
+                    ]
+                , languageReferenceGroup "Entity fields and modifiers"
+                    [ languageReferenceItem "primary" "Marks a field as the primary key."
+                    , languageReferenceItem "auto" "Marks a field as auto-generated."
+                    , languageReferenceItem "optional" "Marks a field as nullable."
+                    ]
                 ]
-            , languageReferenceGroup "Entity fields and modifiers"
-                [ languageReferenceItem "primary" "Marks a field as the primary key."
-                , languageReferenceItem "auto" "Marks a field as auto-generated."
-                , languageReferenceItem "optional" "Marks a field as nullable."
+            , anchoredSection "validation-and-authorization-reference"
+                [ languageReferenceGroup "Validation and authorization"
+                    [ languageReferenceItem "rule" "Adds entity validation."
+                    , languageReferenceItem "expect" "Introduces the boolean expression enforced by a rule."
+                    , languageReferenceItem "when" "Introduces the boolean expression used by an authorization clause."
+                    , languageReferenceItem "authorize" "Declares per-operation authorization rules."
+                    , languageReferenceItem "all, list, get, create, update, delete" "The supported operations for authorize clauses. `all` sets a default rule for every CRUD operation."
+                    ]
+                , languageReferenceGroup "Actions"
+                    [ languageReferenceItem "input" "Declares the action input type and is also used in expressions such as input.userId."
+                    , languageReferenceItem "create" "Adds a create step inside an action."
+                    ]
                 ]
-            , languageReferenceGroup "Validation and authorization"
-                [ languageReferenceItem "rule" "Adds entity validation."
-                , languageReferenceItem "expect" "Introduces the boolean expression enforced by a rule."
-                , languageReferenceItem "when" "Introduces the boolean expression used by an authorization clause."
-                , languageReferenceItem "authorize" "Declares per-operation authorization rules."
-                , languageReferenceItem "all, list, get, create, update, delete" "The supported operations for authorize clauses. `all` sets a default rule for every CRUD operation."
+            , anchoredSection "auth-config-reference"
+                [ languageReferenceGroup "Auth config"
+                    [ languageReferenceItem "User" "Built-in user entity present in every Mar app. You may extend it with extra fields and authorization rules. Admin always has read-only access to it."
+                    , languageReferenceItem "code_ttl_minutes" "Sets how long login codes remain valid."
+                    , languageReferenceItem "session_ttl_hours" "Sets the default session lifetime."
+                    , languageReferenceItem "email_transport, email_from, email_subject, smtp_host, smtp_port, smtp_username, smtp_password_env, smtp_starttls" "Configure how login codes are delivered."
+                    ]
                 ]
-            , languageReferenceGroup "Actions"
-                [ languageReferenceItem "input" "Declares the action input type and is also used in expressions such as input.userId."
-                , languageReferenceItem "create" "Adds a create step inside an action."
-                ]
-            , languageReferenceGroup "Auth config"
-                [ languageReferenceItem "User" "Built-in user entity present in every Mar app. You may extend it with extra fields and authorization rules. Admin always has read-only access to it."
-                , languageReferenceItem "code_ttl_minutes" "Sets how long login codes remain valid."
-                , languageReferenceItem "session_ttl_hours" "Sets the default session lifetime."
-                , languageReferenceItem "email_transport, email_from, email_subject, smtp_host, smtp_port, smtp_username, smtp_password_env, smtp_starttls" "Configure how login codes are delivered."
-                ]
-            , languageReferenceGroup "System config"
-                [ languageReferenceItem "request_logs_buffer" "Sets how many recent requests stay in memory for monitoring."
-                , languageReferenceItem "http_max_request_body_mb" "Limits request body size."
-                , languageReferenceItem "auth_request_code_rate_limit_per_minute, auth_login_rate_limit_per_minute" "Configure auth rate limits."
-                , languageReferenceItem "admin_ui_session_ttl_hours" "Sets a separate session lifetime for the embedded admin UI."
-                , languageReferenceItem "security_frame_policy, security_referrer_policy, security_content_type_nosniff" "Configure security response headers."
-                , languageReferenceItem "sqlite_journal_mode, sqlite_synchronous, sqlite_foreign_keys" "Configure core SQLite behavior."
-                , languageReferenceItem "sqlite_busy_timeout_ms, sqlite_wal_autocheckpoint, sqlite_journal_size_limit_mb, sqlite_mmap_size_mb, sqlite_cache_size_kb" "Configure SQLite performance tuning."
-                ]
-            , languageReferenceGroup "Public frontend config"
-                [ languageReferenceItem "dir" "Sets the source directory of embedded static files."
-                , languageReferenceItem "mount" "Sets where embedded static files are served."
-                , languageReferenceItem "spa_fallback" "Sets the fallback file used for SPA-style routes."
-                ]
-            , languageReferenceGroup "Built-in functions and values"
-                [ languageReferenceItem "len, contains, startsWith, endsWith, matches" "Built-in helpers available inside rule and authorize expressions."
-                , languageReferenceItem "isRole" "Checks the authenticated user role inside authorize expressions."
-                , languageReferenceItem "auth_authenticated, auth_email, auth_user_id, auth_role" "Built-in authentication values available in expressions."
-                , languageReferenceItem "true, false, null" "Built-in literals."
+            , anchoredSection "system-config-reference"
+                [ languageReferenceGroup "System config"
+                    [ languageReferenceItem "request_logs_buffer" "Sets how many recent requests stay in memory for monitoring."
+                    , languageReferenceItem "http_max_request_body_mb" "Limits request body size."
+                    , languageReferenceItem "auth_request_code_rate_limit_per_minute, auth_login_rate_limit_per_minute" "Configure auth rate limits."
+                    , languageReferenceItem "admin_ui_session_ttl_hours" "Sets a separate session lifetime for the embedded admin UI."
+                    , languageReferenceItem "security_frame_policy, security_referrer_policy, security_content_type_nosniff" "Configure security response headers."
+                    , languageReferenceItem "sqlite_journal_mode, sqlite_synchronous, sqlite_foreign_keys" "Configure core SQLite behavior."
+                    , languageReferenceItem "sqlite_busy_timeout_ms, sqlite_wal_autocheckpoint, sqlite_journal_size_limit_mb, sqlite_mmap_size_mb, sqlite_cache_size_kb" "Configure SQLite performance tuning."
+                    ]
+                , languageReferenceGroup "Public frontend config"
+                    [ languageReferenceItem "dir" "Sets the source directory of embedded static files."
+                    , languageReferenceItem "mount" "Sets where embedded static files are served."
+                    , languageReferenceItem "spa_fallback" "Sets the fallback file used for SPA-style routes."
+                    ]
+                , languageReferenceGroup "Built-in functions and values"
+                    [ languageReferenceItem "len, contains, startsWith, endsWith, matches" "Built-in helpers available inside rule and authorize expressions."
+                    , languageReferenceItem "isRole" "Checks the authenticated user role inside authorize expressions."
+                    , languageReferenceItem "auth_authenticated, auth_email, auth_user_id, auth_role" "Built-in authentication values available in expressions."
+                    , languageReferenceItem "true, false, null" "Built-in literals."
+                    ]
                 ]
             ]
         , advancedPager (Just AdvancedCompiler) Nothing
@@ -1030,42 +1178,52 @@ advancedRuntimePage model =
         ]
         [ advancedSubmenu model.route
         , panel
-            [ sectionTitle "Advanced Guide"
-            , docSubsectionTitle "Runtime"
-            , bodyText "The runtime generated by Mar is meant to be practical by default: HTTP endpoints, SQLite storage, authentication, admin tooling, and migrations come from the same source file."
-            , docSubsectionTitle "System Configuration"
-            , paragraphWithEmphasis
-                [ text "Use "
-                , emphasisText "system"
-                , text " when you need to tune runtime behavior. This is where request logging, body limits, auth rate limits, admin UI session lifetime, security headers, and SQLite pragmas are configured."
+            [ anchoredSection "runtime"
+                [ sectionTitle "Advanced Guide"
+                , docSubsectionTitle "Runtime"
+                , bodyText "The runtime generated by Mar is meant to be practical by default: HTTP endpoints, SQLite storage, authentication, admin tooling, and migrations come from the same source file."
                 ]
-            , codeFromString model "system.mar" 0 systemConfigSource
-            , docList
-                [ "request_logs_buffer controls how many recent requests stay in memory for monitoring."
-                , "http_max_request_body_mb limits request body size and returns HTTP 413 when exceeded."
-                , "Auth rate limits control request-code and login attempts per minute."
-                , "admin_ui_session_ttl_hours can shorten the embedded admin UI session without changing REST client sessions."
-                , "Security settings apply response headers such as frame policy, referrer policy, and nosniff."
-                , "SQLite settings are performance-first by default and can be overridden per app."
+            , anchoredSection "system-configuration"
+                [ docSubsectionTitle "System Configuration"
+                , paragraphWithEmphasis
+                    [ text "Use "
+                    , emphasisText "system"
+                    , text " when you need to tune runtime behavior. This is where request logging, body limits, auth rate limits, admin UI session lifetime, security headers, and SQLite pragmas are configured."
+                    ]
+                , codeFromString model "system.mar" 0 systemConfigSource
+                , docList
+                    [ "request_logs_buffer controls how many recent requests stay in memory for monitoring."
+                    , "http_max_request_body_mb limits request body size and returns HTTP 413 when exceeded."
+                    , "Auth rate limits control request-code and login attempts per minute."
+                    , "admin_ui_session_ttl_hours can shorten the embedded admin UI session without changing REST client sessions."
+                    , "Security settings apply response headers such as frame policy, referrer policy, and nosniff."
+                    , "SQLite settings are performance-first by default and can be overridden per app."
+                    ]
                 ]
-            , docSubsectionTitle "Public Static Frontend"
-            , bodyText "Mar can embed static frontend files into the final executable. This is useful when you want one deployable binary that serves both the backend and a compiled frontend."
-            , codeFromString model "public.mar" 260 publicConfigSource
-            , docSubsectionTitle "Generated Endpoints"
-            , bodyText "Mar turns the declarative app definition into a concrete HTTP surface. CRUD, actions, auth, health, version, and admin-related endpoints are generated automatically from the source file."
-            , docList
-                [ "Each entity gets REST CRUD endpoints."
-                , "Typed actions are exposed as POST /actions/<name>."
-                , "System endpoints include /health, /_mar/admin, /_mar/schema, and /_mar/version."
-                , "Admin-only system endpoints include /_mar/version/admin, /_mar/perf, /_mar/request-logs, and /_mar/backups."
+            , anchoredSection "public-static-frontend"
+                [ docSubsectionTitle "Public Static Frontend"
+                , bodyText "Mar can embed static frontend files into the final executable. This is useful when you want one deployable binary that serves both the backend and a compiled frontend."
+                , codeFromString model "public.mar" 260 publicConfigSource
                 ]
-            , docSubsectionTitle "Migrations"
-            , bodyText "Mar applies schema migration logic automatically on startup. Safe changes are handled for you, while unsafe changes are blocked instead of being applied silently."
-            , docList
-                [ "Migrations run automatically on startup."
-                , "Mar creates missing tables, adds new optional columns, and keeps auth/session storage ready."
-                , "Unsafe changes such as type changes, primary key changes, nullability changes, and new required fields are blocked."
-                , "When blocked, startup fails with a clear migration error."
+            , anchoredSection "generated-endpoints"
+                [ docSubsectionTitle "Generated Endpoints"
+                , bodyText "Mar turns the declarative app definition into a concrete HTTP surface. CRUD, actions, auth, health, version, and admin-related endpoints are generated automatically from the source file."
+                , docList
+                    [ "Each entity gets REST CRUD endpoints."
+                    , "Typed actions are exposed as POST /actions/<name>."
+                    , "System endpoints include /health, /_mar/admin, /_mar/schema, and /_mar/version."
+                    , "Admin-only system endpoints include /_mar/version/admin, /_mar/perf, /_mar/request-logs, and /_mar/backups."
+                    ]
+                ]
+            , anchoredSection "migrations"
+                [ docSubsectionTitle "Migrations"
+                , bodyText "Mar applies schema migration logic automatically on startup. Safe changes are handled for you, while unsafe changes are blocked instead of being applied silently."
+                , docList
+                    [ "Migrations run automatically on startup."
+                    , "Mar creates missing tables, adds new optional columns, and keeps auth/session storage ready."
+                    , "Unsafe changes such as type changes, primary key changes, nullability changes, and new required fields are blocked."
+                    , "When blocked, startup fails with a clear migration error."
+                    ]
                 ]
             ]
         , advancedPager (Just AdvancedFundamentals) (Just AdvancedTooling)
@@ -1080,98 +1238,108 @@ advancedToolingPage model =
         ]
         [ advancedSubmenu model.route
         , panel
-            [ sectionTitle "Advanced Guide"
-            , docSubsectionTitle "Tooling"
-            , paragraphWithEmphasis
-                [ emphasisText "mar"
-                , text " hosts the day-to-day developer workflow, while the generated clients and editor support help keep frontend and backend aligned."
-                ]
-            , docSubsectionTitle "Compiler and Runtime Commands"
-            , commandRow model "1" "Dev" "Runs the app in development mode with hot reload when the .mar file changes." "mar dev store.mar"
-            , commandRow model "2" "Compile" "Packages self-contained executables for all supported platforms and generates frontend clients." "mar compile store.mar"
-            , commandRow model "3" "Fly init" "Prepares Fly.io deployment files for your app." "mar fly init store.mar"
-            , commandRow model "4" "Fly deploy" "Rebuilds the Linux executable for the current app and runs fly deploy with the generated Fly config." "mar fly deploy store.mar"
-            , commandRow model "5" "Format" "Applies Mar's official formatting style to source files." "mar format store.mar"
-            , commandRow model "6" "Completion" "Generates shell completion scripts for terminals such as zsh." "mar completion zsh"
-            , commandRow model "7" "LSP" "Starts the language server used by the VSCode extension for diagnostics, hovers, and navigation. Usually started by the editor plugin." "mar lsp"
-            , paragraphWithEmphasis
-                [ text "For a production walkthrough, see the "
-                , link [ Font.color (rgb255 36 82 132), Font.semiBold ] { url = routeHref AdvancedDeploy, label = text "Deploy" }
-                , text " guide."
-                ]
-            , docSubsectionTitle "Shell completion"
-            , paragraphWithEmphasis
-                [ text "Mar can generate shell completion for "
-                , emphasisText "zsh"
-                , text ", "
-                , emphasisText "bash"
-                , text ", and "
-                , emphasisText "fish"
-                , text " so commands like "
-                , inlineCommand "mar fly"
-                , text " and "
-                , inlineCommand "mar compile"
-                , text " are suggested as you type."
-                ]
-            , bodyText "Add the command below to your shell's startup file."
-            , column
-                [ width fill
-                , spacing 16
-                ]
-                [ column
-                    [ width fill
-                    , spacing 8
+            [ anchoredSection "tooling"
+                [ sectionTitle "Advanced Guide"
+                , docSubsectionTitle "Tooling"
+                , paragraphWithEmphasis
+                    [ emphasisText "mar"
+                    , text " hosts the day-to-day developer workflow, while the generated clients and editor support help keep frontend and backend aligned."
                     ]
-                    [ paragraphWithEmphasis
-                        [ emphasisText "Zsh"
-                        , text " — add this line to "
-                        , inlineCommand "~/.zshrc"
-                        , text "."
-                        ]
-                    , terminalFromString model "eval \"$(mar completion zsh)\""
+                ]
+            , anchoredSection "compiler-and-runtime-commands"
+                [ docSubsectionTitle "Compiler and Runtime Commands"
+                , commandRow model "1" "Dev" "Runs the app in development mode with hot reload when the .mar file changes." "mar dev store.mar"
+                , commandRow model "2" "Compile" "Packages self-contained executables for all supported platforms and generates frontend clients." "mar compile store.mar"
+                , commandRow model "3" "Fly init" "Prepares Fly.io deployment files for your app." "mar fly init store.mar"
+                , commandRow model "4" "Fly deploy" "Rebuilds the Linux executable for the current app and runs fly deploy with the generated Fly config." "mar fly deploy store.mar"
+                , commandRow model "5" "Format" "Applies Mar's official formatting style to source files." "mar format store.mar"
+                , commandRow model "6" "Completion" "Generates shell completion scripts for terminals such as zsh." "mar completion zsh"
+                , commandRow model "7" "LSP" "Starts the language server used by the VSCode extension for diagnostics, hovers, and navigation. Usually started by the editor plugin." "mar lsp"
+                , paragraphWithEmphasis
+                    [ text "For a production walkthrough, see the "
+                    , link [ Font.color (rgb255 36 82 132), Font.semiBold ] { url = routeHref AdvancedDeploy, label = text "Deploy" }
+                    , text " guide."
                     ]
+                ]
+            , anchoredSection "shell-completion"
+                [ docSubsectionTitle "Shell completion"
+                , paragraphWithEmphasis
+                    [ text "Mar can generate shell completion for "
+                    , emphasisText "zsh"
+                    , text ", "
+                    , emphasisText "bash"
+                    , text ", and "
+                    , emphasisText "fish"
+                    , text " so commands like "
+                    , inlineCommand "mar fly"
+                    , text " and "
+                    , inlineCommand "mar compile"
+                    , text " are suggested as you type."
+                    ]
+                , bodyText "Add the command below to your shell's startup file."
                 , column
                     [ width fill
-                    , spacing 8
+                    , spacing 16
                     ]
-                    [ paragraphWithEmphasis
-                        [ emphasisText "Bash"
-                        , text " — add this line to "
-                        , inlineCommand "~/.bashrc"
-                        , text " or "
-                        , inlineCommand "~/.bash_profile"
-                        , text "."
+                    [ column
+                        [ width fill
+                        , spacing 8
                         ]
-                    , terminalFromString model "source <(mar completion bash)"
-                    ]
-                , column
-                    [ width fill
-                    , spacing 8
-                    ]
-                    [ paragraphWithEmphasis
-                        [ emphasisText "Fish"
-                        , text " — add this line to "
-                        , inlineCommand "~/.config/fish/config.fish"
-                        , text "."
+                        [ paragraphWithEmphasis
+                            [ emphasisText "Zsh"
+                            , text " — add this line to "
+                            , inlineCommand "~/.zshrc"
+                            , text "."
+                            ]
+                        , terminalFromString model "eval \"$(mar completion zsh)\""
                         ]
-                    , terminalFromString model "mar completion fish | source"
+                    , column
+                        [ width fill
+                        , spacing 8
+                        ]
+                        [ paragraphWithEmphasis
+                            [ emphasisText "Bash"
+                            , text " — add this line to "
+                            , inlineCommand "~/.bashrc"
+                            , text " or "
+                            , inlineCommand "~/.bash_profile"
+                            , text "."
+                            ]
+                        , terminalFromString model "source <(mar completion bash)"
+                        ]
+                    , column
+                        [ width fill
+                        , spacing 8
+                        ]
+                        [ paragraphWithEmphasis
+                            [ emphasisText "Fish"
+                            , text " — add this line to "
+                            , inlineCommand "~/.config/fish/config.fish"
+                            , text "."
+                            ]
+                        , terminalFromString model "mar completion fish | source"
+                        ]
                     ]
                 ]
-            , docSubsectionTitle "Generated Client Output"
-            , bodyText "When you compile an app, Mar also generates frontend clients for Elm and TypeScript. These clients wrap the generated HTTP API with named functions, so you do not need to hand-write fetch calls, URLs, or request payload shapes."
-            , docList
-                [ "Elm client: dist/<name>/clients/<AppName>Client.elm"
-                , "TypeScript client: dist/<name>/clients/<AppName>Client.ts"
-                , "Both include CRUD functions, action functions, auth endpoints, and backend version access."
-                , "They reduce duplicated frontend code and keep frontend calls aligned with the backend generated from your .mar file."
-                , "This makes refactors safer, because the client surface is regenerated from the same source as the server."
+            , anchoredSection "generated-client-output"
+                [ docSubsectionTitle "Generated Client Output"
+                , bodyText "When you compile an app, Mar also generates frontend clients for Elm and TypeScript. These clients wrap the generated HTTP API with named functions, so you do not need to hand-write fetch calls, URLs, or request payload shapes."
+                , docList
+                    [ "Elm client: dist/<name>/clients/<AppName>Client.elm"
+                    , "TypeScript client: dist/<name>/clients/<AppName>Client.ts"
+                    , "Both include CRUD functions, action functions, auth endpoints, and backend version access."
+                    , "They reduce duplicated frontend code and keep frontend calls aligned with the backend generated from your .mar file."
+                    , "This makes refactors safer, because the client surface is regenerated from the same source as the server."
+                    ]
                 ]
-            , docSubsectionTitle "Admin UI and Editor Support"
-            , bodyText "Mar ships with an embedded Admin UI for operating the app you compiled. The editor tooling focuses on making the DSL easier to author and safer to change."
-            , docList
-                [ "The embedded Admin UI uses schema discovery from GET /_mar/schema."
-                , "It supports CRUD browsing, auth flows, monitoring, request logs, and database tooling."
-                , "The VSCode extension provides syntax highlighting, hover docs, go to definition, references, rename, formatting, and LSP diagnostics."
+            , anchoredSection "admin-ui-and-editor-support"
+                [ docSubsectionTitle "Admin UI and Editor Support"
+                , bodyText "Mar ships with an embedded Admin UI for operating the app you compiled. The editor tooling focuses on making the DSL easier to author and safer to change."
+                , docList
+                    [ "The embedded Admin UI uses schema discovery from GET /_mar/schema."
+                    , "It supports CRUD browsing, auth flows, monitoring, request logs, and database tooling."
+                    , "The VSCode extension provides syntax highlighting, hover docs, go to definition, references, rename, formatting, and LSP diagnostics."
+                    ]
                 ]
             ]
         , advancedPager (Just AdvancedRuntime) (Just AdvancedDeploy)
@@ -1186,72 +1354,84 @@ advancedDeployPage model =
         ]
         [ advancedSubmenu AdvancedDeploy
         , panel
-            [ sectionTitle "Advanced Guide"
-            , docSubsectionTitle "Deploy"
-            , bodyText "Mar is intentionally simple to deploy. In production, you usually need just two things: the executable for your target platform and a persistent place to store the SQLite database."
-            , docSubsectionTitle "Why deployment is simple"
-            , docList
-                [ "Mar compile produces a single executable per target platform."
-                , "The runtime already includes the API, authentication, admin tools, logs, monitoring, and backup features."
-                , "SQLite keeps the data model simple: one database file, no separate database service required."
-                ]
-            , docSubsectionTitle "Email delivery"
-            , paragraphWithEmphasis
-                [ text "If your app uses email login codes, configure a real SMTP provider before deploying. We currently recommend "
-                , newTabLink
-                    [ Font.color (rgb255 36 82 132)
-                    , Font.semiBold
-                    , htmlAttribute (HtmlAttr.style "cursor" "pointer")
+            [ anchoredSection "deploy"
+                [ sectionTitle "Advanced Guide"
+                , docSubsectionTitle "Deploy"
+                , bodyText "Mar is intentionally simple to deploy. In production, you usually need just two things: the executable for your target platform and a persistent place to store the SQLite database."
+                , docSubsectionTitle "Why deployment is simple"
+                , docList
+                    [ "Mar compile produces a single executable per target platform."
+                    , "The runtime already includes the API, authentication, admin tools, logs, monitoring, and backup features."
+                    , "SQLite keeps the data model simple: one database file, no separate database service required."
                     ]
-                    { url = "https://resend.com"
-                    , label = text "Resend"
-                    }
-                , text " because it is simple to set up and works well with Mar's SMTP configuration."
                 ]
-            , docList
-                [ "Set the SMTP password as an environment variable on your provider."
-                , "Any SMTP-compatible provider can work, but Resend is the simplest place to start."
-                ]
-            , codeFromString model "app.mar" 0 smtpDeploySource
-            , bodyText "In this example, smtp_password_env points to RESEND_API_KEY. That means your deploy environment must define a RESEND_API_KEY variable with the SMTP password before the app starts."
-            , docSubsectionTitle "What production still needs"
-            , bodyText "Mar keeps deployment lightweight, but production still has a few practical requirements."
-            , docList
-                [ "A persistent disk for the SQLite database. An ephemeral disk will lose your data."
-                , "A real email provider to send login codes."
-                ]
-            , docSubsectionTitle "Where you can deploy it"
-            , paragraphWithEmphasis
-                [ text "You can deploy a Mar app on any provider that can run a binary and give you persistent storage for the database file. Today, we recommend "
-                , newTabLink
-                    [ Font.color (rgb255 36 82 132)
-                    , Font.semiBold
-                    , htmlAttribute (HtmlAttr.style "cursor" "pointer")
+            , anchoredSection "email-delivery"
+                [ docSubsectionTitle "Email delivery"
+                , paragraphWithEmphasis
+                    [ text "If your app uses email login codes, configure a real SMTP provider before deploying. We currently recommend "
+                    , newTabLink
+                        [ Font.color (rgb255 36 82 132)
+                        , Font.semiBold
+                        , htmlAttribute (HtmlAttr.style "cursor" "pointer")
+                        ]
+                        { url = "https://resend.com"
+                        , label = text "Resend"
+                        }
+                    , text " because it is simple to set up and works well with Mar's SMTP configuration."
                     ]
-                    { url = "https://fly.io"
-                    , label = text "Fly.io"
-                    }
-                , text " because it fits that model well and keeps the setup small."
+                , docList
+                    [ "Set the SMTP password as an environment variable on your provider."
+                    , "Any SMTP-compatible provider can work, but Resend is the simplest place to start."
+                    ]
+                , codeFromString model "app.mar" 0 smtpDeploySource
+                , bodyText "In this example, smtp_password_env points to RESEND_API_KEY. That means your deploy environment must define a RESEND_API_KEY variable with the SMTP password before the app starts."
                 ]
-            , docSubsectionTitle "Deploy on Fly.io"
-            , paragraphWithEmphasis
-                [ text "Mar already has a dedicated Fly.io workflow. Start with "
-                , inlineCommand "mar fly init"
-                , text ", and Mar will prepare the Fly deployment files for your app."
+            , anchoredSection "what-production-still-needs"
+                [ docSubsectionTitle "What production still needs"
+                , bodyText "Mar keeps deployment lightweight, but production still has a few practical requirements."
+                , docList
+                    [ "A persistent disk for the SQLite database. An ephemeral disk will lose your data."
+                    , "A real email provider to send login codes."
+                    ]
                 ]
-            , terminalFromString model flyInitSource
-            , docList
-                [ "Choose the Fly app name you want to create on Fly.io."
-                , "Choose the Fly region closest to your users."
-                , "Let Mar generate the Fly deployment files for you."
+            , anchoredSection "where-you-can-deploy-it"
+                [ docSubsectionTitle "Where you can deploy it"
+                , paragraphWithEmphasis
+                    [ text "You can deploy a Mar app on any provider that can run a binary and give you persistent storage for the database file. Today, we recommend "
+                    , newTabLink
+                        [ Font.color (rgb255 36 82 132)
+                        , Font.semiBold
+                        , htmlAttribute (HtmlAttr.style "cursor" "pointer")
+                        ]
+                        { url = "https://fly.io"
+                        , label = text "Fly.io"
+                        }
+                    , text " because it fits that model well and keeps the setup small."
+                    ]
                 ]
-            , bodyText "After that, follow the commands Mar shows you: create the Fly app, create its volume, set the SMTP secret, and deploy."
-            , terminalFromString model flyDeploySource
-            , docSubsectionTitle "Current limitations"
-            , docList
-                [ "SQLite needs persistent disk storage so your data survives restarts and redeploys in production."
-                , "A single-machine setup is the simplest path when using SQLite."
-                , "If your provider cannot run a binary with persistent storage, it is not a good fit for Mar today."
+            , anchoredSection "deploy-on-fly-io"
+                [ docSubsectionTitle "Deploy on Fly.io"
+                , paragraphWithEmphasis
+                    [ text "Mar already has a dedicated Fly.io workflow. Start with "
+                    , inlineCommand "mar fly init"
+                    , text ", and Mar will prepare the Fly deployment files for your app."
+                    ]
+                , terminalFromString model flyInitSource
+                , docList
+                    [ "Choose the Fly app name you want to create on Fly.io."
+                    , "Choose the Fly region closest to your users."
+                    , "Let Mar generate the Fly deployment files for you."
+                    ]
+                , bodyText "After that, follow the commands Mar shows you: create the Fly app, create its volume, set the SMTP secret, and deploy."
+                , terminalFromString model flyDeploySource
+                ]
+            , anchoredSection "current-limitations"
+                [ docSubsectionTitle "Current limitations"
+                , docList
+                    [ "SQLite needs persistent disk storage so your data survives restarts and redeploys in production."
+                    , "A single-machine setup is the simplest path when using SQLite."
+                    , "If your provider cannot run a binary with persistent storage, it is not a good fit for Mar today."
+                    ]
                 ]
             ]
         , advancedPager (Just AdvancedTooling) (Just AdvancedCompiler)
@@ -1266,10 +1446,13 @@ advancedCompilerPage model =
         ]
         [ advancedSubmenu AdvancedCompiler
         , panel
-            [ sectionTitle "Advanced Guide"
-            , docSubsectionTitle "Compiler"
-            , bodyText "The compiler parses a single .mar file into a typed app model, validates it, generates clients, packages a manifest bundle with admin/public assets, and stamps that bundle into prebuilt runtime executables for all supported platforms."
-            , architectureDiagram
+            [ anchoredSection "compiler"
+                [ sectionTitle "Advanced Guide"
+                , docSubsectionTitle "Compiler"
+                , bodyText "The compiler parses a single .mar file into a typed app model, validates it, generates clients, packages a manifest bundle with admin/public assets, and stamps that bundle into prebuilt runtime executables for all supported platforms."
+                ]
+            , anchoredSection "compiler-pipeline"
+                [ architectureDiagram ]
             ]
         , advancedPager (Just AdvancedDeploy) (Just AdvancedLanguageReference)
         ]
@@ -1281,27 +1464,29 @@ examplesPage model =
         [ width fill
         , spacing 20
         ]
-        [ exampleCard model "Todo API" "Minimal CRUD example" "todo.mar" todoExampleSource
-        , exampleCard model "BookStore API" "Auth, roles, and transactional action" "store.mar" storeExampleSource
-        ]
-
-
-exampleCard : Model -> String -> String -> String -> String -> Element Msg
-exampleCard model name subtitle fileName source =
-    panel
-        [ row [ width fill, spacing 12 ]
-            [ column [ width fill, spacing 4 ]
-                [ paragraph [ Font.size 22, Font.bold, Font.color (rgb255 20 53 89) ] [ text name ]
-                , paragraph [ Font.size 15, Font.color (rgb255 95 114 138) ] [ text subtitle ]
+        [ panelWithAttributes [ htmlAttribute (HtmlAttr.id "examples"), htmlAttribute (HtmlAttr.id "todo-api-example") ]
+            [ row [ width fill, spacing 12 ]
+                [ column [ width fill, spacing 4 ]
+                    [ paragraph [ Font.size 22, Font.bold, Font.color (rgb255 20 53 89) ] [ text "Todo API" ]
+                    , paragraph [ Font.size 15, Font.color (rgb255 95 114 138) ] [ text "Minimal CRUD example" ]
+                    ]
                 ]
+            , codeFromString model "todo.mar" 360 todoExampleSource
             ]
-        , codeFromString model fileName 360 source
+        , panelWithAttributes [ htmlAttribute (HtmlAttr.id "bookstore-api-example") ]
+            [ row [ width fill, spacing 12 ]
+                [ column [ width fill, spacing 4 ]
+                    [ paragraph [ Font.size 22, Font.bold, Font.color (rgb255 20 53 89) ] [ text "BookStore API" ]
+                    , paragraph [ Font.size 15, Font.color (rgb255 95 114 138) ] [ text "Auth, roles, and transactional action" ]
+                    ]
+                ]
+            , codeFromString model "store.mar" 360 storeExampleSource
+            ]
         ]
-
 
 hero : Element Msg
 hero =
-    panel
+    panelWithAttributes [ htmlAttribute (HtmlAttr.id "home-hero") ]
         [ column [ spacing 10, width fill ]
             [ paragraph [ Font.size 38, Font.bold, Font.color (rgb255 16 44 79), width (fill |> maximum 900) ]
                 [ text "A simple declarative backend language." ]
@@ -1362,7 +1547,7 @@ codeExample model =
 
 install : Model -> Element Msg
 install model =
-    panel
+    panelWithAttributes [ htmlAttribute (HtmlAttr.id "install") ]
         [ sectionTitle "Install"
         , downloadInstallRow
         , pathInstallRow model
@@ -1374,14 +1559,16 @@ install model =
 quickStart : Model -> Element Msg
 quickStart model =
     panel
-        [ sectionTitle "Quick Start"
-        , quickStartCreateCard model "1" "Create" "todo.mar" todoExampleSource
-        , commandRow model "2" "Develop" "Runs the app locally with hot reload and opens the Admin UI while you edit todo.mar." "mar dev todo.mar"
-        , commandRow model "3" "Compile" "Packages production executables for all supported platforms and generates the frontend clients." "mar compile todo.mar"
-        , commandRow model "4" "Run" "Choose the target folder for your platform, start that executable, and open the printed Admin URL." """cd dist/todo/darwin-arm64
+        [ anchoredSection "quick-start"
+            [ sectionTitle "Quick Start"
+            , quickStartCreateCard model "1" "Create" "todo.mar" todoExampleSource
+            , commandRow model "2" "Develop" "Runs the app locally with hot reload and opens the Admin UI while you edit todo.mar." "mar dev todo.mar"
+            , commandRow model "3" "Compile" "Packages production executables for all supported platforms and generates the frontend clients." "mar compile todo.mar"
+            , commandRow model "4" "Run" "Choose the target folder for your platform, start that executable, and open the printed Admin URL." """cd dist/todo/darwin-arm64
 ./todo serve"""
-        , paragraph [ Font.size 16, Font.color (rgb255 72 95 123), width fill ]
-            [ text "Mar compile produces a single self-contained executable per target platform. Each one already includes API, auth, embedded Admin UI, monitoring dashboards, request logs, and SQLite backup tools." ]
+            , paragraph [ Font.size 16, Font.color (rgb255 72 95 123), width fill ]
+                [ text "Mar compile produces a single self-contained executable per target platform. Each one already includes API, auth, embedded Admin UI, monitoring dashboards, request logs, and SQLite backup tools." ]
+            ]
         ]
 
 
@@ -1535,7 +1722,7 @@ stepBadge value =
 
 features : Element Msg
 features =
-    panel
+    panelWithAttributes [ htmlAttribute (HtmlAttr.id "why-mar") ]
         [ sectionTitle "Why Mar"
         , whyLayoutChosen
         ]
@@ -1543,7 +1730,7 @@ features =
 
 audience : Element Msg
 audience =
-    panel
+    panelWithAttributes [ htmlAttribute (HtmlAttr.id "who-mar-is-for") ]
         [ sectionTitle "Who Mar Is For"
         , audienceVariantOne
         ]
@@ -1551,15 +1738,32 @@ audience =
 
 panel : List (Element Msg) -> Element Msg
 panel children =
+    panelWithAttributes [] children
+
+
+panelWithAttributes : List (Attribute Msg) -> List (Element Msg) -> Element Msg
+panelWithAttributes extraAttrs children =
     column
-        [ width (fill |> maximum 1040)
-        , centerX
+        ([ width (fill |> maximum 1040)
+         , centerX
+         , spacing 12
+         , padding 16
+         , Background.color (rgb255 255 255 255)
+         , Border.width 1
+         , Border.color (rgb255 209 222 239)
+         , Border.rounded 12
+         ]
+            ++ extraAttrs
+        )
+        children
+
+
+anchoredSection : String -> List (Element Msg) -> Element Msg
+anchoredSection sectionId children =
+    column
+        [ width fill
         , spacing 12
-        , padding 16
-        , Background.color (rgb255 255 255 255)
-        , Border.width 1
-        , Border.color (rgb255 209 222 239)
-        , Border.rounded 12
+        , htmlAttribute (HtmlAttr.id sectionId)
         ]
         children
 
@@ -3189,8 +3393,8 @@ bulletList items =
 bulletItem : String -> Element Msg
 bulletItem value =
     row [ spacing 8, width fill ]
-        [ el [ Font.color (rgb255 93 107 126), Font.bold ] (text "•")
-        , paragraph [ Font.size 16, Font.color (rgb255 72 95 123), width fill ] [ text value ]
+        [ el [ Element.alignTop, Font.color (rgb255 93 107 126), Font.bold ] (text "•")
+        , paragraph [ Element.alignTop, Font.size 16, Font.color (rgb255 72 95 123), width fill ] [ text value ]
         ]
 
 
