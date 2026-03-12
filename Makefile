@@ -3,7 +3,7 @@ GO_MIN_VERSION := 1.26
 ELM_REQUIRED_VERSION := 0.19.1
 GO_VERSION := $(shell go version | awk '{print $$3}' 2>/dev/null | sed 's/^go//')
 
-.PHONY: all check check-go check-elm check-elm-live check-python3 check-node check-npm check-npx admin website website-serve website-dev vscode-plugin compiler-assets mar mar-release test clean distclean
+.PHONY: all check check-go check-elm check-elm-live check-python3 check-node check-npm check-npx check-zip admin website website-serve website-dev vscode-plugin compiler-assets mar mar-release mar-release-zip test clean distclean
 
 define print_title
 	@sh -c 'if [ -n "$$NO_COLOR" ] || ! [ -t 1 ]; then printf "\n%s\n" "$(1)"; else printf "\n\033[1;36m%s\033[0m\n" "$(1)"; fi'
@@ -110,6 +110,14 @@ check-npx: check-node
 	@command -v npx >/dev/null 2>&1 || { \
 		printf "\n"; \
 		if [ -n "$$NO_COLOR" ] || ! [ -t 1 ]; then printf "%s\n" "npx is required for JS minification and VS Code extension packaging. Install Node.js and try again."; else printf "\033[1;31m%s\033[0m\n" "npx is required for JS minification and VS Code extension packaging. Install Node.js and try again."; fi; \
+		printf "\n"; \
+		exit 1; \
+	}
+
+check-zip:
+	@command -v zip >/dev/null 2>&1 || { \
+		printf "\n"; \
+		if [ -n "$$NO_COLOR" ] || ! [ -t 1 ]; then printf "%s\n" "zip is required to package release archives. Install zip and try again."; else printf "\033[1;31m%s\033[0m\n" "zip is required to package release archives. Install zip and try again."; fi; \
 		printf "\n"; \
 		exit 1; \
 	}
@@ -246,6 +254,50 @@ mar-release: check-go compiler-assets
 			printf "  Output: \033[1;32m%s\033[0m\n" "dist/releases/mar/linux-arm64/mar"; \
 			printf "  Output: \033[1;32m%s\033[0m\n" "dist/releases/mar/windows-amd64/mar.exe"; \
 		fi'
+
+mar-release-zip: check-zip mar-release
+	$(call print_title,Mar release archives)
+	$(call print_info,Packaging release binaries into .zip archives)
+	@sh -c '\
+		printf "  Release version: "; \
+		IFS= read -r version; \
+		if [ -z "$$version" ]; then \
+			printf "\n"; \
+			if [ -n "$$NO_COLOR" ] || ! [ -t 1 ]; then printf "%s\n" "Release version is required."; else printf "\033[1;31m%s\033[0m\n" "Release version is required."; fi; \
+			printf "\n"; \
+			exit 1; \
+		fi; \
+		mkdir -p dist/releases/mar; \
+		rm -f "dist/releases/mar/mar-$$version-darwin-arm64.zip"; \
+		rm -f "dist/releases/mar/mar-$$version-darwin-amd64.zip"; \
+		rm -f "dist/releases/mar/mar-$$version-linux-amd64.zip"; \
+		rm -f "dist/releases/mar/mar-$$version-linux-arm64.zip"; \
+		rm -f "dist/releases/mar/mar-$$version-windows-amd64.zip"; \
+		printf "  %s\n" "Packaging darwin-arm64"; \
+		cd dist/releases/mar/darwin-arm64 && zip -q "../mar-$$version-darwin-arm64.zip" mar; \
+		printf "  %s\n" "Packaging darwin-amd64"; \
+		cd ../darwin-amd64 && zip -q "../mar-$$version-darwin-amd64.zip" mar; \
+		printf "  %s\n" "Packaging linux-amd64"; \
+		cd ../linux-amd64 && zip -q "../mar-$$version-linux-amd64.zip" mar; \
+		printf "  %s\n" "Packaging linux-arm64"; \
+		cd ../linux-arm64 && zip -q "../mar-$$version-linux-arm64.zip" mar; \
+		printf "  %s\n" "Packaging windows-amd64"; \
+		cd ../windows-amd64 && zip -q "../mar-$$version-windows-amd64.zip" mar.exe; \
+		cd ..; \
+		if [ -n "$$NO_COLOR" ] || ! [ -t 1 ]; then \
+			printf "  %s\n" "Output: dist/releases/mar/mar-$$version-darwin-arm64.zip"; \
+			printf "  %s\n" "Output: dist/releases/mar/mar-$$version-darwin-amd64.zip"; \
+			printf "  %s\n" "Output: dist/releases/mar/mar-$$version-linux-amd64.zip"; \
+			printf "  %s\n" "Output: dist/releases/mar/mar-$$version-linux-arm64.zip"; \
+			printf "  %s\n" "Output: dist/releases/mar/mar-$$version-windows-amd64.zip"; \
+		else \
+			printf "  Output: \033[1;32m%s\033[0m\n" "dist/releases/mar/mar-$$version-darwin-arm64.zip"; \
+			printf "  Output: \033[1;32m%s\033[0m\n" "dist/releases/mar/mar-$$version-darwin-amd64.zip"; \
+			printf "  Output: \033[1;32m%s\033[0m\n" "dist/releases/mar/mar-$$version-linux-amd64.zip"; \
+			printf "  Output: \033[1;32m%s\033[0m\n" "dist/releases/mar/mar-$$version-linux-arm64.zip"; \
+			printf "  Output: \033[1;32m%s\033[0m\n" "dist/releases/mar/mar-$$version-windows-amd64.zip"; \
+		fi'
+	@printf "\n"
 
 test: check-go
 	$(call print_title,Tests)
