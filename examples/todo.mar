@@ -34,7 +34,7 @@ auth {
 -- =========================================
 
 -- A very small Todo app:
--- authenticated users can create, edit, and complete their own tasks.
+-- authenticated users can create, edit, and complete tasks.
 entity Todo {
   id: Int primary auto
   title: String
