@@ -3,7 +3,7 @@ port module Main exposing (main)
 import Browser
 import Browser.Navigation as Nav
 import Char
-import Element exposing (Attribute, Element, below, centerX, column, el, fill, height, html, htmlAttribute, link, maximum, moveDown, newTabLink, none, padding, paddingEach, paragraph, px, rgb255, row, scrollbarX, scrollbarY, spacing, text, width, wrappedRow)
+import Element exposing (Attribute, Element, below, centerX, column, el, fill, height, html, htmlAttribute, link, maximum, moveDown, newTabLink, none, padding, paddingEach, paragraph, px, rgb255, rgba255, row, scrollbarX, scrollbarY, spacing, text, width, wrappedRow)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
@@ -500,9 +500,15 @@ topSearchResults model =
             , spacing 6
             , Background.color (rgb255 255 255 255)
             , Border.width 1
-            , Border.color (rgb255 209 222 239)
-            , Border.rounded 10
-            , paddingEach { top = 8, right = 10, bottom = 8, left = 10 }
+            , Border.color (rgb255 197 214 235)
+            , Border.rounded 12
+            , Border.shadow
+                { offset = ( 0, 12 )
+                , size = 0
+                , blur = 28
+                , color = rgba255 23 43 77 0.14
+                }
+            , paddingEach { top = 8, right = 8, bottom = 8, left = 8 }
             , htmlAttribute (HtmlEvents.preventDefaultOn "mousedown" (Decode.succeed ( FocusDocsSearch, True )))
             ]
             (if List.isEmpty results then
@@ -517,9 +523,7 @@ docSearchResultView : DocSearchEntry -> Element Msg
 docSearchResultView entry =
     link
         [ width fill
-        , Background.color (rgb255 246 250 255)
-        , Border.width 1
-        , Border.color (rgb255 213 225 241)
+        , Background.color (rgb255 248 251 255)
         , Border.rounded 8
         , paddingEach { top = 8, right = 10, bottom = 8, left = 10 }
         , htmlAttribute (HtmlAttr.style "cursor" "pointer")
