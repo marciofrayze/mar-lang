@@ -1,3 +1,5 @@
+//go:build !windows
+
 package cli
 
 import (
@@ -253,7 +255,7 @@ func (e *marEditor) pollGitLoad() {
 
 func editorEnableRawMode() (*unix.Termios, error) {
 	fd := int(os.Stdin.Fd())
-	oldState, err := unix.IoctlGetTermios(fd, unix.TIOCGETA)
+	oldState, err := unix.IoctlGetTermios(fd, editorTermiosGetReq)
 	if err != nil {
 		return nil, err
 	}
@@ -264,7 +266,7 @@ func editorEnableRawMode() (*unix.Termios, error) {
 	newState.Lflag &^= unix.ECHO | unix.ICANON | unix.IEXTEN | unix.ISIG
 	newState.Cc[unix.VMIN] = 1
 	newState.Cc[unix.VTIME] = 0
-	if err := unix.IoctlSetTermios(fd, unix.TIOCSETA, &newState); err != nil {
+	if err := unix.IoctlSetTermios(fd, editorTermiosSetReq, &newState); err != nil {
 		return nil, err
 	}
 	return oldState, nil
@@ -274,7 +276,7 @@ func editorDisableRawMode(oldState *unix.Termios) {
 	if oldState == nil {
 		return
 	}
-	_ = unix.IoctlSetTermios(int(os.Stdin.Fd()), unix.TIOCSETA, oldState)
+	_ = unix.IoctlSetTermios(int(os.Stdin.Fd()), editorTermiosSetReq, oldState)
 }
 
 func editorReadKey() (int, error) {
