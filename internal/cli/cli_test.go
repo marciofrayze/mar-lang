@@ -54,6 +54,56 @@ func TestFormatParseCLIErrorMovesSuggestionIntoHintBlock(t *testing.T) {
 	}
 }
 
+func TestFormatParseCLIErrorAddsHintForMissingAppDeclaration(t *testing.T) {
+	t.Setenv("NO_COLOR", "1")
+
+	err := formatParseCLIError(errors.New("missing app declaration"))
+	if err == nil {
+		t.Fatal("expected formatted parse error")
+	}
+
+	msg := err.Error()
+	if !strings.Contains(msg, "Parse error") {
+		t.Fatalf("expected parse error title, got %q", msg)
+	}
+	if !strings.Contains(msg, "missing app declaration") {
+		t.Fatalf("expected base parse message, got %q", msg)
+	}
+	if !strings.Contains(msg, "Hint:\n  Add an app declaration near the top of the file, for example: app Todo") {
+		t.Fatalf("expected missing app declaration hint, got %q", msg)
+	}
+}
+
+func TestHighlightParseCLIMessageColorsMissingAppDeclaration(t *testing.T) {
+	msg := highlightParseCLIMessage(true, "missing app declaration")
+
+	if !strings.Contains(msg, "missing \033[1mapp\033[0m declaration") {
+		t.Fatalf("expected missing app declaration to highlight app, got %q", msg)
+	}
+}
+
+func TestHighlightParseCLIMessageColorsOtherDeclarations(t *testing.T) {
+	msg := highlightParseCLIMessage(true, "missing auth declaration and public declaration")
+
+	if !strings.Contains(msg, "missing \033[1mauth\033[0m declaration") {
+		t.Fatalf("expected missing auth declaration to highlight auth, got %q", msg)
+	}
+	if !strings.Contains(msg, "\033[1mpublic\033[0m declaration") {
+		t.Fatalf("expected public declaration to highlight public, got %q", msg)
+	}
+}
+
+func TestHighlightParseCLIMessageColorsAppDeclarationExample(t *testing.T) {
+	msg := highlightParseCLIMessage(true, "Add an app declaration near the top of the file, for example: app Todo")
+
+	if !strings.Contains(msg, "an \033[1mapp\033[0m declaration") {
+		t.Fatalf("expected app keyword in prose to be bold, got %q", msg)
+	}
+	if !strings.Contains(msg, "\033[1mapp\033[0m \033[1;36mTodo\033[0m") {
+		t.Fatalf("expected app declaration example to color app and Todo separately, got %q", msg)
+	}
+}
+
 func TestHighlightParseCLIMessageColorsUnknownInputFieldInRed(t *testing.T) {
 	msg := highlightParseCLIMessage(true, `action placeBookOrder field OrderItem.unitPrice: references unknown input field "unitPrico". Did you mean "unitPrice"?`)
 

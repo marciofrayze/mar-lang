@@ -27,6 +27,7 @@ var (
 	parseErrorUnknownInputRe = regexp.MustCompile(`unknown input field ("[^"\n]*")`)
 	parseErrorActionRe       = regexp.MustCompile(`\baction\s+([A-Za-z_][A-Za-z0-9_]*)`)
 	parseErrorFieldRe        = regexp.MustCompile(`\bfield\s+([A-Za-z_][A-Za-z0-9_.]*)`)
+	parseErrorDeclWordRe     = regexp.MustCompile(`\b(app|auth|public|system)\s+declaration\b`)
 )
 
 type styledCLIError string
@@ -224,6 +225,9 @@ func formatParseCLIError(err error) error {
 	useColor := cliSupportsANSIStream(os.Stderr)
 	message := strings.TrimSpace(err.Error())
 	baseMessage, hint := splitSuggestionHint(message)
+	if hint == "" {
+		hint = parseCLIHintForMessage(baseMessage)
+	}
 
 	var b strings.Builder
 	fmt.Fprintf(&b, "%s\n", colorizeCLI(useColor, "\033[1;31m", "Parse error"))
@@ -233,6 +237,15 @@ func formatParseCLIError(err error) error {
 		fmt.Fprintf(&b, "  %s\n", highlightParseCLIMessage(useColor, hint))
 	}
 	return styledCLIError(strings.TrimRight(b.String(), "\n") + "\n")
+}
+
+func parseCLIHintForMessage(message string) string {
+	switch strings.TrimSpace(message) {
+	case "missing app declaration":
+		return "Add an app declaration near the top of the file, for example: app Todo"
+	default:
+		return ""
+	}
 }
 
 func splitSuggestionHint(message string) (string, string) {
@@ -269,6 +282,19 @@ func highlightParseCLIMessage(useColor bool, message string) string {
 		}
 		return "action " + colorizeCLI(true, "\033[1;36m", parts[1])
 	})
+	message = parseErrorDeclWordRe.ReplaceAllStringFunc(message, func(match string) string {
+		parts := parseErrorDeclWordRe.FindStringSubmatch(match)
+		if len(parts) != 2 {
+			return match
+		}
+		return colorizeCLI(true, "\033[1m", parts[1]) + " declaration"
+	})
+	message = strings.ReplaceAll(message, "an app declaration", "an "+colorizeCLI(true, "\033[1m", "app")+" declaration")
+	message = strings.ReplaceAll(
+		message,
+		"app Todo",
+		colorizeCLI(true, "\033[1m", "app")+" "+colorizeCLI(true, "\033[1;36m", "Todo"),
+	)
 	message = parseErrorFieldRe.ReplaceAllStringFunc(message, func(match string) string {
 		parts := parseErrorFieldRe.FindStringSubmatch(match)
 		if len(parts) != 2 {
