@@ -451,7 +451,11 @@ func (e *marEditor) processKey(key int) (bool, error) {
 			return false, nil
 		}
 		e.clipboard = e.selectedText()
-		e.setStatusMessage("Selection copied")
+		if err := writeSystemClipboard(e.clipboard); err != nil {
+			e.setStatusMessage("Selection copied (editor clipboard only)")
+		} else {
+			e.setStatusMessage("Selection copied")
+		}
 		return false, nil
 	case editorCtrlKey('x'):
 		e.quitArmed = false
@@ -460,11 +464,19 @@ func (e *marEditor) processKey(key int) (bool, error) {
 			return false, nil
 		}
 		e.clipboard = e.selectedText()
+		systemClipboardErr := writeSystemClipboard(e.clipboard)
 		e.deleteSelection()
-		e.setStatusMessage("Selection cut")
+		if systemClipboardErr != nil {
+			e.setStatusMessage("Selection cut (editor clipboard only)")
+		} else {
+			e.setStatusMessage("Selection cut")
+		}
 		return false, nil
 	case editorCtrlKey('v'):
 		e.quitArmed = false
+		if systemClipboard, err := readSystemClipboard(); err == nil {
+			e.clipboard = systemClipboard
+		}
 		if e.clipboard == "" {
 			e.setStatusMessage("Clipboard is empty")
 			return false, nil
