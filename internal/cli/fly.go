@@ -161,10 +161,10 @@ func runFlyInit(binaryName, inputPath, requestedAppName string) error {
 		result.SMTPPasswordEnv = strings.TrimSpace(app.Auth.SMTPPasswordEnv)
 		result.EmailFrom = strings.TrimSpace(app.Auth.EmailFrom)
 		if looksLikePlaceholderEmail(result.EmailFrom) {
-			result.Warnings = append(result.Warnings, fmt.Sprintf("auth.email_from still looks like a placeholder: %s", result.EmailFrom))
+			return placeholderEmailFlyInitError(result.EmailFrom)
 		}
 		if result.SMTPPasswordEnv != "" {
-			result.Notes = append(result.Notes, fmt.Sprintf("SMTP password will be read from %s at runtime.", result.SMTPPasswordEnv))
+			result.Notes = append(result.Notes, fmt.Sprintf("SMTP password will be read from the %s environment variable at runtime.", result.SMTPPasswordEnv))
 		}
 	}
 	if dbLocal != dbFly {
@@ -190,9 +190,10 @@ func confirmFlyInitRecreate(flyDir string) (bool, error) {
 	}
 	if !stdinIsTerminal() {
 		useColor := cliSupportsANSIStream(os.Stderr)
+		coloredFlyDir := colorizeCLI(useColor, "\033[1;35m", flyDir)
 		var b strings.Builder
-		fmt.Fprintf(&b, "%s\n", colorizeCLI(useColor, "\033[1;31m", "Fly init would recreate deploy/fly"))
-		fmt.Fprintf(&b, "  %s already contains files.\n", flyDir)
+		fmt.Fprintf(&b, "%s\n", colorizeCLI(useColor, "\033[1;31m", "Fly init would recreate ")+coloredFlyDir)
+		fmt.Fprintf(&b, "  %s already contains files.\n", coloredFlyDir)
 		fmt.Fprintf(&b, "  Running fly init again will delete that folder and recreate all Fly.io deployment files.\n")
 		fmt.Fprintf(&b, "\n%s\n", colorizeCLI(useColor, "\033[1;33m", "Hint:"))
 		fmt.Fprintf(&b, "  Re-run this command in an interactive terminal to confirm the overwrite.\n")
@@ -200,9 +201,10 @@ func confirmFlyInitRecreate(flyDir string) (bool, error) {
 	}
 
 	useColor := cliSupportsANSIStream(os.Stdout)
+	coloredFlyDir := colorizeCLI(useColor, "\033[1;35m", flyDir)
 	fmt.Println()
 	fmt.Printf("%s\n", colorizeCLI(useColor, "\033[1;33m", "Fly deploy files already exist"))
-	fmt.Printf("  %s already contains files.\n", flyDir)
+	fmt.Printf("  %s already contains files.\n", coloredFlyDir)
 	fmt.Printf("  Running fly init again will delete that folder and recreate all Fly.io deployment files.\n")
 	fmt.Printf("  %s ", colorizeCLI(useColor, "\033[1;36m", "Continue? [y/N]"))
 
@@ -214,7 +216,7 @@ func confirmFlyInitRecreate(flyDir string) (bool, error) {
 	answer := strings.ToLower(strings.TrimSpace(line))
 	if answer != "y" && answer != "yes" {
 		fmt.Println()
-		fmt.Printf("%s\n\n", colorizeCLI(useColor, "\033[1;33m", "Fly init canceled"))
+		fmt.Printf("%s\n\n", colorizeCLI(useColor, "\033[1;31m", "Fly init canceled"))
 		return false, nil
 	}
 	return true, nil
@@ -259,6 +261,11 @@ func runFlyDeploy(inputPath string) error {
 		return err
 	}
 
+	flyAppName, err := readFlyAppName(flyTomlPath)
+	if err != nil {
+		return err
+	}
+
 	fmt.Printf("\n%s\n", colorizeCLI(useColor, "\033[1;33m", "Step 1/3"))
 	fmt.Printf("  %s\n", "Validating Fly deployment files")
 	fmt.Printf("  %s\n", dockerfilePath)
@@ -296,6 +303,13 @@ func runFlyDeploy(inputPath string) error {
 
 	fmt.Println()
 	fmt.Printf("%s\n", colorizeCLI(useColor, "\033[1;32m", "Fly deploy finished"))
+	if flyAppName != "" {
+		appURL := "https://" + flyAppName + ".fly.dev/"
+		fmt.Printf("  %s %s\n", colorizeCLI(useColor, "\033[1;36m", "Opening:"), colorizeCLI(useColor, "\033[34m", appURL))
+		if err := openBrowser(appURL); err != nil {
+			fmt.Printf("  %s\n", "Open that URL manually if needed.")
+		}
+	}
 	fmt.Println()
 	return nil
 }
@@ -343,8 +357,8 @@ func resolveFlyAppName(app *model.App, requested string) (string, error) {
 	fmt.Println()
 	fmt.Printf("%s\n", colorizeCLI(useColor, "\033[1m", "Fly app name"))
 	fmt.Printf("  This is the app name you will use on Fly.io.\n")
-	fmt.Printf("  It should match the name you pass to %s\n", colorizeCLI(useColor, "\033[1;32m", "fly apps create"))
-	fmt.Printf("  Press Enter to use %s\n", colorizeCLI(useColor, "\033[1;32m", defaultName))
+	fmt.Printf("  It should match the name you will pass later to %s\n", colorizeCLI(useColor, "\033[1;32m", "fly apps create"))
+	fmt.Printf("  Press Enter to use %s\n", colorizeCLI(useColor, "\033[1;36m", defaultName))
 	fmt.Printf("  %s ", colorizeCLI(useColor, "\033[1;36m", "Fly app name?"))
 
 	reader := bufio.NewReader(os.Stdin)
@@ -434,7 +448,11 @@ func resolveFlyRegion() (flyRegion, error) {
 	fmt.Printf("%s\n", colorizeCLI(useColor, "\033[1m", "Fly region"))
 	fmt.Printf("  Choose the region where your Fly volume will be created.\n")
 	fmt.Printf("  Pick the location closest to your users, then enter its code.\n\n")
-	fmt.Printf("  %-32s %s\n", colorizeCLI(useColor, "\033[1;36m", "NAME"), colorizeCLI(useColor, "\033[1;36m", "CODE"))
+	fmt.Printf(
+		"  %s %s\n",
+		colorizeCLI(useColor, "\033[1;36m", fmt.Sprintf("%-32s", "NAME")),
+		colorizeCLI(useColor, "\033[1;36m", "CODE"),
+	)
 
 	lastContinent := ""
 	for _, region := range flyRegions {
@@ -443,7 +461,7 @@ func resolveFlyRegion() (flyRegion, error) {
 			fmt.Printf("  %s\n", colorizeCLI(useColor, "\033[1m", region.Continent))
 			lastContinent = region.Continent
 		}
-		fmt.Printf("  %-32s %s\n", region.Name, colorizeCLI(useColor, "\033[1;32m", region.Code))
+		fmt.Printf("  %-32s %s\n", region.Name, colorizeCLI(useColor, "\033[1;36m", region.Code))
 	}
 
 	reader := bufio.NewReader(os.Stdin)
@@ -554,6 +572,46 @@ func looksLikePlaceholderEmail(value string) bool {
 	return false
 }
 
+func placeholderEmailFlyInitError(email string) error {
+	useColor := cliSupportsANSIStream(os.Stderr)
+	fieldName := colorizeCLI(useColor, "\033[1m", "auth.email_from")
+	emailValue := colorizeCLI(useColor, "\033[36m", email)
+	url := colorizeCLI(useColor, "\033[34m", "https://mar-lang.dev/#advanced/deploy")
+	authKeyword := colorizeCLI(useColor, "\033[1m", "auth")
+	exampleValues := func(value string) string {
+		return colorizeCLI(useColor, "\033[36m", value)
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "%s\n", colorizeCLI(useColor, "\033[1;31m", "Fly init blocked"))
+	fmt.Fprintf(&b, "  %s is still using a placeholder value: %s\n", fieldName, emailValue)
+	fmt.Fprintf(&b, "\n")
+	fmt.Fprintf(&b, "  This app needs a real sender address before deploy.\n")
+	fmt.Fprintf(&b, "  Otherwise users will not be able to receive login codes.\n")
+	fmt.Fprintf(&b, "\n%s\n", colorizeCLI(useColor, "\033[1;33m", "Hint:"))
+	fmt.Fprintf(&b, "  Configure SMTP with a real email provider and a real sender address.\n")
+	fmt.Fprintf(&b, "  We currently recommend Resend for the simplest setup.\n")
+	fmt.Fprintf(&b, "\n")
+	fmt.Fprintf(&b, "  Example:\n")
+	fmt.Fprintf(&b, "    %s {\n", authKeyword)
+	fmt.Fprintf(&b, "      code_ttl_minutes %s\n", exampleValues("10"))
+	fmt.Fprintf(&b, "      session_ttl_hours %s\n", exampleValues("24"))
+	fmt.Fprintf(&b, "      email_transport %s\n", exampleValues("smtp"))
+	fmt.Fprintf(&b, "      email_from %s\n", exampleValues("\"no-reply@yourdomain.com\""))
+	fmt.Fprintf(&b, "      email_subject %s\n", exampleValues("\"Your login code\""))
+	fmt.Fprintf(&b, "      smtp_host %s\n", exampleValues("\"smtp.resend.com\""))
+	fmt.Fprintf(&b, "      smtp_port %s\n", exampleValues("587"))
+	fmt.Fprintf(&b, "      smtp_username %s\n", exampleValues("\"resend\""))
+	fmt.Fprintf(&b, "      smtp_password_env %s\n", exampleValues("\"RESEND_API_KEY\""))
+	fmt.Fprintf(&b, "      smtp_starttls %s\n", exampleValues("true"))
+	fmt.Fprintf(&b, "    }\n")
+	fmt.Fprintf(&b, "\n")
+	fmt.Fprintf(&b, "  Learn more:\n")
+	fmt.Fprintf(&b, "    %s\n", url)
+
+	return styledCLIError(strings.TrimRight(b.String(), "\n") + "\n")
+}
+
 func flyCLIAvailable() bool {
 	if _, err := exec.LookPath("fly"); err == nil {
 		return true
@@ -583,6 +641,9 @@ func findFlyCommand() (string, error) {
 
 func printFlyInitSummary(inputPath string, result flyInitResult) {
 	useColor := cliSupportsANSIStream(os.Stdout)
+	printStep := func(number int, command string) {
+		fmt.Printf("  %d. %s\n", number, colorizeCLI(useColor, "\033[1;32m", command))
+	}
 	fmt.Println()
 	fmt.Printf("%s\n", colorizeCLI(useColor, "\033[1m", "Fly.io deployment"))
 	fmt.Printf("  %s %s\n", colorizeCLI(useColor, "\033[1;36m", "Source:"), inputPath)
@@ -616,14 +677,39 @@ func printFlyInitSummary(inputPath string, result flyInitResult) {
 
 	fmt.Println()
 	fmt.Printf("%s\n", colorizeCLI(useColor, "\033[1;33m", "Next steps"))
-	fmt.Printf("  %s\n", colorizeCLI(useColor, "\033[1;32m", "1. fly auth login"))
-	fmt.Printf("  %s\n", colorizeCLI(useColor, "\033[1;32m", "2. fly apps create "+result.FlyAppName))
-	fmt.Printf("  %s\n", colorizeCLI(useColor, "\033[1;32m", "3. fly volumes create "+result.VolumeName+" --region "+result.RegionCode+" --size 1 -a "+result.FlyAppName))
+	cliValueAccent := "\033[1;36m"
+	printStep(1, "fly auth login")
+	printStep(2, "fly apps create "+colorizeCLI(useColor, cliValueAccent, result.FlyAppName))
+	printStep(3, "fly volumes create "+colorizeCLI(useColor, cliValueAccent, result.VolumeName)+" --region "+colorizeCLI(useColor, cliValueAccent, result.RegionCode)+" --size "+colorizeCLI(useColor, cliValueAccent, "1")+" -a "+colorizeCLI(useColor, cliValueAccent, result.FlyAppName))
 	if result.SMTPPasswordEnv != "" {
-		fmt.Printf("  %s\n", colorizeCLI(useColor, "\033[1;32m", "4. fly secrets set "+result.SMTPPasswordEnv+"=... -a "+result.FlyAppName))
-		fmt.Printf("  %s\n", colorizeCLI(useColor, "\033[1;32m", "5. mar fly deploy "+inputPath))
+		printStep(4, "fly secrets set "+result.SMTPPasswordEnv+"="+colorizeCLI(useColor, cliValueAccent, "<your-api-key>")+" -a "+colorizeCLI(useColor, cliValueAccent, result.FlyAppName))
+		printStep(5, "mar fly deploy "+colorizeCLI(useColor, cliValueAccent, inputPath))
 	} else {
-		fmt.Printf("  %s\n", colorizeCLI(useColor, "\033[1;32m", "4. mar fly deploy "+inputPath))
+		printStep(4, "mar fly deploy "+colorizeCLI(useColor, cliValueAccent, inputPath))
 	}
 	fmt.Println()
+}
+
+func readFlyAppName(flyTomlPath string) (string, error) {
+	data, err := os.ReadFile(flyTomlPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read %s: %w", flyTomlPath, err)
+	}
+
+	scanner := bufio.NewScanner(strings.NewReader(string(data)))
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if !strings.HasPrefix(line, "app") {
+			continue
+		}
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) != 2 || strings.TrimSpace(parts[0]) != "app" {
+			continue
+		}
+		return strings.Trim(strings.TrimSpace(parts[1]), `"`), nil
+	}
+	if err := scanner.Err(); err != nil {
+		return "", fmt.Errorf("failed to parse %s: %w", flyTomlPath, err)
+	}
+	return "", fmt.Errorf("missing app entry in %s", flyTomlPath)
 }

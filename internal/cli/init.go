@@ -260,8 +260,7 @@ func printInitSummary(result *initProjectResult) {
 	projectDirLabel := filepath.ToSlash(result.ProjectDir)
 	marFileName := filepath.Base(result.MarFile)
 
-	fmt.Println()
-	fmt.Printf("%s\n", colorizeCLI(useColor, "\033[1;36m", "Project ready"))
+	fmt.Printf("\n%s\n", colorizeCLI(useColor, "\033[1;36m", "Project ready"))
 	fmt.Printf("  %s\n", filepath.ToSlash(result.MarFile))
 	fmt.Printf("  %s\n", filepath.ToSlash(result.GitIgnore))
 	fmt.Printf("  %s\n", filepath.ToSlash(result.Readme))

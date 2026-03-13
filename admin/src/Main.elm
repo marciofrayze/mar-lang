@@ -1163,7 +1163,7 @@ update msg model =
                                 _ ->
                                     model.rows
                     in
-                    ( { model | rows = nextRows, selectedRow = Just updatedRow, formMode = FormHidden, formValues = Dict.empty, flash = Just "Updated successfully" }, Cmd.none )
+                    ( { model | rows = nextRows, selectedRow = Just updatedRow, formMode = FormHidden, formValues = Dict.empty, flash = Nothing }, Cmd.none )
 
                 Err httpError ->
                     ( { model | flash = Just (httpErrorToString model httpError) }, Cmd.none )
@@ -1204,7 +1204,7 @@ update msg model =
                 Ok _ ->
                     let
                         nextModel =
-                            { model | flash = Just "Deleted successfully", selectedRow = Nothing, formMode = FormHidden, formValues = Dict.empty, pendingDelete = Nothing }
+                            { model | flash = Nothing, selectedRow = Nothing, formMode = FormHidden, formValues = Dict.empty, pendingDelete = Nothing }
                     in
                     ( { nextModel | rows = Loading }, loadRows nextModel )
 
@@ -2815,7 +2815,11 @@ viewAuthToolsPanel model =
 
             activeBadgeText =
                 if workspace == AppWorkspace then
-                    []
+                    if firstAdminMode then
+                        [ badge "First admin setup" ]
+
+                    else
+                        []
 
                 else
                     case activeScope of
@@ -2894,13 +2898,17 @@ viewAuthToolsPanel model =
                     case authStage of
                         AuthStageEmail ->
                             if firstAdminMode then
-                                "Get started"
+                                "Set up first admin"
 
                             else
                                 "Sign in"
 
                         AuthStageCode ->
-                            "Enter code"
+                            if firstAdminMode then
+                                "Confirm first admin"
+
+                            else
+                                "Enter code"
 
                         AuthStageSession ->
                             "Your account"
@@ -2909,13 +2917,17 @@ viewAuthToolsPanel model =
                     case authStage of
                         AuthStageEmail ->
                             if firstAdminMode then
-                                "First access"
+                                "Set up first admin"
 
                             else
                                 "Login"
 
                         AuthStageCode ->
-                            "Enter code"
+                            if firstAdminMode then
+                                "Confirm first admin"
+
+                            else
+                                "Enter code"
 
                         AuthStageSession ->
                             "Session"
@@ -2925,13 +2937,21 @@ viewAuthToolsPanel model =
                     case authStage of
                         AuthStageEmail ->
                             if firstAdminMode then
-                                [ "Use your email to receive the first access code." ]
+                                [ "This email will become the first administrator for this app."
+                                , "Mar will send a 6-digit verification code to finish setup."
+                                ]
 
                             else
                                 [ "We will send a 6-digit code to your email." ]
 
                         AuthStageCode ->
-                            [ "Enter the code we sent to continue." ]
+                            if firstAdminMode then
+                                [ "Enter the verification code sent to the first admin email."
+                                , "After a successful login, Mar will open the admin interface."
+                                ]
+
+                            else
+                                [ "Enter the code we sent to continue." ]
 
                         AuthStageSession ->
                             []
@@ -2969,6 +2989,41 @@ viewAuthToolsPanel model =
                     [ el [ Font.bold, Font.size 12, Font.color (rgb255 70 89 120) ] (text (String.fromInt (index + 1) ++ "."))
                     , paragraph [ width fill, Font.size 12, Font.color (rgb255 93 103 120) ] [ text description ]
                     ]
+
+            authPanelTitle =
+                if firstAdminMode then
+                    "First admin setup"
+
+                else if workspace == AppWorkspace then
+                    "Account"
+
+                else
+                    "Authorization"
+
+            firstAdminNotice =
+                if firstAdminMode then
+                    Just
+                        (column
+                            [ width fill
+                            , spacing 6
+                            , Background.color (rgb255 255 244 214)
+                            , Border.rounded 12
+                            , Border.width 1
+                            , Border.color (rgb255 240 204 104)
+                            , padding 12
+                            ]
+                            [ el [ Font.bold, Font.size 13, Font.color (rgb255 94 71 15) ] (text "Important setup step")
+                            , paragraph
+                                [ width fill
+                                , Font.size 12
+                                , Font.color (rgb255 120 91 23)
+                                ]
+                                [ text "You are creating the first administrator for this app. This is a one-time setup before normal sign-in starts." ]
+                            ]
+                        )
+
+                else
+                    Nothing
 
             tabHint =
                 if workspace == AppWorkspace then
@@ -3042,12 +3097,7 @@ viewAuthToolsPanel model =
                 , Border.color (rgb255 226 232 239)
                 ]
                 [ viewPanelHeader (isCompactLayout model)
-                    (if workspace == AppWorkspace then
-                        "Account"
-
-                     else
-                        "Authorization"
-                    )
+                    authPanelTitle
                     (if String.trim transportText == "" then
                         []
 
@@ -3055,6 +3105,7 @@ viewAuthToolsPanel model =
                         [ el [ Font.size 13, Font.color (rgb255 93 103 120) ] (text transportText) ]
                     )
                     []
+                , Maybe.withDefault none firstAdminNotice
                 , if List.isEmpty activeBadgeText then
                     none
 

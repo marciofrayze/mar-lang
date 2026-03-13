@@ -34,6 +34,7 @@ const (
 type marEditor struct {
 	filePath   string
 	lines      []string
+	savedLines []string
 	gitBase    []string
 	gitSigns   map[int]rune
 	cx         int
@@ -64,7 +65,6 @@ type editorSnapshot struct {
 	lines []string
 	cx    int
 	cy    int
-	dirty bool
 }
 
 var (
@@ -141,6 +141,7 @@ func openMarEditor(path string) (*marEditor, error) {
 	editor := &marEditor{
 		filePath:   trimmed,
 		lines:      lines,
+		savedLines: cloneEditorLines(lines),
 		gitBase:    gitBaseLines(trimmed),
 		gitSigns:   nil,
 		screenRows: rows,
@@ -605,7 +606,7 @@ func (e *marEditor) insertRune(r rune) {
 	line = append(line[:e.cx], append([]rune{r}, line[e.cx:]...)...)
 	e.setCurrentLine(string(line))
 	e.cx++
-	e.dirty = true
+	e.updateDirty()
 	e.updateGitSigns()
 }
 
@@ -633,7 +634,7 @@ func (e *marEditor) insertNewline() {
 	e.lines = append(e.lines[:e.cy+1], append([]string{right}, e.lines[e.cy+1:]...)...)
 	e.cy++
 	e.cx = 0
-	e.dirty = true
+	e.updateDirty()
 	e.updateGitSigns()
 }
 
@@ -648,7 +649,7 @@ func (e *marEditor) backspace() {
 		e.lines[e.cy-1] = prev + current
 		e.lines = append(e.lines[:e.cy], e.lines[e.cy+1:]...)
 		e.cy--
-		e.dirty = true
+		e.updateDirty()
 		e.updateGitSigns()
 		return
 	}
@@ -656,7 +657,7 @@ func (e *marEditor) backspace() {
 	line = append(line[:e.cx-1], line[e.cx:]...)
 	e.setCurrentLine(string(line))
 	e.cx--
-	e.dirty = true
+	e.updateDirty()
 	e.updateGitSigns()
 }
 
@@ -668,13 +669,13 @@ func (e *marEditor) deleteCharForward() {
 		}
 		e.lines[e.cy] += e.lines[e.cy+1]
 		e.lines = append(e.lines[:e.cy+1], e.lines[e.cy+2:]...)
-		e.dirty = true
+		e.updateDirty()
 		e.updateGitSigns()
 		return
 	}
 	line = append(line[:e.cx], line[e.cx+1:]...)
 	e.setCurrentLine(string(line))
-	e.dirty = true
+	e.updateDirty()
 	e.updateGitSigns()
 }
 
@@ -793,7 +794,7 @@ func (e *marEditor) deleteSelection() {
 	e.cx = start.x
 	e.cy = start.y
 	e.clearSelection()
-	e.dirty = true
+	e.updateDirty()
 	e.updateGitSigns()
 }
 
@@ -802,7 +803,8 @@ func (e *marEditor) save() error {
 	if err := os.WriteFile(e.filePath, []byte(data), 0o644); err != nil {
 		return err
 	}
-	e.dirty = false
+	e.savedLines = cloneEditorLines(e.lines)
+	e.updateDirty()
 	e.quitArmed = false
 	e.setStatusMessage(fmt.Sprintf("Saved %s", filepath.Base(e.filePath)))
 	return nil
@@ -813,7 +815,6 @@ func (e *marEditor) beginUndoGroup() {
 		lines: cloneEditorLines(e.lines),
 		cx:    e.cx,
 		cy:    e.cy,
-		dirty: e.dirty,
 	})
 	e.redoStack = nil
 }
@@ -828,7 +829,7 @@ func (e *marEditor) restoreSnapshot(snapshot editorSnapshot) {
 	e.lines = cloneEditorLines(snapshot.lines)
 	e.cx = snapshot.cx
 	e.cy = snapshot.cy
-	e.dirty = snapshot.dirty
+	e.updateDirty()
 	e.clearSelection()
 	e.updateGitSigns()
 }
@@ -842,7 +843,6 @@ func (e *marEditor) undo() {
 		lines: cloneEditorLines(e.lines),
 		cx:    e.cx,
 		cy:    e.cy,
-		dirty: e.dirty,
 	})
 	snapshot := e.undoStack[len(e.undoStack)-1]
 	e.undoStack = e.undoStack[:len(e.undoStack)-1]
@@ -859,7 +859,6 @@ func (e *marEditor) redo() {
 		lines: cloneEditorLines(e.lines),
 		cx:    e.cx,
 		cy:    e.cy,
-		dirty: e.dirty,
 	})
 	snapshot := e.redoStack[len(e.redoStack)-1]
 	e.redoStack = e.redoStack[:len(e.redoStack)-1]
@@ -870,6 +869,22 @@ func (e *marEditor) redo() {
 func (e *marEditor) setStatusMessage(message string) {
 	e.status = message
 	e.statusTime = time.Now()
+}
+
+func (e *marEditor) updateDirty() {
+	e.dirty = !editorLinesEqual(e.lines, e.savedLines)
+}
+
+func editorLinesEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func (e *marEditor) refreshScreen() {

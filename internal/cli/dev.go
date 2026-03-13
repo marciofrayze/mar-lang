@@ -24,6 +24,8 @@ type devProcess struct {
 	done chan error
 }
 
+const devDatabasePathOverrideEnv = "MAR_DATABASE_PATH"
+
 func runDev(binaryName, inputPath, outputPath string) error {
 	launchCWD, err := os.Getwd()
 	if err != nil {
@@ -91,7 +93,7 @@ func runDev(binaryName, inputPath, outputPath string) error {
 			process = nil
 		}
 
-		nextProcess, runErr := startDevProcess(absOutput, launchCWD)
+		nextProcess, runErr := startDevProcess(absOutput, launchCWD, absInput, app.Database)
 		if runErr != nil {
 			fmt.Printf("%s %s\n", colorizeCLI(useColor, "\033[1;31m", "Run failed:"), runErr)
 			return
@@ -180,7 +182,7 @@ func readWatchedState(path string) (watchedFileState, error) {
 	}, nil
 }
 
-func startDevProcess(outputPath string, launchCWD string) (*devProcess, error) {
+func startDevProcess(outputPath string, launchCWD string, sourcePath string, databasePath string) (*devProcess, error) {
 	runDir := filepath.Dir(outputPath)
 	cmd := exec.Command(outputPath, "serve")
 	cmd.Dir = runDir
@@ -190,6 +192,9 @@ func startDevProcess(outputPath string, launchCWD string) (*devProcess, error) {
 	cmd.Env = append(os.Environ(), "MAR_DEV_MODE=1")
 	if strings.TrimSpace(launchCWD) != "" {
 		cmd.Env = append(cmd.Env, "MAR_DEV_LAUNCH_CWD="+launchCWD)
+	}
+	if override := resolveDevDatabaseOverride(sourcePath, databasePath); override != "" {
+		cmd.Env = append(cmd.Env, devDatabasePathOverrideEnv+"="+override)
 	}
 	if err := cmd.Start(); err != nil {
 		return nil, err
@@ -246,6 +251,34 @@ func displayDevPath(originalPath, absolutePath string) string {
 	}
 
 	return filepath.Base(absolutePath)
+}
+
+func resolveDevDatabaseOverride(sourcePath string, databasePath string) string {
+	trimmedDatabase := strings.TrimSpace(databasePath)
+	if trimmedDatabase == "" {
+		return ""
+	}
+
+	cleanedDatabase := filepath.Clean(trimmedDatabase)
+	if filepath.IsAbs(cleanedDatabase) {
+		return ""
+	}
+
+	trimmedSource := strings.TrimSpace(sourcePath)
+	if trimmedSource == "" {
+		return ""
+	}
+
+	absoluteSource := trimmedSource
+	if !filepath.IsAbs(absoluteSource) {
+		var err error
+		absoluteSource, err = filepath.Abs(trimmedSource)
+		if err != nil {
+			return ""
+		}
+	}
+
+	return filepath.Join(filepath.Dir(absoluteSource), cleanedDatabase)
 }
 
 func waitForDevServer(url string, timeout time.Duration) error {
