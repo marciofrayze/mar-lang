@@ -2,6 +2,7 @@ port module Main exposing (main)
 
 import Mar.Api exposing (ActionInfo, AuthInfo, Entity, Field, FieldType(..), InputAliasField, InputAliasInfo, Row, Schema, SystemAuthInfo, decodeRows, decodeSchema, encodePayload, fieldTypeLabel, rowDecoder, valueToString)
 import Browser
+import Browser.Navigation as Nav
 import Browser.Events
 import Char
 import Dict exposing (Dict)
@@ -16,6 +17,7 @@ import Http
 import Json.Decode as Decode
 import Json.Encode as Encode
 import String
+import Url exposing (Url)
 
 
 type alias Flags =
@@ -69,8 +71,24 @@ type WorkspaceMode
     | AdminWorkspace
 
 
+type Route
+    = RouteDefault WorkspaceMode
+    | RouteAuthTools WorkspaceMode
+    | RouteEntity WorkspaceMode String
+    | RouteEntityCreate WorkspaceMode String
+    | RouteEntityDetail WorkspaceMode String String
+    | RouteEntityEdit WorkspaceMode String String
+    | RouteAction WorkspaceMode String
+    | RoutePerformance
+    | RouteRequestLogs
+    | RouteDatabase
+
+
 type alias Model =
     { apiBase : String
+    , navKey : Nav.Key
+    , currentUrl : Url
+    , currentRoute : Route
     , authToken : String
     , systemAuthToken : String
     , currentEmail : Maybe String
@@ -104,6 +122,7 @@ type alias Model =
     , databaseMode : Bool
     , lastBackup : Maybe BackupResponse
     , pendingDelete : Maybe PendingDelete
+    , authInlineMessage : Maybe String
     , flash : Maybe String
     , viewportWidth : Int
     , mobileSidebarOpen : Bool
@@ -118,7 +137,9 @@ type alias PendingDelete =
 
 
 type Msg
-    = GotSchema (Result ApiHttpError Schema)
+    = UrlRequested Browser.UrlRequest
+    | UrlChanged Url
+    | GotSchema (Result ApiHttpError Schema)
     | SelectEntity String
     | SelectAction String
     | ReloadRows
@@ -312,21 +333,163 @@ type alias RequestLogQuery =
     }
 
 
+routeFromUrl : Url -> Route
+routeFromUrl url =
+    case fragmentSegments url of
+        [] ->
+            RouteDefault AppWorkspace
+
+        [ "app" ] ->
+            RouteDefault AppWorkspace
+
+        [ "app", "auth" ] ->
+            RouteAuthTools AppWorkspace
+
+        [ "app", "entity", entityName ] ->
+            RouteEntity AppWorkspace entityName
+
+        [ "app", "entity", entityName, "new" ] ->
+            RouteEntityCreate AppWorkspace entityName
+
+        [ "app", "entity", entityName, rowKey ] ->
+            RouteEntityDetail AppWorkspace entityName rowKey
+
+        [ "app", "entity", entityName, rowKey, "edit" ] ->
+            RouteEntityEdit AppWorkspace entityName rowKey
+
+        [ "app", "action", actionName ] ->
+            RouteAction AppWorkspace actionName
+
+        [ "admin" ] ->
+            RouteDefault AdminWorkspace
+
+        [ "admin", "auth" ] ->
+            RouteAuthTools AdminWorkspace
+
+        [ "admin", "entity", entityName ] ->
+            RouteEntity AdminWorkspace entityName
+
+        [ "admin", "entity", entityName, "new" ] ->
+            RouteEntityCreate AdminWorkspace entityName
+
+        [ "admin", "entity", entityName, rowKey ] ->
+            RouteEntityDetail AdminWorkspace entityName rowKey
+
+        [ "admin", "entity", entityName, rowKey, "edit" ] ->
+            RouteEntityEdit AdminWorkspace entityName rowKey
+
+        [ "admin", "action", actionName ] ->
+            RouteAction AdminWorkspace actionName
+
+        [ "admin", "monitoring" ] ->
+            RoutePerformance
+
+        [ "admin", "logs" ] ->
+            RouteRequestLogs
+
+        [ "admin", "database" ] ->
+            RouteDatabase
+
+        _ ->
+            RouteDefault AppWorkspace
+
+
+fragmentSegments : Url -> List String
+fragmentSegments url =
+    url.fragment
+        |> Maybe.withDefault ""
+        |> String.split "/"
+        |> List.filter (\segment -> segment /= "")
+        |> List.filterMap Url.percentDecode
+
+
+routeHref : Model -> Route -> String
+routeHref model route =
+    let
+        base =
+            model.currentUrl.path
+                ++ (case model.currentUrl.query of
+                        Just query ->
+                            "?" ++ query
+
+                        Nothing ->
+                            ""
+                   )
+
+        fragment =
+            routeFragment route
+    in
+    if fragment == "" then
+        base
+
+    else
+        base ++ "#" ++ fragment
+
+
+routeFragment : Route -> String
+routeFragment route =
+    case route of
+        RouteDefault workspace ->
+            workspaceSegment workspace
+
+        RouteAuthTools workspace ->
+            String.join "/" [ workspaceSegment workspace, "auth" ]
+
+        RouteEntity workspace entityName ->
+            String.join "/" [ workspaceSegment workspace, "entity", Url.percentEncode entityName ]
+
+        RouteEntityCreate workspace entityName ->
+            String.join "/" [ workspaceSegment workspace, "entity", Url.percentEncode entityName, "new" ]
+
+        RouteEntityDetail workspace entityName rowKey ->
+            String.join "/" [ workspaceSegment workspace, "entity", Url.percentEncode entityName, Url.percentEncode rowKey ]
+
+        RouteEntityEdit workspace entityName rowKey ->
+            String.join "/" [ workspaceSegment workspace, "entity", Url.percentEncode entityName, Url.percentEncode rowKey, "edit" ]
+
+        RouteAction workspace actionName ->
+            String.join "/" [ workspaceSegment workspace, "action", Url.percentEncode actionName ]
+
+        RoutePerformance ->
+            "admin/monitoring"
+
+        RouteRequestLogs ->
+            "admin/logs"
+
+        RouteDatabase ->
+            "admin/database"
+
+
+workspaceSegment : WorkspaceMode -> String
+workspaceSegment workspace =
+    case workspace of
+        AppWorkspace ->
+            "app"
+
+        AdminWorkspace ->
+            "admin"
+
+
 main : Program Flags Model Msg
 main =
-    Browser.document
+    Browser.application
         { init = init
         , update = update
         , subscriptions = \_ -> Browser.Events.onResize ViewportResized
         , view = view
+        , onUrlRequest = UrlRequested
+        , onUrlChange = UrlChanged
         }
 
 
-init : Flags -> ( Model, Cmd Msg )
-init flags =
+init : Flags -> Url -> Nav.Key -> ( Model, Cmd Msg )
+init flags url navKey =
     let
         initialModel =
             { apiBase = flags.apiBase
+            , navKey = navKey
+            , currentUrl = url
+            , currentRoute = routeFromUrl url
             , authToken = String.trim flags.authToken
             , systemAuthToken = String.trim flags.systemAuthToken
             , currentEmail = Nothing
@@ -360,6 +523,7 @@ init flags =
             , databaseMode = False
             , lastBackup = Nothing
             , pendingDelete = Nothing
+            , authInlineMessage = Nothing
             , flash = Nothing
             , viewportWidth = max 320 flags.viewportWidth
             , mobileSidebarOpen = False
@@ -376,49 +540,445 @@ init flags =
     )
 
 
+type EntityRouteMode
+    = EntityRouteList
+    | EntityRouteCreate
+    | EntityRouteDetail String
+    | EntityRouteEdit String
+
+
+pushRoute : Route -> Model -> Cmd Msg
+pushRoute route model =
+    if route == model.currentRoute then
+        Cmd.none
+
+    else
+        Nav.pushUrl model.navKey (routeHref model route)
+
+
+replaceRoute : Route -> Model -> Cmd Msg
+replaceRoute route model =
+    if route == model.currentRoute then
+        Cmd.none
+
+    else
+        Nav.replaceUrl model.navKey (routeHref model route)
+
+
+backRoute : Model -> Cmd Msg
+backRoute model =
+    Nav.back model.navKey 1
+
+
+applyCurrentRoute : Model -> ( Model, Cmd Msg )
+applyCurrentRoute model =
+    case model.currentRoute of
+        RouteDefault AppWorkspace ->
+            case model.schema of
+                Loaded schema ->
+                    case preferredInitialEntity schema of
+                        Just entity ->
+                            applyEntityRoute AppWorkspace entity.name EntityRouteList model
+
+                        Nothing ->
+                            ( resetForRoute AppWorkspace model, Cmd.none )
+
+                _ ->
+                    ( resetForRoute AppWorkspace model, Cmd.none )
+
+        RouteDefault AdminWorkspace ->
+            applyAuthToolsRoute AdminWorkspace model
+
+        RouteAuthTools workspace ->
+            applyAuthToolsRoute workspace model
+
+        RouteEntity workspace entityName ->
+            applyEntityRoute workspace entityName EntityRouteList model
+
+        RouteEntityCreate workspace entityName ->
+            applyEntityRoute workspace entityName EntityRouteCreate model
+
+        RouteEntityDetail workspace entityName rowKey ->
+            applyEntityRoute workspace entityName (EntityRouteDetail rowKey) model
+
+        RouteEntityEdit workspace entityName rowKey ->
+            applyEntityRoute workspace entityName (EntityRouteEdit rowKey) model
+
+        RouteAction workspace actionName ->
+            applyActionRoute workspace actionName model
+
+        RoutePerformance ->
+            applySystemRoute RoutePerformance model
+
+        RouteRequestLogs ->
+            applySystemRoute RouteRequestLogs model
+
+        RouteDatabase ->
+            applySystemRoute RouteDatabase model
+
+
+resetForRoute : WorkspaceMode -> Model -> Model
+resetForRoute workspace model =
+    { model
+        | workspace = workspace
+        , authToolsOpen = False
+        , performanceMode = False
+        , requestLogsMode = False
+        , databaseMode = False
+        , selectedEntity = Nothing
+        , selectedAction = Nothing
+        , rows = NotAsked
+        , selectedRow = Nothing
+        , formMode = FormHidden
+        , formValues = Dict.empty
+        , actionFormValues = Dict.empty
+        , actionResult = Nothing
+        , pendingDelete = Nothing
+        , authInlineMessage = Nothing
+        , flash = Nothing
+        , mobileSidebarOpen = False
+    }
+
+
+applyAuthToolsRoute : WorkspaceMode -> Model -> ( Model, Cmd Msg )
+applyAuthToolsRoute workspace model =
+    let
+        baseModel =
+            resetForRoute workspace model
+    in
+    ( { baseModel | authToolsOpen = True }, Cmd.none )
+
+
+applyActionRoute : WorkspaceMode -> String -> Model -> ( Model, Cmd Msg )
+applyActionRoute workspace actionName model =
+    case findAction actionName model of
+        Nothing ->
+            let
+                baseModel =
+                    resetForRoute workspace model
+            in
+            ( { baseModel | flash = Just "Action not found" }, Cmd.none )
+
+        Just actionInfo ->
+            let
+                baseModel =
+                    resetForRoute workspace model
+            in
+            ( { baseModel
+                | selectedAction = Just actionInfo
+                , actionFormValues = actionFormDefaults model actionInfo
+              }
+            , Cmd.none
+            )
+
+
+applySystemRoute : Route -> Model -> ( Model, Cmd Msg )
+applySystemRoute route model =
+    if not (isAdminProfile model) then
+        let
+            baseModel =
+                resetForRoute AppWorkspace model
+        in
+        ( { baseModel
+            | flash =
+                Just
+                    (case route of
+                        RoutePerformance ->
+                            "Admin role required to access monitoring tools."
+
+                        RouteRequestLogs ->
+                            "Admin role required to access request logs."
+
+                        RouteDatabase ->
+                            "Admin role required to access database tools."
+
+                        _ ->
+                            "Admin role required."
+                    )
+          }
+        , Cmd.none
+        )
+
+    else
+        let
+            baseModel =
+                resetForRoute AdminWorkspace model
+        in
+        case route of
+            RoutePerformance ->
+                let
+                    nextModel =
+                        { baseModel | performanceMode = True, perf = Loading, adminVersion = Loading, monitoringVersionDetailsOpen = False }
+                in
+                ( nextModel, Cmd.batch [ loadPerformance nextModel, loadAdminVersion nextModel ] )
+
+            RouteRequestLogs ->
+                let
+                    nextModel =
+                        { baseModel | requestLogsMode = True, requestLogs = Loading }
+                in
+                ( nextModel, loadRequestLogs nextModel )
+
+            RouteDatabase ->
+                let
+                    nextModel =
+                        { baseModel | databaseMode = True, perf = Loading, backups = Loading }
+                in
+                ( nextModel, Cmd.batch [ loadPerformance nextModel, loadBackups nextModel ] )
+
+            _ ->
+                ( baseModel, Cmd.none )
+
+
+applyEntityRoute : WorkspaceMode -> String -> EntityRouteMode -> Model -> ( Model, Cmd Msg )
+applyEntityRoute workspace entityName routeMode model =
+    case findEntity entityName model of
+        Nothing ->
+            let
+                baseModel =
+                    resetForRoute workspace model
+            in
+            ( { baseModel | flash = Just "Entity not found" }, Cmd.none )
+
+        Just entity ->
+            let
+                sameEntity =
+                    case model.selectedEntity of
+                        Just current ->
+                            current.name == entity.name
+
+                        Nothing ->
+                            False
+
+                existingRows =
+                    if sameEntity then
+                        model.rows
+
+                    else
+                        NotAsked
+
+                shouldLoadRows =
+                    case existingRows of
+                        NotAsked ->
+                            True
+
+                        Failed _ ->
+                            True
+
+                        _ ->
+                            not sameEntity
+
+                baseModel =
+                    let
+                        clearedModel =
+                            resetForRoute workspace model
+                    in
+                    { clearedModel
+                        | selectedEntity = Just entity
+                        , rows =
+                            if shouldLoadRows then
+                                Loading
+
+                            else
+                                existingRows
+                    }
+
+                nextModel =
+                    applyEntityRouteMode routeMode baseModel
+            in
+            if shouldLoadRows then
+                ( nextModel, loadRows nextModel )
+
+            else
+                ( nextModel, Cmd.none )
+
+
+applyEntityRouteMode : EntityRouteMode -> Model -> Model
+applyEntityRouteMode routeMode model =
+    case routeMode of
+        EntityRouteList ->
+            { model | selectedRow = Nothing, formMode = FormHidden, formValues = Dict.empty }
+
+        EntityRouteCreate ->
+            let
+                nextModel =
+                    { model | selectedRow = Nothing, formMode = FormCreate }
+            in
+            { nextModel | formValues = formDefaults nextModel }
+
+        EntityRouteDetail rowKey ->
+            syncRowRoute rowKey False model
+
+        EntityRouteEdit rowKey ->
+            syncRowRoute rowKey True model
+
+
+syncRouteSelection : Model -> Model
+syncRouteSelection model =
+    case model.currentRoute of
+        RouteEntity workspace entityName ->
+            if routeMatchesSelectedEntity workspace entityName model then
+                applyEntityRouteMode EntityRouteList model
+
+            else
+                model
+
+        RouteEntityCreate workspace entityName ->
+            if routeMatchesSelectedEntity workspace entityName model then
+                applyEntityRouteMode EntityRouteCreate model
+
+            else
+                model
+
+        RouteEntityDetail workspace entityName rowKey ->
+            if routeMatchesSelectedEntity workspace entityName model then
+                applyEntityRouteMode (EntityRouteDetail rowKey) model
+
+            else
+                model
+
+        RouteEntityEdit workspace entityName rowKey ->
+            if routeMatchesSelectedEntity workspace entityName model then
+                applyEntityRouteMode (EntityRouteEdit rowKey) model
+
+            else
+                model
+
+        _ ->
+            model
+
+
+syncRowRoute : String -> Bool -> Model -> Model
+syncRowRoute rowKey editing model =
+    case ( model.selectedEntity, model.rows ) of
+        ( Just entity, Loaded rows ) ->
+            case findRowById entity rowKey rows of
+                Just rowValue ->
+                    if editing then
+                        let
+                            nextModel =
+                                { model | selectedRow = Just rowValue, formMode = FormEdit rowValue }
+                        in
+                        { nextModel | formValues = formFromRow nextModel rowValue }
+
+                    else
+                        { model | selectedRow = Just rowValue, formMode = FormHidden, formValues = Dict.empty }
+
+                Nothing ->
+                    { model | selectedRow = Nothing, formMode = FormHidden, formValues = Dict.empty, flash = Just "Record not found" }
+
+        _ ->
+            { model | selectedRow = Nothing, formMode = FormHidden, formValues = Dict.empty }
+
+
+routeMatchesSelectedEntity : WorkspaceMode -> String -> Model -> Bool
+routeMatchesSelectedEntity workspace entityName model =
+    currentWorkspace model == workspace
+        &&
+            (case model.selectedEntity of
+                Just entity ->
+                    entity.name == entityName
+
+                Nothing ->
+                    False
+            )
+
+
+findRowById : Entity -> String -> List Row -> Maybe Row
+findRowById entity rowKey rows =
+    rows
+        |> List.filter
+            (\rowValue ->
+                rowId entity rowValue == Just rowKey
+            )
+        |> List.head
+
+
+routeForWorkspaceSwitch : WorkspaceMode -> Model -> Route
+routeForWorkspaceSwitch workspace model =
+    case model.currentRoute of
+        RouteAuthTools _ ->
+            RouteAuthTools workspace
+
+        RouteEntity _ entityName ->
+            RouteEntity workspace entityName
+
+        RouteEntityCreate _ entityName ->
+            RouteEntityCreate workspace entityName
+
+        RouteEntityDetail _ entityName rowKey ->
+            RouteEntityDetail workspace entityName rowKey
+
+        RouteEntityEdit _ entityName rowKey ->
+            RouteEntityEdit workspace entityName rowKey
+
+        RouteAction _ actionName ->
+            RouteAction workspace actionName
+
+        RoutePerformance ->
+            RoutePerformance
+
+        RouteRequestLogs ->
+            RouteRequestLogs
+
+        RouteDatabase ->
+            RouteDatabase
+
+        RouteDefault _ ->
+            RouteDefault workspace
+
+
+routeForCurrentEntityList : Model -> Maybe Route
+routeForCurrentEntityList model =
+    model.selectedEntity
+        |> Maybe.map (\entity -> RouteEntity (currentWorkspace model) entity.name)
+
+
+rowIdForCurrentSelection : Model -> Row -> Maybe String
+rowIdForCurrentSelection model rowValue =
+    case model.selectedEntity of
+        Just entity ->
+            rowId entity rowValue
+
+        Nothing ->
+            Nothing
+
+
+cancelFormRoute : Model -> Maybe Route
+cancelFormRoute model =
+    case ( model.selectedEntity, model.formMode ) of
+        ( Just entity, FormEdit rowValue ) ->
+            rowId entity rowValue
+                |> Maybe.map (\rowKey -> RouteEntityDetail (currentWorkspace model) entity.name rowKey)
+
+        ( Just entity, FormCreate ) ->
+            Just (RouteEntity (currentWorkspace model) entity.name)
+
+        _ ->
+            routeForCurrentEntityList model
+
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
+        UrlRequested request ->
+            case request of
+                Browser.Internal url ->
+                    ( model, Nav.pushUrl model.navKey (Url.toString url) )
+
+                Browser.External href ->
+                    ( model, Nav.load href )
+
+        UrlChanged url ->
+            applyCurrentRoute { model | currentUrl = url, currentRoute = routeFromUrl url }
+
         GotSchema result ->
             case result of
                 Ok schema ->
                     let
-                        keepAuthToolsOpen =
-                            model.authToolsOpen || (not (hasActiveSession model))
-
-                        maybeEntity =
-                            if keepAuthToolsOpen then
-                                model.selectedEntity
-
-                            else
-                                preferredInitialEntity schema
-
-                        shouldLoadRows =
-                            maybeEntity /= Nothing
-
                         nextModel =
                             { model
                                 | schema = Loaded schema
-                                , performanceMode = False
-                                , requestLogsMode = False
-                                , databaseMode = False
-                                , authToolsOpen = keepAuthToolsOpen
-                                , selectedEntity = maybeEntity
-                                , selectedAction = Nothing
-                                , rows =
-                                    if shouldLoadRows then
-                                        Loading
-
-                                    else
-                                        NotAsked
-                                , selectedRow = Nothing
-                                , formMode = FormHidden
-                                , formValues = Dict.empty
-                                , actionFormValues = Dict.empty
-                                , actionResult = Nothing
-                                , requestLogs = NotAsked
-                                , backups = NotAsked
-                                , adminVersion = NotAsked
                                 , authStage =
                                     if hasActiveSession model then
                                         AuthStageSession
@@ -433,67 +993,16 @@ update msg model =
                                         && String.trim model.authToken == ""
                             }
                     in
-                    if shouldLoadRows then
-                        ( nextModel, loadRows nextModel )
-
-                    else
-                        ( nextModel, Cmd.none )
+                    applyCurrentRoute nextModel
 
                 Err httpError ->
                     ( { model | schema = Failed (httpErrorToString model httpError), rows = Failed "schema unavailable" }, Cmd.none )
 
         SelectEntity entityName ->
-            let
-                nextEntity =
-                    findEntity entityName model
-
-                nextModel =
-                    { model
-                        | performanceMode = False
-                        , requestLogsMode = False
-                        , databaseMode = False
-                        , authToolsOpen = False
-                        , selectedEntity = nextEntity
-                        , selectedAction = Nothing
-                        , rows = Loading
-                        , selectedRow = Nothing
-                        , formMode = FormHidden
-                        , formValues = Dict.empty
-                        , actionResult = Nothing
-                        , flash = Nothing
-                        , mobileSidebarOpen = False
-                    }
-            in
-            ( nextModel, loadRows nextModel )
+            ( model, pushRoute (RouteEntity (currentWorkspace model) entityName) model )
 
         SelectAction actionName ->
-            let
-                nextAction =
-                    findAction actionName model
-            in
-            case nextAction of
-                Nothing ->
-                    ( { model | flash = Just "Action not found" }, Cmd.none )
-
-                Just actionInfo ->
-                    ( { model
-                        | performanceMode = False
-                        , requestLogsMode = False
-                        , databaseMode = False
-                        , authToolsOpen = False
-                        , selectedAction = Just actionInfo
-                        , selectedEntity = Nothing
-                        , rows = NotAsked
-                        , selectedRow = Nothing
-                        , formMode = FormHidden
-                        , formValues = Dict.empty
-                        , actionFormValues = actionFormDefaults model actionInfo
-                        , actionResult = Nothing
-                        , flash = Nothing
-                        , mobileSidebarOpen = False
-                      }
-                    , Cmd.none
-                    )
+            ( model, pushRoute (RouteAction (currentWorkspace model) actionName) model )
 
         ReloadRows ->
             let
@@ -505,7 +1014,7 @@ update msg model =
         GotRows result ->
             case result of
                 Ok rows ->
-                    ( { model | rows = Loaded rows }, Cmd.none )
+                    ( syncRouteSelection { model | rows = Loaded rows }, Cmd.none )
 
                 Err httpError ->
                     ( { model | rows = Failed (httpErrorToString model httpError) }, Cmd.none )
@@ -515,81 +1024,21 @@ update msg model =
                 ( { model | flash = Just "Admin role required to access monitoring tools." }, Cmd.none )
 
             else
-                let
-                    nextModel =
-                        { model
-                            | performanceMode = True
-                            , requestLogsMode = False
-                            , databaseMode = False
-                            , authToolsOpen = False
-                            , selectedEntity = Nothing
-                            , selectedAction = Nothing
-                            , selectedRow = Nothing
-                            , rows = NotAsked
-                            , formMode = FormHidden
-                            , formValues = Dict.empty
-                            , actionResult = Nothing
-                            , perf = Loading
-                            , adminVersion = Loading
-                            , monitoringVersionDetailsOpen = False
-                            , flash = Nothing
-                            , mobileSidebarOpen = False
-                        }
-                in
-                ( nextModel, Cmd.batch [ loadPerformance nextModel, loadAdminVersion nextModel ] )
+                ( model, pushRoute RoutePerformance model )
 
         SelectRequestLogs ->
             if not (isAdminProfile model) then
                 ( { model | flash = Just "Admin role required to access request logs." }, Cmd.none )
 
             else
-                let
-                    nextModel =
-                        { model
-                            | performanceMode = False
-                            , requestLogsMode = True
-                            , databaseMode = False
-                            , authToolsOpen = False
-                            , selectedEntity = Nothing
-                            , selectedAction = Nothing
-                            , selectedRow = Nothing
-                            , rows = NotAsked
-                            , formMode = FormHidden
-                            , formValues = Dict.empty
-                            , actionResult = Nothing
-                            , requestLogs = Loading
-                            , flash = Nothing
-                            , mobileSidebarOpen = False
-                        }
-                in
-                ( nextModel, loadRequestLogs nextModel )
+                ( model, pushRoute RouteRequestLogs model )
 
         SelectDatabase ->
             if not (isAdminProfile model) then
                 ( { model | flash = Just "Admin role required to access database tools." }, Cmd.none )
 
             else
-                let
-                    nextModel =
-                        { model
-                            | performanceMode = False
-                            , requestLogsMode = False
-                            , databaseMode = True
-                            , authToolsOpen = False
-                            , selectedEntity = Nothing
-                            , selectedAction = Nothing
-                            , selectedRow = Nothing
-                            , rows = NotAsked
-                            , formMode = FormHidden
-                            , formValues = Dict.empty
-                            , actionResult = Nothing
-                            , perf = Loading
-                            , backups = Loading
-                            , flash = Nothing
-                            , mobileSidebarOpen = False
-                        }
-                in
-                ( nextModel, Cmd.batch [ loadPerformance nextModel, loadBackups nextModel ] )
+                ( model, pushRoute RouteDatabase model )
 
         ReloadDatabase ->
             if not (isAdminProfile model) then
@@ -652,61 +1101,16 @@ update msg model =
                     ( { model | backups = Failed (httpErrorToString model httpError) }, Cmd.none )
 
         SetAuthEmail email ->
-            ( { model | authEmail = email }, Cmd.none )
+            ( { model | authEmail = email, authInlineMessage = Nothing }, Cmd.none )
 
         SetAuthCode code ->
             ( { model | authCode = code }, Cmd.none )
 
         BackToAuthEmail ->
-            ( { model | authStage = AuthStageEmail, authCode = "", authSubmitting = Nothing, flash = Nothing, mobileSidebarOpen = False }, Cmd.none )
+            ( { model | authStage = AuthStageEmail, authCode = "", authSubmitting = Nothing, authInlineMessage = Nothing, flash = Nothing, mobileSidebarOpen = False }, Cmd.none )
 
         SwitchWorkspace workspace ->
-            let
-                nextEntity =
-                    case model.schema of
-                        Loaded schema ->
-                            case workspace of
-                                AppWorkspace ->
-                                    preferredInitialEntity schema
-
-                                AdminWorkspace ->
-                                    model.selectedEntity
-
-                        _ ->
-                            model.selectedEntity
-
-                shouldLoadRows =
-                    workspace == AppWorkspace && nextEntity /= Nothing
-
-                nextModel =
-                    { model
-                        | workspace = workspace
-                        , authToolsOpen = False
-                        , performanceMode = False
-                        , requestLogsMode = False
-                        , databaseMode = False
-                        , selectedAction = Nothing
-                        , selectedEntity = nextEntity
-                        , rows =
-                            if shouldLoadRows then
-                                Loading
-
-                            else
-                                model.rows
-                        , selectedRow = Nothing
-                        , formMode = FormHidden
-                        , formValues = Dict.empty
-                        , actionFormValues = Dict.empty
-                        , actionResult = Nothing
-                        , flash = Nothing
-                        , mobileSidebarOpen = False
-                    }
-            in
-            if shouldLoadRows then
-                ( nextModel, loadRows nextModel )
-
-            else
-                ( nextModel, Cmd.none )
+            ( model, pushRoute (routeForWorkspaceSwitch workspace model) model )
 
         SetActionField fieldName value ->
             ( { model | actionFormValues = Dict.insert fieldName value model.actionFormValues }, Cmd.none )
@@ -715,12 +1119,15 @@ update msg model =
             if String.trim model.authEmail == "" then
                 ( { model | flash = Just "Email is required for request-code" }, Cmd.none )
 
+            else if authEmailValidationMessage model.authEmail /= Nothing then
+                ( { model | authInlineMessage = authEmailValidationMessage model.authEmail, flash = Nothing }, Cmd.none )
+
             else
                 let
                     scope =
                         activeAuthScope model
                 in
-                ( { model | flash = Nothing, authSubmitting = Just AuthSubmitSendingCode }, requestAuthCode scope model )
+                ( { model | authInlineMessage = Nothing, flash = Nothing, authSubmitting = Just AuthSubmitSendingCode }, requestAuthCode scope model )
 
         GotRequestAuthCode scope result ->
             case result of
@@ -728,6 +1135,7 @@ update msg model =
                     ( { model
                         | authStage = AuthStageCode
                         , authSubmitting = Nothing
+                        , authInlineMessage = Nothing
                         , flash = Nothing
                       }
                     , Cmd.none
@@ -740,17 +1148,20 @@ update msg model =
             if String.trim model.authEmail == "" then
                 ( { model | flash = Just "Email is required to create the first admin" }, Cmd.none )
 
+            else if authEmailValidationMessage model.authEmail /= Nothing then
+                ( { model | authInlineMessage = authEmailValidationMessage model.authEmail, flash = Nothing }, Cmd.none )
+
             else
                 let
                     scope =
                         activeAuthScope model
                 in
-                ( { model | flash = Nothing, authSubmitting = Just AuthSubmitSendingCode }, bootstrapFirstAdmin scope model )
+                ( { model | authInlineMessage = Nothing, flash = Nothing, authSubmitting = Just AuthSubmitSendingCode }, bootstrapFirstAdmin scope model )
 
         GotBootstrapFirstAdmin scope result ->
             case result of
                 Ok response ->
-                    ( { model | authStage = AuthStageCode, authSubmitting = Nothing, firstAdminCodeRequested = True, flash = Nothing }, loadSchema model.apiBase )
+                    ( { model | authStage = AuthStageCode, authSubmitting = Nothing, firstAdminCodeRequested = True, authInlineMessage = Nothing, flash = Nothing }, loadSchema model.apiBase )
 
                 Err httpError ->
                     ( { model | authSubmitting = Nothing, flash = Just (authRequestCodeErrorToString model httpError) }, Cmd.none )
@@ -759,12 +1170,15 @@ update msg model =
             if String.trim model.authEmail == "" || String.trim model.authCode == "" then
                 ( { model | flash = Just "Email and code are required for login" }, Cmd.none )
 
+            else if authEmailValidationMessage model.authEmail /= Nothing then
+                ( { model | authInlineMessage = authEmailValidationMessage model.authEmail, flash = Nothing }, Cmd.none )
+
             else
                 let
                     scope =
                         activeAuthScope model
                 in
-                ( { model | flash = Nothing, authSubmitting = Just AuthSubmitSigningIn }, loginWithCode scope model )
+                ( { model | authInlineMessage = Nothing, flash = Nothing, authSubmitting = Just AuthSubmitSigningIn }, loginWithCode scope model )
 
         GotLoginWithCode scope result ->
             case result of
@@ -872,10 +1286,20 @@ update msg model =
                                         _ ->
                                             Nothing
 
+                                nextSelectedEntity =
+                                    if model.selectedEntity == Nothing then
+                                        preferredEntity
+
+                                    else
+                                        model.selectedEntity
+
                                 shouldLoadRows =
-                                    model.selectedEntity == Nothing
-                                        && preferredEntity /= Nothing
-                                        && nextWorkspace == AppWorkspace
+                                    nextWorkspace == AppWorkspace
+                                        && nextSelectedEntity /= Nothing
+                                        &&
+                                            (model.selectedEntity == Nothing
+                                                || model.rows == NotAsked
+                                            )
 
                                 nextModel =
                                     { model
@@ -885,12 +1309,7 @@ update msg model =
                                         , sessionRestorePending = False
                                         , authToolsOpen = False
                                         , workspace = nextWorkspace
-                                        , selectedEntity =
-                                            if model.selectedEntity == Nothing then
-                                                preferredEntity
-
-                                            else
-                                                model.selectedEntity
+                                        , selectedEntity = nextSelectedEntity
                                         , rows =
                                             if shouldLoadRows then
                                                 Loading
@@ -1042,63 +1461,60 @@ update msg model =
                     ( { model | flash = Just (httpErrorToString model httpError) }, Cmd.none )
 
         ToggleAuthTools ->
-            let
-                nextModel =
-                    { model
-                        | authToolsOpen = True
-                        , authStage =
-                            if hasActiveSession model then
-                                AuthStageSession
-
-                            else if model.authStage == AuthStageCode || model.firstAdminCodeRequested then
-                                AuthStageCode
-
-                            else
-                                AuthStageEmail
-                        , authSubmitting = Nothing
-                        , performanceMode = False
-                        , requestLogsMode = False
-                        , databaseMode = False
-                        , selectedEntity = Nothing
-                        , selectedAction = Nothing
-                        , rows = NotAsked
-                        , selectedRow = Nothing
-                        , formMode = FormHidden
-                        , formValues = Dict.empty
-                        , actionFormValues = Dict.empty
-                        , actionResult = Nothing
-                        , flash = Nothing
-                        , mobileSidebarOpen = False
-                    }
-            in
-            if model.authToolsOpen then
-                ( { nextModel | schema = Loading }, loadSchema model.apiBase )
-
-            else
-                ( nextModel, Cmd.none )
+            ( model, pushRoute (RouteAuthTools (currentWorkspace model)) model )
 
         SelectRow rowValue ->
-            ( { model | selectedRow = Just rowValue, mobileSidebarOpen = False }, Cmd.none )
+            case ( model.selectedEntity, rowIdForCurrentSelection model rowValue ) of
+                ( Just entity, Just rowKey ) ->
+                    ( model, pushRoute (RouteEntityDetail (currentWorkspace model) entity.name rowKey) model )
+
+                _ ->
+                    ( { model | flash = Just "Could not open record details" }, Cmd.none )
 
         StartCreate ->
-            let
-                defaults =
-                    formDefaults model
-            in
-            ( { model | formMode = FormCreate, formValues = defaults, selectedRow = Nothing, flash = Nothing }, Cmd.none )
+            case routeForCurrentEntityList model of
+                Just (RouteEntity workspace entityName) ->
+                    ( model, pushRoute (RouteEntityCreate workspace entityName) model )
+
+                _ ->
+                    ( { model | flash = Just "Select an entity first" }, Cmd.none )
 
         StartEdit rowValue ->
-            let
-                defaults =
-                    formFromRow model rowValue
-            in
-            ( { model | formMode = FormEdit rowValue, formValues = defaults, selectedRow = Just rowValue, flash = Nothing }, Cmd.none )
+            case ( model.selectedEntity, rowIdForCurrentSelection model rowValue ) of
+                ( Just entity, Just rowKey ) ->
+                    ( model, pushRoute (RouteEntityEdit (currentWorkspace model) entity.name rowKey) model )
+
+                _ ->
+                    ( { model | flash = Just "Could not open edit mode" }, Cmd.none )
 
         CloseSelectedRow ->
-            ( { model | selectedRow = Nothing, flash = Nothing }, Cmd.none )
+            case model.currentRoute of
+                RouteEntityDetail _ _ _ ->
+                    ( model, backRoute model )
+
+                _ ->
+                    case routeForCurrentEntityList model of
+                        Just route ->
+                            ( model, replaceRoute route model )
+
+                        Nothing ->
+                            ( { model | selectedRow = Nothing, flash = Nothing }, Cmd.none )
 
         CancelForm ->
-            ( { model | formMode = FormHidden, formValues = Dict.empty, flash = Nothing }, Cmd.none )
+            case model.currentRoute of
+                RouteEntityCreate _ _ ->
+                    ( model, backRoute model )
+
+                RouteEntityEdit _ _ _ ->
+                    ( model, backRoute model )
+
+                _ ->
+                    case cancelFormRoute model of
+                        Just route ->
+                            ( model, replaceRoute route model )
+
+                        Nothing ->
+                            ( { model | formMode = FormHidden, formValues = Dict.empty, flash = Nothing }, Cmd.none )
 
         SetFormField key value ->
             ( { model | formValues = Dict.insert key value model.formValues }, Cmd.none )
@@ -1149,8 +1565,16 @@ update msg model =
 
                                 _ ->
                                     model.rows
+
+                        nextModel =
+                            { model | rows = nextRows, formMode = FormHidden, formValues = Dict.empty, flash = Nothing }
                     in
-                    ( { model | rows = nextRows, formMode = FormHidden, formValues = Dict.empty, flash = Nothing }, Cmd.none )
+                    case ( model.selectedEntity, rowIdForCurrentSelection nextModel createdRow ) of
+                        ( Just entity, Just rowKey ) ->
+                            ( nextModel, replaceRoute (RouteEntityDetail (currentWorkspace nextModel) entity.name rowKey) nextModel )
+
+                        _ ->
+                            ( nextModel, Cmd.none )
 
                 Err httpError ->
                     ( { model | flash = Just (httpErrorToString model httpError) }, Cmd.none )
@@ -1166,8 +1590,16 @@ update msg model =
 
                                 _ ->
                                     model.rows
+
+                        nextModel =
+                            { model | rows = nextRows, selectedRow = Just updatedRow, formMode = FormHidden, formValues = Dict.empty, flash = Nothing }
                     in
-                    ( { model | rows = nextRows, selectedRow = Just updatedRow, formMode = FormHidden, formValues = Dict.empty, flash = Nothing }, Cmd.none )
+                    case ( model.selectedEntity, rowIdForCurrentSelection nextModel updatedRow ) of
+                        ( Just entity, Just rowKey ) ->
+                            ( nextModel, replaceRoute (RouteEntityDetail (currentWorkspace nextModel) entity.name rowKey) nextModel )
+
+                        _ ->
+                            ( nextModel, Cmd.none )
 
                 Err httpError ->
                     ( { model | flash = Just (httpErrorToString model httpError) }, Cmd.none )
@@ -1208,9 +1640,14 @@ update msg model =
                 Ok _ ->
                     let
                         nextModel =
-                            { model | flash = Nothing, selectedRow = Nothing, formMode = FormHidden, formValues = Dict.empty, pendingDelete = Nothing }
+                            { model | flash = Nothing, selectedRow = Nothing, formMode = FormHidden, formValues = Dict.empty, pendingDelete = Nothing, rows = NotAsked }
                     in
-                    ( { nextModel | rows = Loading }, loadRows nextModel )
+                    case routeForCurrentEntityList nextModel of
+                        Just route ->
+                            ( nextModel, replaceRoute route nextModel )
+
+                        Nothing ->
+                            ( nextModel, Cmd.none )
 
                 Err httpError ->
                     ( { model | flash = Just (httpErrorToString model httpError), pendingDelete = Nothing }, Cmd.none )
@@ -2200,15 +2637,22 @@ viewLayout model =
             column
                 [ width fill
                 , height fill
+                , htmlAttribute (HtmlAttr.style "height" "100vh")
                 , htmlAttribute (HtmlAttr.style "min-height" "100vh")
+                , htmlAttribute (HtmlAttr.style "overflow" "hidden")
                 ]
                 [ viewMobileTopBar model
                 , if model.mobileSidebarOpen then
-                    viewSidebar model
+                    el
+                        [ width fill
+                        , height fill
+                        , scrollbarY
+                        , htmlAttribute (HtmlAttr.style "min-height" "0")
+                        ]
+                        (viewSidebar model)
 
                   else
-                    none
-                , viewContent model
+                    viewContent model
                 ]
 
         else
@@ -2226,8 +2670,60 @@ viewLayout model =
         viewAuthGate model
 
 
+mobileTopBarSubtitle : Model -> String
+mobileTopBarSubtitle model =
+    let
+        appWorkspaceLabel =
+            if isAdminProfile model then
+                "App workspace"
+
+            else
+                ""
+    in
+    if model.mobileSidebarOpen then
+        "Navigation"
+
+    else if model.authToolsOpen || model.performanceMode || model.requestLogsMode || model.databaseMode || model.selectedAction /= Nothing then
+        currentSectionTitle model
+
+    else
+        case model.selectedEntity of
+            Just entity ->
+                if entityDisplayName entity == currentAppName model then
+                    if currentWorkspace model == AppWorkspace then
+                        appWorkspaceLabel
+
+                    else
+                        "Admin workspace"
+
+                else if currentWorkspace model == AppWorkspace then
+                    entityDisplayName entity
+
+                else
+                    entityDisplayName entity ++ " records"
+
+            Nothing ->
+                if currentWorkspace model == AppWorkspace then
+                    appWorkspaceLabel
+
+                else
+                    "Admin workspace"
+
+
 viewMobileTopBar : Model -> Element Msg
 viewMobileTopBar model =
+    let
+        ( titleText, subtitleText ) =
+            if model.mobileSidebarOpen then
+                ( currentAppName model
+                , mobileTopBarSubtitle model
+                )
+
+            else
+                ( currentAppName model
+                , mobileTopBarSubtitle model
+                )
+    in
     row
         [ width fill
         , spacing 12
@@ -2235,9 +2731,14 @@ viewMobileTopBar model =
         , padding 16
         ]
         [ column [ width fill, spacing 4 ]
-            [ el [ Font.size 22, Font.bold, Font.color (rgb255 240 245 250) ] (text (currentAppName model))
-            , el [ Font.size 12, Font.color (rgb255 144 158 179) ] (text (currentSectionTitle model))
-            ]
+            ([ el [ Font.size 22, Font.bold, Font.color (rgb255 240 245 250) ] (text titleText) ]
+                ++ (if String.isEmpty subtitleText then
+                        []
+
+                    else
+                        [ el [ Font.size 12, Font.color (rgb255 144 158 179) ] (text subtitleText) ]
+                   )
+            )
         , Input.button
             [ Background.color (rgb255 54 94 217)
             , Font.color (rgb255 246 248 252)
@@ -2248,7 +2749,7 @@ viewMobileTopBar model =
             , label =
                 text
                     (if model.mobileSidebarOpen then
-                        "Close menu"
+                        "Close"
 
                      else
                         "Menu"
@@ -2288,7 +2789,7 @@ viewAuthGate model =
 
                 AuthStageCode ->
                     ( "Check your email"
-                    , "Enter the 6-digit code we sent to continue."
+                    , ""
                     )
 
                 AuthStageSession ->
@@ -2335,13 +2836,13 @@ viewAuthGate model =
                         [ width fill
                         , spacing 8
                         ]
-                        [ el
+                        ([ el
                             [ Font.size 28
                             , Font.bold
                             , centerX
                             ]
                             (text authDisplayAppName)
-                        , el
+                         , el
                             [ Font.size 12
                             , Font.color (rgb255 84 121 224)
                             , centerX
@@ -2358,25 +2859,49 @@ viewAuthGate model =
                                         "Ready"
                                 )
                             )
-                        , paragraph
+                         , paragraph
                             [ centerX
                             , Font.size 22
                             , Font.bold
                             ]
                             [ text stageTitle ]
-                        , paragraph
-                            [ centerX
-                            , Font.size 14
-                            , Font.color (rgb255 93 103 120)
-                            ]
-                            [ text stageSubtitle ]
-                        ]
+                         ]
+                            ++ (if String.isEmpty stageSubtitle then
+                                    []
+
+                                else
+                                    [ paragraph
+                                        [ centerX
+                                        , Font.size 14
+                                        , Font.color (rgb255 93 103 120)
+                                        ]
+                                        [ text stageSubtitle ]
+                                    ]
+                               )
+                        )
                     , authCardBody
                     ]
-                , viewFlash model
+                , viewAuthFlashSlot model
                 ]
             )
         )
+
+
+viewAuthFlashSlot : Model -> Element Msg
+viewAuthFlashSlot model =
+    let
+        minHeightPx =
+            if isCompactLayout model then
+                92
+
+            else
+                78
+    in
+    el
+        [ width fill
+        , htmlAttribute (HtmlAttr.style "min-height" (String.fromInt minHeightPx ++ "px"))
+        ]
+        (viewFlash model)
 
 
 viewSidebar : Model -> Element Msg
@@ -2387,9 +2912,6 @@ viewSidebar model =
 
         workspace =
             currentWorkspace model
-
-        appName =
-            currentAppName model
 
         ( authEntities, crudEntities, actions ) =
             case model.schema of
@@ -2641,44 +3163,33 @@ viewSidebar model =
          , spacing 16
          ]
             ++ (if compact then
-                    []
+                    [ width fill ]
 
                 else
                     [ height fill, scrollbarY ]
                )
         )
         (List.concat
-            [ [ row [ width fill, spacing 8 ]
-                    [ el [ Font.size 24, Font.bold, Font.color (rgb255 240 245 250) ] (text appName)
-                    , if compact then
-                        el [ width fill ] none
+            [ if compact then
+                []
 
-                      else
-                        none
-                    , if compact then
-                        Input.button
-                            [ Background.color (rgb255 24 29 36)
-                            , Font.color (rgb255 244 246 248)
-                            , Border.rounded 10
-                            , paddingEach { top = 8, right = 10, bottom = 8, left = 10 }
-                            ]
-                            { onPress = Just CloseMobileSidebar
-                            , label = text "Close"
-                            }
+              else
+                [ row [ width fill, spacing 8 ]
+                    [ el [ Font.size 24, Font.bold, Font.color (rgb255 240 245 250) ] (text (currentAppName model)) ]
+                , if workspace == AppWorkspace && not (isAdminProfile model) then
+                    none
 
-                      else
-                        none
-                    ]
-              , el [ Font.size 13, Font.color (rgb255 144 158 179) ]
-                    (text
-                        (if workspace == AppWorkspace then
-                            "App workspace"
+                  else
+                    el [ Font.size 13, Font.color (rgb255 144 158 179) ]
+                        (text
+                            (if workspace == AppWorkspace then
+                                "App workspace"
 
-                         else
-                            "System workspace"
+                             else
+                                "System workspace"
+                            )
                         )
-                    )
-              ]
+                ]
             , workspaceSwitch
             , if hasAnyAuthInfo model then
                 el [ Font.size 11, Font.bold, Font.color (rgb255 118 136 160) ] (text (if workspace == AppWorkspace then "ACCOUNT" else "AUTH"))
@@ -2760,12 +3271,19 @@ viewContent model =
                 && (model.formMode /= FormHidden || model.selectedRow /= Nothing)
     in
     column
-        [ width fill
-        , height fill
-        , scrollbarY
-        , padding (if compact then 16 else 24)
-        , spacing 16
-        ]
+        ([ width fill
+         , height fill
+         , padding (if compact then 16 else 24)
+         , spacing 16
+         , htmlAttribute (HtmlAttr.style "min-height" "0")
+         ]
+            ++ (if compact then
+                    [ scrollbarY ]
+
+                else
+                    []
+               )
+        )
         [ viewAuthToolsPanel model
         , viewFlash model
         , if model.authToolsOpen then
@@ -2790,13 +3308,15 @@ viewContent model =
                         viewInspector model
 
                     else if compact then
-                        column [ width fill, spacing 16 ]
-                            [ viewDataPanel model
-                            , viewInspector model
-                            ]
+                        viewDataPanel model
 
                     else
-                        row [ width fill, height fill, spacing 16 ]
+                        row
+                            [ width fill
+                            , height fill
+                            , spacing 16
+                            , htmlAttribute (HtmlAttr.style "min-height" "0")
+                            ]
                             [ viewDataPanel model
                             , viewInspector model
                             ]
@@ -3036,26 +3556,6 @@ viewAuthToolsPanel model =
                 else
                     Nothing
 
-            tabHint =
-                if workspace == AppWorkspace then
-                    ""
-
-                else
-                    case activeScope of
-                        AppAuthScope ->
-                            if firstAdminMode then
-                                "Complete first admin setup with the same email and login code."
-
-                            else
-                                "The request sends a login code and automatically creates the user if it does not exist."
-
-                        SystemAuthScope ->
-                            if needsBootstrap then
-                                "No admins found. Create the first admin, then login with the code."
-
-                            else
-                                "Admin authentication is used only for admin features such as Monitoring and Database backups."
-
             emailActionLabel =
                 if firstAdminMode then
                     "Create first admin"
@@ -3113,7 +3613,15 @@ viewAuthToolsPanel model =
                         []
 
                      else
-                        [ el [ Font.size 13, Font.color (rgb255 93 103 120) ] (text transportText) ]
+                        [ paragraph
+                            [ width fill
+                            , Font.size 13
+                            , Font.color (rgb255 93 103 120)
+                            , htmlAttribute (HtmlAttr.style "overflow-wrap" "anywhere")
+                            , htmlAttribute (HtmlAttr.style "word-break" "break-word")
+                            ]
+                            [ text transportText ]
+                        ]
                     )
                     []
                 , Maybe.withDefault none firstAdminNotice
@@ -3151,21 +3659,6 @@ viewAuthToolsPanel model =
                             :: List.indexedMap authFlowStepRow authFlowSteps
                         )
                 , authPanelBody
-                , if String.trim tabHint == "" then
-                    none
-
-                  else
-                    el
-                        [ Font.size 12
-                        , Font.color
-                            (if needsBootstrap then
-                                rgb255 106 84 31
-
-                             else
-                                rgb255 93 103 120
-                            )
-                        ]
-                        (text tabHint)
                 ]
 
 
@@ -3224,6 +3717,7 @@ viewAuthEmailStage model firstAdminMode actionLabel submitMsg isLoading =
                 actionLabel
             )
         , authStatusLine
+            model.authInlineMessage
             (if isLoading then
                 Just "Sending code..."
 
@@ -3304,6 +3798,7 @@ viewAuthCodeStage model firstAdminMode resendLabel resendMsg loginLoading resend
                 "Login"
             )
         , authStatusLine
+            model.authInlineMessage
             (if loginLoading then
                 Just "Signing in..."
 
@@ -3415,8 +3910,17 @@ authActionButton backgroundColor textColor onPress labelText =
         }
 
 
-authStatusLine : Maybe String -> Element Msg
-authStatusLine maybeMessage =
+authStatusLine : Maybe String -> Maybe String -> Element Msg
+authStatusLine maybeErrorMessage maybeStatusMessage =
+    let
+        ( maybeMessage, messageColor ) =
+            case maybeErrorMessage of
+                Just errorMessage ->
+                    ( Just errorMessage, rgb255 176 60 46 )
+
+                Nothing ->
+                    ( maybeStatusMessage, rgb255 93 103 120 )
+    in
     el
         [ width fill
         , height (px 20)
@@ -3424,7 +3928,7 @@ authStatusLine maybeMessage =
         ]
         (case maybeMessage of
             Just message ->
-                paragraph [ Font.size 13, Font.color (rgb255 93 103 120), centerX ] [ text message ]
+                paragraph [ Font.size 13, Font.color messageColor, centerX ] [ text message ]
 
             Nothing ->
                 none
@@ -3797,7 +4301,17 @@ currentSectionTitle model =
 viewPanelTitle : String -> List (Element msg) -> Element msg
 viewPanelTitle title details =
     column [ width fill, spacing 6 ]
-        (el [ Font.bold, Font.size 20 ] (text title) :: details)
+        (paragraph
+            [ width fill
+            , Font.bold
+            , Font.size 20
+            , htmlAttribute (HtmlAttr.style "min-width" "0")
+            , htmlAttribute (HtmlAttr.style "overflow-wrap" "anywhere")
+            , htmlAttribute (HtmlAttr.style "word-break" "break-word")
+            ]
+            [ text title ]
+            :: details
+        )
 
 
 viewPanelHeader : Bool -> String -> List (Element msg) -> List (Element msg) -> Element msg
@@ -3807,12 +4321,17 @@ viewPanelHeader compact title details actions =
             if List.isEmpty actions then
                 el
                     [ width fill
+                    , htmlAttribute (HtmlAttr.style "min-width" "0")
                     , paddingEach { top = 4, right = 0, bottom = 0, left = 0 }
                     ]
                     (viewPanelTitle title details)
 
             else
-                viewPanelTitle title details
+                el
+                    [ width fill
+                    , htmlAttribute (HtmlAttr.style "min-width" "0")
+                    ]
+                    (viewPanelTitle title details)
     in
     if compact then
         column
@@ -3826,7 +4345,7 @@ viewPanelHeader compact title details actions =
             ]
 
     else
-        row [ width fill, spacing 10 ]
+        row [ width fill, spacing 10, htmlAttribute (HtmlAttr.style "min-width" "0") ]
             [ titleBlock
             , if List.isEmpty actions then
                 none
@@ -4025,21 +4544,16 @@ viewDataPanel model =
                 workspace =
                     currentWorkspace model
 
+                compact =
+                    isCompactLayout model
+
                 headerTitle =
                     case model.selectedEntity of
                         Nothing ->
-                            if workspace == AppWorkspace then
-                                "Choose something to explore"
-
-                            else
-                                "No entity selected"
+                            "No entity selected"
 
                         Just entity ->
-                            if workspace == AppWorkspace then
-                                entityDisplayName entity
-
-                            else
-                                entityDisplayName entity ++ " records"
+                            entityDisplayName entity ++ " records"
 
                 createLabel =
                     case model.selectedEntity of
@@ -4056,52 +4570,145 @@ viewDataPanel model =
 
                             else
                                 "New"
-            in
-            column
-                ([ width
-                        (if isCompactLayout model then
-                            fill
 
-                         else
-                            fillPortion 3
-                        )
-                 , spacing 14
-                 , Background.color (rgb255 255 255 255)
-                 , Border.rounded 14
-                 , Border.width 1
-                 , Border.color (rgb255 226 232 239)
-                 , padding 16
-                 ]
-                    ++ (if isCompactLayout model then
+                mobileHeader =
+                    if workspace == AppWorkspace then
+                        none
+
+                    else
+                        paragraph
+                            [ width fill
+                            , Font.bold
+                            , Font.size 20
+                            ]
+                            [ text headerTitle ]
+
+                actionsBar =
+                    if compact then
+                        wrappedRow [ width fill, spacing 10 ]
+                            [ Input.button
+                                [ Background.color (rgb255 34 124 95)
+                                , Font.color (rgb255 248 252 250)
+                                , Border.rounded 10
+                                , paddingEach { top = 10, right = 14, bottom = 10, left = 14 }
+                                ]
+                                { onPress = Just StartCreate
+                                , label = text createLabel
+                                }
+                            , Input.button
+                                [ Background.color (rgb255 224 231 241)
+                                , Border.rounded 10
+                                , paddingEach { top = 10, right = 14, bottom = 10, left = 14 }
+                                ]
+                                { onPress = Just ReloadRows
+                                , label = text "Refresh"
+                                }
+                            ]
+
+                    else if workspace == AppWorkspace then
+                        wrappedRow [ width fill, spacing 10 ]
+                            [ Input.button
+                                [ Background.color (rgb255 34 124 95)
+                                , Font.color (rgb255 248 252 250)
+                                , Border.rounded 10
+                                , paddingEach { top = 10, right = 14, bottom = 10, left = 14 }
+                                ]
+                                { onPress = Just StartCreate
+                                , label = text createLabel
+                                }
+                            , Input.button
+                                [ Background.color (rgb255 224 231 241)
+                                , Border.rounded 10
+                                , paddingEach { top = 10, right = 14, bottom = 10, left = 14 }
+                                ]
+                                { onPress = Just ReloadRows
+                                , label = text "Refresh"
+                                }
+                            ]
+
+                    else
+                        viewPanelHeader compact
+                            headerTitle
                             []
+                            [ Input.button
+                                [ Background.color (rgb255 34 124 95)
+                                , Font.color (rgb255 248 252 250)
+                                , Border.rounded 10
+                                , paddingEach { top = 10, right = 14, bottom = 10, left = 14 }
+                                ]
+                                { onPress = Just StartCreate
+                                , label = text createLabel
+                                }
+                            , Input.button
+                                [ Background.color (rgb255 224 231 241)
+                                , Border.rounded 10
+                                , paddingEach { top = 10, right = 14, bottom = 10, left = 14 }
+                                ]
+                                { onPress = Just ReloadRows
+                                , label = text "Refresh"
+                                }
+                            ]
 
-                        else
-                            [ height fill ]
-                       )
-                )
-                [ viewPanelHeader (isCompactLayout model)
-                    headerTitle
-                    []
-                    [ Input.button
-                        [ Background.color (rgb255 34 124 95)
-                        , Font.color (rgb255 248 252 250)
-                        , Border.rounded 10
-                        , paddingEach { top = 10, right = 14, bottom = 10, left = 14 }
-                        ]
-                        { onPress = Just StartCreate
-                        , label = text createLabel
-                        }
-                    , Input.button
-                        [ Background.color (rgb255 224 231 241)
-                        , Border.rounded 10
-                        , paddingEach { top = 10, right = 14, bottom = 10, left = 14 }
-                        ]
-                        { onPress = Just ReloadRows
-                        , label = text "Refresh"
-                        }
+                rowsBlock =
+                    el
+                        ([ width fill
+                         , paddingEach
+                            { top = if compact && workspace == AppWorkspace then 0 else 2
+                            , right = 0
+                            , bottom = 2
+                            , left = if compact && workspace == AppWorkspace then 0 else 8
+                            }
+                         , htmlAttribute (HtmlAttr.style "min-height" "0")
+                         , htmlAttribute (HtmlAttr.style "min-width" "0")
+                         ]
+                            ++ (if compact then
+                                    []
+
+                                else
+                                    [ height fill, scrollbarY ]
+                               )
+                        )
+                        (viewRows model)
+            in
+            if compact then
+                column
+                    [ width fill
+                    , spacing 14
+                    , htmlAttribute (HtmlAttr.style "min-width" "0")
                     ]
-                , viewRows model
-                ]
+                    [ mobileHeader
+                    , actionsBar
+                    , rowsBlock
+                    ]
+
+            else
+                column
+                    ([ width
+                            (if compact then
+                                fill
+
+                             else
+                                fillPortion 3
+                            )
+                     , spacing 14
+                     , Background.color (rgb255 255 255 255)
+                     , Border.rounded 14
+                     , Border.width 1
+                     , Border.color (rgb255 226 232 239)
+                     , padding 16
+                     , htmlAttribute (HtmlAttr.style "min-height" "0")
+                     , htmlAttribute (HtmlAttr.style "min-width" "0")
+                     ]
+                        ++ (if compact then
+                                []
+
+                            else
+                                [ height fill ]
+                           )
+                    )
+                    [ actionsBar
+                    , rowsBlock
+                    ]
 
 
 viewActionPanel : Model -> ActionInfo -> Element Msg
@@ -4263,12 +4870,42 @@ viewRows model =
                     ]
 
             else
-                column [ width fill, spacing 8 ]
-                    (List.map (viewRowCard (isCompactLayout model) (currentWorkspace model) entity) records)
+                let
+                    selectedRowId =
+                        model.selectedRow
+                            |> Maybe.andThen (rowId entity)
+                in
+                column
+                    [ width fill
+                    , spacing 8
+                    , paddingEach
+                        { top = 0
+                        , right =
+                            if isCompactLayout model then
+                                0
+
+                            else
+                                18
+                        , bottom = 0
+                        , left = 0
+                        }
+                    ]
+                    (List.map
+                        (\record ->
+                            viewRowCard
+                                (isCompactLayout model)
+                                (currentWorkspace model)
+                                entity
+                                (rowId entity record == selectedRowId && selectedRowId /= Nothing)
+                                record
+                        )
+                        records
+                        ++ [ el [ width fill, height (px 24) ] none ]
+                    )
 
 
-viewRowCard : Bool -> WorkspaceMode -> Entity -> Row -> Element Msg
-viewRowCard compact workspace entity rowValue =
+viewRowCard : Bool -> WorkspaceMode -> Entity -> Bool -> Row -> Element Msg
+viewRowCard compact workspace entity isSelected rowValue =
     let
         wrappingTextAttrs =
             [ width fill
@@ -4276,49 +4913,42 @@ viewRowCard compact workspace entity rowValue =
             , htmlAttribute (HtmlAttr.style "word-break" "break-word")
             ]
 
-        previewFields =
-            displayFieldsForEntity workspace entity
-                |> List.take 4
+        headingText =
+            rowCardTitle workspace entity rowValue
+
+        statusBadges =
+            rowPreviewStatusBadges entity rowValue
 
         summary =
-            previewFields
-                |> List.map
-                    (\field ->
-                        let
-                            textValue =
-                                Dict.get field.name rowValue
-                                    |> Maybe.map valueToString
-                                    |> Maybe.withDefault "-"
-                        in
-                        if workspace == AppWorkspace then
-                            textValue
+            rowPreviewSummary workspace entity rowValue
 
-                        else
-                            fieldLabel field.name ++ ": " ++ textValue
-                    )
-                |> String.join "  |  "
+        bodyContent =
+            List.filterMap identity
+                [ Just (paragraph (Font.bold :: wrappingTextAttrs) [ text headingText ])
+                , if List.isEmpty statusBadges then
+                    Nothing
 
-        headingText =
-            if workspace == AppWorkspace then
-                displayLabelForRow workspace entity rowValue
+                  else
+                    Just (wrappedRow [ width fill, spacing 8 ] statusBadges)
+                , if summary == "" then
+                    Nothing
 
-            else
-                entity.name ++ " #" ++ (rowId entity rowValue |> Maybe.withDefault "?")
+                  else
+                    Just
+                        (paragraph
+                            ([ Font.size 13, Font.color (rgb255 90 103 120) ] ++ wrappingTextAttrs)
+                            [ text summary ]
+                        )
+                ]
 
         cardBody =
             if compact then
-                column
+                row
                     [ width fill
                     , spacing 12
                     ]
-                    [ column [ width fill, spacing 6 ]
-                        [ paragraph (Font.bold :: wrappingTextAttrs) [ text headingText ]
-                        , paragraph ([ Font.size 13, Font.color (rgb255 90 103 120) ] ++ wrappingTextAttrs) [ text summary ]
-                        ]
-                    , row [ width fill ]
-                        [ el [ width fill ] none
-                        , el [ Font.size 18, Font.color (rgb255 132 145 162) ] (text "›")
-                        ]
+                    [ column [ width fill, spacing 8 ] bodyContent
+                    , el [ Font.size 18, Font.color (rgb255 132 145 162), centerY ] (text "›")
                     ]
 
             else
@@ -4326,19 +4956,26 @@ viewRowCard compact workspace entity rowValue =
                     [ width fill
                     , spacing 12
                     ]
-                    [ column [ width fill, spacing 6 ]
-                        [ paragraph (Font.bold :: wrappingTextAttrs) [ text headingText ]
-                        , paragraph ([ Font.size 13, Font.color (rgb255 90 103 120) ] ++ wrappingTextAttrs) [ text summary ]
-                        ]
+                    [ column [ width fill, spacing 8 ] bodyContent
                     , el [ Font.size 18, Font.color (rgb255 132 145 162), centerY ] (text "›")
                     ]
     in
     Input.button
         [ width fill
-        , Background.color (rgb255 248 250 252)
-        , Border.rounded 10
-        , padding 12
+        , Background.color
+            (if isSelected then
+                rgb255 239 246 255
+
+             else
+                rgb255 250 252 255
+            )
+        , Border.rounded 12
+        , Border.width 1
+        , Border.color (rgb255 226 232 239)
+        , padding 14
         , htmlAttribute (HtmlAttr.style "cursor" "pointer")
+        , htmlAttribute (HtmlAttr.style "outline" "none")
+        , htmlAttribute (HtmlAttr.style "-webkit-tap-highlight-color" "rgba(0,0,0,0)")
         ]
         { onPress = Just (SelectRow rowValue)
         , label = cardBody
@@ -4362,18 +4999,23 @@ viewInspector model =
                                 fillPortion 2
                             )
                      , spacing 14
+                     , htmlAttribute (HtmlAttr.style "min-height" "0")
+                     , htmlAttribute (HtmlAttr.style "min-width" "0")
                      ]
                         ++ (if isCompactLayout model then
                                 []
 
                             else
-                           [ height fill ]
+                           [ height fill, scrollbarY ]
                        )
                     )
                     [ viewActionInfo actionInfo ]
 
         Nothing ->
             let
+                compact =
+                    isCompactLayout model
+
                 inspectorContent =
                     case model.formMode of
                         FormHidden ->
@@ -4389,19 +5031,21 @@ viewInspector model =
             in
             column
                 ([ width
-                        (if isCompactLayout model then
+                        (if compact then
                             fill
 
                          else
                             fillPortion 2
                         )
                  , spacing 14
+                 , htmlAttribute (HtmlAttr.style "min-height" "0")
+                 , htmlAttribute (HtmlAttr.style "min-width" "0")
                  ]
-                    ++ (if isCompactLayout model then
+                    ++ (if compact then
                             []
 
                         else
-                            [ height fill ]
+                            [ height fill, scrollbarY ]
                        )
                 )
                 inspectorContent
@@ -5292,43 +5936,180 @@ displayFieldsForEntity workspace entity =
 
 displayLabelForRow : WorkspaceMode -> Entity -> Row -> String
 displayLabelForRow workspace entity rowValue =
+    case rowPrimaryFieldValue workspace entity rowValue of
+        Just ( _, value ) ->
+            value
+
+        Nothing ->
+            entity.name
+
+
+rowCardTitle : WorkspaceMode -> Entity -> Row -> String
+rowCardTitle workspace entity rowValue =
+    case rowPrimaryFieldValue workspace entity rowValue of
+        Just ( _, value ) ->
+            value
+
+        Nothing ->
+            case rowId entity rowValue of
+                Just idValue ->
+                    entityDisplayName entity ++ " #" ++ idValue
+
+                Nothing ->
+                    entityDisplayName entity
+
+
+rowPrimaryFieldValue : WorkspaceMode -> Entity -> Row -> Maybe ( Field, String )
+rowPrimaryFieldValue workspace entity rowValue =
     let
         preferredNames =
             [ "name", "title", "email", "slug" ]
 
-        valueForField fieldName =
-            Dict.get fieldName rowValue
-                |> Maybe.map valueToString
-                |> Maybe.map String.trim
+        visibleFieldValues =
+            rowVisibleFieldValues workspace entity rowValue
 
         firstPreferred =
             preferredNames
-                |> List.filterMap valueForField
-                |> List.filter (\value -> value /= "")
-                |> List.head
-
-        firstVisible =
-            displayFieldsForEntity workspace entity
-                |> List.filterMap
-                    (\field ->
-                        Dict.get field.name rowValue
-                            |> Maybe.map valueToString
-                            |> Maybe.map String.trim
-                    )
-                |> List.filter (\value -> value /= "")
+                |> List.filterMap (\fieldName -> findFieldValueByName fieldName visibleFieldValues)
                 |> List.head
     in
     case firstPreferred of
-        Just value ->
-            value
+        Just pair ->
+            Just pair
 
         Nothing ->
-            case firstVisible of
-                Just value ->
-                    value
+            List.head visibleFieldValues
 
-                Nothing ->
-                    entity.name
+
+rowPreviewSummary : WorkspaceMode -> Entity -> Row -> String
+rowPreviewSummary workspace entity rowValue =
+    let
+        primaryFieldName =
+            rowPrimaryFieldValue workspace entity rowValue
+                |> Maybe.map (\( field, _ ) -> field.name)
+
+        metadataPieces =
+            displayFieldsForEntity workspace entity
+                |> List.filterMap
+                    (\field ->
+                        if shouldIncludePreviewMetadata entity primaryFieldName field then
+                            rowFieldLabel field.name rowValue
+                                |> Maybe.map (\value -> fieldLabel field.name ++ ": " ++ value)
+
+                        else
+                            Nothing
+                    )
+                |> List.take 2
+    in
+    if List.isEmpty metadataPieces then
+        case rowId entity rowValue of
+            Just idValue ->
+                if workspace == AdminWorkspace then
+                    "ID: " ++ idValue
+
+                else
+                    ""
+
+            Nothing ->
+                ""
+
+    else
+        String.join "  •  " metadataPieces
+
+
+shouldIncludePreviewMetadata : Entity -> Maybe String -> Field -> Bool
+shouldIncludePreviewMetadata entity primaryFieldName field =
+    let
+        lowerName =
+            String.toLower field.name
+    in
+    field.fieldType /= BoolType
+        && not field.primary
+        && not field.auto
+        && primaryFieldName /= Just field.name
+        && lowerName /= String.toLower entity.primaryKey
+        && not (List.member lowerName [ "createdat", "updatedat", "deletedat", "created_at", "updated_at", "deleted_at" ])
+
+
+rowVisibleFieldValues : WorkspaceMode -> Entity -> Row -> List ( Field, String )
+rowVisibleFieldValues workspace entity rowValue =
+    displayFieldsForEntity workspace entity
+        |> List.filterMap
+            (\field ->
+                rowFieldLabel field.name rowValue
+                    |> Maybe.map (\value -> ( field, value ))
+            )
+
+
+findFieldValueByName : String -> List ( Field, String ) -> Maybe ( Field, String )
+findFieldValueByName fieldName fieldValues =
+    fieldValues
+        |> List.filter (\( field, _ ) -> field.name == fieldName)
+        |> List.head
+
+
+rowPreviewStatusBadges : Entity -> Row -> List (Element Msg)
+rowPreviewStatusBadges entity rowValue =
+    entity.fields
+        |> List.filterMap (\field -> rowPreviewStatusBadge field rowValue)
+        |> List.take 2
+
+
+rowPreviewStatusBadge : Field -> Row -> Maybe (Element Msg)
+rowPreviewStatusBadge field rowValue =
+    if field.fieldType /= BoolType then
+        Nothing
+
+    else
+        rowBooleanValue field.name rowValue
+            |> Maybe.map (statusBadgeForBoolean field.name)
+
+
+rowBooleanValue : String -> Row -> Maybe Bool
+rowBooleanValue fieldName rowValue =
+    rowFieldLabel fieldName rowValue
+        |> Maybe.map String.toLower
+        |> Maybe.andThen
+            (\value ->
+                if value == "true" then
+                    Just True
+
+                else if value == "false" then
+                    Just False
+
+                else
+                    Nothing
+            )
+
+
+statusBadgeForBoolean : String -> Bool -> Element Msg
+statusBadgeForBoolean fieldName boolValue =
+    statusBadge
+        (if boolValue then
+            rgb255 221 244 229
+
+         else
+            rgb255 239 242 247
+        )
+        (if boolValue then
+            rgb255 29 102 66
+
+         else
+            rgb255 88 98 113
+        )
+        (fieldLabel fieldName ++ ": " ++ (if boolValue then "Yes" else "No"))
+
+
+statusBadge : Element.Color -> Element.Color -> String -> Element Msg
+statusBadge backgroundColor textColor labelText =
+    el
+        [ Background.color backgroundColor
+        , Font.color textColor
+        , Border.rounded 999
+        , Font.size 11
+        , paddingEach { top = 4, right = 8, bottom = 4, left = 8 }
+        ]
+        (text labelText)
 
 
 viewEntitySchema : Model -> Element Msg
@@ -5536,19 +6317,28 @@ viewSelectedRow model =
                                 |> List.filter (\( key, _ ) -> List.member key visibleFieldNames)
 
                         detailTitle =
-                            if workspace == AppWorkspace then
-                                displayLabelForRow workspace entity rowValue
-
-                            else
-                                entityDisplayName entity ++ " details"
+                            entityDisplayName entity ++ " details"
 
                         detailSubtitle =
-                            case rowId entity rowValue of
-                                Just idValue ->
-                                    [ el [ Font.size 13, Font.color (rgb255 93 103 120) ] (text ("ID " ++ idValue)) ]
+                            if workspace == AppWorkspace then
+                                []
 
-                                Nothing ->
-                                    []
+                            else
+                                case rowId entity rowValue of
+                                    Just idValue ->
+                                        [ paragraph
+                                            [ width fill
+                                            , Font.size 13
+                                            , Font.color (rgb255 93 103 120)
+                                            , htmlAttribute (HtmlAttr.style "min-width" "0")
+                                            , htmlAttribute (HtmlAttr.style "overflow-wrap" "anywhere")
+                                            , htmlAttribute (HtmlAttr.style "word-break" "break-word")
+                                            ]
+                                            [ text ("ID " ++ idValue) ]
+                                        ]
+
+                                    Nothing ->
+                                        []
 
                         detailActions =
                             List.filterMap identity
@@ -5645,6 +6435,117 @@ httpErrorToString model httpError =
 
         ApiBadBody message ->
             message
+
+
+authEmailValidationMessage : String -> Maybe String
+authEmailValidationMessage rawEmail =
+    let
+        email =
+            String.trim rawEmail
+
+        invalidMessage =
+            "invalid email"
+
+        emailChars =
+            String.toList email
+
+        hasControlChars =
+            List.any isControlChar emailChars
+
+        hasWhitespace =
+            List.any isWhitespaceChar emailChars
+    in
+    if String.length email > 254 || hasControlChars || hasWhitespace then
+        Just invalidMessage
+
+    else
+        case String.split "@" email of
+            [ localPart, rawDomain ] ->
+                let
+                    domain =
+                        String.toLower rawDomain
+
+                    labels =
+                        String.split "." domain
+                in
+                if String.isEmpty localPart || String.length localPart > 64 then
+                    Just invalidMessage
+
+                else if String.isEmpty domain || String.length domain > 253 then
+                    Just invalidMessage
+
+                else if String.startsWith "." domain || String.endsWith "." domain || String.contains ".." domain then
+                    Just invalidMessage
+
+                else if not (List.all isValidEmailDomainLabel labels) then
+                    Just invalidMessage
+
+                else
+                    Nothing
+
+            _ ->
+                Just invalidMessage
+
+
+isValidEmailDomainLabel : String -> Bool
+isValidEmailDomainLabel label =
+    let
+        chars =
+            String.toList label
+
+        startsOrEndsWithDash =
+            case ( List.head chars, List.reverse chars |> List.head ) of
+                ( Just firstChar, Just lastChar ) ->
+                    firstChar == '-' || lastChar == '-'
+
+                _ ->
+                    False
+    in
+    not (String.isEmpty label)
+        && String.length label <= 63
+        && not startsOrEndsWithDash
+        && List.all
+            (\char ->
+                Char.isLower char || Char.isDigit char || char == '-'
+            )
+            chars
+
+
+isControlChar : Char -> Bool
+isControlChar char =
+    let
+        code =
+            Char.toCode char
+    in
+    code < 32 || code == 127
+
+
+isWhitespaceChar : Char -> Bool
+isWhitespaceChar char =
+    case Char.toCode char of
+        9 ->
+            True
+
+        10 ->
+            True
+
+        11 ->
+            True
+
+        12 ->
+            True
+
+        13 ->
+            True
+
+        32 ->
+            True
+
+        160 ->
+            True
+
+        _ ->
+            False
 
 
 authRequestCodeErrorToString : Model -> ApiHttpError -> String
