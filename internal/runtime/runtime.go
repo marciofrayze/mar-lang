@@ -217,7 +217,7 @@ func (r *Runtime) Serve(ctx context.Context) error {
 	}
 
 	server := &http.Server{
-		Addr:         fmt.Sprintf(":%d", r.App.Port),
+		Addr:         fmt.Sprintf("0.0.0.0:%d", r.App.Port),
 		Handler:      http.HandlerFunc(r.handleHTTP),
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 30 * time.Second,
