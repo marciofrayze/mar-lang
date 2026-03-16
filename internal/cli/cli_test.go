@@ -115,6 +115,17 @@ func TestHighlightParseCLIMessageColorsUnknownInputFieldInRed(t *testing.T) {
 	}
 }
 
+func TestHighlightParseCLIMessageColorsAuthSmtpConfigReference(t *testing.T) {
+	msg := highlightParseCLIMessage(true, "auth.smtp_host can only be used when email_transport smtp is selected")
+
+	if !strings.Contains(msg, "\033[1;36mauth.smtp_host\033[0m") {
+		t.Fatalf("expected auth.smtp_host to be cyan, got %q", msg)
+	}
+	if !strings.Contains(msg, "\033[1memail_transport\033[0m \033[1;32msmtp\033[0m") {
+		t.Fatalf("expected email_transport smtp to be highlighted, got %q", msg)
+	}
+}
+
 func TestFlyUsageErrorUsesStyledCLIFormat(t *testing.T) {
 	t.Setenv("NO_COLOR", "1")
 

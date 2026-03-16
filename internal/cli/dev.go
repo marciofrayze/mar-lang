@@ -75,7 +75,7 @@ func runDev(binaryName, inputPath, outputPath string) error {
 				"  %s %s %s %s %s\n",
 				colorizeCLI(useColor, "\033[1;36m", "Login emails"),
 				"use",
-				colorizeCLI(useColor, "\033[1;32m", "console"),
+				colorizeCLI(useColor, "\033[1;33m", "console"),
 				"in dev. Production still uses the configured",
 				colorizeCLI(useColor, "\033[1;33m", "smtp."),
 			)

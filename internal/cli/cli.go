@@ -27,6 +27,8 @@ var (
 	parseErrorActionRe       = regexp.MustCompile(`\baction\s+([A-Za-z_][A-Za-z0-9_]*)`)
 	parseErrorFieldRe        = regexp.MustCompile(`\bfield\s+([A-Za-z_][A-Za-z0-9_.]*)`)
 	parseErrorDeclWordRe     = regexp.MustCompile(`\b(app|auth|public|system)\s+declaration\b`)
+	parseErrorConfigPathRe   = regexp.MustCompile(`\b(auth|system|public)\.([A-Za-z_][A-Za-z0-9_.]*)\b`)
+	parseErrorAuthTransportRe = regexp.MustCompile(`\b(email_transport)\s+(smtp|console)\b`)
 )
 
 type styledCLIError string
@@ -287,6 +289,16 @@ func highlightParseCLIMessage(useColor bool, message string) string {
 			return match
 		}
 		return colorizeCLI(true, "\033[1m", parts[1]) + " declaration"
+	})
+	message = parseErrorConfigPathRe.ReplaceAllStringFunc(message, func(match string) string {
+		return colorizeCLI(true, "\033[1;36m", match)
+	})
+	message = parseErrorAuthTransportRe.ReplaceAllStringFunc(message, func(match string) string {
+		parts := parseErrorAuthTransportRe.FindStringSubmatch(match)
+		if len(parts) != 3 {
+			return match
+		}
+		return colorizeCLI(true, "\033[1m", parts[1]) + " " + colorizeCLI(true, "\033[1;32m", parts[2])
 	})
 	message = strings.ReplaceAll(message, "an app declaration", "an "+colorizeCLI(true, "\033[1m", "app")+" declaration")
 	message = strings.ReplaceAll(
