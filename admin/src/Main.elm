@@ -126,6 +126,7 @@ type alias Model =
     , flash : Maybe String
     , viewportWidth : Int
     , mobileSidebarOpen : Bool
+    , keepMobileSidebarOpenOnNextRoute : Bool
     }
 
 
@@ -133,6 +134,13 @@ type alias PendingDelete =
     { entity : Entity
     , idValue : String
     , message : String
+    }
+
+
+type alias MobileNavEntry =
+    { label : String
+    , onPress : Msg
+    , selected : Bool
     }
 
 
@@ -527,6 +535,7 @@ init flags url navKey =
             , flash = Nothing
             , viewportWidth = max 320 flags.viewportWidth
             , mobileSidebarOpen = False
+            , keepMobileSidebarOpenOnNextRoute = False
             }
 
         restoreAppAuthCmd =
@@ -636,7 +645,8 @@ resetForRoute workspace model =
         , pendingDelete = Nothing
         , authInlineMessage = Nothing
         , flash = Nothing
-        , mobileSidebarOpen = False
+        , mobileSidebarOpen = isCompactLayout model && model.keepMobileSidebarOpenOnNextRoute
+        , keepMobileSidebarOpenOnNextRoute = False
     }
 
 
@@ -916,13 +926,25 @@ routeForWorkspaceSwitch workspace model =
             RouteAction workspace actionName
 
         RoutePerformance ->
-            RoutePerformance
+            if workspace == AppWorkspace then
+                RouteDefault AppWorkspace
+
+            else
+                RoutePerformance
 
         RouteRequestLogs ->
-            RouteRequestLogs
+            if workspace == AppWorkspace then
+                RouteDefault AppWorkspace
+
+            else
+                RouteRequestLogs
 
         RouteDatabase ->
-            RouteDatabase
+            if workspace == AppWorkspace then
+                RouteDefault AppWorkspace
+
+            else
+                RouteDatabase
 
         RouteDefault _ ->
             RouteDefault workspace
@@ -1110,7 +1132,15 @@ update msg model =
             ( { model | authStage = AuthStageEmail, authCode = "", authSubmitting = Nothing, authInlineMessage = Nothing, flash = Nothing, mobileSidebarOpen = False }, Cmd.none )
 
         SwitchWorkspace workspace ->
-            ( model, pushRoute (routeForWorkspaceSwitch workspace model) model )
+            let
+                nextModel =
+                    if isCompactLayout model && model.mobileSidebarOpen then
+                        { model | keepMobileSidebarOpenOnNextRoute = True }
+
+                    else
+                        model
+            in
+            ( nextModel, pushRoute (routeForWorkspaceSwitch workspace nextModel) nextModel )
 
         SetActionField fieldName value ->
             ( { model | actionFormValues = Dict.insert fieldName value model.actionFormValues }, Cmd.none )
@@ -1677,13 +1707,13 @@ update msg model =
             ( { model | flash = Nothing }, Cmd.none )
 
         ViewportResized widthPx _ ->
-            ( { model | viewportWidth = max 320 widthPx, mobileSidebarOpen = if widthPx >= 900 then False else model.mobileSidebarOpen }, Cmd.none )
+            ( { model | viewportWidth = max 320 widthPx, mobileSidebarOpen = if widthPx >= 900 then False else model.mobileSidebarOpen, keepMobileSidebarOpenOnNextRoute = if widthPx >= 900 then False else model.keepMobileSidebarOpenOnNextRoute }, Cmd.none )
 
         ToggleMobileSidebar ->
-            ( { model | mobileSidebarOpen = not model.mobileSidebarOpen }, Cmd.none )
+            ( { model | mobileSidebarOpen = not model.mobileSidebarOpen, keepMobileSidebarOpenOnNextRoute = False }, Cmd.none )
 
         CloseMobileSidebar ->
-            ( { model | mobileSidebarOpen = False }, Cmd.none )
+            ( { model | mobileSidebarOpen = False, keepMobileSidebarOpenOnNextRoute = False }, Cmd.none )
 
 
 loadSchema : String -> Cmd Msg
@@ -2645,17 +2675,20 @@ viewLayout model =
                 , htmlAttribute (HtmlAttr.style "overflow" "hidden")
                 ]
                 [ viewMobileTopBar model
-                , if model.mobileSidebarOpen then
-                    el
-                        [ width fill
-                        , height fill
-                        , scrollbarY
-                        , htmlAttribute (HtmlAttr.style "min-height" "0")
-                        ]
-                        (viewSidebar model)
+                , el
+                    [ width fill
+                    , height fill
+                    , htmlAttribute (HtmlAttr.style "min-height" "0")
+                    , inFront
+                        (if model.mobileSidebarOpen then
+                            viewMobileMoreSheet model
 
-                  else
-                    viewContent model
+                         else
+                            none
+                        )
+                    ]
+                    (viewContent model)
+                , viewMobileBottomNav model
                 ]
 
         else
@@ -2724,50 +2757,439 @@ mobileTopBarSubtitle model =
 
 viewMobileTopBar : Model -> Element Msg
 viewMobileTopBar model =
-    let
-        ( titleText, subtitleText ) =
-            if model.mobileSidebarOpen then
-                ( currentAppName model
-                , mobileTopBarSubtitle model
-                )
-
-            else
-                ( currentAppName model
-                , mobileTopBarSubtitle model
-                )
-    in
-    row
+    column
         [ width fill
-        , spacing 12
         , Background.color (rgb255 18 22 28)
         , padding 16
+        , spacing 4
         ]
-        [ column [ width fill, spacing 4 ]
-            ([ el [ Font.size 22, Font.bold, Font.color (rgb255 240 245 250) ] (text titleText) ]
-                ++ (if String.isEmpty subtitleText then
-                        []
+        [ el [ Font.size 22, Font.bold, Font.color (rgb255 240 245 250) ] (text (currentAppName model)) ]
 
-                    else
-                        [ el [ Font.size 12, Font.color (rgb255 144 158 179) ] (text subtitleText) ]
-                   )
-            )
-        , Input.button
-            [ Background.color (rgb255 54 94 217)
-            , Font.color (rgb255 246 248 252)
-            , Border.rounded 10
-            , paddingEach { top = 10, right = 14, bottom = 10, left = 14 }
-            ]
-            { onPress = Just ToggleMobileSidebar
-            , label =
-                text
-                    (if model.mobileSidebarOpen then
-                        "Close"
+
+mobileNavEntries : Model -> List MobileNavEntry
+mobileNavEntries model =
+    let
+        workspace =
+            currentWorkspace model
+
+        ( authEntities, crudEntities, actions ) =
+            case model.schema of
+                Loaded schema ->
+                    splitEntitiesForSidebar model schema.entities
+                        |> (\( authOnly, crudOnly ) -> ( authOnly, crudOnly, schema.actions ))
+
+                _ ->
+                    ( [], [], [] )
+
+        entityEntry entity =
+            { label = entityDisplayName entity
+            , onPress = SelectEntity entity.name
+            , selected =
+                (not model.authToolsOpen)
+                    && (not model.performanceMode)
+                    && (not model.requestLogsMode)
+                    && (not model.databaseMode)
+                    &&
+                        (case model.selectedEntity of
+                            Just current ->
+                                current.name == entity.name
+
+                            Nothing ->
+                                False
+                        )
+            }
+
+        actionEntry actionInfo =
+            { label = humanizeIdentifier actionInfo.name
+            , onPress = SelectAction actionInfo.name
+            , selected =
+                (not model.authToolsOpen)
+                    && (not model.performanceMode)
+                    && (not model.requestLogsMode)
+                    && (not model.databaseMode)
+                    &&
+                        (case model.selectedAction of
+                            Just current ->
+                                current.name == actionInfo.name
+
+                            Nothing ->
+                                False
+                        )
+            }
+
+        authEntries =
+            if hasAnyAuthInfo model then
+                [ { label =
+                        if workspace == AppWorkspace then
+                            "Account"
+
+                        else
+                            "Authorization"
+                  , onPress = ToggleAuthTools
+                  , selected = model.authToolsOpen
+                  }
+                ]
+                    ++ (if workspace == AdminWorkspace then
+                            List.map entityEntry authEntities
+
+                        else
+                            []
+                       )
+
+            else
+                []
+
+        systemEntries =
+            if isAdminProfile model && workspace == AdminWorkspace then
+                [ { label = "Monitoring", onPress = SelectPerformance, selected = model.performanceMode && not model.authToolsOpen }
+                , { label = "Logs", onPress = SelectRequestLogs, selected = model.requestLogsMode && not model.authToolsOpen }
+                , { label = "Database", onPress = SelectDatabase, selected = model.databaseMode && not model.authToolsOpen }
+                ]
+
+            else
+                []
+    in
+    authEntries
+        ++ List.map entityEntry crudEntities
+        ++ List.map actionEntry actions
+        ++ systemEntries
+
+
+mobileWorkspaceEntries : Model -> List MobileNavEntry
+mobileWorkspaceEntries model =
+    if isAdminProfile model then
+        [ { label = "App"
+          , onPress = SwitchWorkspace AppWorkspace
+          , selected = currentWorkspace model == AppWorkspace
+          }
+        , { label = "Admin"
+          , onPress = SwitchWorkspace AdminWorkspace
+          , selected = currentWorkspace model == AdminWorkspace
+          }
+        ]
+
+    else
+        []
+
+
+mobileVisibleNavEntries : Model -> List MobileNavEntry
+mobileVisibleNavEntries model =
+    let
+        entries =
+            mobileNavEntries model
+
+        shouldShowMore =
+            isAdminProfile model || List.length entries > 5
+    in
+    if shouldShowMore then
+        List.take 4 entries
+
+    else
+        entries
+
+
+mobileOverflowNavEntries : Model -> List MobileNavEntry
+mobileOverflowNavEntries model =
+    let
+        entries =
+            mobileNavEntries model
+
+        shouldShowMore =
+            isAdminProfile model || List.length entries > 5
+    in
+    if shouldShowMore then
+        List.drop 4 entries
+
+    else
+        []
+
+
+viewMobileBottomNav : Model -> Element Msg
+viewMobileBottomNav model =
+    let
+        visibleEntries =
+            mobileVisibleNavEntries model
+
+        overflowEntries =
+            mobileOverflowNavEntries model
+
+        shouldShowMore =
+            not (List.isEmpty overflowEntries) || isAdminProfile model
+
+        moreSelected =
+            if model.mobileSidebarOpen then
+                True
+
+            else
+                List.any .selected overflowEntries
+
+        navButton entry =
+            let
+                buttonSelected =
+                    (not model.mobileSidebarOpen) && entry.selected
+            in
+            Input.button
+                [ width fill
+                , Background.color
+                     (if buttonSelected then
+                        rgb255 229 238 255
 
                      else
-                        "Menu"
+                        rgba255 255 255 0 0
                     )
-            }
+                , Font.color
+                    (if buttonSelected then
+                        rgb255 45 97 209
+
+                     else
+                        rgb255 104 116 134
+                    )
+                , Border.rounded 14
+                , paddingEach { top = 9, right = 8, bottom = 9, left = 8 }
+                , htmlAttribute (HtmlAttr.style "outline" "none")
+                , htmlAttribute (HtmlAttr.style "box-shadow" "none")
+                , htmlAttribute (HtmlAttr.style "-webkit-tap-highlight-color" "rgba(0,0,0,0)")
+                ]
+                { onPress =
+                    Just
+                        (if entry.selected then
+                            entry.onPress
+
+                         else
+                            entry.onPress
+                        )
+                , label =
+                    el
+                        [ width fill
+                        , centerX
+                        , Font.center
+                        , Font.size 11
+                        , Font.semiBold
+                        ]
+                        (text entry.label)
+                }
+
+        moreButton =
+            Input.button
+                [ width fill
+                , Background.color
+                    (if moreSelected then
+                        rgb255 229 238 255
+
+                     else
+                        rgba255 255 255 0 0
+                    )
+                , Font.color
+                    (if moreSelected then
+                        rgb255 45 97 209
+
+                     else
+                        rgb255 104 116 134
+                    )
+                , Border.rounded 14
+                , paddingEach { top = 9, right = 8, bottom = 9, left = 8 }
+                , htmlAttribute (HtmlAttr.style "outline" "none")
+                , htmlAttribute (HtmlAttr.style "box-shadow" "none")
+                , htmlAttribute (HtmlAttr.style "-webkit-tap-highlight-color" "rgba(0,0,0,0)")
+                ]
+                { onPress = Just ToggleMobileSidebar
+                , label =
+                    el
+                        [ width fill
+                        , centerX
+                        , Font.center
+                        , Font.size 11
+                        , Font.semiBold
+                        ]
+                        (text "More")
+                }
+    in
+    if List.isEmpty visibleEntries && not shouldShowMore then
+        none
+
+    else
+        row
+            [ width fill
+            , paddingEach { top = 8, right = 14, bottom = 14, left = 14 }
+            , htmlAttribute (HtmlAttr.style "padding-bottom" "calc(34px + env(safe-area-inset-bottom))")
+            ]
+            [ row
+                [ width fill
+                , spacing 6
+                , Background.color (rgba255 248 250 254 232)
+                , Border.rounded 22
+                , Border.width 1
+                , Border.color (rgba255 210 220 236 220)
+                , paddingEach { top = 8, right = 8, bottom = 8, left = 8 }
+                , htmlAttribute (HtmlAttr.style "backdrop-filter" "blur(24px)")
+                , htmlAttribute (HtmlAttr.style "-webkit-backdrop-filter" "blur(24px)")
+                ]
+                (List.map navButton visibleEntries
+                    ++ (if shouldShowMore then
+                            [ moreButton ]
+
+                        else
+                            []
+                       )
+                )
+            ]
+
+
+viewMobileMoreSheet : Model -> Element Msg
+viewMobileMoreSheet model =
+    let
+        overflowEntries =
+            mobileOverflowNavEntries model
+
+        workspaceEntries =
+            mobileWorkspaceEntries model
+
+        sheetButton entry =
+            Input.button
+                [ width fill
+                , Border.rounded 14
+                , Background.color
+                    (if entry.selected then
+                        rgb255 229 238 255
+
+                     else
+                        rgb255 244 247 252
+                    )
+                , Font.color
+                    (if entry.selected then
+                        rgb255 45 97 209
+
+                     else
+                        rgb255 43 56 74
+                    )
+                , paddingEach { top = 13, right = 14, bottom = 13, left = 14 }
+                , htmlAttribute (HtmlAttr.style "outline" "none")
+                , htmlAttribute (HtmlAttr.style "box-shadow" "none")
+                , htmlAttribute (HtmlAttr.style "-webkit-tap-highlight-color" "rgba(0,0,0,0)")
+                ]
+                { onPress =
+                    Just
+                        (if entry.selected then
+                            CloseMobileSidebar
+
+                         else
+                            entry.onPress
+                        )
+                , label = paragraph [ centerX ] [ text entry.label ]
+                }
+
+        workspaceButton entry =
+            Input.button
+                [ width fill
+                , Border.rounded 14
+                , Border.width 2
+                , Border.color (rgba255 255 255 0 0)
+                , Background.color
+                    (if entry.selected then
+                        rgb255 54 94 217
+
+                    else
+                        rgba255 255 255 0 0
+                    )
+                , Font.color
+                    (if entry.selected then
+                        rgb255 246 248 252
+
+                     else
+                        rgb255 78 92 112
+                    )
+                , paddingEach { top = 11, right = 10, bottom = 11, left = 10 }
+                , htmlAttribute (HtmlAttr.style "outline" "none")
+                , htmlAttribute (HtmlAttr.style "box-shadow" "none")
+                ]
+                { onPress =
+                    Just
+                        (if entry.selected then
+                            CloseMobileSidebar
+
+                         else
+                            entry.onPress
+                        )
+                , label =
+                    paragraph
+                        [ centerX
+                        , Font.size 12
+                        , Font.semiBold
+                        ]
+                        [ text entry.label ]
+                }
+    in
+    el
+        [ width fill
+        , height fill
+        , Background.color (rgba255 24 29 36 138)
         ]
+        (column
+            [ width fill
+            , height fill
+            ]
+            [ el [ width fill, height fill ] none
+            , column
+                [ width fill
+                , spacing 12
+                , Background.color (rgba255 248 250 254 242)
+                , padding 16
+                , Border.roundEach { topLeft = 24, topRight = 24, bottomLeft = 0, bottomRight = 0 }
+                , Border.width 1
+                , Border.color (rgba255 214 222 235 242)
+                , htmlAttribute (HtmlAttr.style "backdrop-filter" "blur(28px)")
+                , htmlAttribute (HtmlAttr.style "-webkit-backdrop-filter" "blur(28px)")
+                ]
+                ([ row [ width fill, spacing 12 ]
+                    [ el [ Font.size 20, Font.bold, Font.color (rgb255 34 47 64) ] (text "More")
+                    , el [ width fill ] none
+                    , Input.button
+                        [ Background.color (rgb255 236 240 246)
+                        , Font.color (rgb255 62 74 92)
+                        , Border.rounded 12
+                        , paddingEach { top = 8, right = 12, bottom = 8, left = 12 }
+                        , htmlAttribute (HtmlAttr.style "outline" "none")
+                        , htmlAttribute (HtmlAttr.style "box-shadow" "none")
+                        , htmlAttribute (HtmlAttr.style "-webkit-tap-highlight-color" "rgba(0,0,0,0)")
+                        ]
+                        { onPress = Just CloseMobileSidebar
+                        , label = text "Close"
+                        }
+                    ]
+                 ]
+                    ++ (if List.isEmpty workspaceEntries then
+                            []
+
+                        else
+                            [ column
+                                [ width fill
+                                , spacing 10
+                                , Background.color (rgb255 236 240 246)
+                                , Border.rounded 18
+                                , padding 12
+                                ]
+                                [ el [ Font.size 11, Font.bold, Font.color (rgb255 109 121 139) ] (text "WORKSPACE")
+                                , row
+                                    [ width fill
+                                    , spacing 8
+                                    , Background.color (rgb255 248 250 253)
+                                    , Border.rounded 16
+                                    , padding 6
+                                    ]
+                                    (List.map workspaceButton workspaceEntries)
+                                ]
+                            ]
+                       )
+                    ++ (if List.isEmpty overflowEntries then
+                            []
+
+                        else
+                            [ el [ Font.size 11, Font.bold, Font.color (rgb255 124 136 154) ] (text "MORE") ]
+                                ++ List.map sheetButton overflowEntries
+                       )
+                )
+            ]
+        )
 
 
 viewAuthGate : Model -> Element Msg
@@ -2925,6 +3347,123 @@ viewSidebar model =
         workspace =
             currentWorkspace model
 
+        sidebarBackground =
+            if compact then
+                rgb255 18 22 28
+
+            else
+                rgb255 232 237 245
+
+        sidebarTitleColor =
+            if compact then
+                rgb255 240 245 250
+
+            else
+                rgb255 28 38 54
+
+        sidebarSubtitleColor =
+            if compact then
+                rgb255 144 158 179
+
+            else
+                rgb255 112 124 144
+
+        sidebarSectionColor =
+            if compact then
+                rgb255 118 136 160
+
+            else
+                rgb255 126 138 156
+
+        sidebarItemBackground selected =
+            if compact then
+                if selected then
+                    rgb255 54 94 217
+
+                else
+                    rgb255 24 29 36
+
+            else if selected then
+                rgb255 225 236 255
+
+            else
+                rgb255 247 249 252
+
+        sidebarItemTextColor selected =
+            if compact then
+                rgb255 244 246 248
+
+            else if selected then
+                rgb255 41 96 214
+
+            else
+                rgb255 45 57 75
+
+        sidebarItemSubtitleColor =
+            if compact then
+                rgb255 170 181 196
+
+            else
+                rgb255 126 138 156
+
+        workspaceToggleBackground selected =
+            if compact then
+                sidebarItemBackground selected
+
+            else if selected then
+                rgb255 54 94 217
+
+            else
+                rgba255 255 255 0 0
+
+        workspaceToggleTextColor selected =
+            if compact then
+                sidebarItemTextColor selected
+
+            else if selected then
+                rgb255 246 248 252
+
+            else
+                rgb255 78 92 112
+
+        workspaceToggleBorderColor =
+            if compact then
+                rgba255 255 255 0 0
+
+            else
+                rgba255 255 255 0 0
+
+        sidebarBorderColor selected =
+            if compact then
+                rgba255 255 255 0 0
+
+            else
+                rgba255 255 255 0 0
+
+        sidebarButtonAttrs selected backgroundColor textColor paddingValues =
+            [ width fill
+            , Border.rounded 10
+            , Border.width 2
+            , Border.color (sidebarBorderColor selected)
+            , Background.color backgroundColor
+            , Font.color textColor
+            , paddingEach paddingValues
+            , htmlAttribute (HtmlAttr.style "outline" "none")
+            , htmlAttribute (HtmlAttr.style "box-shadow" "none")
+            ]
+
+        workspaceToggleAttrs selected backgroundColor textColor paddingValues =
+            [ width fill
+            , Border.rounded 10
+            , Border.width 2
+            , Border.color workspaceToggleBorderColor
+            , Background.color backgroundColor
+            , Font.color textColor
+            , paddingEach paddingValues
+            , htmlAttribute (HtmlAttr.style "outline" "none")
+            , htmlAttribute (HtmlAttr.style "box-shadow" "none")
+            ]
+
         ( authEntities, crudEntities, actions ) =
             case model.schema of
                 Loaded schema ->
@@ -2947,7 +3486,7 @@ viewSidebar model =
                     ([ paragraph [ alignLeft ] [ text title ] ]
                         ++ (case maybeSubtitle of
                                 Just subtitle ->
-                                    [ paragraph [ alignLeft, Font.size 11, Font.color (rgb255 170 181 196) ] [ text subtitle ] ]
+                                    [ paragraph [ alignLeft, Font.size 11, Font.color sidebarItemSubtitleColor ] [ text subtitle ] ]
 
                                 Nothing ->
                                     []
@@ -2957,40 +3496,35 @@ viewSidebar model =
         workspaceSwitch : List (Element Msg)
         workspaceSwitch =
             if isAdminProfile model then
-                [ row [ width fill, spacing 8 ]
-                    [ Input.button
-                        [ width fill
-                        , Border.rounded 10
-                        , Background.color
-                            (if workspace == AppWorkspace then
-                                rgb255 54 94 217
-
-                             else
-                                rgb255 24 29 36
-                            )
-                        , Font.color (rgb255 244 246 248)
-                        , paddingEach { top = 10, right = 12, bottom = 10, left = 12 }
-                        ]
-                        { onPress = Just (SwitchWorkspace AppWorkspace)
-                        , label = text "App"
-                        }
-                    , Input.button
-                        [ width fill
-                        , Border.rounded 10
-                        , Background.color
-                            (if workspace == AdminWorkspace then
-                                rgb255 54 94 217
-
-                             else
-                                rgb255 24 29 36
-                            )
-                        , Font.color (rgb255 244 246 248)
-                        , paddingEach { top = 10, right = 12, bottom = 10, left = 12 }
-                        ]
-                        { onPress = Just (SwitchWorkspace AdminWorkspace)
-                        , label = text "Admin"
-                        }
+                [ el
+                    [ width fill
+                    , Background.color (rgb255 236 240 246)
+                    , Border.rounded 14
+                    , padding 3
                     ]
+                    (row [ width fill, spacing 4 ]
+                        [ Input.button
+                            (workspaceToggleAttrs
+                                (workspace == AppWorkspace)
+                                (workspaceToggleBackground (workspace == AppWorkspace))
+                                (workspaceToggleTextColor (workspace == AppWorkspace))
+                                { top = 3, right = 10, bottom = 3, left = 10 }
+                            )
+                            { onPress = Just (SwitchWorkspace AppWorkspace)
+                            , label = paragraph [ centerX, Font.size 14 ] [ text "App" ]
+                            }
+                        , Input.button
+                            (workspaceToggleAttrs
+                                (workspace == AdminWorkspace)
+                                (workspaceToggleBackground (workspace == AdminWorkspace))
+                                (workspaceToggleTextColor (workspace == AdminWorkspace))
+                                { top = 3, right = 10, bottom = 3, left = 10 }
+                            )
+                            { onPress = Just (SwitchWorkspace AdminWorkspace)
+                            , label = paragraph [ centerX, Font.size 14 ] [ text "Admin" ]
+                            }
+                        ]
+                    )
                 ]
 
             else
@@ -3012,20 +3546,14 @@ viewSidebar model =
                                     False
                             )
 
-                backgroundColor =
-                    if selected then
-                        rgb255 54 94 217
-
-                    else
-                        rgb255 24 29 36
             in
             Input.button
-                [ width fill
-                , Border.rounded 10
-                , Background.color backgroundColor
-                , Font.color (rgb255 244 246 248)
-                , paddingEach { top = 12, right = 12, bottom = 12, left = 12 }
-                ]
+                (sidebarButtonAttrs
+                    selected
+                    (sidebarItemBackground selected)
+                    (sidebarItemTextColor selected)
+                    { top = 12, right = 12, bottom = 12, left = 12 }
+                )
                 { onPress = Just (SelectEntity entity.name)
                 , label =
                     sidebarItemLabel entity.name (Just entity.resource)
@@ -3048,20 +3576,14 @@ viewSidebar model =
                                     False
                             )
 
-                backgroundColor =
-                    if selected then
-                        rgb255 54 94 217
-
-                    else
-                        rgb255 24 29 36
             in
             Input.button
-                [ width fill
-                , Border.rounded 10
-                , Background.color backgroundColor
-                , Font.color (rgb255 244 246 248)
-                , paddingEach { top = 12, right = 12, bottom = 12, left = 12 }
-                ]
+                (sidebarButtonAttrs
+                    selected
+                    (sidebarItemBackground selected)
+                    (sidebarItemTextColor selected)
+                    { top = 12, right = 12, bottom = 12, left = 12 }
+                )
                 { onPress = Just (SelectAction actionInfo.name)
                 , label =
                     sidebarItemLabel actionInfo.name (Just ("/actions/" ++ actionInfo.name))
@@ -3070,20 +3592,16 @@ viewSidebar model =
         performanceButton : Element Msg
         performanceButton =
             let
-                backgroundColor =
-                    if model.performanceMode && (not model.authToolsOpen) then
-                        rgb255 54 94 217
-
-                    else
-                        rgb255 24 29 36
+                selected =
+                    model.performanceMode && (not model.authToolsOpen)
             in
             Input.button
-                [ width fill
-                , Border.rounded 10
-                , Background.color backgroundColor
-                , Font.color (rgb255 244 246 248)
-                , paddingEach { top = 12, right = 12, bottom = 12, left = 12 }
-                ]
+                (sidebarButtonAttrs
+                    selected
+                    (sidebarItemBackground selected)
+                    (sidebarItemTextColor selected)
+                    { top = 12, right = 12, bottom = 12, left = 12 }
+                )
                 { onPress = Just SelectPerformance
                 , label =
                     sidebarItemLabel "Monitoring" (Just "/_mar/perf")
@@ -3092,20 +3610,16 @@ viewSidebar model =
         requestLogsButton : Element Msg
         requestLogsButton =
             let
-                backgroundColor =
-                    if model.requestLogsMode && (not model.authToolsOpen) then
-                        rgb255 54 94 217
-
-                    else
-                        rgb255 24 29 36
+                selected =
+                    model.requestLogsMode && (not model.authToolsOpen)
             in
             Input.button
-                [ width fill
-                , Border.rounded 10
-                , Background.color backgroundColor
-                , Font.color (rgb255 244 246 248)
-                , paddingEach { top = 12, right = 12, bottom = 12, left = 12 }
-                ]
+                (sidebarButtonAttrs
+                    selected
+                    (sidebarItemBackground selected)
+                    (sidebarItemTextColor selected)
+                    { top = 12, right = 12, bottom = 12, left = 12 }
+                )
                 { onPress = Just SelectRequestLogs
                 , label =
                     sidebarItemLabel "Logs" (Just "/_mar/request-logs")
@@ -3114,20 +3628,16 @@ viewSidebar model =
         databaseButton : Element Msg
         databaseButton =
             let
-                backgroundColor =
-                    if model.databaseMode && (not model.authToolsOpen) then
-                        rgb255 54 94 217
-
-                    else
-                        rgb255 24 29 36
+                selected =
+                    model.databaseMode && (not model.authToolsOpen)
             in
             Input.button
-                [ width fill
-                , Border.rounded 10
-                , Background.color backgroundColor
-                , Font.color (rgb255 244 246 248)
-                , paddingEach { top = 12, right = 12, bottom = 12, left = 12 }
-                ]
+                (sidebarButtonAttrs
+                    selected
+                    (sidebarItemBackground selected)
+                    (sidebarItemTextColor selected)
+                    { top = 12, right = 12, bottom = 12, left = 12 }
+                )
                 { onPress = Just SelectDatabase
                 , label =
                     sidebarItemLabel "Database" (Just "/_mar/backups")
@@ -3136,20 +3646,16 @@ viewSidebar model =
         authToolsButton : Element Msg
         authToolsButton =
             let
-                backgroundColor =
-                    if model.authToolsOpen then
-                        rgb255 54 94 217
-
-                    else
-                        rgb255 24 29 36
+                selected =
+                    model.authToolsOpen
             in
             Input.button
-                [ width fill
-                , Border.rounded 10
-                , Background.color backgroundColor
-                , Font.color (rgb255 244 246 248)
-                , paddingEach { top = 12, right = 12, bottom = 12, left = 12 }
-                ]
+                (sidebarButtonAttrs
+                    selected
+                    (sidebarItemBackground selected)
+                    (sidebarItemTextColor selected)
+                    { top = 12, right = 12, bottom = 12, left = 12 }
+                )
                 { onPress = Just ToggleAuthTools
                 , label =
                     sidebarItemLabel
@@ -3170,15 +3676,19 @@ viewSidebar model =
                  else
                     px 280
                 )
-         , Background.color (rgb255 18 22 28)
-         , padding (if compact then 16 else 20)
-         , spacing 16
+         , Background.color sidebarBackground
+         , padding (if compact then 16 else 18)
+         , spacing 12
          ]
             ++ (if compact then
                     [ width fill ]
 
                 else
-                    [ height fill, scrollbarY ]
+                    [ height fill
+                    , scrollbarY
+                    , Border.widthEach { top = 0, right = 1, bottom = 0, left = 0 }
+                    , Border.color (rgb255 214 221 233)
+                    ]
                )
         )
         (List.concat
@@ -3187,12 +3697,12 @@ viewSidebar model =
 
               else
                 [ row [ width fill, spacing 8 ]
-                    [ el [ Font.size 24, Font.bold, Font.color (rgb255 240 245 250) ] (text (currentAppName model)) ]
+                    [ el [ Font.size 24, Font.bold, Font.color sidebarTitleColor ] (text (currentAppName model)) ]
                 , if workspace == AppWorkspace && not (isAdminProfile model) then
                     none
 
                   else
-                    el [ Font.size 13, Font.color (rgb255 144 158 179) ]
+                    el [ Font.size 13, Font.color sidebarSubtitleColor ]
                         (text
                             (if workspace == AppWorkspace then
                                 "App workspace"
@@ -3204,7 +3714,7 @@ viewSidebar model =
                 ]
             , workspaceSwitch
             , if hasAnyAuthInfo model then
-                el [ Font.size 11, Font.bold, Font.color (rgb255 118 136 160) ] (text (if workspace == AppWorkspace then "ACCOUNT" else "AUTH"))
+                el [ Font.size 11, Font.bold, Font.color sidebarSectionColor ] (text (if workspace == AppWorkspace then "ACCOUNT" else "AUTH"))
                     :: authToolsButton
                     :: (if workspace == AdminWorkspace then
                             List.map entityButton authEntities
@@ -3220,10 +3730,10 @@ viewSidebar model =
 
               else
                 el
-                    [ paddingEach { top = 10, right = 0, bottom = 0, left = 0 }
+                    [ paddingEach { top = 4, right = 0, bottom = 0, left = 0 }
                     , Font.size 11
                     , Font.bold
-                    , Font.color (rgb255 118 136 160)
+                    , Font.color sidebarSectionColor
                     ]
                     (text
                         (if workspace == AppWorkspace then
@@ -3239,10 +3749,10 @@ viewSidebar model =
 
               else
                 el
-                    [ paddingEach { top = 10, right = 0, bottom = 0, left = 0 }
+                    [ paddingEach { top = 4, right = 0, bottom = 0, left = 0 }
                     , Font.size 11
                     , Font.bold
-                    , Font.color (rgb255 118 136 160)
+                    , Font.color sidebarSectionColor
                     ]
                     (text
                         (if workspace == AppWorkspace then
@@ -3255,10 +3765,10 @@ viewSidebar model =
                     :: List.map actionEndpointCard actions
             , if isAdminProfile model && workspace == AdminWorkspace then
                 [ el
-                    [ paddingEach { top = 10, right = 0, bottom = 0, left = 0 }
+                    [ paddingEach { top = 4, right = 0, bottom = 0, left = 0 }
                     , Font.size 11
                     , Font.bold
-                    , Font.color (rgb255 118 136 160)
+                    , Font.color sidebarSectionColor
                     ]
                     (text "SYSTEM")
                 , performanceButton
@@ -3285,8 +3795,13 @@ viewContent model =
     column
         ([ width fill
          , height fill
-         , padding (if compact then 16 else 24)
-         , spacing 16
+         , paddingEach
+            { top = if compact then 16 else 12
+            , right = if compact then 16 else 24
+            , bottom = if compact then 16 else 12
+            , left = if compact then 16 else 12
+            }
+         , spacing (if compact then 16 else 12)
          , htmlAttribute (HtmlAttr.style "min-height" "0")
          ]
             ++ (if compact then
@@ -3326,7 +3841,7 @@ viewContent model =
                         row
                             [ width fill
                             , height fill
-                            , spacing 16
+                            , spacing 12
                             , htmlAttribute (HtmlAttr.style "min-height" "0")
                             ]
                             [ viewDataPanel model
@@ -4658,16 +5173,7 @@ viewDataPanel model =
                                 "New"
 
                 mobileHeader =
-                    if workspace == AppWorkspace then
-                        none
-
-                    else
-                        paragraph
-                            [ width fill
-                            , Font.bold
-                            , Font.size 20
-                            ]
-                            [ text headerTitle ]
+                    none
 
                 actionsBar =
                     if compact then
@@ -4713,9 +5219,7 @@ viewDataPanel model =
                             ]
 
                     else
-                        viewPanelHeader compact
-                            headerTitle
-                            []
+                        wrappedRow [ width fill, spacing 10 ]
                             [ Input.button
                                 [ Background.color (rgb255 34 124 95)
                                 , Font.color (rgb255 248 252 250)
@@ -4739,9 +5243,14 @@ viewDataPanel model =
                     el
                         ([ width fill
                          , paddingEach
-                            { top = if compact && workspace == AppWorkspace then 0 else 2
+                            { top =
+                                if compact then
+                                    0
+
+                                else
+                                    7
                             , right = 0
-                            , bottom = 2
+                            , bottom = 0
                             , left = if compact && workspace == AppWorkspace then 0 else 8
                             }
                          , htmlAttribute (HtmlAttr.style "min-height" "0")
@@ -4776,12 +5285,12 @@ viewDataPanel model =
                              else
                                 fillPortion 3
                             )
-                     , spacing 14
+                     , spacing 10
                      , Background.color (rgb255 255 255 255)
                      , Border.rounded 14
                      , Border.width 1
                      , Border.color (rgb255 226 232 239)
-                     , padding 16
+                     , paddingEach { top = 10, right = 16, bottom = 4, left = 16 }
                      , htmlAttribute (HtmlAttr.style "min-height" "0")
                      , htmlAttribute (HtmlAttr.style "min-width" "0")
                      ]
@@ -4986,7 +5495,7 @@ viewRows model =
                                 record
                         )
                         records
-                        ++ [ el [ width fill, height (px 24) ] none ]
+                        ++ [ el [ width fill, height (px 4) ] none ]
                     )
 
 
@@ -5050,7 +5559,7 @@ viewRowCard compact workspace entity isSelected rowValue =
         [ width fill
         , Background.color
             (if isSelected then
-                rgb255 239 246 255
+                rgb255 229 239 255
 
              else
                 rgb255 250 252 255
@@ -5061,6 +5570,7 @@ viewRowCard compact workspace entity isSelected rowValue =
         , padding 14
         , htmlAttribute (HtmlAttr.style "cursor" "pointer")
         , htmlAttribute (HtmlAttr.style "outline" "none")
+        , htmlAttribute (HtmlAttr.style "box-shadow" "none")
         , htmlAttribute (HtmlAttr.style "-webkit-tap-highlight-color" "rgba(0,0,0,0)")
         ]
         { onPress = Just (SelectRow rowValue)
@@ -5139,8 +5649,8 @@ viewInspector model =
 
 viewPerformancePanel : Model -> Element Msg
 viewPerformancePanel model =
-    if not (isAdminProfile model) then
-        column
+    let
+        panelAttrs =
             [ width fill
             , spacing 14
             , Background.color (rgb255 255 255 255)
@@ -5149,6 +5659,19 @@ viewPerformancePanel model =
             , Border.color (rgb255 226 232 239)
             , padding 16
             ]
+                ++ (if isCompactLayout model then
+                        []
+
+                    else
+                        [ height fill
+                        , scrollbarY
+                        , htmlAttribute (HtmlAttr.style "min-height" "0")
+                        ]
+                   )
+    in
+    if not (isAdminProfile model) then
+        column
+            panelAttrs
             [ el [ Font.bold, Font.size 20 ] (text "Monitoring")
             , paragraph [ Font.size 14, Font.color (rgb255 93 103 120) ]
                 [ text "Admin role required to view monitoring information." ]
@@ -5215,14 +5738,7 @@ viewPerformancePanel model =
                     ]
         in
         column
-            [ width fill
-            , spacing 14
-            , Background.color (rgb255 255 255 255)
-            , Border.rounded 14
-            , Border.width 1
-            , Border.color (rgb255 226 232 239)
-            , padding 16
-            ]
+            panelAttrs
             [ viewPanelHeader (isCompactLayout model)
                 "Monitoring"
                 []
@@ -5337,8 +5853,8 @@ viewMonitoringVersion compact versionRemote detailsOpen =
 
 viewRequestLogsPanel : Model -> Element Msg
 viewRequestLogsPanel model =
-    if not (isAdminProfile model) then
-        column
+    let
+        panelAttrs =
             [ width fill
             , spacing 14
             , Background.color (rgb255 255 255 255)
@@ -5347,6 +5863,19 @@ viewRequestLogsPanel model =
             , Border.color (rgb255 226 232 239)
             , padding 16
             ]
+                ++ (if isCompactLayout model then
+                        []
+
+                    else
+                        [ height fill
+                        , scrollbarY
+                        , htmlAttribute (HtmlAttr.style "min-height" "0")
+                        ]
+                   )
+    in
+    if not (isAdminProfile model) then
+        column
+            panelAttrs
             [ el [ Font.bold, Font.size 20 ] (text "Request logs")
             , paragraph [ Font.size 14, Font.color (rgb255 93 103 120) ]
                 [ text "Admin role required to view request logs." ]
@@ -5367,14 +5896,7 @@ viewRequestLogsPanel model =
                         ""
         in
         column
-            [ width fill
-            , spacing 14
-            , Background.color (rgb255 255 255 255)
-            , Border.rounded 14
-            , Border.width 1
-            , Border.color (rgb255 226 232 239)
-            , padding 16
-            ]
+            panelAttrs
             [ viewPanelHeader (isCompactLayout model)
                 "Recent request logs"
                 (if logsSubtitle == "" then
