@@ -1,24 +1,18 @@
--- =========================================
 -- Application
--- =========================================
-
 app Todo
-port 4100
-database "todo.db"
 
--- =========================================
 -- Authentication
--- =========================================
 
 -- This app uses the built-in User entity that every Mar app gets automatically.
--- Login happens by email code.
---
--- To deliver real email directly from Mar, configure SMTP here.
--- Replace the host, username, password env var, and sender with real values.
--- The password itself should stay outside the .mar file, in an environment variable.
+
+-- When running in dev mode (for example, `mar dev todo.mar`),
+-- the `email_transport` configuration is ignored and emails are printed to the console.
+-- To send real email in production, configure SMTP here.
+-- Replace the host, username, password environment variable, and sender with real values.
+-- The password is not stored in the `.mar` file.  It must be provided through an
+-- environment variable.
+-- You may use any SMTP provider, but we recommend Resend (https://resend.com).
 auth {
-  code_ttl_minutes 10
-  session_ttl_hours 24
   email_transport smtp
   email_from "no-reply@yourdomain.com"
   email_subject "Your Todo login code"
@@ -26,17 +20,13 @@ auth {
   smtp_port 587
   smtp_username "resend"
   smtp_password_env "RESEND_API_KEY"
-  smtp_starttls true
 }
 
--- =========================================
 -- Entities
--- =========================================
 
 -- A very small Todo app:
 -- authenticated users can create, edit, and complete tasks.
 entity Todo {
-  id: Int primary auto
   title: String
   done: Bool
 
