@@ -559,7 +559,7 @@ topSearch model =
         , Border.color (rgb255 216 226 238)
         , Border.rounded 8
         , paddingEach { top = 7, right = 8, bottom = 7, left = 8 }
-        , Font.size 13
+        , Font.size 16
         , htmlAttribute (HtmlEvents.onFocus FocusDocsSearch)
         , htmlAttribute (HtmlEvents.onBlur BlurDocsSearch)
         , htmlAttribute (HtmlEvents.preventDefaultOn "keydown" docsSearchKeyDecoder)
@@ -762,7 +762,7 @@ docSearchSectionText maybeSectionId =
         Just sectionId ->
             case sectionId of
                 "home-hero" ->
-                    "Home hero. A simple declarative backend language. Mar compiles declarative source into a self-contained server executable with API, auth, admin panel, monitoring, and backups. Inspired by Elm and PocketBase. Get Started. Advanced Guide."
+                    "Home hero. A simple declarative backend language. Mar compiles declarative source into a self-contained server executable with API, auth, admin panel, monitoring, and backups. Inspired by Elm, PocketBase, and Rails. Get Started. Advanced Guide."
 
                 "why-mar" ->
                     "Why Mar. Less glue code. More backend. Declarative at its core. You describe the system at a higher level. Opinionated on purpose. Mar chooses a coherent runtime instead of exposing endless assembly decisions. Everything bundled. Authentication, authorization, admin tools, logs, monitoring, and built-in database backups come together."
@@ -780,7 +780,7 @@ docSearchSectionText maybeSectionId =
                     "Quick Start. Create todo.mar. Develop. Runs the app locally with hot reload and opens the Admin UI while you edit todo.mar. Publish. When you are ready to publish your app to production, run mar compile to package self-contained executables for all supported platforms and generate frontend clients. Run. Choose the target folder for your platform, start that executable, and open the printed Admin URL. Mar compile produces a single self-contained executable per target platform. Each one already includes API, auth, embedded Admin UI, monitoring dashboards, request logs, and SQLite backup tools. Ready for the next step. Next: Advanced Guide."
 
                 "advanced-fundamentals" ->
-                    "Advanced Guide. Core concepts of the language. Mar is a declarative backend DSL inspired by Elm and PocketBase, implemented in Go with focus on readability, maintainability, and simple deployment."
+                    "Advanced Guide. Core concepts of the language. Mar is a declarative backend DSL inspired by Elm, PocketBase, and Rails, implemented in Go with focus on readability, maintainability, and simple deployment."
 
                 "syntax-model" ->
                     "Syntax model. Top-level statements: app, port, database, public, system, auth, entity, type alias, action. Fields use the form fieldName: Type with modifiers such as primary, auto, and optional. Comments use Elm-style line comments."
@@ -874,7 +874,7 @@ docSearchRouteText : Route -> String
 docSearchRouteText route =
     case route of
         Home ->
-            "Home. A simple declarative backend language. Mar compiles declarative source into a self-contained server executable with API, authentication, authorization, admin tools, monitoring, logs, and database backups. Inspired by Elm and PocketBase. Mar syntax example. Get Started. Advanced Guide. Examples. Why Mar. Less glue code. More backend. Declarative at its core. Opinionated on purpose. Everything bundled. Authentication, authorization, admin tools, logs, monitoring, and built-in database backups come together. Who Mar Is For. Strong fit for teams that want the backend to stay boring in the best way: simple to run, easy to update, operational from day one. People who want the backend to stay coherent, operational, and easy to update without a lot of handwritten glue. Ready to try Mar. Next: Getting Started."
+            "Home. A simple declarative backend language. Mar compiles declarative source into a self-contained server executable with API, authentication, authorization, admin tools, monitoring, logs, and database backups. Inspired by Elm, PocketBase, and Rails. Mar syntax example. Get Started. Advanced Guide. Examples. Why Mar. Less glue code. More backend. Declarative at its core. Opinionated on purpose. Everything bundled. Authentication, authorization, admin tools, logs, monitoring, and built-in database backups come together. Who Mar Is For. Strong fit for teams that want the backend to stay boring in the best way: simple to run, easy to update, operational from day one. People who want the backend to stay coherent, operational, and easy to update without a lot of handwritten glue. Ready to try Mar. Next: Getting Started."
 
         GettingStarted ->
             "Getting Started. Install Mar, iterate quickly with hot reload, and deploy as a single executable. Install. Download. Path. Check. Code editor. Try mar edit in the terminal for quick experiments. It is extremely experimental. For a fuller editing experience, use the VSCode extension. Install Mar Developer Tools from Visual Studio Marketplace. The VSCode extension requires mar on your PATH to start LSP and formatting. Quick Start. Create a starter app with mar init todo. This creates a new todo folder with todo.mar, .gitignore, and README. Develop by entering the project folder and running mar dev todo.mar. Production build by entering the project folder and running mar compile todo.mar when you are ready to publish your app to production. Run the target executable from todo/dist/todo/<target>. Open the printed Admin URL. Mar compile produces a self-contained executable per target platform with API, auth, embedded Admin UI, monitoring dashboards, request logs, and SQLite backup tools. Ready for the next step. Next: Advanced Guide."
@@ -883,7 +883,7 @@ docSearchRouteText route =
             "Advanced guide fundamentals language reference runtime tooling deploy compiler."
 
         AdvancedFundamentals ->
-            "Advanced Guide Fundamentals. Mar is a declarative backend DSL inspired by Elm and PocketBase, implemented in Go with focus on readability, maintainability, and simple deployment. Fundamentals. Mar reads top-to-bottom as a declarative app definition. A Mar app is centered around entities, rules, authorization, auth configuration, and typed actions. Quick examples. Syntax model. Top-level statements: app, port, database, public, system, auth, entity, type alias, action. Fields use the form fieldName: Type with modifiers such as primary, auto, and optional. Comments use Elm-style line comments. Authentication and Authorization. Mar includes a built-in email-code login flow and per-operation authorization rules. Authentication endpoints are always available. Every Mar app includes a built-in User entity that you may extend. Entity access is deny-by-default unless you declare authorize rules. Admin always has read-only access to the built-in User entity, even without explicit authorize rules. authorize all when sets a default rule for list, get, create, update, and delete, and specific operations can still override it. System features use the same session and require role equals admin. Rules and Typed Actions. Rules are for validation close to the entity definition. Actions are for multi-step writes that must succeed or fail together. rule validates entity data and returns HTTP 422 when validation fails. Actions run in a single atomic transaction. Mar checks input types and assigned entity fields at compile time. Current limitations. Single .mar entry file per app. No multi-file projects or imports."
+            "Advanced Guide Fundamentals. Mar is a declarative backend DSL inspired by Elm, PocketBase, and Rails, implemented in Go with focus on readability, maintainability, and simple deployment. Fundamentals. Mar reads top-to-bottom as a declarative app definition. A Mar app is centered around entities, rules, authorization, auth configuration, and typed actions. Quick examples. Syntax model. Top-level statements: app, port, database, public, system, auth, entity, type alias, action. Fields use the form fieldName: Type with modifiers such as primary, auto, and optional. Comments use Elm-style line comments. Authentication and Authorization. Mar includes a built-in email-code login flow and per-operation authorization rules. Authentication endpoints are always available. Every Mar app includes a built-in User entity that you may extend. Entity access is deny-by-default unless you declare authorize rules. Admin always has read-only access to the built-in User entity, even without explicit authorize rules. authorize all when sets a default rule for list, get, create, update, and delete, and specific operations can still override it. System features use the same session and require role equals admin. Rules and Typed Actions. Rules are for validation close to the entity definition. Actions are for multi-step writes that must succeed or fail together. rule validates entity data and returns HTTP 422 when validation fails. Actions run in a single atomic transaction. Mar checks input types and assigned entity fields at compile time. Current limitations. Single .mar entry file per app. No multi-file projects or imports."
 
         AdvancedLanguageReference ->
             "Advanced Guide Language Reference. This reference lists the current keywords and built-in names used by the language. Top-level declarations: app, port, database, public, system, auth, entity, type alias, action. Entity fields and modifiers: primary, auto, optional. Validation and authorization: rule, expect, when, authorize, all, list, get, create, update, delete. Actions: input, create. Auth config: User, code_ttl_minutes, session_ttl_hours, email_transport, email_from, email_subject, smtp_host, smtp_port, smtp_username, smtp_password_env, smtp_starttls. System config: request_logs_buffer, http_max_request_body_mb, auth_request_code_rate_limit_per_minute, auth_login_rate_limit_per_minute, admin_ui_session_ttl_hours, security_frame_policy, security_referrer_policy, security_content_type_nosniff, sqlite_journal_mode, sqlite_synchronous, sqlite_foreign_keys, sqlite_busy_timeout_ms, sqlite_wal_autocheckpoint, sqlite_journal_size_limit_mb, sqlite_mmap_size_mb, sqlite_cache_size_kb. Public frontend config: dir, mount, spa_fallback. Built-in functions and values: len, contains, startsWith, endsWith, matches, isRole, auth_authenticated, auth_email, auth_user_id, auth_role, true, false, null."
@@ -910,7 +910,7 @@ docSearchEntries =
       , route = Home
       , sectionId = Just "home-hero"
       , summary = "A simple declarative backend language."
-      , keywords = [ "simple", "declarative", "backend language", "home", "Elm", "PocketBase", "Go" ]
+      , keywords = [ "simple", "declarative", "backend language", "home", "Elm", "PocketBase", "Rails", "Go" ]
       }
     , { title = "Why Mar"
       , route = Home
@@ -1265,7 +1265,7 @@ advancedLanguagePage model =
                         { url = "https://elm-lang.org"
                         , label = text "Elm"
                         }
-                    , text " and "
+                    , text ", "
                     , newTabLink
                         [ Font.color (rgb255 36 82 132)
                         , Font.semiBold
@@ -1273,6 +1273,15 @@ advancedLanguagePage model =
                         ]
                         { url = "https://pocketbase.io"
                         , label = text "PocketBase"
+                        }
+                    , text ", and "
+                    , newTabLink
+                        [ Font.color (rgb255 36 82 132)
+                        , Font.semiBold
+                        , htmlAttribute (HtmlAttr.style "cursor" "pointer")
+                        ]
+                        { url = "https://rubyonrails.org"
+                        , label = text "Rails"
                         }
                     , text ", implemented in "
                     , newTabLink
@@ -1739,7 +1748,7 @@ hero =
                     { url = "https://elm-lang.org"
                     , label = text "Elm"
                     }
-                , text " and "
+                , text ", "
                 , newTabLink
                     [ Font.color (rgb255 36 82 132)
                     , Font.semiBold
@@ -1747,6 +1756,15 @@ hero =
                     ]
                     { url = "https://pocketbase.io"
                     , label = text "PocketBase"
+                    }
+                , text ", and "
+                , newTabLink
+                    [ Font.color (rgb255 36 82 132)
+                    , Font.semiBold
+                    , htmlAttribute (HtmlAttr.style "cursor" "pointer")
+                    ]
+                    { url = "https://rubyonrails.org"
+                    , label = text "Rails"
                     }
                 , text "."
                 ]
