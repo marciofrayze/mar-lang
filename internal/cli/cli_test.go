@@ -258,7 +258,7 @@ func TestReadVersionInfoUsesEmbeddedVersion(t *testing.T) {
 	cliBuildTime = ""
 
 	info := readVersionInfo("mar")
-	if info.Version != "0.0.1" {
-		t.Fatalf("expected VERSION file version 0.0.1, got %q", info.Version)
+	if info.Version != "0.0.2-SNAPSHOT" {
+		t.Fatalf("expected VERSION file version 0.0.2-SNAPSHOT, got %q", info.Version)
 	}
 }
