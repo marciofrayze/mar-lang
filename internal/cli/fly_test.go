@@ -1,6 +1,9 @@
 package cli
 
 import (
+	"bufio"
+	"bytes"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -100,5 +103,138 @@ func TestValidateFlyInitPrereqsBlocksPlaceholderEmailBeforePrompts(t *testing.T)
 	}
 	if !strings.Contains(err.Error(), "auth.email_from is still using a placeholder value") {
 		t.Fatalf("expected placeholder email explanation, got %q", err.Error())
+	}
+}
+
+func TestResolveFlySecretValueUsesEnvironment(t *testing.T) {
+	t.Setenv("RESEND_API_KEY", "secret-123")
+
+	got, err := resolveFlySecretValue("RESEND_API_KEY")
+	if err != nil {
+		t.Fatalf("resolveFlySecretValue returned error: %v", err)
+	}
+	if got != "secret-123" {
+		t.Fatalf("unexpected secret value: %q", got)
+	}
+}
+
+func TestReadMaskedSecretInputMasksCharactersAndSupportsBackspace(t *testing.T) {
+	var out bytes.Buffer
+
+	got, err := readMaskedSecretInput(strings.NewReader("secx\x7fret\r"), &out)
+	if err != nil {
+		t.Fatalf("readMaskedSecretInput returned error: %v", err)
+	}
+	if got != "secret" {
+		t.Fatalf("unexpected secret value: %q", got)
+	}
+
+	rendered := out.String()
+	if strings.Contains(rendered, "secret") {
+		t.Fatalf("masked output should not contain the secret, got %q", rendered)
+	}
+	if !strings.Contains(rendered, "*") {
+		t.Fatalf("expected masked output to contain asterisks, got %q", rendered)
+	}
+	if !strings.HasSuffix(rendered, "\n") {
+		t.Fatalf("expected masked output to end with newline, got %q", rendered)
+	}
+}
+
+func TestMaskFlyCLIArgsMasksSecretValuesInDisplay(t *testing.T) {
+	got := maskFlyCLIArgs([]string{
+		"secrets",
+		"set",
+		"RESEND_API_KEY=secret-123",
+		"-a",
+		"mar-lang-todo",
+	})
+
+	if got[2] != "RESEND_API_KEY=********" {
+		t.Fatalf("expected secret to be masked, got %q", got[2])
+	}
+	if got[4] != "mar-lang-todo" {
+		t.Fatalf("unexpected non-secret arg change: %q", got[4])
+	}
+}
+
+func TestFormatFlyCLICommandErrorFriendlyAppNameTaken(t *testing.T) {
+	t.Setenv("NO_COLOR", "1")
+
+	err := formatFlyCLICommandError(
+		false,
+		"todo.mar",
+		"Create app",
+		[]string{"apps", "create", "mar-lang-todo"},
+		"Validation failed: Name has already been taken",
+		errors.New("exit status 1"),
+	)
+
+	if err == nil {
+		t.Fatal("expected friendly error")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "Fly app name is already in use") {
+		t.Fatalf("expected friendly title, got %q", msg)
+	}
+	if !strings.Contains(msg, "Fly.io already has an app named mar-lang-todo.") {
+		t.Fatalf("expected app name explanation, got %q", msg)
+	}
+	if !strings.Contains(msg, "mar fly init todo.mar") {
+		t.Fatalf("expected init guidance, got %q", msg)
+	}
+	if !strings.Contains(msg, "mar fly provision todo.mar") {
+		t.Fatalf("expected provision guidance, got %q", msg)
+	}
+}
+
+func TestConfirmFlyDestroyRequiresInteractiveTerminal(t *testing.T) {
+	oldStdin := os.Stdin
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	_ = w.Close()
+	os.Stdin = r
+	defer func() {
+		os.Stdin = oldStdin
+	}()
+
+	ok, err := confirmFlyDestroy("mar", "mar-lang-todo")
+	if ok {
+		t.Fatal("expected destroy confirmation to fail outside interactive terminal")
+	}
+	if err == nil {
+		t.Fatal("expected interactive-terminal error")
+	}
+	if !strings.Contains(err.Error(), "Fly destroy requires confirmation") {
+		t.Fatalf("unexpected error: %q", err.Error())
+	}
+}
+
+func TestPromptYesNoRetriesUntilValidAnswer(t *testing.T) {
+	var out bytes.Buffer
+	reader := bufio.NewReader(strings.NewReader("kopdsa\nyes\n"))
+
+	confirmed, err := promptYesNo(reader, &out, false, "Continue? [y/N]", false)
+	if err != nil {
+		t.Fatalf("promptYesNo returned error: %v", err)
+	}
+	if !confirmed {
+		t.Fatal("expected promptYesNo to accept yes after invalid input")
+	}
+
+	rendered := out.String()
+	if !strings.Contains(rendered, "Please answer yes or no.") {
+		t.Fatalf("expected retry hint after invalid input, got %q", rendered)
+	}
+}
+
+func TestReadMaskedSecretInputTreatsCtrlCAsInterrupt(t *testing.T) {
+	var out bytes.Buffer
+
+	_, err := readMaskedSecretInput(strings.NewReader("abc\x03"), &out)
+	if !errors.Is(err, errFlySecretPromptInterrupted) {
+		t.Fatalf("expected interrupt error, got %v", err)
 	}
 }

@@ -138,17 +138,29 @@ func TestFlyUsageErrorUsesStyledCLIFormat(t *testing.T) {
 	if !strings.Contains(msg, "Fly usage") {
 		t.Fatalf("expected fly usage title, got %q", msg)
 	}
-	if !strings.Contains(msg, "mar fly init <app.mar> [fly-app-name]") {
+	if !strings.Contains(msg, "mar fly init <app.mar>") {
 		t.Fatalf("expected fly usage command, got %q", msg)
+	}
+	if !strings.Contains(msg, "mar fly provision <app.mar>") {
+		t.Fatalf("expected fly provision usage command, got %q", msg)
 	}
 	if !strings.Contains(msg, "mar fly deploy <app.mar>") {
 		t.Fatalf("expected fly deploy usage command, got %q", msg)
 	}
+	if !strings.Contains(msg, "mar fly destroy <app.mar>") {
+		t.Fatalf("expected fly destroy usage command, got %q", msg)
+	}
 	if !strings.Contains(msg, "Hint:\n  Prepare Fly.io deployment files with: mar fly init <app.mar>") {
 		t.Fatalf("expected fly usage hint, got %q", msg)
 	}
+	if !strings.Contains(msg, "Create the Fly app, volume, and secrets with: mar fly provision <app.mar>") {
+		t.Fatalf("expected fly provision hint, got %q", msg)
+	}
 	if !strings.Contains(msg, "Deploy the current app with: mar fly deploy <app.mar>") {
 		t.Fatalf("expected fly deploy hint, got %q", msg)
+	}
+	if !strings.Contains(msg, "Permanently destroy the Fly.io app with: mar fly destroy <app.mar>") {
+		t.Fatalf("expected fly destroy hint, got %q", msg)
 	}
 	if !strings.HasSuffix(msg, "\n") {
 		t.Fatalf("expected fly usage message to end with newline, got %q", msg)
@@ -168,6 +180,12 @@ func TestRenderCompletionScriptSupportsZsh(t *testing.T) {
 	}
 	if !strings.Contains(script, "fly_commands=(") || !strings.Contains(script, "_describe 'fly command' fly_commands") {
 		t.Fatalf("expected zsh completion to describe fly subcommands via a named array, got %q", script)
+	}
+	if !strings.Contains(script, "provision:Create the Fly app, volume, and secrets from the generated config") {
+		t.Fatalf("expected zsh completion to include fly provision, got %q", script)
+	}
+	if !strings.Contains(script, "destroy:Permanently destroy the Fly.io app configured for this project") {
+		t.Fatalf("expected zsh completion to include fly destroy, got %q", script)
 	}
 	if !strings.Contains(script, "shells=(") || !strings.Contains(script, "_describe 'shell' shells") {
 		t.Fatalf("expected zsh completion to describe shells via a named array, got %q", script)

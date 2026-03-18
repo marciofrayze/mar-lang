@@ -59,7 +59,7 @@ func renderZshCompletion(binaryName string) string {
     'edit:Edit a Mar file directly in the terminal'
     'dev:Run development mode with hot reload'
     'compile:Compile a .mar app into executables for all supported platforms'
-    'fly:Prepare and deploy a Fly.io app'
+    'fly:Prepare, provision, deploy, and destroy a Fly.io app'
     'completion:Generate shell completion scripts'
     'format:Format Mar source files'
     'lsp:Start the Mar Language Server'
@@ -67,7 +67,9 @@ func renderZshCompletion(binaryName string) string {
   )
   fly_commands=(
     'init:Prepare Fly.io deployment files for your app'
+    'provision:Create the Fly app, volume, and secrets from the generated config'
     'deploy:Rebuild the Linux executable for Fly.io and run fly deploy'
+    'destroy:Permanently destroy the Fly.io app configured for this project'
   )
   shells=(
     'zsh:zsh shell'
@@ -106,7 +108,7 @@ func renderZshCompletion(binaryName string) string {
         return
       fi
       case "${words[3]}" in
-        init|deploy)
+        init|provision|deploy|destroy)
           if (( CURRENT == 4 )); then
             _files -g '*.mar'
           fi
@@ -170,11 +172,11 @@ func renderBashCompletion(binaryName string) string {
       ;;
     fly)
       if [[ ${COMP_CWORD} -eq 2 ]]; then
-        COMPREPLY=( $(compgen -W "init deploy" -- "${cur}") )
+        COMPREPLY=( $(compgen -W "init provision deploy destroy" -- "${cur}") )
         return 0
       fi
       case "${prev}" in
-        init|deploy)
+        init|provision|deploy|destroy)
           COMPREPLY=( $(compgen -f -X '!*.mar' -- "${cur}") )
           ;;
       esac
@@ -223,22 +225,24 @@ complete -c %s -n '__fish_use_subcommand' -a init -d 'Create a new Mar project w
 complete -c %s -n '__fish_use_subcommand' -a edit -d 'Edit a Mar file directly in the terminal'
 complete -c %s -n '__fish_use_subcommand' -a dev -d 'Run development mode with hot reload'
 complete -c %s -n '__fish_use_subcommand' -a compile -d 'Compile a .mar app into executables for all supported platforms'
-complete -c %s -n '__fish_use_subcommand' -a fly -d 'Prepare and deploy a Fly.io app'
+complete -c %s -n '__fish_use_subcommand' -a fly -d 'Prepare, provision, deploy, and destroy a Fly.io app'
 complete -c %s -n '__fish_use_subcommand' -a completion -d 'Generate shell completion scripts'
 complete -c %s -n '__fish_use_subcommand' -a format -d 'Format Mar source files'
 complete -c %s -n '__fish_use_subcommand' -a lsp -d 'Start the Mar Language Server'
 complete -c %s -n '__fish_use_subcommand' -a version -d 'Show version and build information'
 
-complete -c %s -n '__fish_seen_subcommand_from fly; and not __fish_seen_subcommand_from init deploy' -a init -d 'Prepare Fly.io deployment files for your app'
-complete -c %s -n '__fish_seen_subcommand_from fly; and not __fish_seen_subcommand_from init deploy' -a deploy -d 'Rebuild the Linux executable for Fly.io and run fly deploy'
+complete -c %s -n '__fish_seen_subcommand_from fly; and not __fish_seen_subcommand_from init provision deploy destroy' -a init -d 'Prepare Fly.io deployment files for your app'
+complete -c %s -n '__fish_seen_subcommand_from fly; and not __fish_seen_subcommand_from init provision deploy destroy' -a provision -d 'Create the Fly app, volume, and secrets from the generated config'
+complete -c %s -n '__fish_seen_subcommand_from fly; and not __fish_seen_subcommand_from init provision deploy destroy' -a deploy -d 'Rebuild the Linux executable for Fly.io and run fly deploy'
+complete -c %s -n '__fish_seen_subcommand_from fly; and not __fish_seen_subcommand_from init provision deploy destroy' -a destroy -d 'Permanently destroy the Fly.io app configured for this project'
 
 complete -c %s -n '__fish_seen_subcommand_from edit; and test (count (commandline -opc)) -eq 2' -a '(__fish_complete_suffix .mar)'
 complete -c %s -n '__fish_seen_subcommand_from dev compile; and test (count (commandline -opc)) -eq 2' -a '(__fish_complete_suffix .mar)'
-complete -c %s -n '__fish_seen_subcommand_from fly; and __fish_seen_subcommand_from init deploy' -a '(__fish_complete_suffix .mar)'
+complete -c %s -n '__fish_seen_subcommand_from fly; and __fish_seen_subcommand_from init provision deploy destroy' -a '(__fish_complete_suffix .mar)'
 complete -c %s -n '__fish_seen_subcommand_from format; and not __fish_seen_subcommand_from --stdin' -l check -d 'Check formatting without writing files'
 complete -c %s -n '__fish_seen_subcommand_from format; and not __fish_seen_subcommand_from --stdin' -l stdin -d 'Read Mar source from stdin'
 complete -c %s -n '__fish_seen_subcommand_from format; and not __fish_seen_subcommand_from --stdin' -a '(__fish_complete_suffix .mar)'
 complete -c %s -n '__fish_seen_subcommand_from format; and __fish_seen_subcommand_from --stdin' -l check -d 'Check formatting without writing files'
 complete -c %s -n '__fish_seen_subcommand_from completion' -a 'zsh bash fish'
-`, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName)
+`, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName)
 }

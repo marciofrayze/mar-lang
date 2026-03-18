@@ -22,12 +22,12 @@ var (
 	cliCommit    = ""
 	cliBuildTime = ""
 
-	parseErrorQuotedTokenRe  = regexp.MustCompile(`"[^"\n]*"`)
-	parseErrorUnknownInputRe = regexp.MustCompile(`unknown input field ("[^"\n]*")`)
-	parseErrorActionRe       = regexp.MustCompile(`\baction\s+([A-Za-z_][A-Za-z0-9_]*)`)
-	parseErrorFieldRe        = regexp.MustCompile(`\bfield\s+([A-Za-z_][A-Za-z0-9_.]*)`)
-	parseErrorDeclWordRe     = regexp.MustCompile(`\b(app|auth|public|system)\s+declaration\b`)
-	parseErrorConfigPathRe   = regexp.MustCompile(`\b(auth|system|public)\.([A-Za-z_][A-Za-z0-9_.]*)\b`)
+	parseErrorQuotedTokenRe   = regexp.MustCompile(`"[^"\n]*"`)
+	parseErrorUnknownInputRe  = regexp.MustCompile(`unknown input field ("[^"\n]*")`)
+	parseErrorActionRe        = regexp.MustCompile(`\baction\s+([A-Za-z_][A-Za-z0-9_]*)`)
+	parseErrorFieldRe         = regexp.MustCompile(`\bfield\s+([A-Za-z_][A-Za-z0-9_.]*)`)
+	parseErrorDeclWordRe      = regexp.MustCompile(`\b(app|auth|public|system)\s+declaration\b`)
+	parseErrorConfigPathRe    = regexp.MustCompile(`\b(auth|system|public)\.([A-Za-z_][A-Za-z0-9_.]*)\b`)
 	parseErrorAuthTransportRe = regexp.MustCompile(`\b(email_transport)\s+(smtp|console)\b`)
 )
 
@@ -375,7 +375,7 @@ func printUsage(binaryName string) {
 	fmt.Printf("  %-45s %s\n", fmt.Sprintf("%s edit <app.mar>", binaryName), "Edit a Mar file directly in the terminal.")
 	fmt.Printf("  %-45s %s\n", fmt.Sprintf("%s dev <app.mar> [output-name]", binaryName), "Run development mode with hot reload.")
 	fmt.Printf("  %-45s %s\n", fmt.Sprintf("%s compile <app.mar> [output-name]", binaryName), "Compile a .mar app into executables for all supported platforms and generate its frontend clients.")
-	fmt.Printf("  %-45s %s\n", fmt.Sprintf("%s fly init <app.mar> [fly-app-name]", binaryName), "Prepares Fly.io deployment files for your app.")
+	fmt.Printf("  %-45s %s\n", fmt.Sprintf("%s fly init <app.mar>", binaryName), "Prepares Fly.io deployment files for your app.")
 	fmt.Printf("  %-45s %s\n", fmt.Sprintf("%s fly deploy <app.mar>", binaryName), "Rebuild the Linux executable for Fly.io and run fly deploy.")
 	fmt.Printf("  %-45s %s\n", fmt.Sprintf("%s completion <zsh|bash|fish>", binaryName), "Generate shell completion scripts.")
 	fmt.Printf("  %-45s %s\n", fmt.Sprintf("%s format [--check] [--stdin] [files...]", binaryName), "Format Mar source files.")
@@ -395,7 +395,7 @@ func unknownCommandError(binaryName, provided string) error {
 	fmt.Fprintf(&b, "  %s\n", fmt.Sprintf("%s edit <app.mar>", binaryName))
 	fmt.Fprintf(&b, "  %s\n", fmt.Sprintf("%s dev <app.mar> [output-name]", binaryName))
 	fmt.Fprintf(&b, "  %s\n", fmt.Sprintf("%s compile <app.mar> [output-name]", binaryName))
-	fmt.Fprintf(&b, "  %s\n", fmt.Sprintf("%s fly init <app.mar> [fly-app-name]", binaryName))
+	fmt.Fprintf(&b, "  %s\n", fmt.Sprintf("%s fly init <app.mar>", binaryName))
 	fmt.Fprintf(&b, "  %s\n", fmt.Sprintf("%s fly deploy <app.mar>", binaryName))
 	fmt.Fprintf(&b, "  %s\n", fmt.Sprintf("%s completion <zsh|bash|fish>", binaryName))
 	fmt.Fprintf(&b, "  %s\n", fmt.Sprintf("%s format [--check] [--stdin] [files...]", binaryName))
