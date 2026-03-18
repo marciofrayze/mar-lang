@@ -3,8 +3,6 @@
 -- =========================================
 
 app BookStore
-port 4100
-database "bookstore.db"
 
 -- Authentication is built into the framework.
 -- Users login with one-time email codes via /auth/request-code and /auth/login.
@@ -36,7 +34,6 @@ entity User {
 }
 
 entity Book {
-  id: Int primary auto
   title: String
   authorName: String
   isbn: String
@@ -57,7 +54,6 @@ entity Book {
 -- Order and OrderItem are linked by orderRef.
 -- This fits the current action model, where we write multiple creates atomically.
 entity Order {
-  id: Int primary auto
   orderRef: String
   userId: Int
   status: String
@@ -78,7 +74,6 @@ entity Order {
 }
 
 entity OrderItem {
-  id: Int primary auto
   orderRef: String
   userId: Int
   bookId: Int
@@ -99,7 +94,6 @@ entity OrderItem {
 }
 
 entity AuditLog {
-  id: Int primary auto
   userId: Int
   event: String
   orderRef: String optional
