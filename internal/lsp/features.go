@@ -70,8 +70,10 @@ var (
 		"authorize":                               "Adds authorization rules for CRUD actions. Use `authorize all when ...` to set a default for every operation and override specific operations when needed.",
 		"type":                                    "Used with `type alias` to define an action input record.",
 		"alias":                                   "Used with `type alias` to define an action input record.",
-		"action":                                  "Declares an action endpoint with `input` and one or more `create` steps.",
+		"action":                                  "Declares an action endpoint with `input` and one or more `create`, `update`, or `delete` steps.",
 		"create":                                  "Adds one create step inside an action block.",
+		"update":                                  "Adds one update step inside an action block. Include the entity primary key plus the fields to change.",
+		"delete":                                  "Adds one delete step inside an action block. Include the entity primary key to select the row to remove.",
 		"optional":                                "Marks a field as nullable.",
 		"default":                                 "Sets a literal default value for a field. New required fields with defaults can be added automatically during migration.",
 		"primary":                                 "Marks a field as primary key.",
@@ -426,7 +428,7 @@ func hoverForSymbol(index *workspaceSymbolIndex, symbol symbolOccurrence) string
 		}
 	case symbolAction:
 		header = "Action `" + symbol.Name + "`"
-		detail = "Executes typed `create` steps atomically and is exposed as `/actions/<name>`."
+		detail = "Executes typed `create`, `update`, and `delete` steps atomically and is exposed as `/actions/<name>`."
 	default:
 		header = "Symbol `" + symbol.Name + "`"
 	}

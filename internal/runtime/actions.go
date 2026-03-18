@@ -9,7 +9,7 @@ import (
 	"mar/internal/suggest"
 )
 
-// handleAction executes a typed action (with create steps) in a single SQL transaction.
+// handleAction executes a typed action (with create/update/delete steps) in a single SQL transaction.
 func (r *Runtime) handleAction(w http.ResponseWriter, requestID, actionName string, auth authSession, payload map[string]any) error {
 	action := r.actionsByName[actionName]
 	if action == nil {
@@ -26,6 +26,7 @@ func (r *Runtime) handleAction(w http.ResponseWriter, requestID, actionName stri
 	}
 
 	statements := make([]sqlitecli.Statement, 0, len(action.Steps))
+	allCreates := true
 	for _, step := range action.Steps {
 		entity := r.entitiesByName[step.Entity]
 		if entity == nil {
@@ -37,18 +38,10 @@ func (r *Runtime) handleAction(w http.ResponseWriter, requestID, actionName stri
 			return newAPIError(http.StatusBadRequest, "invalid_action_input", err.Error())
 		}
 
-		insert, err := buildInsert(entity, stepPayload)
-		if err != nil {
-			return newAPIError(http.StatusBadRequest, "invalid_action_input", fmt.Sprintf("Action %s step create %s: %s", action.Name, entity.Name, err.Error()))
+		if step.Kind != "create" {
+			allCreates = false
 		}
-		if err := r.ensureAuthorized(entity, "create", auth, insert.Context); err != nil {
-			return err
-		}
-		if err := r.validateEntityRules(entity, insert.Context); err != nil {
-			return err
-		}
-
-		stmt, err := buildInsertStatement(entity, insert)
+		stmt, err := r.buildActionStatement(requestID, action, entity, step, auth, stepPayload)
 		if err != nil {
 			return err
 		}
@@ -59,12 +52,94 @@ func (r *Runtime) handleAction(w http.ResponseWriter, requestID, actionName stri
 		return err
 	}
 
-	r.writeJSON(w, http.StatusCreated, map[string]any{
+	status := http.StatusOK
+	if allCreates {
+		status = http.StatusCreated
+	}
+	r.writeJSON(w, status, map[string]any{
 		"ok":     true,
 		"action": action.Name,
 		"steps":  len(statements),
 	})
 	return nil
+}
+
+func (r *Runtime) buildActionStatement(requestID string, action *model.Action, entity *model.Entity, step model.ActionStep, auth authSession, stepPayload map[string]any) (sqlitecli.Statement, error) {
+	switch step.Kind {
+	case "create":
+		insert, err := buildInsert(entity, stepPayload)
+		if err != nil {
+			return sqlitecli.Statement{}, newAPIError(http.StatusBadRequest, "invalid_action_input", fmt.Sprintf("Action %s step create %s: %s", action.Name, entity.Name, err.Error()))
+		}
+		if err := r.ensureAuthorized(entity, "create", auth, insert.Context); err != nil {
+			return sqlitecli.Statement{}, err
+		}
+		if err := r.validateEntityRules(entity, insert.Context); err != nil {
+			return sqlitecli.Statement{}, err
+		}
+		stmt, err := buildInsertStatement(entity, insert)
+		if err != nil {
+			return sqlitecli.Statement{}, err
+		}
+		return stmt, nil
+	case "update":
+		id, ok := stepPayload[entity.PrimaryKey]
+		if !ok {
+			return sqlitecli.Statement{}, newAPIError(http.StatusInternalServerError, "action_misconfigured", fmt.Sprintf("Action %s step update %s is missing primary key %s", action.Name, entity.Name, entity.PrimaryKey))
+		}
+		row, found, err := r.fetchByID(requestID, entity, id)
+		if err != nil {
+			return sqlitecli.Statement{}, err
+		}
+		if !found {
+			return sqlitecli.Statement{}, newAPIError(http.StatusNotFound, "entity_not_found", entity.Name+" not found")
+		}
+		current := decodeEntityRow(entity, row)
+		updatePayload := map[string]any{}
+		for key, value := range stepPayload {
+			if key == entity.PrimaryKey {
+				continue
+			}
+			updatePayload[key] = value
+		}
+		update, err := buildUpdate(entity, updatePayload, current)
+		if err != nil {
+			return sqlitecli.Statement{}, newAPIError(http.StatusBadRequest, "invalid_action_input", fmt.Sprintf("Action %s step update %s: %s", action.Name, entity.Name, err.Error()))
+		}
+		if err := r.ensureAuthorized(entity, "update", auth, update.Context); err != nil {
+			return sqlitecli.Statement{}, err
+		}
+		if err := r.validateEntityRules(entity, update.Context); err != nil {
+			return sqlitecli.Statement{}, err
+		}
+		stmt, err := buildUpdateStatement(entity, id, update)
+		if err != nil {
+			return sqlitecli.Statement{}, err
+		}
+		return stmt, nil
+	case "delete":
+		id, ok := stepPayload[entity.PrimaryKey]
+		if !ok {
+			return sqlitecli.Statement{}, newAPIError(http.StatusInternalServerError, "action_misconfigured", fmt.Sprintf("Action %s step delete %s is missing primary key %s", action.Name, entity.Name, entity.PrimaryKey))
+		}
+		row, found, err := r.fetchByID(requestID, entity, id)
+		if err != nil {
+			return sqlitecli.Statement{}, err
+		}
+		if !found {
+			return sqlitecli.Statement{}, newAPIError(http.StatusNotFound, "entity_not_found", entity.Name+" not found")
+		}
+		if err := r.ensureAuthorized(entity, "delete", auth, decodeEntityRow(entity, row)); err != nil {
+			return sqlitecli.Statement{}, err
+		}
+		stmt, err := buildDeleteStatement(entity, id)
+		if err != nil {
+			return sqlitecli.Statement{}, err
+		}
+		return stmt, nil
+	default:
+		return sqlitecli.Statement{}, newAPIError(http.StatusInternalServerError, "action_misconfigured", fmt.Sprintf("Action %s uses unsupported step kind %s", action.Name, step.Kind))
+	}
 }
 
 func normalizeActionInput(alias *model.TypeAlias, payload map[string]any) (map[string]any, error) {
@@ -217,6 +292,45 @@ func buildInsertStatement(entity *model.Entity, insert *insertBuild) (sqlitecli.
 	return sqlitecli.Statement{
 		Query: fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", table, stringsJoin(cols, ", "), stringsJoin(placeholders, ", ")),
 		Args:  insert.Values,
+	}, nil
+}
+
+func buildUpdateStatement(entity *model.Entity, id any, update *updateBuild) (sqlitecli.Statement, error) {
+	table, err := quoteIdentifier(entity.Table)
+	if err != nil {
+		return sqlitecli.Statement{}, err
+	}
+	pk, err := quoteIdentifier(entity.PrimaryKey)
+	if err != nil {
+		return sqlitecli.Statement{}, err
+	}
+	assignments := make([]string, 0, len(update.Columns))
+	for _, c := range update.Columns {
+		q, err := quoteIdentifier(c)
+		if err != nil {
+			return sqlitecli.Statement{}, err
+		}
+		assignments = append(assignments, fmt.Sprintf("%s = ?", q))
+	}
+	args := append(update.Values, id)
+	return sqlitecli.Statement{
+		Query: fmt.Sprintf("UPDATE %s SET %s WHERE %s = ?", table, stringsJoin(assignments, ", "), pk),
+		Args:  args,
+	}, nil
+}
+
+func buildDeleteStatement(entity *model.Entity, id any) (sqlitecli.Statement, error) {
+	table, err := quoteIdentifier(entity.Table)
+	if err != nil {
+		return sqlitecli.Statement{}, err
+	}
+	pk, err := quoteIdentifier(entity.PrimaryKey)
+	if err != nil {
+		return sqlitecli.Statement{}, err
+	}
+	return sqlitecli.Statement{
+		Query: fmt.Sprintf("DELETE FROM %s WHERE %s = ?", table, pk),
+		Args:  []any{id},
 	}, nil
 }
 

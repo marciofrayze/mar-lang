@@ -161,6 +161,56 @@ title:input.title
 	}
 }
 
+func TestFormatActionUpdateDeleteCanonicalOutput(t *testing.T) {
+	valid := `
+app Demo
+entity Todo{
+title:String
+done:Bool default false
+}
+type alias ChangeTodoInput=
+{id:Int}
+action changeTodo{
+input:ChangeTodoInput
+update Todo{
+id:input.id
+done:true
+}
+delete Todo{
+id:input.id
+}
+}
+`
+
+	formatted, err := Format(valid)
+	if err != nil {
+		t.Fatalf("format failed: %v", err)
+	}
+
+	expected := "" +
+		"app Demo\n" +
+		"entity Todo {\n" +
+		"  title: String\n" +
+		"  done: Bool default false\n" +
+		"}\n" +
+		"type alias ChangeTodoInput =\n" +
+		"  {id:Int}\n" +
+		"action changeTodo {\n" +
+		"  input: ChangeTodoInput\n" +
+		"  update Todo {\n" +
+		"    id: input.id\n" +
+		"    done: true\n" +
+		"  }\n" +
+		"  delete Todo {\n" +
+		"    id: input.id\n" +
+		"  }\n" +
+		"}\n"
+
+	if formatted != expected {
+		t.Fatalf("unexpected formatted output\n--- expected ---\n%s\n--- got ---\n%s", expected, formatted)
+	}
+}
+
 func TestFormatPublicBlockCanonicalOutput(t *testing.T) {
 	src := `
 app FrontApi

@@ -161,8 +161,8 @@
           }
         },
         {
-          "name": "meta.action.create.mar",
-          "match": "\\b(create)\\s+([A-Z][A-Za-z0-9_]*)\\b",
+          "name": "meta.action.step.mar",
+          "match": "\\b(create|update|delete)\\s+([A-Z][A-Za-z0-9_]*)\\b",
           "captures": {
             "1": {
               "name": "keyword.control.rule.mar"

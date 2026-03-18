@@ -856,6 +856,110 @@ action createTodo {
 	}
 }
 
+func TestParseActionSupportsUpdateAndDeleteSteps(t *testing.T) {
+	src := `
+app Demo
+
+entity Todo {
+  title: String
+  done: Bool default false
+}
+
+type alias ChangeTodoInput =
+  { id: Int
+  , title: String
+  }
+
+action changeTodo {
+  input: ChangeTodoInput
+
+  update Todo {
+    id: input.id
+    title: input.title
+  }
+
+  delete Todo {
+    id: input.id
+  }
+}
+`
+
+	app, err := Parse(src)
+	if err != nil {
+		t.Fatalf("Parse returned error: %v", err)
+	}
+	if len(app.Actions) != 1 {
+		t.Fatalf("expected 1 action, got %d", len(app.Actions))
+	}
+	if got := app.Actions[0].Steps[0].Kind; got != "update" {
+		t.Fatalf("expected first step kind update, got %q", got)
+	}
+	if got := app.Actions[0].Steps[1].Kind; got != "delete" {
+		t.Fatalf("expected second step kind delete, got %q", got)
+	}
+}
+
+func TestParseActionUpdateRequiresPrimaryKey(t *testing.T) {
+	src := `
+app Demo
+
+entity Todo {
+  title: String
+}
+
+type alias UpdateTodoInput =
+  { title: String
+  }
+
+action updateTodo {
+  input: UpdateTodoInput
+
+  update Todo {
+    title: input.title
+  }
+}
+`
+
+	_, err := Parse(src)
+	if err == nil {
+		t.Fatal("expected parse error for update without primary key")
+	}
+	if !strings.Contains(err.Error(), "must include primary key field id") {
+		t.Fatalf("unexpected error message: %v", err)
+	}
+}
+
+func TestParseActionDeleteOnlyAllowsPrimaryKey(t *testing.T) {
+	src := `
+app Demo
+
+entity Todo {
+  title: String
+}
+
+type alias DeleteTodoInput =
+  { id: Int
+  }
+
+action deleteTodo {
+  input: DeleteTodoInput
+
+  delete Todo {
+    id: input.id
+    title: "x"
+  }
+}
+`
+
+	_, err := Parse(src)
+	if err == nil {
+		t.Fatal("expected parse error for delete with extra fields")
+	}
+	if !strings.Contains(err.Error(), "must only include primary key field id") {
+		t.Fatalf("unexpected error message: %v", err)
+	}
+}
+
 func TestParsePublicBlock(t *testing.T) {
 	src := `
 app FrontApi

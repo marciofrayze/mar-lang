@@ -11,7 +11,7 @@ Mar has a built-in `User` entity in every app, and entity operations are protect
 - Public assets config (`public`, `dir`, `mount`, `spa_fallback`)
 - System config (`system`, `request_logs_buffer`, `http_max_request_body_mb`, auth rate limits, security headers like `security_frame_policy`/`security_referrer_policy`/`security_content_type_nosniff`, and `sqlite_*` options like `sqlite_mmap_size_mb` and `sqlite_cache_size_kb`)
 - Rule/authz keywords (`rule`, `expect`, `when`, `authorize`)
-- Action syntax (`action <name> { input: Alias ... create Entity { ... } }`)
+- Action syntax (`action <name> { input: Alias ... create/update/delete Entity { ... } }`)
 - Auth config keys (`code_ttl_minutes`, `session_ttl_hours`, `email_transport`, etc.)
 - Built-in `User` entity support and auth-aware snippets
 - Field modifiers (`primary`, `auto`, `optional`, `default`)
@@ -35,6 +35,8 @@ Mar has a built-in `User` entity in every app, and entity operations are protect
 - `typealias`
 - `action`
 - `create`
+- `update`
+- `delete`
 - `actioncreate`
 - Database path tip:
 - Use `database "app.db"` for a simple relative path.

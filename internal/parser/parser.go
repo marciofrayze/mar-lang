@@ -1064,7 +1064,7 @@ func parseActionBlock(lines []line, idx *int, name string) (*model.Action, error
 				return nil, fmt.Errorf("line %d: action %s is missing `input: TypeAlias`", ln.number, name)
 			}
 			if len(action.Steps) == 0 {
-				return nil, fmt.Errorf("line %d: action %s must contain at least one `create` block", ln.number, name)
+				return nil, fmt.Errorf("line %d: action %s must contain at least one `create`, `update`, or `delete` block", ln.number, name)
 			}
 			return action, nil
 		}
@@ -1079,8 +1079,8 @@ func parseActionBlock(lines []line, idx *int, name string) (*model.Action, error
 			continue
 		}
 
-		if m := match(`^create\s+([A-Za-z][A-Za-z0-9_]*)\s*\{$`, trimmed); m != nil {
-			step, err := parseCreateBlock(lines, idx, name, m[1])
+		if m := match(`^(create|update|delete)\s+([A-Za-z][A-Za-z0-9_]*)\s*\{$`, trimmed); m != nil {
+			step, err := parseActionStepBlock(lines, idx, name, m[1], m[2])
 			if err != nil {
 				return nil, err
 			}
@@ -1094,8 +1094,8 @@ func parseActionBlock(lines []line, idx *int, name string) (*model.Action, error
 	return nil, fmt.Errorf("action %s is missing closing }", name)
 }
 
-func parseCreateBlock(lines []line, idx *int, actionName, entityName string) (*model.ActionStep, error) {
-	step := &model.ActionStep{Kind: "create", Entity: entityName, Values: []model.ActionFieldExpr{}}
+func parseActionStepBlock(lines []line, idx *int, actionName, kind, entityName string) (*model.ActionStep, error) {
+	step := &model.ActionStep{Kind: kind, Entity: entityName, Values: []model.ActionFieldExpr{}}
 	seen := map[string]bool{}
 
 	(*idx)++
@@ -1109,18 +1109,18 @@ func parseCreateBlock(lines []line, idx *int, actionName, entityName string) (*m
 		if trimmed == "}" {
 			(*idx)++
 			if len(step.Values) == 0 {
-				return nil, fmt.Errorf("line %d: create %s in action %s must define at least one field", ln.number, entityName, actionName)
+				return nil, fmt.Errorf("line %d: %s %s in action %s must define at least one field", ln.number, kind, entityName, actionName)
 			}
 			return step, nil
 		}
 
 		assign := match(`^([a-z][A-Za-z0-9_]*)\s*:\s*(.+)$`, trimmed)
 		if assign == nil {
-			return nil, fmt.Errorf("line %d: invalid create field %q. Expected `field: value`", ln.number, trimmed)
+			return nil, fmt.Errorf("line %d: invalid %s field %q. Expected `field: value`", ln.number, kind, trimmed)
 		}
 		field := assign[1]
 		if seen[field] {
-			return nil, fmt.Errorf("line %d: duplicate field %q in create %s", ln.number, field, entityName)
+			return nil, fmt.Errorf("line %d: duplicate field %q in %s %s", ln.number, field, kind, entityName)
 		}
 		seen[field] = true
 
@@ -1133,7 +1133,7 @@ func parseCreateBlock(lines []line, idx *int, actionName, entityName string) (*m
 		(*idx)++
 	}
 
-	return nil, fmt.Errorf("create %s in action %s is missing closing }", entityName, actionName)
+	return nil, fmt.Errorf("%s %s in action %s is missing closing }", kind, entityName, actionName)
 }
 
 func parseActionFieldExpr(raw string, lineNo int) (*model.ActionFieldExpr, error) {
@@ -1324,15 +1324,16 @@ func validateActions(app *model.App) error {
 		}
 
 		if len(action.Steps) == 0 {
-			return fmt.Errorf("action %s must have at least one create step", action.Name)
+			return fmt.Errorf("action %s must have at least one create, update, or delete step", action.Name)
 		}
 		for _, step := range action.Steps {
-			if step.Kind != "create" {
-				return fmt.Errorf("action %s has unsupported step kind %q", action.Name, step.Kind)
-			}
 			entity := entityByName[step.Entity]
 			if entity == nil {
 				return fmt.Errorf("action %s references unknown entity %q", action.Name, step.Entity)
+			}
+			pkField := findEntityField(entity, entity.PrimaryKey)
+			if pkField == nil {
+				return fmt.Errorf("action %s references entity %s without a primary key field", action.Name, entity.Name)
 			}
 			assignments := map[string]model.ActionFieldExpr{}
 			for _, item := range step.Values {
@@ -1340,7 +1341,7 @@ func validateActions(app *model.App) error {
 				if field == nil {
 					return fmt.Errorf("action %s assigns unknown field %s.%s%s", action.Name, entity.Name, item.Field, suggest.DidYouMeanSuffix(item.Field, entityFieldNames(entity)))
 				}
-				if field.Primary && field.Auto {
+				if step.Kind == "create" && field.Primary && field.Auto {
 					return fmt.Errorf("action %s cannot assign auto-generated field %s.%s", action.Name, entity.Name, item.Field)
 				}
 				assignments[item.Field] = item
@@ -1353,6 +1354,9 @@ func validateActions(app *model.App) error {
 					if !field.Optional && !field.Primary {
 						return fmt.Errorf("action %s field %s.%s: null is only allowed on optional fields", action.Name, entity.Name, item.Field)
 					}
+					if field.Primary {
+						return fmt.Errorf("action %s field %s.%s: null is not allowed on primary key fields", action.Name, entity.Name, item.Field)
+					}
 					continue
 				}
 				if !isTypeAssignable(field.Type, sourceType) {
@@ -1360,16 +1364,35 @@ func validateActions(app *model.App) error {
 				}
 			}
 
-			for _, field := range entity.Fields {
-				if field.Primary && field.Auto {
-					continue
+			switch step.Kind {
+			case "create":
+				for _, field := range entity.Fields {
+					if field.Primary && field.Auto {
+						continue
+					}
+					if field.Optional || field.Default != nil {
+						continue
+					}
+					if _, ok := assignments[field.Name]; !ok {
+						return fmt.Errorf("action %s is missing required field %s.%s", action.Name, entity.Name, field.Name)
+					}
 				}
-				if field.Optional {
-					continue
+			case "update":
+				if _, ok := assignments[entity.PrimaryKey]; !ok {
+					return fmt.Errorf("action %s update %s must include primary key field %s", action.Name, entity.Name, entity.PrimaryKey)
 				}
-				if _, ok := assignments[field.Name]; !ok {
-					return fmt.Errorf("action %s is missing required field %s.%s", action.Name, entity.Name, field.Name)
+				if len(assignments) == 1 {
+					return fmt.Errorf("action %s update %s must change at least one non-primary field", action.Name, entity.Name)
 				}
+			case "delete":
+				if len(assignments) != 1 {
+					return fmt.Errorf("action %s delete %s must only include primary key field %s", action.Name, entity.Name, entity.PrimaryKey)
+				}
+				if _, ok := assignments[entity.PrimaryKey]; !ok {
+					return fmt.Errorf("action %s delete %s must include primary key field %s", action.Name, entity.Name, entity.PrimaryKey)
+				}
+			default:
+				return fmt.Errorf("action %s has unsupported step kind %q", action.Name, step.Kind)
 			}
 		}
 	}

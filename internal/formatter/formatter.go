@@ -10,17 +10,17 @@ import (
 )
 
 var (
-	appRe          = regexp.MustCompile(`^app\s+([A-Za-z][A-Za-z0-9_]*)$`)
-	portRe         = regexp.MustCompile(`^port\s+([0-9]{1,5})$`)
-	dbRe           = regexp.MustCompile(`^database\s+"([^"]+)"$`)
-	systemStartRe  = regexp.MustCompile(`^system\s*\{$`)
-	publicStartRe  = regexp.MustCompile(`^public\s*\{$`)
-	authStartRe    = regexp.MustCompile(`^auth\s*\{$`)
-	entityStartRe  = regexp.MustCompile(`^entity\s+([A-Za-z][A-Za-z0-9_]*)\s*\{$`)
-	typeAliasRe    = regexp.MustCompile(`^type\s+alias\s+([A-Za-z][A-Za-z0-9_]*)\s*=\s*(.*)$`)
-	actionStartRe  = regexp.MustCompile(`^action\s+([a-z][A-Za-z0-9_]*)\s*\{$`)
-	actionInputRe  = regexp.MustCompile(`^input\s*:\s*([A-Za-z][A-Za-z0-9_]*)$`)
-	actionCreateRe = regexp.MustCompile(`^create\s+([A-Za-z][A-Za-z0-9_]*)\s*\{$`)
+	appRe         = regexp.MustCompile(`^app\s+([A-Za-z][A-Za-z0-9_]*)$`)
+	portRe        = regexp.MustCompile(`^port\s+([0-9]{1,5})$`)
+	dbRe          = regexp.MustCompile(`^database\s+"([^"]+)"$`)
+	systemStartRe = regexp.MustCompile(`^system\s*\{$`)
+	publicStartRe = regexp.MustCompile(`^public\s*\{$`)
+	authStartRe   = regexp.MustCompile(`^auth\s*\{$`)
+	entityStartRe = regexp.MustCompile(`^entity\s+([A-Za-z][A-Za-z0-9_]*)\s*\{$`)
+	typeAliasRe   = regexp.MustCompile(`^type\s+alias\s+([A-Za-z][A-Za-z0-9_]*)\s*=\s*(.*)$`)
+	actionStartRe = regexp.MustCompile(`^action\s+([a-z][A-Za-z0-9_]*)\s*\{$`)
+	actionInputRe = regexp.MustCompile(`^input\s*:\s*([A-Za-z][A-Za-z0-9_]*)$`)
+	actionStepRe  = regexp.MustCompile(`^(create|update|delete)\s+([A-Za-z][A-Za-z0-9_]*)\s*\{$`)
 
 	entityFieldRe = regexp.MustCompile(`^([a-z][A-Za-z0-9_]*)\s*:\s*(Int|String|Bool|Float|Posix)(?:\s+(.*))?$`)
 	ruleRe        = regexp.MustCompile(`^rule\s+"([^"]+)"\s+expect\s+(.+)$`)
@@ -99,14 +99,14 @@ func Format(source string) (string, error) {
 }
 
 type formatState struct {
-	inEntity       bool
-	inSystem       bool
-	inPublic       bool
-	inAuth         bool
-	inTypeAlias    bool
-	pendingAlias   bool
-	inAction       bool
-	inActionCreate bool
+	inEntity     bool
+	inSystem     bool
+	inPublic     bool
+	inAuth       bool
+	inTypeAlias  bool
+	pendingAlias bool
+	inAction     bool
+	inActionStep bool
 }
 
 func (s *formatState) update(line string) {
@@ -133,12 +133,12 @@ func (s *formatState) update(line string) {
 		s.inTypeAlias = true
 	case actionStartRe.MatchString(line):
 		s.inAction = true
-	case s.inAction && actionCreateRe.MatchString(trimLine):
-		s.inActionCreate = true
+	case s.inAction && actionStepRe.MatchString(trimLine):
+		s.inActionStep = true
 	case trimLine == "}":
 		switch {
-		case s.inActionCreate:
-			s.inActionCreate = false
+		case s.inActionStep:
+			s.inActionStep = false
 		case s.inEntity:
 			s.inEntity = false
 		case s.inSystem:
@@ -269,10 +269,10 @@ func normalizeLine(trimmed string, state *formatState) string {
 		if m := actionInputRe.FindStringSubmatch(trimmed); m != nil {
 			return "input: " + m[1]
 		}
-		if m := actionCreateRe.FindStringSubmatch(trimmed); m != nil {
-			return "create " + m[1] + " {"
+		if m := actionStepRe.FindStringSubmatch(trimmed); m != nil {
+			return m[1] + " " + m[2] + " {"
 		}
-		if state.inActionCreate {
+		if state.inActionStep {
 			if m := actionFieldAssignRe.FindStringSubmatch(trimmed); m != nil {
 				return m[1] + ": " + strings.TrimSpace(m[2])
 			}

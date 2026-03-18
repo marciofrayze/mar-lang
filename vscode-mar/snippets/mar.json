@@ -151,7 +151,7 @@
   },
   "Mar Action Block": {
     "prefix": "action",
-    "description": "Create an action block with input and create step",
+    "description": "Create an action block with typed input and write steps",
     "body": [
       "action ${1:placeOrder} {",
       "  input: ${2:PlaceOrderInput}",
@@ -171,9 +171,28 @@
       "}"
     ]
   },
+  "Mar Update Step": {
+    "prefix": "update",
+    "description": "Create one update step inside an action",
+    "body": [
+      "update ${1:Order} {",
+      "  ${2:id}: input.${3:id}",
+      "  ${4:status}: ${5:\"confirmed\"}",
+      "}"
+    ]
+  },
+  "Mar Delete Step": {
+    "prefix": "delete",
+    "description": "Create one delete step inside an action",
+    "body": [
+      "delete ${1:Order} {",
+      "  ${2:id}: input.${3:id}",
+      "}"
+    ]
+  },
   "Mar Multi-Create Action": {
     "prefix": "actioncreate",
-    "description": "Create an action with multiple create steps",
+    "description": "Create an action with multiple write steps",
     "body": [
       "action ${1:placeOrder} {",
       "  input: ${2:PlaceOrderInput}",
@@ -186,6 +205,11 @@
       "  create ${8:AuditLog} {",
       "    ${9:userId}: input.${5:userId}",
       "    ${10:event}: \"order created\"",
+      "  }",
+      "",
+      "  update ${11:Inventory} {",
+      "    ${12:id}: input.${13:inventoryId}",
+      "    ${14:stock}: input.${15:remainingStock}",
       "  }",
       "}"
     ]
