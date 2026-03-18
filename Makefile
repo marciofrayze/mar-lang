@@ -187,7 +187,7 @@ website-dev: check-elm check-elm-live
 
 vscode-plugin: check-npx check-npm
 	$(call print_title,VS Code extension)
-	@sh -c 'if [ -n "$$NO_COLOR" ] || ! [ -t 1 ]; then printf "  %s\n" "Installing vscode-mar dependencies with npm ci"; else printf "  Installing vscode-mar dependencies with \033[1;34mnpm ci\033[0m\n"; fi'
+	@sh -c 'if [ -n "$$NO_COLOR" ] || ! [ -t 1 ]; then printf "  %s\n" "Installing vscode-mar dependencies with npm ci"; else printf "  Installing vscode-mar dependencies with \033[1;32mnpm ci\033[0m\n"; fi'
 	$(call print_info,Packaging vscode-mar into a .vsix)
 	@cd vscode-mar && sh -c '\
 		publisher=$$(node -p "require(\"./package.json\").publisher"); \
