@@ -789,7 +789,7 @@ docSearchSectionText maybeSectionId =
                     "Authentication and authorization. Mar includes a built-in email-code login flow and per-operation authorization rules. Authentication endpoints are always available. Every Mar app includes a built-in User entity that you may extend. Entity access is deny-by-default unless you declare authorize rules. Admin always has read-only access to the built-in User entity, even without explicit authorize rules. authorize all when sets a default rule for list, get, create, update, and delete, and specific operations can still override it. System features use the same session and require role equals admin."
 
                 "rules-and-typed-actions" ->
-                    "Rules and typed actions. Rules are for validation close to the entity definition. Actions are for multi-step writes that must succeed or fail together. Action steps can create, update, and delete rows inside the same transaction. rule validates entity data and returns HTTP 422 when validation fails. Actions run in a single atomic transaction. Mar checks input types and assigned entity fields at compile time. Current limitations. Single .mar entry file per app. No multi-file projects or imports."
+                    "Rules and typed actions. Rules are for validation close to the entity definition. Actions are for multi-step reads and writes that must succeed or fail together. Action steps can load, create, update, and delete rows inside the same transaction. Steps may bind aliases such as order = create Order or todo = load Todo, and later steps may reference alias fields like order.id. rule validates entity data and returns HTTP 422 when validation fails. Actions run in a single atomic transaction. Mar checks input types and assigned entity fields at compile time. Current limitations. Single .mar entry file per app. No multi-file projects or imports."
 
                 "language-reference" ->
                     "Language Reference. Browse the current keywords, built-in names, functions, primitive types, and configuration options. Built-in primitive types include Int, String, Bool, Float, and Posix. Posix stores Unix milliseconds and follows Elm Time.Posix."
@@ -883,10 +883,10 @@ docSearchRouteText route =
             "Advanced guide fundamentals language reference runtime tooling deploy compiler."
 
         AdvancedFundamentals ->
-            "Advanced Guide Fundamentals. Mar is a declarative backend DSL inspired by Elm, PocketBase, and Rails, implemented in Go with focus on readability, maintainability, and simple deployment. Fundamentals. Mar reads top-to-bottom as a declarative app definition. A Mar app is centered around entities, rules, authorization, auth configuration, and typed actions. Quick examples. Syntax model. Top-level statements: app, port, database, public, system, auth, entity, type alias, action. Fields use the form fieldName: Type with modifiers such as primary, auto, optional, and default. Comments use Elm-style line comments. Authentication and Authorization. Mar includes a built-in email-code login flow and per-operation authorization rules. Authentication endpoints are always available. Every Mar app includes a built-in User entity that you may extend. Entity access is deny-by-default unless you declare authorize rules. Admin always has read-only access to the built-in User entity, even without explicit authorize rules. authorize all when sets a default rule for list, get, create, update, and delete, and specific operations can still override it. System features use the same session and require role equals admin. Rules and Typed Actions. Rules are for validation close to the entity definition. Actions are for multi-step writes that must succeed or fail together. Action steps can create, update, and delete rows inside the same transaction. rule validates entity data and returns HTTP 422 when validation fails. Actions run in a single atomic transaction. Mar checks input types and assigned entity fields at compile time. Current limitations. Single .mar entry file per app. No multi-file projects or imports."
+            "Advanced Guide Fundamentals. Mar is a declarative backend DSL inspired by Elm, PocketBase, and Rails, implemented in Go with focus on readability, maintainability, and simple deployment. Fundamentals. Mar reads top-to-bottom as a declarative app definition. A Mar app is centered around entities, rules, authorization, auth configuration, and typed actions. Quick examples. Syntax model. Top-level statements: app, port, database, public, system, auth, entity, type alias, action. Fields use the form fieldName: Type with modifiers such as primary, auto, optional, and default. Comments use Elm-style line comments. Authentication and Authorization. Mar includes a built-in email-code login flow and per-operation authorization rules. Authentication endpoints are always available. Every Mar app includes a built-in User entity that you may extend. Entity access is deny-by-default unless you declare authorize rules. Admin always has read-only access to the built-in User entity, even without explicit authorize rules. authorize all when sets a default rule for list, get, create, update, and delete, and specific operations can still override it. System features use the same session and require role equals admin. Rules and Typed Actions. Rules are for validation close to the entity definition. Actions are for multi-step reads and writes that must succeed or fail together. Action steps can load, create, update, and delete rows inside the same transaction. Steps may bind aliases such as order = create Order or todo = load Todo, and later steps may reference alias fields like order.id. rule validates entity data and returns HTTP 422 when validation fails. Actions run in a single atomic transaction. Mar checks input types and assigned entity fields at compile time. Current limitations. Single .mar entry file per app. No multi-file projects or imports."
 
         AdvancedLanguageReference ->
-            "Advanced Guide Language Reference. This reference lists the current keywords, built-in names, and primitive types used by the language. Top-level declarations: app, port, database, public, system, auth, entity, type alias, action. Entity fields and modifiers: primary, auto, optional, default. Built-in primitive types: Int, String, Bool, Float, Posix. Posix is a Unix-milliseconds timestamp aligned with Elm Time.Posix. Validation and authorization: rule, expect, when, authorize, all, list, get, create, update, delete. Actions: input, create, update, delete. Auth config: User, code_ttl_minutes, session_ttl_hours, email_transport, email_from, email_subject, smtp_host, smtp_port, smtp_username, smtp_password_env, smtp_starttls. System config: request_logs_buffer, http_max_request_body_mb, auth_request_code_rate_limit_per_minute, auth_login_rate_limit_per_minute, admin_ui_session_ttl_hours, security_frame_policy, security_referrer_policy, security_content_type_nosniff, sqlite_journal_mode, sqlite_synchronous, sqlite_foreign_keys, sqlite_busy_timeout_ms, sqlite_wal_autocheckpoint, sqlite_journal_size_limit_mb, sqlite_mmap_size_mb, sqlite_cache_size_kb. Public frontend config: dir, mount, spa_fallback. Built-in functions and values: len, contains, startsWith, endsWith, matches, isRole, auth_authenticated, auth_email, auth_user_id, auth_role, true, false, null."
+            "Advanced Guide Language Reference. This reference lists the current keywords, built-in names, and primitive types used by the language. Top-level declarations: app, port, database, public, system, auth, entity, type alias, action. Entity fields and modifiers: primary, auto, optional, default. Built-in primitive types: Int, String, Bool, Float, Posix. Posix is a Unix-milliseconds timestamp aligned with Elm Time.Posix. Validation and authorization: rule, expect, when, authorize, all, list, get, create, update, delete. Actions: input, load, create, update, delete, alias.field. Auth config: User, code_ttl_minutes, session_ttl_hours, email_transport, email_from, email_subject, smtp_host, smtp_port, smtp_username, smtp_password_env, smtp_starttls. System config: request_logs_buffer, http_max_request_body_mb, auth_request_code_rate_limit_per_minute, auth_login_rate_limit_per_minute, admin_ui_session_ttl_hours, security_frame_policy, security_referrer_policy, security_content_type_nosniff, sqlite_journal_mode, sqlite_synchronous, sqlite_foreign_keys, sqlite_busy_timeout_ms, sqlite_wal_autocheckpoint, sqlite_journal_size_limit_mb, sqlite_mmap_size_mb, sqlite_cache_size_kb. Public frontend config: dir, mount, spa_fallback. Built-in functions and values: len, contains, startsWith, endsWith, matches, isRole, auth_authenticated, auth_email, auth_user_id, auth_role, true, false, null."
 
         AdvancedRuntime ->
             "Advanced Guide Runtime. The runtime generated by Mar is meant to be practical by default: HTTP endpoints, SQLite storage, authentication, admin tooling, and migrations come from the same source file. System Configuration. Use system when you need to tune runtime behavior. This is where request logging, body limits, auth rate limits, admin UI session lifetime, security headers, and SQLite pragmas are configured. request_logs_buffer controls how many recent requests stay in memory for monitoring. http_max_request_body_mb limits request body size and returns HTTP 413 when exceeded. Auth rate limits control request-code and login attempts per minute. admin_ui_session_ttl_hours can shorten the embedded admin UI session without changing REST client sessions. Security settings apply response headers such as frame policy, referrer policy, and nosniff. SQLite settings are performance-first by default and can be overridden per app. Public Static Frontend. Mar can embed static frontend files into the final executable and optionally serve an SPA fallback. Generated Endpoints. CRUD, actions, auth, health, schema, version, and admin-related endpoints are generated automatically. Each entity gets REST CRUD endpoints. Typed actions are exposed as POST /actions/<name>. System endpoints include /health, /_mar/admin, /_mar/schema, and /_mar/version. Admin-only system endpoints include /_mar/version/admin, /_mar/perf, /_mar/request-logs, and /_mar/backups. Database Schema Migrations. Automatic migrations run on startup. Safe changes such as new optional columns and new required columns with literal defaults are applied. Unsafe changes are blocked with clear errors."
@@ -970,7 +970,7 @@ docSearchEntries =
       , route = AdvancedFundamentals
       , sectionId = Just "rules-and-typed-actions"
       , summary = "Entity validation with rule/expect and multi-step transactional actions."
-      , keywords = [ "rule", "expect", "validation", "typed actions", "transactions", "input", "create", "update", "delete" ]
+      , keywords = [ "rule", "expect", "validation", "typed actions", "transactions", "input", "load", "create", "update", "delete", "alias" ]
       }
     , { title = "Language Reference"
       , route = AdvancedLanguageReference
@@ -1334,7 +1334,8 @@ advancedLanguagePage model =
                 , docList
                     [ "rule validates entity data and returns HTTP 422 with details when validation fails."
                     , "Actions run in a single atomic transaction."
-                    , "Action steps can create, update, and delete rows."
+                    , "Action steps can load, create, update, and delete rows."
+                    , "Action steps may bind aliases like `todo = load Todo { ... }` or `order = create Order { ... }`, and later steps may reference alias fields such as `todo.id`."
                     , "Mar checks input types and assigned entity fields at compile time."
                     ]
                 ]
@@ -1394,9 +1395,10 @@ advancedLanguageReferencePage model =
                     ]
                 , languageReferenceGroup "Actions"
                     [ languageReferenceItem "input" "Declares the action input type and is also used in expressions such as input.userId."
-                    , languageReferenceItem "create" "Adds a create step inside an action."
-                    , languageReferenceItem "update" "Adds an update step inside an action. Include the entity primary key plus the fields to change."
-                    , languageReferenceItem "delete" "Adds a delete step inside an action. Include the entity primary key to select the row to remove."
+                    , languageReferenceItem "load" "Loads one row inside an action. `load` must bind to an alias and must select by primary key."
+                    , languageReferenceItem "create" "Adds a create step inside an action. Steps may bind aliases such as `order = create Order { ... }`."
+                    , languageReferenceItem "update" "Adds an update step inside an action. Include the entity primary key plus the fields to change. Steps may bind aliases such as `updatedOrder = update Order { ... }`."
+                    , languageReferenceItem "delete" "Adds a delete step inside an action. Include the entity primary key to select the row to remove. Steps may bind aliases such as `deletedOrder = delete Order { ... }`."
                     ]
                 ]
             , anchoredSection "auth-config-reference"
@@ -3539,7 +3541,7 @@ isIdentifierStart char =
 
 isIdentifierChar : Char -> Bool
 isIdentifierChar char =
-    Char.isAlphaNum char || char == '_'
+    Char.isAlphaNum char || char == '_' || char == '.'
 
 
 isNumberChar : Char -> Bool
@@ -3577,10 +3579,13 @@ isPunctuationChar char =
 
 wordToken : String -> Html.Html msg
 wordToken word =
-    if List.member word [ "all", "list", "get", "create", "update", "delete" ] then
+    if word == "input" || String.startsWith "input." word || String.contains "." word then
         token "#93D7FF" word
 
-    else if List.member word [ "app", "port", "database", "entity", "rule", "expect", "when", "authorize", "auth", "type", "alias", "action", "input", "create", "public", "system", "dir", "mount", "spa_fallback", "code_ttl_minutes", "session_ttl_hours", "email_transport", "email_from", "email_subject", "smtp_host", "smtp_port", "smtp_username", "smtp_password_env", "smtp_starttls", "request_logs_buffer", "http_max_request_body_mb", "auth_request_code_rate_limit_per_minute", "auth_login_rate_limit_per_minute", "admin_ui_session_ttl_hours", "security_frame_policy", "security_referrer_policy", "security_content_type_nosniff", "sqlite_journal_mode", "sqlite_synchronous", "sqlite_foreign_keys", "sqlite_busy_timeout_ms", "sqlite_wal_autocheckpoint", "sqlite_journal_size_limit_mb", "sqlite_mmap_size_mb", "sqlite_cache_size_kb" ] then
+    else if List.member word [ "all", "list", "get", "load", "create", "update", "delete" ] then
+        token "#93D7FF" word
+
+    else if List.member word [ "app", "port", "database", "entity", "rule", "expect", "when", "authorize", "auth", "type", "alias", "action", "input", "load", "create", "public", "system", "dir", "mount", "spa_fallback", "code_ttl_minutes", "session_ttl_hours", "email_transport", "email_from", "email_subject", "smtp_host", "smtp_port", "smtp_username", "smtp_password_env", "smtp_starttls", "request_logs_buffer", "http_max_request_body_mb", "auth_request_code_rate_limit_per_minute", "auth_login_rate_limit_per_minute", "admin_ui_session_ttl_hours", "security_frame_policy", "security_referrer_policy", "security_content_type_nosniff", "sqlite_journal_mode", "sqlite_synchronous", "sqlite_foreign_keys", "sqlite_busy_timeout_ms", "sqlite_wal_autocheckpoint", "sqlite_journal_size_limit_mb", "sqlite_mmap_size_mb", "sqlite_cache_size_kb" ] then
         token "#7AB8FF" word
 
     else if List.member word [ "Int", "String", "Bool", "Float", "Posix" ] then
@@ -3781,39 +3786,42 @@ entity Todo {
 actionExampleSource : String
 actionExampleSource =
     """-- A transactional action example.
--- This example shows how one action can create,
--- update, and delete in a single atomic operation.
+-- This example shows how one action can load,
+-- create, update, and delete in a single atomic operation.
 
 -- Action input
 type alias PlaceOrderInput =
   { userId : Int
   , inventoryId : Int
-  , expiredCartId : Int
+  , cartId : Int
   , total : Float
-  , remainingStock : Int
   }
 
 -- Atomic action
 action placeOrder {
   input: PlaceOrderInput
 
-  create Order {
+  inventory = load Inventory {
+    id: input.inventoryId
+  }
+
+  order = create Order {
     userId: input.userId
     total: input.total
     status: "created"
   }
 
-  update Inventory {
-    id: input.inventoryId
-    stock: input.remainingStock
+  updatedInventory = update Inventory {
+    id: inventory.id
+    stock: inventory.stock - 1
   }
 
-  delete Cart {
-    id: input.expiredCartId
+  deletedCart = delete Cart {
+    id: input.cartId
   }
 
-  create AuditLog {
-    userId: input.userId
+  audit = create AuditLog {
+    userId: order.userId
     event: "order created"
   }
 }
@@ -3972,7 +3980,7 @@ type alias PlaceBookOrderInput =
 action placeBookOrder {
   input: PlaceBookOrderInput
 
-  create Order {
+  order = create Order {
     orderRef: input.orderRef
     userId: input.userId
     status: "confirmed"
@@ -3981,19 +3989,19 @@ action placeBookOrder {
     notes: input.notes
   }
 
-  create OrderItem {
-    orderRef: input.orderRef
-    userId: input.userId
+  orderItem = create OrderItem {
+    orderRef: order.orderRef
+    userId: order.userId
     bookId: input.bookId
     quantity: input.quantity
     unitPrice: input.unitPrice
     lineTotal: input.lineTotal
   }
 
-  create AuditLog {
-    userId: input.userId
+  auditLog = create AuditLog {
+    userId: orderItem.userId
     event: "book order created"
-    orderRef: input.orderRef
+    orderRef: orderItem.orderRef
   }
 }
 """

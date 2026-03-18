@@ -162,12 +162,15 @@
         },
         {
           "name": "meta.action.step.mar",
-          "match": "\\b(create|update|delete)\\s+([A-Z][A-Za-z0-9_]*)\\b",
+          "match": "\\b(?:([a-z][A-Za-z0-9_]*)\\s*=\\s*)?(load|create|update|delete)\\s+([A-Z][A-Za-z0-9_]*)\\b",
           "captures": {
             "1": {
-              "name": "keyword.control.rule.mar"
+              "name": "variable.language.mar"
             },
             "2": {
+              "name": "keyword.control.rule.mar"
+            },
+            "3": {
               "name": "entity.name.type.mar"
             }
           }
@@ -236,7 +239,7 @@
         },
         {
           "name": "keyword.control.rule.mar",
-          "match": "\\b(rule|expect|when|authorize|action|create)\\b"
+          "match": "\\b(rule|expect|when|authorize|action|load|create|update|delete)\\b"
         },
         {
           "name": "keyword.other.auth.mar",
@@ -263,8 +266,8 @@
           "match": "\\b(contains|startsWith|endsWith|len|matches|isRole)\\b(?=\\s*\\()"
         },
         {
-          "name": "variable.other.member.mar",
-          "match": "\\binput\\.([a-z][A-Za-z0-9_]*)\\b"
+          "name": "variable.language.mar",
+          "match": "\\b(?:input|[a-z][A-Za-z0-9_]*)\\.([a-z][A-Za-z0-9_]*)\\b"
         },
         {
           "name": "variable.language.mar",
@@ -272,7 +275,7 @@
         },
         {
           "name": "support.constant.action.mar",
-          "match": "\\b(list|get|create|update|delete)\\b"
+          "match": "\\b(list|get|load|create|update|delete)\\b"
         }
       ]
     },

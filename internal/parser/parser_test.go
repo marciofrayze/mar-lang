@@ -851,8 +851,88 @@ action createTodo {
 	if err == nil {
 		t.Fatal("expected parse error for unknown action input field")
 	}
-	if !strings.Contains(err.Error(), "Did you mean \"title\"?") {
+	if !strings.Contains(err.Error(), "Did you mean \"input.title\"?") {
 		t.Fatalf("expected Did you mean suggestion, got: %v", err)
+	}
+}
+
+func TestParseActionSupportsAliasedLoadAndUpdate(t *testing.T) {
+	src := `
+app Demo
+
+entity Todo {
+  title: String
+  done: Bool default false
+}
+
+type alias RenameTodoInput =
+  { id: Int
+  , title: String
+  }
+
+action renameTodo {
+  input: RenameTodoInput
+
+  todo = load Todo {
+    id: input.id
+  }
+
+  updatedTodo = update Todo {
+    id: todo.id
+    title: input.title
+  }
+}
+`
+
+	app, err := Parse(src)
+	if err != nil {
+		t.Fatalf("Parse returned error: %v", err)
+	}
+	if len(app.Actions) != 1 {
+		t.Fatalf("expected 1 action, got %d", len(app.Actions))
+	}
+	if got := app.Actions[0].Steps[0].Alias; got != "todo" {
+		t.Fatalf("expected first alias todo, got %q", got)
+	}
+	if got := app.Actions[0].Steps[0].Kind; got != "load" {
+		t.Fatalf("expected first step kind load, got %q", got)
+	}
+	if got := app.Actions[0].Steps[1].Alias; got != "updatedTodo" {
+		t.Fatalf("expected second alias updatedTodo, got %q", got)
+	}
+}
+
+func TestParseActionLoadRequiresAlias(t *testing.T) {
+	src := `
+app Demo
+
+entity Todo {
+  title: String
+}
+
+type alias LoadTodoInput =
+  { id: Int
+  }
+
+action loadTodo {
+  input: LoadTodoInput
+
+  load Todo {
+    id: input.id
+  }
+
+  create Todo {
+    title: "x"
+  }
+}
+`
+
+	_, err := Parse(src)
+	if err == nil {
+		t.Fatal("expected parse error for load without alias")
+	}
+	if !strings.Contains(err.Error(), "invalid action statement") {
+		t.Fatalf("unexpected error message: %v", err)
 	}
 }
 

@@ -156,9 +156,18 @@
       "action ${1:placeOrder} {",
       "  input: ${2:PlaceOrderInput}",
       "",
-      "  create ${3:Order} {",
-      "    ${4:userId}: input.${5:userId}",
+      "  ${3:order} = create ${4:Order} {",
+      "    ${5:userId}: input.${6:userId}",
       "  }",
+      "}"
+    ]
+  },
+  "Mar Load Step": {
+    "prefix": "load",
+    "description": "Load one row into an alias inside an action",
+    "body": [
+      "${1:todo} = load ${2:Todo} {",
+      "  ${3:id}: input.${4:id}",
       "}"
     ]
   },
@@ -166,8 +175,8 @@
     "prefix": "create",
     "description": "Create one create step inside an action",
     "body": [
-      "create ${1:Order} {",
-      "  ${2:userId}: input.${3:userId}",
+      "${1:order} = create ${2:Order} {",
+      "  ${3:userId}: input.${4:userId}",
       "}"
     ]
   },
@@ -175,9 +184,9 @@
     "prefix": "update",
     "description": "Create one update step inside an action",
     "body": [
-      "update ${1:Order} {",
-      "  ${2:id}: input.${3:id}",
-      "  ${4:status}: ${5:\"confirmed\"}",
+      "${1:updatedOrder} = update ${2:Order} {",
+      "  ${3:id}: input.${4:id}",
+      "  ${5:status}: ${6:\"confirmed\"}",
       "}"
     ]
   },
@@ -185,8 +194,8 @@
     "prefix": "delete",
     "description": "Create one delete step inside an action",
     "body": [
-      "delete ${1:Order} {",
-      "  ${2:id}: input.${3:id}",
+      "${1:deletedOrder} = delete ${2:Order} {",
+      "  ${3:id}: input.${4:id}",
       "}"
     ]
   },
@@ -197,19 +206,19 @@
       "action ${1:placeOrder} {",
       "  input: ${2:PlaceOrderInput}",
       "",
-      "  create ${3:Order} {",
-      "    ${4:userId}: input.${5:userId}",
-      "    ${6:total}: input.${7:total}",
+      "  ${3:order} = create ${4:Order} {",
+      "    ${5:userId}: input.${6:userId}",
+      "    ${7:total}: input.${8:total}",
       "  }",
       "",
-      "  create ${8:AuditLog} {",
-      "    ${9:userId}: input.${5:userId}",
-      "    ${10:event}: \"order created\"",
+      "  ${9:auditLog} = create ${10:AuditLog} {",
+      "    ${11:userId}: input.${6:userId}",
+      "    ${12:event}: \"order created\"",
       "  }",
       "",
-      "  update ${11:Inventory} {",
-      "    ${12:id}: input.${13:inventoryId}",
-      "    ${14:stock}: input.${15:remainingStock}",
+      "  ${13:updatedInventory} = update ${14:Inventory} {",
+      "    ${15:id}: input.${16:inventoryId}",
+      "    ${17:stock}: input.${18:remainingStock}",
       "  }",
       "}"
     ]

@@ -127,7 +127,7 @@ type alias PlaceBookOrderInput =
 action placeBookOrder {
   input: PlaceBookOrderInput
 
-  create Order {
+  order = create Order {
     orderRef: input.orderRef
     userId: input.userId
     status: "confirmed"
@@ -136,18 +136,18 @@ action placeBookOrder {
     notes: input.notes
   }
 
-  create OrderItem {
-    orderRef: input.orderRef
-    userId: input.userId
+  orderItem = create OrderItem {
+    orderRef: order.orderRef
+    userId: order.userId
     bookId: input.bookId
     quantity: input.quantity
     unitPrice: input.unitPrice
     lineTotal: input.lineTotal
   }
 
-  create AuditLog {
-    userId: input.userId
+  auditLog = create AuditLog {
+    userId: orderItem.userId
     event: "book order created"
-    orderRef: input.orderRef
+    orderRef: orderItem.orderRef
   }
 }

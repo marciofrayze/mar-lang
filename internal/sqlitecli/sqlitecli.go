@@ -42,6 +42,12 @@ type QueryEvent struct {
 	Error      string
 }
 
+type ImmediateTx struct {
+	db        *DB
+	conn      *sql.Conn
+	requestID string
+}
+
 // Config controls SQLite PRAGMA settings used on database open.
 type Config struct {
 	JournalMode       string
@@ -422,6 +428,125 @@ func (db *DB) ExecTxTagged(requestID string, statements []Statement) error {
 	return nil
 }
 
+// WithImmediateTxTagged executes fn inside a BEGIN IMMEDIATE transaction.
+func (db *DB) WithImmediateTxTagged(requestID string, fn func(*ImmediateTx) error) error {
+	if err := db.ensureOpen(); err != nil {
+		return err
+	}
+
+	conn, err := db.sqlDB.Conn(context.Background())
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	if _, err := conn.ExecContext(context.Background(), "BEGIN IMMEDIATE"); err != nil {
+		return err
+	}
+
+	tx := &ImmediateTx{
+		db:        db,
+		conn:      conn,
+		requestID: requestID,
+	}
+
+	committed := false
+	defer func() {
+		if !committed {
+			_, _ = conn.ExecContext(context.Background(), "ROLLBACK")
+		}
+	}()
+
+	if err := fn(tx); err != nil {
+		return err
+	}
+
+	if _, err := conn.ExecContext(context.Background(), "COMMIT"); err != nil {
+		return err
+	}
+	committed = true
+	return nil
+}
+
+func (tx *ImmediateTx) Exec(query string, args ...any) (Result, error) {
+	logSQL := interpolateSQLForLog(query, args)
+	startedAt := time.Now()
+	res, err := tx.conn.ExecContext(context.Background(), query, args...)
+	if err != nil {
+		tx.db.emitQueryEvent(QueryEvent{
+			RequestID:  tx.requestID,
+			SQL:        logSQL,
+			DurationMs: elapsedMs(startedAt),
+			RowCount:   0,
+			Error:      err.Error(),
+		})
+		return Result{}, err
+	}
+
+	changes, _ := res.RowsAffected()
+	lastInsertRow, _ := res.LastInsertId()
+	tx.db.emitQueryEvent(QueryEvent{
+		RequestID:  tx.requestID,
+		SQL:        logSQL,
+		DurationMs: elapsedMs(startedAt),
+		RowCount:   0,
+		Error:      "",
+	})
+	return Result{
+		Changes:       changes,
+		LastInsertRow: lastInsertRow,
+	}, nil
+}
+
+func (tx *ImmediateTx) QueryRows(query string, args ...any) ([]map[string]any, error) {
+	logSQL := interpolateSQLForLog(query, args)
+	startedAt := time.Now()
+	rows, err := tx.conn.QueryContext(context.Background(), query, args...)
+	if err != nil {
+		tx.db.emitQueryEvent(QueryEvent{
+			RequestID:  tx.requestID,
+			SQL:        logSQL,
+			DurationMs: elapsedMs(startedAt),
+			RowCount:   0,
+			Error:      err.Error(),
+		})
+		return nil, err
+	}
+	defer rows.Close()
+
+	result, err := scanRows(rows)
+	if err != nil {
+		tx.db.emitQueryEvent(QueryEvent{
+			RequestID:  tx.requestID,
+			SQL:        logSQL,
+			DurationMs: elapsedMs(startedAt),
+			RowCount:   len(result),
+			Error:      err.Error(),
+		})
+		return nil, err
+	}
+
+	tx.db.emitQueryEvent(QueryEvent{
+		RequestID:  tx.requestID,
+		SQL:        logSQL,
+		DurationMs: elapsedMs(startedAt),
+		RowCount:   len(result),
+		Error:      "",
+	})
+	return result, nil
+}
+
+func (tx *ImmediateTx) QueryRow(query string, args ...any) (map[string]any, bool, error) {
+	rows, err := tx.QueryRows(query, args...)
+	if err != nil {
+		return nil, false, err
+	}
+	if len(rows) == 0 {
+		return nil, false, nil
+	}
+	return rows[0], true, nil
+}
+
 func (db *DB) emitQueryEvent(event QueryEvent) {
 	db.hookMu.RLock()
 	hook := db.onQuery
@@ -462,6 +587,37 @@ func normalizeColumnValue(value any) any {
 	default:
 		return typed
 	}
+}
+
+func scanRows(rows *sql.Rows) ([]map[string]any, error) {
+	columns, err := rows.Columns()
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]map[string]any, 0, 16)
+	for rows.Next() {
+		rawValues := make([]any, len(columns))
+		scanTargets := make([]any, len(columns))
+		for i := range rawValues {
+			scanTargets[i] = &rawValues[i]
+		}
+
+		if err := rows.Scan(scanTargets...); err != nil {
+			return result, err
+		}
+
+		record := make(map[string]any, len(columns))
+		for i, col := range columns {
+			record[col] = normalizeColumnValue(rawValues[i])
+		}
+		result = append(result, record)
+	}
+
+	if err := rows.Err(); err != nil {
+		return result, err
+	}
+	return result, nil
 }
 
 func txStatementSummary(statements []Statement) string {

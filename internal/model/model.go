@@ -99,6 +99,7 @@ type Action struct {
 }
 
 type ActionStep struct {
+	Alias  string            `json:"alias,omitempty"`
 	Kind   string            `json:"kind"`
 	Entity string            `json:"entity"`
 	Values []ActionFieldExpr `json:"values"`
@@ -106,7 +107,5 @@ type ActionStep struct {
 
 type ActionFieldExpr struct {
 	Field      string `json:"field"`
-	SourceKind string `json:"sourceKind"`
-	InputField string `json:"inputField,omitempty"`
-	Literal    any    `json:"literal,omitempty"`
+	Expression string `json:"expression"`
 }

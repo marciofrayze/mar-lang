@@ -1064,7 +1064,7 @@ func parseActionBlock(lines []line, idx *int, name string) (*model.Action, error
 				return nil, fmt.Errorf("line %d: action %s is missing `input: TypeAlias`", ln.number, name)
 			}
 			if len(action.Steps) == 0 {
-				return nil, fmt.Errorf("line %d: action %s must contain at least one `create`, `update`, or `delete` block", ln.number, name)
+				return nil, fmt.Errorf("line %d: action %s must contain at least one write step", ln.number, name)
 			}
 			return action, nil
 		}
@@ -1079,8 +1079,17 @@ func parseActionBlock(lines []line, idx *int, name string) (*model.Action, error
 			continue
 		}
 
+		if m := match(`^([a-z][A-Za-z0-9_]*)\s*=\s*(load|create|update|delete)\s+([A-Za-z][A-Za-z0-9_]*)\s*\{$`, trimmed); m != nil {
+			step, err := parseActionStepBlock(lines, idx, name, m[2], m[3], m[1])
+			if err != nil {
+				return nil, err
+			}
+			action.Steps = append(action.Steps, *step)
+			continue
+		}
+
 		if m := match(`^(create|update|delete)\s+([A-Za-z][A-Za-z0-9_]*)\s*\{$`, trimmed); m != nil {
-			step, err := parseActionStepBlock(lines, idx, name, m[1], m[2])
+			step, err := parseActionStepBlock(lines, idx, name, m[1], m[2], "")
 			if err != nil {
 				return nil, err
 			}
@@ -1094,8 +1103,8 @@ func parseActionBlock(lines []line, idx *int, name string) (*model.Action, error
 	return nil, fmt.Errorf("action %s is missing closing }", name)
 }
 
-func parseActionStepBlock(lines []line, idx *int, actionName, kind, entityName string) (*model.ActionStep, error) {
-	step := &model.ActionStep{Kind: kind, Entity: entityName, Values: []model.ActionFieldExpr{}}
+func parseActionStepBlock(lines []line, idx *int, actionName, kind, entityName, alias string) (*model.ActionStep, error) {
+	step := &model.ActionStep{Alias: alias, Kind: kind, Entity: entityName, Values: []model.ActionFieldExpr{}}
 	seen := map[string]bool{}
 
 	(*idx)++
@@ -1137,55 +1146,13 @@ func parseActionStepBlock(lines []line, idx *int, actionName, kind, entityName s
 }
 
 func parseActionFieldExpr(raw string, lineNo int) (*model.ActionFieldExpr, error) {
-	if m := match(`^input\.([a-z][A-Za-z0-9_]*)$`, raw); m != nil {
-		return &model.ActionFieldExpr{
-			SourceKind: "input",
-			InputField: m[1],
-		}, nil
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil, fmt.Errorf("line %d: action value cannot be empty", lineNo)
 	}
-	if raw == "true" || raw == "false" {
-		return &model.ActionFieldExpr{
-			SourceKind: "literal_bool",
-			Literal:    raw == "true",
-		}, nil
-	}
-	if raw == "null" {
-		return &model.ActionFieldExpr{
-			SourceKind: "literal_null",
-			Literal:    nil,
-		}, nil
-	}
-	if strings.HasPrefix(raw, "\"") && strings.HasSuffix(raw, "\"") {
-		unquoted, err := strconv.Unquote(raw)
-		if err != nil {
-			return nil, fmt.Errorf("line %d: invalid string literal %q", lineNo, raw)
-		}
-		return &model.ActionFieldExpr{
-			SourceKind: "literal_string",
-			Literal:    unquoted,
-		}, nil
-	}
-	if m := match(`^-?[0-9]+$`, raw); m != nil {
-		n, err := strconv.ParseInt(raw, 10, 64)
-		if err != nil {
-			return nil, fmt.Errorf("line %d: invalid integer literal %q", lineNo, raw)
-		}
-		return &model.ActionFieldExpr{
-			SourceKind: "literal_int",
-			Literal:    n,
-		}, nil
-	}
-	if m := match(`^-?[0-9]+\.[0-9]+$`, raw); m != nil {
-		f, err := strconv.ParseFloat(raw, 64)
-		if err != nil {
-			return nil, fmt.Errorf("line %d: invalid float literal %q", lineNo, raw)
-		}
-		return &model.ActionFieldExpr{
-			SourceKind: "literal_float",
-			Literal:    f,
-		}, nil
-	}
-	return nil, fmt.Errorf("line %d: unsupported value %q. Use input.field, string, number, bool, or null", lineNo, raw)
+	return &model.ActionFieldExpr{
+		Expression: raw,
+	}, nil
 }
 
 func splitCSV(value string) ([]string, error) {
@@ -1316,20 +1283,37 @@ func validateActions(app *model.App) error {
 		if alias == nil {
 			return fmt.Errorf("action %s references unknown input type %q", action.Name, action.InputAlias)
 		}
-		aliasFieldTypes := map[string]string{}
+		inputFieldTypes := map[string]string{}
 		aliasFieldNames := make([]string, 0, len(alias.Fields))
 		for _, f := range alias.Fields {
-			aliasFieldTypes[f.Name] = f.Type
+			inputFieldTypes[f.Name] = f.Type
 			aliasFieldNames = append(aliasFieldNames, f.Name)
 		}
+		availableVariables := map[string]string{}
+		for _, f := range alias.Fields {
+			availableVariables["input."+f.Name] = f.Type
+		}
+		availableAliases := map[string]string{}
+		writeSteps := 0
 
 		if len(action.Steps) == 0 {
-			return fmt.Errorf("action %s must have at least one create, update, or delete step", action.Name)
+			return fmt.Errorf("action %s must have at least one write step", action.Name)
 		}
 		for _, step := range action.Steps {
 			entity := entityByName[step.Entity]
 			if entity == nil {
 				return fmt.Errorf("action %s references unknown entity %q", action.Name, step.Entity)
+			}
+			if step.Alias != "" {
+				if step.Alias == "input" {
+					return fmt.Errorf("action %s cannot use reserved alias name %q", action.Name, step.Alias)
+				}
+				if _, ok := inputFieldTypes[step.Alias]; ok {
+					return fmt.Errorf("action %s alias %q conflicts with input field name", action.Name, step.Alias)
+				}
+				if existing, ok := availableAliases[step.Alias]; ok {
+					return fmt.Errorf("action %s alias %q is already bound to %s", action.Name, step.Alias, existing)
+				}
 			}
 			pkField := findEntityField(entity, entity.PrimaryKey)
 			if pkField == nil {
@@ -1346,7 +1330,7 @@ func validateActions(app *model.App) error {
 				}
 				assignments[item.Field] = item
 
-				sourceType, err := resolveExprType(item, aliasFieldTypes, aliasFieldNames)
+				sourceType, err := resolveActionExprType(item.Expression, availableVariables, aliasFieldNames)
 				if err != nil {
 					return fmt.Errorf("action %s field %s.%s: %w", action.Name, entity.Name, item.Field, err)
 				}
@@ -1365,7 +1349,18 @@ func validateActions(app *model.App) error {
 			}
 
 			switch step.Kind {
+			case "load":
+				if step.Alias == "" {
+					return fmt.Errorf("action %s load %s must bind its result to an alias", action.Name, entity.Name)
+				}
+				if len(assignments) != 1 {
+					return fmt.Errorf("action %s load %s must only include primary key field %s", action.Name, entity.Name, entity.PrimaryKey)
+				}
+				if _, ok := assignments[entity.PrimaryKey]; !ok {
+					return fmt.Errorf("action %s load %s must include primary key field %s", action.Name, entity.Name, entity.PrimaryKey)
+				}
 			case "create":
+				writeSteps++
 				for _, field := range entity.Fields {
 					if field.Primary && field.Auto {
 						continue
@@ -1378,6 +1373,7 @@ func validateActions(app *model.App) error {
 					}
 				}
 			case "update":
+				writeSteps++
 				if _, ok := assignments[entity.PrimaryKey]; !ok {
 					return fmt.Errorf("action %s update %s must include primary key field %s", action.Name, entity.Name, entity.PrimaryKey)
 				}
@@ -1385,6 +1381,7 @@ func validateActions(app *model.App) error {
 					return fmt.Errorf("action %s update %s must change at least one non-primary field", action.Name, entity.Name)
 				}
 			case "delete":
+				writeSteps++
 				if len(assignments) != 1 {
 					return fmt.Errorf("action %s delete %s must only include primary key field %s", action.Name, entity.Name, entity.PrimaryKey)
 				}
@@ -1394,31 +1391,176 @@ func validateActions(app *model.App) error {
 			default:
 				return fmt.Errorf("action %s has unsupported step kind %q", action.Name, step.Kind)
 			}
+
+			if step.Alias != "" {
+				availableAliases[step.Alias] = entity.Name
+				for _, field := range entity.Fields {
+					availableVariables[step.Alias+"."+field.Name] = field.Type
+				}
+			}
+		}
+		if writeSteps == 0 {
+			return fmt.Errorf("action %s must have at least one create, update, or delete step", action.Name)
 		}
 	}
 	return nil
 }
 
-func resolveExprType(expr model.ActionFieldExpr, aliasFieldTypes map[string]string, aliasFieldNames []string) (string, error) {
-	switch expr.SourceKind {
-	case "input":
-		t := aliasFieldTypes[expr.InputField]
+func resolveActionExprType(raw string, variableTypes map[string]string, aliasFieldNames []string) (string, error) {
+	parsed, err := expr.Parse(raw, expr.ParserOptions{AllowedVariables: allowedExprVariables(variableTypes)})
+	if err != nil {
+		msg := err.Error()
+		if strings.Contains(msg, "unknown identifier") {
+			name := strings.Trim(strings.TrimPrefix(msg, "unknown identifier "), `"`)
+			return "", fmt.Errorf("references unknown value %q%s", name, suggest.DidYouMeanSuffix(name, actionVariableNames(variableTypes, aliasFieldNames)))
+		}
+		return "", err
+	}
+	return inferActionExprType(parsed, variableTypes)
+}
+
+func allowedExprVariables(variableTypes map[string]string) map[string]struct{} {
+	out := make(map[string]struct{}, len(variableTypes))
+	for name := range variableTypes {
+		out[name] = struct{}{}
+	}
+	return out
+}
+
+func actionVariableNames(variableTypes map[string]string, aliasFieldNames []string) []string {
+	out := make([]string, 0, len(variableTypes)+len(aliasFieldNames))
+	seen := map[string]struct{}{}
+	for name := range variableTypes {
+		if _, ok := seen[name]; ok {
+			continue
+		}
+		seen[name] = struct{}{}
+		out = append(out, name)
+	}
+	for _, name := range aliasFieldNames {
+		full := "input." + name
+		if _, ok := seen[full]; ok {
+			continue
+		}
+		seen[full] = struct{}{}
+		out = append(out, full)
+	}
+	return out
+}
+
+func inferActionExprType(node expr.Expr, variableTypes map[string]string) (string, error) {
+	switch n := node.(type) {
+	case expr.Literal:
+		switch n.Value.(type) {
+		case nil:
+			return "Null", nil
+		case bool:
+			return "Bool", nil
+		case string:
+			return "String", nil
+		case int64, int:
+			return "Int", nil
+		case float64, float32:
+			return "Float", nil
+		default:
+			return "", fmt.Errorf("unsupported literal value")
+		}
+	case expr.Variable:
+		t := variableTypes[n.Name]
 		if t == "" {
-			return "", fmt.Errorf("references unknown input field %q%s", expr.InputField, suggest.DidYouMeanSuffix(expr.InputField, aliasFieldNames))
+			return "", fmt.Errorf("references unknown value %q", n.Name)
 		}
 		return t, nil
-	case "literal_string":
-		return "String", nil
-	case "literal_int":
-		return "Int", nil
-	case "literal_float":
-		return "Float", nil
-	case "literal_bool":
-		return "Bool", nil
-	case "literal_null":
-		return "Null", nil
+	case expr.Unary:
+		rightType, err := inferActionExprType(n.Right, variableTypes)
+		if err != nil {
+			return "", err
+		}
+		switch n.Op {
+		case "not":
+			return "Bool", nil
+		case "-":
+			switch rightType {
+			case "Int":
+				return "Int", nil
+			case "Float":
+				return "Float", nil
+			default:
+				return "", fmt.Errorf("operator - expects Int or Float")
+			}
+		default:
+			return "", fmt.Errorf("unknown unary operator %q", n.Op)
+		}
+	case expr.Binary:
+		leftType, err := inferActionExprType(n.Left, variableTypes)
+		if err != nil {
+			return "", err
+		}
+		rightType, err := inferActionExprType(n.Right, variableTypes)
+		if err != nil {
+			return "", err
+		}
+		switch n.Op {
+		case "and", "or", "==", "!=", ">", ">=", "<", "<=":
+			return "Bool", nil
+		case "+":
+			if leftType == "String" || rightType == "String" {
+				return "String", nil
+			}
+			if leftType == "Posix" && rightType == "Int" {
+				return "Posix", nil
+			}
+			if leftType == "Int" && rightType == "Posix" {
+				return "Posix", nil
+			}
+			if leftType == "Float" || rightType == "Float" {
+				return "Float", nil
+			}
+			if leftType == "Int" && rightType == "Int" {
+				return "Int", nil
+			}
+			return "", fmt.Errorf("operator + expects compatible values")
+		case "-":
+			if leftType == "Posix" && rightType == "Int" {
+				return "Posix", nil
+			}
+			if leftType == "Posix" && rightType == "Posix" {
+				return "Int", nil
+			}
+			if leftType == "Float" || rightType == "Float" {
+				return "Float", nil
+			}
+			if leftType == "Int" && rightType == "Int" {
+				return "Int", nil
+			}
+			return "", fmt.Errorf("operator - expects compatible numeric values")
+		case "*":
+			if leftType == "Float" || rightType == "Float" {
+				return "Float", nil
+			}
+			if leftType == "Int" && rightType == "Int" {
+				return "Int", nil
+			}
+			return "", fmt.Errorf("operator * expects numeric values")
+		case "/":
+			if (leftType == "Int" || leftType == "Float") && (rightType == "Int" || rightType == "Float") {
+				return "Float", nil
+			}
+			return "", fmt.Errorf("operator / expects numeric values")
+		default:
+			return "", fmt.Errorf("unknown operator %q", n.Op)
+		}
+	case expr.Call:
+		switch n.Name {
+		case "contains", "startsWith", "endsWith", "matches":
+			return "Bool", nil
+		case "len":
+			return "Int", nil
+		default:
+			return "", fmt.Errorf("unsupported function %q", n.Name)
+		}
 	default:
-		return "", fmt.Errorf("unsupported source kind %q", expr.SourceKind)
+		return "", fmt.Errorf("unsupported expression type")
 	}
 }
 

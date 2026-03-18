@@ -11,13 +11,13 @@ Mar has a built-in `User` entity in every app, and entity operations are protect
 - Public assets config (`public`, `dir`, `mount`, `spa_fallback`)
 - System config (`system`, `request_logs_buffer`, `http_max_request_body_mb`, auth rate limits, security headers like `security_frame_policy`/`security_referrer_policy`/`security_content_type_nosniff`, and `sqlite_*` options like `sqlite_mmap_size_mb` and `sqlite_cache_size_kb`)
 - Rule/authz keywords (`rule`, `expect`, `when`, `authorize`)
-- Action syntax (`action <name> { input: Alias ... create/update/delete Entity { ... } }`)
+- Action syntax (`action <name> { input: Alias ... todo = load Todo { ... } updatedTodo = update Todo { ... } }`)
 - Auth config keys (`code_ttl_minutes`, `session_ttl_hours`, `email_transport`, etc.)
 - Built-in `User` entity support and auth-aware snippets
 - Field modifiers (`primary`, `auto`, `optional`, `default`)
 - Built-in types (`Int`, `String`, `Bool`, `Float`, `Posix`)
 - Built-in functions (`contains`, `startsWith`, `endsWith`, `len`, `matches`, `isRole`)
-- Context variables (`input`, `input.field`, `auth_authenticated`, `auth_email`, `auth_user_id`, `auth_role`)
+- Context variables (`input`, `input.field`, action aliases like `todo.field`, `auth_authenticated`, `auth_email`, `auth_user_id`, `auth_role`)
 - Comments (`--`), strings, numbers, booleans, null, operators, and punctuation
 - `Posix` follows Elm's `Time.Posix` convention and represents Unix milliseconds
 - `default` lets you assign literal field defaults such as `done: Bool default false`
@@ -34,6 +34,7 @@ Mar has a built-in `User` entity in every app, and entity operations are protect
 - `authzcrud`
 - `typealias`
 - `action`
+- `load`
 - `create`
 - `update`
 - `delete`

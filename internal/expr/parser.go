@@ -282,7 +282,7 @@ func (p *parser) parsePrimary() (Expr, error) {
 		if err != nil {
 			return nil, fmt.Errorf("invalid number %q", tok.text)
 		}
-		return Literal{Value: float64(i)}, nil
+		return Literal{Value: i}, nil
 	case tokString:
 		p.next()
 		return Literal{Value: tok.text}, nil
@@ -394,5 +394,5 @@ func isIdentStart(r rune) bool {
 }
 
 func isIdentPart(r rune) bool {
-	return r == '_' || unicode.IsLetter(r) || unicode.IsDigit(r)
+	return r == '_' || r == '.' || unicode.IsLetter(r) || unicode.IsDigit(r)
 }

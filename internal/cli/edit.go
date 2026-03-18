@@ -72,7 +72,7 @@ type editorSnapshot struct {
 var (
 	marEditorKeywords = map[string]struct{}{
 		"app": {}, "port": {}, "database": {}, "public": {}, "system": {}, "auth": {}, "entity": {}, "action": {}, "type": {}, "alias": {},
-		"rule": {}, "expect": {}, "authorize": {}, "when": {}, "all": {}, "list": {}, "get": {}, "create": {}, "update": {}, "delete": {},
+		"rule": {}, "expect": {}, "authorize": {}, "when": {}, "all": {}, "list": {}, "get": {}, "load": {}, "create": {}, "update": {}, "delete": {},
 	}
 	marEditorTypes = map[string]struct{}{
 		"String": {}, "Int": {}, "Bool": {}, "Float": {}, "Posix": {},
@@ -1352,8 +1352,17 @@ func editorHighlightLine(line string, useColor bool, selectFrom, selectTo int, h
 				j++
 			}
 			token := string(runes[i:j])
+			k := j
+			for k < len(runes) && unicode.IsSpace(runes[k]) {
+				k++
+			}
+			declaresAlias := k < len(runes) && runes[k] == '='
 			switch {
 			case token == "input" || strings.HasPrefix(token, "input.") || strings.HasPrefix(token, "auth_"):
+				style = "\033[38;5;81m"
+			case declaresAlias:
+				style = "\033[38;5;81m"
+			case strings.Contains(token, "."):
 				style = "\033[38;5;81m"
 			case tokenInSet(token, marEditorKeywords):
 				style = "\033[38;5;75m"

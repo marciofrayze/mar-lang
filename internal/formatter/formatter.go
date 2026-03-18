@@ -20,7 +20,7 @@ var (
 	typeAliasRe   = regexp.MustCompile(`^type\s+alias\s+([A-Za-z][A-Za-z0-9_]*)\s*=\s*(.*)$`)
 	actionStartRe = regexp.MustCompile(`^action\s+([a-z][A-Za-z0-9_]*)\s*\{$`)
 	actionInputRe = regexp.MustCompile(`^input\s*:\s*([A-Za-z][A-Za-z0-9_]*)$`)
-	actionStepRe  = regexp.MustCompile(`^(create|update|delete)\s+([A-Za-z][A-Za-z0-9_]*)\s*\{$`)
+	actionStepRe  = regexp.MustCompile(`^(?:([a-z][A-Za-z0-9_]*)\s*=\s*)?(load|create|update|delete)\s+([A-Za-z][A-Za-z0-9_]*)\s*\{$`)
 
 	entityFieldRe = regexp.MustCompile(`^([a-z][A-Za-z0-9_]*)\s*:\s*(Int|String|Bool|Float|Posix)(?:\s+(.*))?$`)
 	ruleRe        = regexp.MustCompile(`^rule\s+"([^"]+)"\s+expect\s+(.+)$`)
@@ -270,7 +270,10 @@ func normalizeLine(trimmed string, state *formatState) string {
 			return "input: " + m[1]
 		}
 		if m := actionStepRe.FindStringSubmatch(trimmed); m != nil {
-			return m[1] + " " + m[2] + " {"
+			if m[1] != "" {
+				return m[1] + " = " + m[2] + " " + m[3] + " {"
+			}
+			return m[2] + " " + m[3] + " {"
 		}
 		if state.inActionStep {
 			if m := actionFieldAssignRe.FindStringSubmatch(trimmed); m != nil {

@@ -170,3 +170,88 @@ action deleteTodo {
 		t.Fatalf("expected 404 after delete, got %d body=%s", missingRec.Code, missingRec.Body.String())
 	}
 }
+
+func TestActionsSupportAliasedLoadAndStepOutputs(t *testing.T) {
+	requireSQLite3(t)
+
+	r := mustNewRuntimeFromSource(t, filepath.Join(t.TempDir(), "action-load-alias.db"), `
+app TodoApi
+
+entity Todo {
+  title: String
+  done: Bool default false
+  authorize all when true
+}
+
+entity AuditLog {
+  todoId: Int
+  message: String
+  authorize all when true
+}
+
+type alias CompleteTodoInput =
+  { id: Int
+  }
+
+action completeTodo {
+  input: CompleteTodoInput
+
+  todo = load Todo {
+    id: input.id
+  }
+
+  updatedTodo = update Todo {
+    id: todo.id
+    title: todo.title + " done"
+    done: true
+  }
+
+  audit = create AuditLog {
+    todoId: updatedTodo.id
+    message: updatedTodo.title
+  }
+}
+`)
+
+	createRec := doRuntimeRequest(r, http.MethodPost, "/todos", `{"title":"Before"}`, "")
+	if createRec.Code != http.StatusCreated {
+		t.Fatalf("expected 201 create, got %d body=%s", createRec.Code, createRec.Body.String())
+	}
+
+	actionRec := doRuntimeRequest(r, http.MethodPost, "/actions/completeTodo", `{"id":1}`, "")
+	if actionRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 action, got %d body=%s", actionRec.Code, actionRec.Body.String())
+	}
+
+	getTodoRec := doRuntimeRequest(r, http.MethodGet, "/todos/1", "", "")
+	if getTodoRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 get todo, got %d body=%s", getTodoRec.Code, getTodoRec.Body.String())
+	}
+
+	var todo map[string]any
+	if err := json.Unmarshal(getTodoRec.Body.Bytes(), &todo); err != nil {
+		t.Fatalf("decode todo failed: %v body=%s", err, getTodoRec.Body.String())
+	}
+	if todo["title"] != "Before done" {
+		t.Fatalf("expected updated title, got %#v", todo["title"])
+	}
+	if todo["done"] != true {
+		t.Fatalf("expected done true, got %#v", todo["done"])
+	}
+
+	listAuditRec := doRuntimeRequest(r, http.MethodGet, "/audit_logs", "", "")
+	if listAuditRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 audit list, got %d body=%s", listAuditRec.Code, listAuditRec.Body.String())
+	}
+
+	var auditRows []map[string]any
+	if err := json.Unmarshal(listAuditRec.Body.Bytes(), &auditRows); err != nil {
+		t.Fatalf("decode audit list failed: %v body=%s", err, listAuditRec.Body.String())
+	}
+	if len(auditRows) != 1 {
+		t.Fatalf("expected 1 audit row, got %d", len(auditRows))
+	}
+	if auditRows[0]["message"] != "Before done" {
+		t.Fatalf("expected aliased create to use updated title, got %#v", auditRows[0]["message"])
+	}
+}
