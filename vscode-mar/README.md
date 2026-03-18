@@ -14,12 +14,13 @@ Mar has a built-in `User` entity in every app, and entity operations are protect
 - Action syntax (`action <name> { input: Alias ... create Entity { ... } }`)
 - Auth config keys (`code_ttl_minutes`, `session_ttl_hours`, `email_transport`, etc.)
 - Built-in `User` entity support and auth-aware snippets
-- Field modifiers (`primary`, `auto`, `optional`)
+- Field modifiers (`primary`, `auto`, `optional`, `default`)
 - Built-in types (`Int`, `String`, `Bool`, `Float`, `Posix`)
 - Built-in functions (`contains`, `startsWith`, `endsWith`, `len`, `matches`, `isRole`)
 - Context variables (`input`, `input.field`, `auth_authenticated`, `auth_email`, `auth_user_id`, `auth_role`)
 - Comments (`--`), strings, numbers, booleans, null, operators, and punctuation
 - `Posix` follows Elm's `Time.Posix` convention and represents Unix milliseconds
+- `default` lets you assign literal field defaults such as `done: Bool default false`
 - Snippets/autocomplete (examples):
 - `app`
 - `entity`
