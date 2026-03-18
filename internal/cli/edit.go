@@ -453,6 +453,7 @@ func (e *marEditor) processKey(key int) (bool, error) {
 			return false, nil
 		}
 		e.clipboard = e.selectedText()
+		e.clearSelection()
 		if err := writeSystemClipboard(e.clipboard); err != nil {
 			e.setStatusMessage("Selection copied (editor clipboard only)")
 		} else {
@@ -568,6 +569,10 @@ func (e *marEditor) processKey(key int) (bool, error) {
 		e.backspace()
 	case '\x1b':
 		e.quitArmed = false
+		if e.selecting {
+			e.clearSelection()
+			e.setStatusMessage("Selection cleared")
+		}
 	case '\r':
 		e.quitArmed = false
 		e.beginUndoGroup()
@@ -1027,7 +1032,7 @@ func (e *marEditor) statusBarLeftText() string {
 func (e *marEditor) helpText() string {
 	var items []string
 	if e.selecting {
-		items = append(items, "Ctrl-Space cancel selection", "Arrows extend", "Ctrl-c copy", "Ctrl-x cut")
+		items = append(items, "Esc cancel selection", "Arrows extend", "Ctrl-c copy", "Ctrl-x cut")
 		if e.clipboard != "" {
 			items = append(items, "Ctrl-v paste")
 		}

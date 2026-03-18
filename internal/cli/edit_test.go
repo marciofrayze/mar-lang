@@ -167,3 +167,75 @@ func TestEditorStatusBarLeftTextFallsBackToFilename(t *testing.T) {
 		t.Fatalf("expected filename fallback in status bar, got %q", got)
 	}
 }
+
+func TestEditorEscClearsSelection(t *testing.T) {
+	editor := &marEditor{
+		filePath: "todo.mar",
+		lines: []string{
+			"app Todo",
+		},
+		savedLines: []string{
+			"app Todo",
+		},
+		cx: 4,
+		cy: 0,
+	}
+
+	editor.beginSelection()
+	editor.moveCursor(editorKeyArrowRight)
+	editor.moveCursor(editorKeyArrowRight)
+
+	if !editor.hasSelection() {
+		t.Fatal("expected selection before pressing Esc")
+	}
+
+	quit, err := editor.processKey(int('\x1b'))
+	if err != nil {
+		t.Fatalf("processKey returned error: %v", err)
+	}
+	if quit {
+		t.Fatal("Esc should not quit the editor")
+	}
+	if editor.selecting {
+		t.Fatal("expected Esc to clear selection mode")
+	}
+	if got := editor.status; got != "Selection cleared" {
+		t.Fatalf("expected selection cleared status, got %q", got)
+	}
+}
+
+func TestEditorCtrlCCopiesAndClearsSelection(t *testing.T) {
+	editor := &marEditor{
+		filePath: "todo.mar",
+		lines: []string{
+			"app Todo",
+		},
+		savedLines: []string{
+			"app Todo",
+		},
+		cx: 4,
+		cy: 0,
+	}
+
+	editor.beginSelection()
+	editor.moveCursor(editorKeyArrowRight)
+	editor.moveCursor(editorKeyArrowRight)
+
+	if !editor.hasSelection() {
+		t.Fatal("expected selection before pressing Ctrl-c")
+	}
+
+	quit, err := editor.processKey(editorCtrlKey('c'))
+	if err != nil {
+		t.Fatalf("processKey returned error: %v", err)
+	}
+	if quit {
+		t.Fatal("Ctrl-c should not quit the editor")
+	}
+	if editor.selecting {
+		t.Fatal("expected Ctrl-c to clear selection mode")
+	}
+	if got := editor.clipboard; got != "To" {
+		t.Fatalf("expected copied text %q, got %q", "To", got)
+	}
+}
