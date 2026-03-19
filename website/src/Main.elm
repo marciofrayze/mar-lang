@@ -1301,7 +1301,7 @@ advancedLanguagePage model =
                 , docSubsectionTitle "Fundamentals"
                 , bodyText "Mar reads top-to-bottom as a declarative app definition. A Mar app is centered around entities, rules, authorization, auth configuration, and typed actions. Built-in field types are Int, String, Bool, Float, and Posix."
                 , docSubsectionTitle "Quick Examples"
-                , codeFromString model "todo.mar" 450 todoExampleSource
+                , codeFromString model "todo.mar" 320 todoExampleSource
                 , codeFromString model "action.mar" 575 actionExampleSource
                 ]
             , anchoredSection "syntax-model"
@@ -1317,7 +1317,7 @@ advancedLanguagePage model =
                 [ docSubsectionTitle "Authentication and Authorization"
                 , bodyText "Mar includes a built-in email-code login flow and per-operation authorization rules. The same auth model is also used by system-level tooling such as monitoring, logs, and backups."
                 , codeFromString model "auth.mar" 272 authConfigSource
-                , codeFromString model "authorize.mar" 300 authorizeExampleSource
+                , codeFromString model "authorize.mar" 250 authorizeExampleSource
                 , docList
                     [ "Authentication endpoints are always available."
                     , "Every Mar app includes a built-in User entity that you may extend."
