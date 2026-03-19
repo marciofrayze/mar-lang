@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -275,8 +276,14 @@ func TestReadVersionInfoUsesEmbeddedVersion(t *testing.T) {
 	cliCommit = ""
 	cliBuildTime = ""
 
+	expectedVersionBytes, err := os.ReadFile(filepath.Join("..", "..", "VERSION"))
+	if err != nil {
+		t.Fatalf("expected to read VERSION file: %v", err)
+	}
+	expectedVersion := strings.TrimSpace(string(expectedVersionBytes))
+
 	info := readVersionInfo("mar")
-	if info.Version != "0.0.2-SNAPSHOT" {
-		t.Fatalf("expected VERSION file version 0.0.2-SNAPSHOT, got %q", info.Version)
+	if info.Version != expectedVersion {
+		t.Fatalf("expected VERSION file version %q, got %q", expectedVersion, info.Version)
 	}
 }

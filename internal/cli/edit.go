@@ -111,7 +111,7 @@ func editUsageError(binaryName string) error {
 	fmt.Fprintf(&b, "%s\n", colorizeCLI(useColor, "\033[1;31m", "Edit usage"))
 	fmt.Fprintf(&b, "  %s\n", fmt.Sprintf("%s edit <app.mar>", binaryName))
 	fmt.Fprintf(&b, "\n%s\n", colorizeCLI(useColor, "\033[1;33m", "Hint:"))
-	fmt.Fprintf(&b, "  Open a Mar file in the terminal with: %s\n", colorizeCLI(useColor, "\033[1;32m", fmt.Sprintf("%s edit todo.mar", binaryName)))
+	fmt.Fprintf(&b, "  Open a Mar file in the terminal with: %s\n", colorizeCLI(useColor, "\033[1;32m", fmt.Sprintf("%s edit app.mar", binaryName)))
 	return styledCLIError(strings.TrimRight(b.String(), "\n") + "\n")
 }
 
@@ -124,7 +124,7 @@ func openMarEditor(path string) (*marEditor, error) {
 		return nil, initCLIError(
 			"Invalid Mar file",
 			fmt.Sprintf("%s is not a .mar file.", trimmed),
-			"Use a file name like todo.mar.",
+			"Use a file name like app.mar.",
 		)
 	}
 
