@@ -1,10 +1,8 @@
 port module Main exposing (main)
 
-import Mar.Api exposing (ActionInfo, AuthInfo, Entity, Field, FieldType(..), InputAliasField, InputAliasInfo, Row, Schema, SystemAuthInfo, decodeRows, decodeSchema, encodePayload, fieldTypeLabel, rowDecoder, valueToDisplayString, valueToString)
 import Browser
-import Browser.Navigation as Nav
 import Browser.Events
-import Char
+import Browser.Navigation as Nav
 import Dict exposing (Dict)
 import Element exposing (Element, alignLeft, centerX, centerY, column, el, fill, fillPortion, height, htmlAttribute, inFront, maximum, minimum, none, padding, paddingEach, paragraph, px, rgb255, rgba255, row, scrollbarY, spacing, text, width, wrappedRow)
 import Element.Background as Background
@@ -16,7 +14,7 @@ import Html.Events as HtmlEvents
 import Http
 import Json.Decode as Decode
 import Json.Encode as Encode
-import String
+import Mar.Api exposing (ActionInfo, AuthInfo, Entity, Field, FieldType(..), InputAliasField, InputAliasInfo, Row, Schema, decodeRows, decodeSchema, encodePayload, fieldTypeLabel, rowDecoder, valueToDisplayString, valueToString)
 import Url exposing (Url)
 
 
@@ -52,7 +50,6 @@ type BooleanFieldState
 
 type AuthScope
     = AppAuthScope
-    | SystemAuthScope
 
 
 type AuthStage
@@ -176,7 +173,6 @@ type Msg
     | GotBootstrapFirstAdmin AuthScope (Result ApiHttpError RequestCodeResponse)
     | LoginWithCode
     | GotLoginWithCode AuthScope (Result ApiHttpError LoginResponse)
-    | LoadAuthMe
     | GotAuthMe AuthScope (Result ApiHttpError AuthMeResponse)
     | LogoutSession
     | GotLogoutSession AuthScope (Result ApiHttpError ())
@@ -883,15 +879,15 @@ syncRowRoute rowKey editing model =
 
 routeMatchesSelectedEntity : WorkspaceMode -> String -> Model -> Bool
 routeMatchesSelectedEntity workspace entityName model =
-    currentWorkspace model == workspace
-        &&
-            (case model.selectedEntity of
+    currentWorkspace model
+        == workspace
+        && (case model.selectedEntity of
                 Just entity ->
                     entity.name == entityName
 
                 Nothing ->
                     False
-            )
+           )
 
 
 findRowById : Entity -> String -> List Row -> Maybe Row
@@ -1012,13 +1008,14 @@ update msg model =
                                         AuthStageEmail
                                 , firstAdminCodeRequested =
                                     model.firstAdminCodeRequested
-                                        && String.trim model.authToken == ""
+                                        && String.trim model.authToken
+                                        == ""
                             }
                     in
                     applyCurrentRoute nextModel
 
                 Err httpError ->
-                    ( { model | schema = Failed (httpErrorToString model httpError), rows = Failed "schema unavailable" }, Cmd.none )
+                    ( { model | schema = Failed (httpErrorToString httpError), rows = Failed "schema unavailable" }, Cmd.none )
 
         SelectEntity entityName ->
             ( model, pushRoute (RouteEntity (currentWorkspace model) entityName) model )
@@ -1039,7 +1036,7 @@ update msg model =
                     ( syncRouteSelection { model | rows = Loaded rows }, Cmd.none )
 
                 Err httpError ->
-                    ( { model | rows = Failed (httpErrorToString model httpError) }, Cmd.none )
+                    ( { model | rows = Failed (httpErrorToString httpError) }, Cmd.none )
 
         SelectPerformance ->
             if not (isAdminProfile model) then
@@ -1074,11 +1071,11 @@ update msg model =
                 ( nextModel, Cmd.batch [ loadPerformance nextModel, loadBackups nextModel ] )
 
         ReloadPerformance ->
-                let
-                    nextModel =
-                        { model | perf = Loading, adminVersion = Loading, flash = Nothing }
-                in
-                ( nextModel, Cmd.batch [ loadPerformance nextModel, loadAdminVersion nextModel ] )
+            let
+                nextModel =
+                    { model | perf = Loading, adminVersion = Loading, flash = Nothing }
+            in
+            ( nextModel, Cmd.batch [ loadPerformance nextModel, loadAdminVersion nextModel ] )
 
         ToggleMonitoringVersionDetails ->
             ( { model | monitoringVersionDetailsOpen = not model.monitoringVersionDetailsOpen }, Cmd.none )
@@ -1096,7 +1093,7 @@ update msg model =
                     ( { model | perf = Loaded perf }, Cmd.none )
 
                 Err httpError ->
-                    ( { model | perf = Failed (httpErrorToString model httpError) }, Cmd.none )
+                    ( { model | perf = Failed (httpErrorToString httpError) }, Cmd.none )
 
         GotAdminVersion result ->
             case result of
@@ -1104,7 +1101,7 @@ update msg model =
                     ( { model | adminVersion = Loaded payload }, Cmd.none )
 
                 Err httpError ->
-                    ( { model | adminVersion = Failed (httpErrorToString model httpError) }, Cmd.none )
+                    ( { model | adminVersion = Failed (httpErrorToString httpError) }, Cmd.none )
 
         GotRequestLogs result ->
             case result of
@@ -1112,7 +1109,7 @@ update msg model =
                     ( { model | requestLogs = Loaded payload }, Cmd.none )
 
                 Err httpError ->
-                    ( { model | requestLogs = Failed (httpErrorToString model httpError) }, Cmd.none )
+                    ( { model | requestLogs = Failed (httpErrorToString httpError) }, Cmd.none )
 
         GotBackups result ->
             case result of
@@ -1120,7 +1117,7 @@ update msg model =
                     ( { model | backups = Loaded backups }, Cmd.none )
 
                 Err httpError ->
-                    ( { model | backups = Failed (httpErrorToString model httpError) }, Cmd.none )
+                    ( { model | backups = Failed (httpErrorToString httpError) }, Cmd.none )
 
         SetAuthEmail email ->
             ( { model | authEmail = email, authInlineMessage = Nothing }, Cmd.none )
@@ -1155,13 +1152,13 @@ update msg model =
             else
                 let
                     scope =
-                        activeAuthScope model
+                        activeAuthScope
                 in
                 ( { model | authInlineMessage = Nothing, flash = Nothing, authSubmitting = Just AuthSubmitSendingCode }, requestAuthCode scope model )
 
-        GotRequestAuthCode scope result ->
+        GotRequestAuthCode _ result ->
             case result of
-                Ok response ->
+                Ok _ ->
                     ( { model
                         | authStage = AuthStageCode
                         , authSubmitting = Nothing
@@ -1172,7 +1169,7 @@ update msg model =
                     )
 
                 Err httpError ->
-                    ( { model | authSubmitting = Nothing, flash = Just (authRequestCodeErrorToString model httpError) }, Cmd.none )
+                    ( { model | authSubmitting = Nothing, flash = Just (authRequestCodeErrorToString httpError) }, Cmd.none )
 
         BootstrapFirstAdmin ->
             if String.trim model.authEmail == "" then
@@ -1184,17 +1181,17 @@ update msg model =
             else
                 let
                     scope =
-                        activeAuthScope model
+                        activeAuthScope
                 in
                 ( { model | authInlineMessage = Nothing, flash = Nothing, authSubmitting = Just AuthSubmitSendingCode }, bootstrapFirstAdmin scope model )
 
-        GotBootstrapFirstAdmin scope result ->
+        GotBootstrapFirstAdmin _ result ->
             case result of
-                Ok response ->
+                Ok _ ->
                     ( { model | authStage = AuthStageCode, authSubmitting = Nothing, firstAdminCodeRequested = True, authInlineMessage = Nothing, flash = Nothing }, loadSchema model.apiBase )
 
                 Err httpError ->
-                    ( { model | authSubmitting = Nothing, flash = Just (authRequestCodeErrorToString model httpError) }, Cmd.none )
+                    ( { model | authSubmitting = Nothing, flash = Just (authRequestCodeErrorToString httpError) }, Cmd.none )
 
         LoginWithCode ->
             if String.trim model.authEmail == "" || String.trim model.authCode == "" then
@@ -1206,7 +1203,7 @@ update msg model =
             else
                 let
                     scope =
-                        activeAuthScope model
+                        activeAuthScope
                 in
                 ( { model | authInlineMessage = Nothing, flash = Nothing, authSubmitting = Just AuthSubmitSigningIn }, loginWithCode scope model )
 
@@ -1254,50 +1251,8 @@ update msg model =
                             else
                                 ( nextModel, Cmd.batch [ meCmd, schemaCmd, saveSessionCmd ] )
 
-                        SystemAuthScope ->
-                            let
-                                nextWorkspace =
-                                    workspaceForCurrentRoute response.role model.currentRoute
-
-                                nextModel =
-                                    { model
-                                        | systemAuthToken = ""
-                                        , currentSystemRole = response.role
-                                        , currentSystemEmail = response.email
-                                        , authEmail = ""
-                                        , authCode = ""
-                                        , authStage = AuthStageSession
-                                        , authSubmitting = Nothing
-                                        , sessionRestorePending = False
-                                        , authToolsOpen = False
-                                        , workspace = nextWorkspace
-                                        , flash = Just "Admin login successful."
-                                    }
-
-                                refreshCmd =
-                                    if model.performanceMode then
-                                        Cmd.batch [ loadPerformance nextModel, loadAdminVersion nextModel ]
-
-                                    else if model.requestLogsMode then
-                                        loadRequestLogs nextModel
-
-                                    else if model.databaseMode then
-                                        Cmd.batch [ loadPerformance nextModel, loadBackups nextModel ]
-
-                                    else
-                                        Cmd.none
-                            in
-                            ( nextModel, Cmd.batch [ refreshCmd, saveSessionFromModel nextModel ] )
-
                 Err httpError ->
-                    ( { model | authSubmitting = Nothing, flash = Just (authLoginErrorToString model httpError) }, Cmd.none )
-
-        LoadAuthMe ->
-            let
-                scope =
-                    activeAuthScope model
-            in
-            ( { model | flash = Nothing }, loadAuthMe scope model )
+                    ( { model | authSubmitting = Nothing, flash = Just (authLoginErrorToString httpError) }, Cmd.none )
 
         GotAuthMe scope result ->
             case result of
@@ -1324,12 +1279,15 @@ update msg model =
                                         model.selectedEntity
 
                                 shouldLoadRows =
-                                    nextWorkspace == AppWorkspace
-                                        && nextSelectedEntity /= Nothing
-                                        &&
-                                            (model.selectedEntity == Nothing
-                                                || model.rows == NotAsked
-                                            )
+                                    nextWorkspace
+                                        == AppWorkspace
+                                        && nextSelectedEntity
+                                        /= Nothing
+                                        && (model.selectedEntity
+                                                == Nothing
+                                                || model.rows
+                                                == NotAsked
+                                           )
 
                                 nextModel =
                                     { model
@@ -1355,19 +1313,6 @@ update msg model =
                             else
                                 ( nextModel, Cmd.none )
 
-                        SystemAuthScope ->
-                            ( { model
-                                | currentSystemEmail = Just response.email
-                                , currentSystemRole = response.role
-                                , authStage = AuthStageSession
-                                , sessionRestorePending = False
-                                , authToolsOpen = False
-                                , workspace = workspaceForCurrentRoute response.role model.currentRoute
-                                , flash = Nothing
-                              }
-                            , Cmd.none
-                            )
-
                 Err httpError ->
                     if isUnauthorizedError httpError then
                         case scope of
@@ -1391,26 +1336,6 @@ update msg model =
                                 in
                                 ( nextModel, saveSessionFromModel nextModel )
 
-                            SystemAuthScope ->
-                                let
-                                    nextModel =
-                                        { model
-                                            | systemAuthToken = ""
-                                            , currentSystemEmail = Nothing
-                                            , currentSystemRole = Nothing
-                                            , authStage = AuthStageEmail
-                                            , sessionRestorePending = False
-                                            , authToolsOpen = True
-                                            , flash =
-                                                if model.sessionRestorePending then
-                                                    Nothing
-
-                                                else
-                                                    Just "Session expired. Please login again."
-                                        }
-                                in
-                                ( nextModel, saveSessionFromModel nextModel )
-
                     else
                         ( { model
                             | sessionRestorePending = False
@@ -1419,7 +1344,7 @@ update msg model =
                                     Nothing
 
                                 else
-                                    Just (httpErrorToString model httpError)
+                                    Just (httpErrorToString httpError)
                           }
                         , Cmd.none
                         )
@@ -1427,7 +1352,7 @@ update msg model =
         LogoutSession ->
             let
                 scope =
-                    activeAuthScope model
+                    activeAuthScope
             in
             ( { model | flash = Nothing }, logoutSession scope model )
 
@@ -1439,26 +1364,14 @@ update msg model =
                             let
                                 nextModel =
                                     { model | authToken = "", currentEmail = Nothing, currentRole = Nothing, authEmail = "", authCode = "", authStage = AuthStageEmail, authSubmitting = Nothing, sessionRestorePending = False, flash = Nothing }
-                            in
-                            let
-                                finalModel =
-                                    { nextModel | authToolsOpen = True }
-                            in
-                            ( finalModel, saveSessionFromModel finalModel )
 
-                        SystemAuthScope ->
-                            let
-                                nextModel =
-                                    { model | systemAuthToken = "", currentSystemEmail = Nothing, currentSystemRole = Nothing, authEmail = "", authCode = "", authStage = AuthStageEmail, authSubmitting = Nothing, sessionRestorePending = False, flash = Nothing }
-                            in
-                            let
                                 finalModel =
                                     { nextModel | authToolsOpen = True }
                             in
                             ( finalModel, saveSessionFromModel finalModel )
 
                 Err httpError ->
-                    ( { model | flash = Just (httpErrorToString model httpError) }, Cmd.none )
+                    ( { model | flash = Just (httpErrorToString httpError) }, Cmd.none )
 
         TriggerBackup ->
             if not (isAdminProfile model) then
@@ -1480,15 +1393,14 @@ update msg model =
 
                             else
                                 ""
-                    in
-                    let
+
                         nextModel =
                             { model | lastBackup = Just response, flash = Just ("Backup created at " ++ response.path ++ "." ++ removedText), backups = Loading }
                     in
                     ( nextModel, Cmd.batch [ loadBackups nextModel, loadPerformance nextModel ] )
 
                 Err httpError ->
-                    ( { model | flash = Just (httpErrorToString model httpError) }, Cmd.none )
+                    ( { model | flash = Just (httpErrorToString httpError) }, Cmd.none )
 
         ToggleAuthTools ->
             ( model, pushRoute (RouteAuthTools (currentWorkspace model)) model )
@@ -1607,7 +1519,7 @@ update msg model =
                             ( nextModel, Cmd.none )
 
                 Err httpError ->
-                    ( { model | flash = Just (httpErrorToString model httpError) }, Cmd.none )
+                    ( { model | flash = Just (httpErrorToString httpError) }, Cmd.none )
 
         GotUpdate result ->
             case result of
@@ -1632,7 +1544,7 @@ update msg model =
                             ( nextModel, Cmd.none )
 
                 Err httpError ->
-                    ( { model | flash = Just (httpErrorToString model httpError) }, Cmd.none )
+                    ( { model | flash = Just (httpErrorToString httpError) }, Cmd.none )
 
         RequestDeleteRow rowValue ->
             case model.selectedEntity of
@@ -1680,7 +1592,7 @@ update msg model =
                             ( nextModel, Cmd.none )
 
                 Err httpError ->
-                    ( { model | flash = Just (httpErrorToString model httpError), pendingDelete = Nothing }, Cmd.none )
+                    ( { model | flash = Just (httpErrorToString httpError), pendingDelete = Nothing }, Cmd.none )
 
         RunAction ->
             case model.selectedAction of
@@ -1701,13 +1613,29 @@ update msg model =
                     ( { model | actionResult = Just response, flash = Just "Action executed successfully" }, Cmd.none )
 
                 Err httpError ->
-                    ( { model | flash = Just (httpErrorToString model httpError) }, Cmd.none )
+                    ( { model | flash = Just (httpErrorToString httpError) }, Cmd.none )
 
         ClearFlash ->
             ( { model | flash = Nothing }, Cmd.none )
 
         ViewportResized widthPx _ ->
-            ( { model | viewportWidth = max 320 widthPx, mobileSidebarOpen = if widthPx >= 900 then False else model.mobileSidebarOpen, keepMobileSidebarOpenOnNextRoute = if widthPx >= 900 then False else model.keepMobileSidebarOpenOnNextRoute }, Cmd.none )
+            ( { model
+                | viewportWidth = max 320 widthPx
+                , mobileSidebarOpen =
+                    if widthPx >= 900 then
+                        False
+
+                    else
+                        model.mobileSidebarOpen
+                , keepMobileSidebarOpenOnNextRoute =
+                    if widthPx >= 900 then
+                        False
+
+                    else
+                        model.keepMobileSidebarOpenOnNextRoute
+              }
+            , Cmd.none
+            )
 
         ToggleMobileSidebar ->
             ( { model | mobileSidebarOpen = not model.mobileSidebarOpen, keepMobileSidebarOpenOnNextRoute = False }, Cmd.none )
@@ -2593,7 +2521,7 @@ splitIdentifierWords identifier =
             }
 
         step char acc =
-            if char == '_' || char == '-' || char == ' ' || char == '\n' || char == '\t' || char == '\r' then
+            if char == '_' || char == '-' || char == ' ' || char == '\n' || char == '\t' || char == '\u{000D}' then
                 flushWord acc
                     |> (\state -> { state | prevWasLowerOrDigit = False })
 
@@ -2722,7 +2650,7 @@ view model =
 viewLayout : Model -> Element Msg
 viewLayout model =
     if model.sessionRestorePending then
-        viewLoadingGate model
+        viewLoadingGate
 
     else if hasActiveSession model then
         if isCompactLayout model then
@@ -2765,53 +2693,13 @@ viewLayout model =
         viewAuthGate model
 
 
-viewLoadingGate : Model -> Element Msg
-viewLoadingGate _ =
+viewLoadingGate : Element Msg
+viewLoadingGate =
     el
         [ width fill
         , height fill
         ]
         (el [ centerX, centerY ] (text "Loading..."))
-
-
-mobileTopBarSubtitle : Model -> String
-mobileTopBarSubtitle model =
-    let
-        appWorkspaceLabel =
-            if isAdminProfile model then
-                "App workspace"
-
-            else
-                ""
-    in
-    if model.mobileSidebarOpen then
-        "Navigation"
-
-    else if model.authToolsOpen || model.performanceMode || model.requestLogsMode || model.databaseMode || model.selectedAction /= Nothing then
-        currentSectionTitle model
-
-    else
-        case model.selectedEntity of
-            Just entity ->
-                if entityDisplayName entity == currentAppName model then
-                    if currentWorkspace model == AppWorkspace then
-                        appWorkspaceLabel
-
-                    else
-                        "Admin workspace"
-
-                else if currentWorkspace model == AppWorkspace then
-                    entityDisplayName entity
-
-                else
-                    entityDisplayName entity ++ " records"
-
-            Nothing ->
-                if currentWorkspace model == AppWorkspace then
-                    appWorkspaceLabel
-
-                else
-                    "Admin workspace"
 
 
 viewMobileTopBar : Model -> Element Msg
@@ -2844,51 +2732,48 @@ mobileNavEntries model =
             { label = entityDisplayName entity
             , onPress = SelectEntity entity.name
             , selected =
-                (not model.authToolsOpen)
-                    && (not model.performanceMode)
-                    && (not model.requestLogsMode)
-                    && (not model.databaseMode)
-                    &&
-                        (case model.selectedEntity of
+                not model.authToolsOpen
+                    && not model.performanceMode
+                    && not model.requestLogsMode
+                    && not model.databaseMode
+                    && (case model.selectedEntity of
                             Just current ->
                                 current.name == entity.name
 
                             Nothing ->
                                 False
-                        )
+                       )
             }
 
         actionEntry actionInfo =
             { label = humanizeIdentifier actionInfo.name
             , onPress = SelectAction actionInfo.name
             , selected =
-                (not model.authToolsOpen)
-                    && (not model.performanceMode)
-                    && (not model.requestLogsMode)
-                    && (not model.databaseMode)
-                    &&
-                        (case model.selectedAction of
+                not model.authToolsOpen
+                    && not model.performanceMode
+                    && not model.requestLogsMode
+                    && not model.databaseMode
+                    && (case model.selectedAction of
                             Just current ->
                                 current.name == actionInfo.name
 
                             Nothing ->
                                 False
-                        )
+                       )
             }
 
         authEntries =
             if hasAnyAuthInfo model then
-                [ { label =
-                        if workspace == AppWorkspace then
-                            "Account"
+                { label =
+                    if workspace == AppWorkspace then
+                        "Account"
 
-                        else
-                            "Authorization"
-                  , onPress = ToggleAuthTools
-                  , selected = model.authToolsOpen
-                  }
-                ]
-                    ++ (if workspace == AdminWorkspace then
+                    else
+                        "Authorization"
+                , onPress = ToggleAuthTools
+                , selected = model.authToolsOpen
+                }
+                    :: (if workspace == AdminWorkspace then
                             List.map entityEntry authEntities
 
                         else
@@ -2985,12 +2870,12 @@ viewMobileBottomNav model =
         navButton entry =
             let
                 buttonSelected =
-                    (not model.mobileSidebarOpen) && entry.selected
+                    not model.mobileSidebarOpen && entry.selected
             in
             Input.button
                 [ width fill
                 , Background.color
-                     (if buttonSelected then
+                    (if buttonSelected then
                         rgb255 229 238 255
 
                      else
@@ -3011,12 +2896,7 @@ viewMobileBottomNav model =
                 ]
                 { onPress =
                     Just
-                        (if entry.selected then
-                            entry.onPress
-
-                         else
-                            entry.onPress
-                        )
+                        entry.onPress
                 , label =
                     el
                         [ width fill
@@ -3147,7 +3027,7 @@ viewMobileMoreSheet model =
                     (if entry.selected then
                         rgb255 54 94 217
 
-                    else
+                     else
                         rgba255 255 255 0 0
                     )
                 , Font.color
@@ -3199,7 +3079,7 @@ viewMobileMoreSheet model =
                 , htmlAttribute (HtmlAttr.style "backdrop-filter" "blur(28px)")
                 , htmlAttribute (HtmlAttr.style "-webkit-backdrop-filter" "blur(28px)")
                 ]
-                ([ row [ width fill, spacing 12 ]
+                (row [ width fill, spacing 12 ]
                     [ el [ Font.size 20, Font.bold, Font.color (rgb255 34 47 64) ] (text "More")
                     , el [ width fill ] none
                     , Input.button
@@ -3215,8 +3095,7 @@ viewMobileMoreSheet model =
                         , label = text "Close"
                         }
                     ]
-                 ]
-                    ++ (if List.isEmpty workspaceEntries then
+                    :: (if List.isEmpty workspaceEntries then
                             []
 
                         else
@@ -3243,8 +3122,8 @@ viewMobileMoreSheet model =
                             []
 
                         else
-                            [ el [ Font.size 11, Font.bold, Font.color (rgb255 124 136 154) ] (text "MORE") ]
-                                ++ List.map sheetButton overflowEntries
+                            el [ Font.size 11, Font.bold, Font.color (rgb255 124 136 154) ] (text "MORE")
+                                :: List.map sheetButton overflowEntries
                        )
                 )
             ]
@@ -3293,10 +3172,34 @@ viewAuthGate model =
         authCardBody =
             case authStage of
                 AuthStageEmail ->
-                    viewAuthEmailStage model firstAdminMode (if firstAdminMode then "Send access code" else "Continue") (if firstAdminMode then BootstrapFirstAdmin else RequestAuthCode) (model.authSubmitting == Just AuthSubmitSendingCode)
+                    viewAuthEmailStage model
+                        firstAdminMode
+                        (if firstAdminMode then
+                            "Send access code"
+
+                         else
+                            "Continue"
+                        )
+                        (if firstAdminMode then
+                            BootstrapFirstAdmin
+
+                         else
+                            RequestAuthCode
+                        )
+                        (model.authSubmitting == Just AuthSubmitSendingCode)
 
                 AuthStageCode ->
-                    viewAuthCodeStage model firstAdminMode "Send code again" (if firstAdminMode then BootstrapFirstAdmin else RequestAuthCode) (model.authSubmitting == Just AuthSubmitSigningIn) (model.authSubmitting == Just AuthSubmitSendingCode)
+                    viewAuthCodeStage model
+                        firstAdminMode
+                        "Send code again"
+                        (if firstAdminMode then
+                            BootstrapFirstAdmin
+
+                         else
+                            RequestAuthCode
+                        )
+                        (model.authSubmitting == Just AuthSubmitSigningIn)
+                        (model.authSubmitting == Just AuthSubmitSendingCode)
 
                 AuthStageSession ->
                     viewAuthSessionStage model
@@ -3304,7 +3207,13 @@ viewAuthGate model =
     el
         [ width fill
         , height fill
-        , padding (if compact then 16 else 24)
+        , padding
+            (if compact then
+                16
+
+             else
+                24
+            )
         ]
         (el
             [ centerX
@@ -3486,24 +3395,16 @@ viewSidebar model =
                 rgb255 78 92 112
 
         workspaceToggleBorderColor =
-            if compact then
-                rgba255 255 255 0 0
+            rgba255 255 255 0 0
 
-            else
-                rgba255 255 255 0 0
+        sidebarBorderColor =
+            rgba255 255 255 0 0
 
-        sidebarBorderColor selected =
-            if compact then
-                rgba255 255 255 0 0
-
-            else
-                rgba255 255 255 0 0
-
-        sidebarButtonAttrs selected backgroundColor textColor paddingValues =
+        sidebarButtonAttrs backgroundColor textColor paddingValues =
             [ width fill
             , Border.rounded 10
             , Border.width 2
-            , Border.color (sidebarBorderColor selected)
+            , Border.color sidebarBorderColor
             , Background.color backgroundColor
             , Font.color textColor
             , paddingEach paddingValues
@@ -3511,7 +3412,7 @@ viewSidebar model =
             , htmlAttribute (HtmlAttr.style "box-shadow" "none")
             ]
 
-        workspaceToggleAttrs selected backgroundColor textColor paddingValues =
+        workspaceToggleAttrs backgroundColor textColor paddingValues =
             [ width fill
             , Border.rounded 10
             , Border.width 2
@@ -3542,8 +3443,8 @@ viewSidebar model =
 
             else
                 column [ width fill, spacing 4 ]
-                    ([ paragraph [ alignLeft ] [ text title ] ]
-                        ++ (case maybeSubtitle of
+                    (paragraph [ alignLeft ] [ text title ]
+                        :: (case maybeSubtitle of
                                 Just subtitle ->
                                     [ paragraph [ alignLeft, Font.size 11, Font.color sidebarItemSubtitleColor ] [ text subtitle ] ]
 
@@ -3564,7 +3465,6 @@ viewSidebar model =
                     (row [ width fill, spacing 4 ]
                         [ Input.button
                             (workspaceToggleAttrs
-                                (workspace == AppWorkspace)
                                 (workspaceToggleBackground (workspace == AppWorkspace))
                                 (workspaceToggleTextColor (workspace == AppWorkspace))
                                 { top = 3, right = 10, bottom = 3, left = 10 }
@@ -3574,7 +3474,6 @@ viewSidebar model =
                             }
                         , Input.button
                             (workspaceToggleAttrs
-                                (workspace == AdminWorkspace)
                                 (workspaceToggleBackground (workspace == AdminWorkspace))
                                 (workspaceToggleTextColor (workspace == AdminWorkspace))
                                 { top = 3, right = 10, bottom = 3, left = 10 }
@@ -3592,23 +3491,20 @@ viewSidebar model =
         entityButton entity =
             let
                 selected =
-                    (not model.authToolsOpen)
-                        && (not model.performanceMode)
-                        && (not model.requestLogsMode)
-                        && (not model.databaseMode)
-                        &&
-                            (case model.selectedEntity of
+                    not model.authToolsOpen
+                        && not model.performanceMode
+                        && not model.requestLogsMode
+                        && not model.databaseMode
+                        && (case model.selectedEntity of
                                 Just current ->
                                     current.name == entity.name
 
                                 Nothing ->
                                     False
-                            )
-
+                           )
             in
             Input.button
                 (sidebarButtonAttrs
-                    selected
                     (sidebarItemBackground selected)
                     (sidebarItemTextColor selected)
                     { top = 12, right = 12, bottom = 12, left = 12 }
@@ -3622,23 +3518,20 @@ viewSidebar model =
         actionEndpointCard actionInfo =
             let
                 selected =
-                    (not model.authToolsOpen)
-                        && (not model.performanceMode)
-                        && (not model.requestLogsMode)
-                        && (not model.databaseMode)
-                        &&
-                            (case model.selectedAction of
+                    not model.authToolsOpen
+                        && not model.performanceMode
+                        && not model.requestLogsMode
+                        && not model.databaseMode
+                        && (case model.selectedAction of
                                 Just current ->
                                     current.name == actionInfo.name
 
                                 Nothing ->
                                     False
-                            )
-
+                           )
             in
             Input.button
                 (sidebarButtonAttrs
-                    selected
                     (sidebarItemBackground selected)
                     (sidebarItemTextColor selected)
                     { top = 12, right = 12, bottom = 12, left = 12 }
@@ -3652,11 +3545,10 @@ viewSidebar model =
         performanceButton =
             let
                 selected =
-                    model.performanceMode && (not model.authToolsOpen)
+                    model.performanceMode && not model.authToolsOpen
             in
             Input.button
                 (sidebarButtonAttrs
-                    selected
                     (sidebarItemBackground selected)
                     (sidebarItemTextColor selected)
                     { top = 12, right = 12, bottom = 12, left = 12 }
@@ -3670,11 +3562,10 @@ viewSidebar model =
         requestLogsButton =
             let
                 selected =
-                    model.requestLogsMode && (not model.authToolsOpen)
+                    model.requestLogsMode && not model.authToolsOpen
             in
             Input.button
                 (sidebarButtonAttrs
-                    selected
                     (sidebarItemBackground selected)
                     (sidebarItemTextColor selected)
                     { top = 12, right = 12, bottom = 12, left = 12 }
@@ -3688,11 +3579,10 @@ viewSidebar model =
         databaseButton =
             let
                 selected =
-                    model.databaseMode && (not model.authToolsOpen)
+                    model.databaseMode && not model.authToolsOpen
             in
             Input.button
                 (sidebarButtonAttrs
-                    selected
                     (sidebarItemBackground selected)
                     (sidebarItemTextColor selected)
                     { top = 12, right = 12, bottom = 12, left = 12 }
@@ -3710,7 +3600,6 @@ viewSidebar model =
             in
             Input.button
                 (sidebarButtonAttrs
-                    selected
                     (sidebarItemBackground selected)
                     (sidebarItemTextColor selected)
                     { top = 12, right = 12, bottom = 12, left = 12 }
@@ -3729,14 +3618,20 @@ viewSidebar model =
     in
     column
         ([ width
-                (if compact then
-                    fill
+            (if compact then
+                fill
 
-                 else
-                    px 280
-                )
+             else
+                px 280
+            )
          , Background.color sidebarBackground
-         , padding (if compact then 16 else 18)
+         , padding
+            (if compact then
+                16
+
+             else
+                18
+            )
          , spacing 12
          ]
             ++ (if compact then
@@ -3773,7 +3668,15 @@ viewSidebar model =
                 ]
             , workspaceSwitch
             , if hasAnyAuthInfo model then
-                el [ Font.size 11, Font.bold, Font.color sidebarSectionColor ] (text (if workspace == AppWorkspace then "ACCOUNT" else "AUTH"))
+                el [ Font.size 11, Font.bold, Font.color sidebarSectionColor ]
+                    (text
+                        (if workspace == AppWorkspace then
+                            "ACCOUNT"
+
+                         else
+                            "AUTH"
+                        )
+                    )
                     :: authToolsButton
                     :: (if workspace == AdminWorkspace then
                             List.map entityButton authEntities
@@ -3855,12 +3758,38 @@ viewContent model =
         ([ width fill
          , height fill
          , paddingEach
-            { top = if compact then 16 else 12
-            , right = if compact then 16 else 24
-            , bottom = if compact then 16 else 12
-            , left = if compact then 16 else 12
+            { top =
+                if compact then
+                    16
+
+                else
+                    12
+            , right =
+                if compact then
+                    16
+
+                else
+                    24
+            , bottom =
+                if compact then
+                    16
+
+                else
+                    12
+            , left =
+                if compact then
+                    16
+
+                else
+                    12
             }
-         , spacing (if compact then 16 else 12)
+         , spacing
+            (if compact then
+                16
+
+             else
+                12
+            )
          , htmlAttribute (HtmlAttr.style "min-height" "0")
          ]
             ++ (if compact then
@@ -3908,6 +3837,7 @@ viewContent model =
                             ]
         ]
 
+
 viewAuthToolsPanel : Model -> Element Msg
 viewAuthToolsPanel model =
     if not model.authToolsOpen then
@@ -3921,11 +3851,8 @@ viewAuthToolsPanel model =
             maybeAppAuth =
                 authInfoFromModel model
 
-            maybeSystemAuth =
-                systemAuthInfoFromModel model
-
             activeScope =
-                activeAuthScope model
+                activeAuthScope
 
             authStage =
                 currentAuthStage model
@@ -3947,13 +3874,6 @@ viewAuthToolsPanel model =
                             , badge "POST /auth/logout"
                             ]
 
-                        SystemAuthScope ->
-                            [ badge "POST /auth/request-code"
-                            , badge "POST /auth/login"
-                            , badge "GET /auth/me"
-                            , badge "POST /auth/logout"
-                            ]
-
             transportText =
                 if workspace == AppWorkspace then
                     ""
@@ -3968,32 +3888,6 @@ viewAuthToolsPanel model =
                                 Nothing ->
                                     "User authentication is not enabled."
 
-                        SystemAuthScope ->
-                            case maybeSystemAuth of
-                                Just systemAuth ->
-                                    "Transport: " ++ systemAuth.emailTransport ++ " | Scope: admin"
-
-                                Nothing ->
-                                    "Admin authentication is not available."
-
-            needsBootstrap =
-                case activeScope of
-                    AppAuthScope ->
-                        case maybeAppAuth of
-                            Just appAuth ->
-                                appAuth.needsBootstrap
-
-                            Nothing ->
-                                False
-
-                    SystemAuthScope ->
-                        case maybeSystemAuth of
-                            Just systemAuth ->
-                                systemAuth.needsBootstrap
-
-                            Nothing ->
-                                False
-
             appHasNoUsers =
                 case maybeAppAuth of
                     Just appAuth ->
@@ -4006,9 +3900,6 @@ viewAuthToolsPanel model =
                 case activeScope of
                     AppAuthScope ->
                         appHasNoUsers || model.firstAdminCodeRequested
-
-                    SystemAuthScope ->
-                        needsBootstrap
 
             authFlowTitle =
                 if workspace == AppWorkspace then
@@ -4338,11 +4229,12 @@ viewAuthCodeStage model firstAdminMode resendLabel resendMsg loginLoading resend
             ]
         , Input.text
             (width fill
-                :: if loginLoading || resendLoading then
-                    []
+                :: (if loginLoading || resendLoading then
+                        []
 
-                   else
-                    [ onEnter LoginWithCode ]
+                    else
+                        [ onEnter LoginWithCode ]
+                   )
             )
             { onChange = SetAuthCode
             , text = model.authCode
@@ -4448,12 +4340,11 @@ viewAuthSessionStage model =
               else
                 el [ Font.size 12, Font.color (rgb255 93 103 120) ] (text ("Role: " ++ roleText))
             ]
-        , (if isCompactLayout model then
+        , if isCompactLayout model then
             wrappedRow [ width fill, spacing 10 ] [ authDangerButton (Just LogoutSession) "Logout" ]
 
-           else
+          else
             row [ width fill, spacing 10 ] [ authDangerButton (Just LogoutSession) "Logout" ]
-          )
         ]
 
 
@@ -4709,16 +4600,6 @@ authInfoFromModel model =
             Nothing
 
 
-systemAuthInfoFromModel : Model -> Maybe SystemAuthInfo
-systemAuthInfoFromModel model =
-    case model.schema of
-        Loaded schema ->
-            schema.systemAuth
-
-        _ ->
-            Nothing
-
-
 hasAnyAuthInfo : Model -> Bool
 hasAnyAuthInfo model =
     authInfoFromModel model /= Nothing
@@ -4739,23 +4620,12 @@ authFirstAdminMode model =
         maybeAppAuth =
             authInfoFromModel model
 
-        maybeSystemAuth =
-            systemAuthInfoFromModel model
-
         needsBootstrap =
-            case activeAuthScope model of
+            case activeAuthScope of
                 AppAuthScope ->
                     case maybeAppAuth of
                         Just appAuth ->
                             appAuth.needsBootstrap
-
-                        Nothing ->
-                            False
-
-                SystemAuthScope ->
-                    case maybeSystemAuth of
-                        Just systemAuth ->
-                            systemAuth.needsBootstrap
 
                         Nothing ->
                             False
@@ -4766,15 +4636,6 @@ authFirstAdminMode model =
 currentWorkspace : Model -> WorkspaceMode
 currentWorkspace model =
     if isAdminProfile model && model.workspace == AdminWorkspace then
-        AdminWorkspace
-
-    else
-        AppWorkspace
-
-
-workspaceForRole : Maybe String -> WorkspaceMode
-workspaceForRole maybeRole =
-    if isAdminRole maybeRole then
         AdminWorkspace
 
     else
@@ -4865,19 +4726,9 @@ currentAppName model =
             "Mar"
 
 
-activeAuthScope : Model -> AuthScope
-activeAuthScope _ =
+activeAuthScope : AuthScope
+activeAuthScope =
     AppAuthScope
-
-
-authScopeLabel : AuthScope -> String
-authScopeLabel scope =
-    case scope of
-        AppAuthScope ->
-            "user"
-
-        SystemAuthScope ->
-            "admin"
 
 
 isAdminProfile : Model -> Bool
@@ -4924,38 +4775,6 @@ hasActiveSession model =
 isCompactLayout : Model -> Bool
 isCompactLayout model =
     model.viewportWidth < 900
-
-
-currentSectionTitle : Model -> String
-currentSectionTitle model =
-    if model.authToolsOpen then
-        if currentWorkspace model == AppWorkspace then
-            "Account"
-
-        else
-            "Authorization"
-
-    else if model.performanceMode then
-        "Monitoring"
-
-    else if model.requestLogsMode then
-        "Logs"
-
-    else if model.databaseMode then
-        "Database"
-
-    else
-        case model.selectedAction of
-            Just actionInfo ->
-                humanizeIdentifier actionInfo.name
-
-            Nothing ->
-                case model.selectedEntity of
-                    Just entity ->
-                        entityDisplayName entity
-
-                    Nothing ->
-                        "Overview"
 
 
 viewPanelTitle : String -> List (Element msg) -> Element msg
@@ -5060,7 +4879,7 @@ viewFlash model =
                 , spacing 10
                 ]
                 [ el [ Font.size 11, Font.bold, Font.color (rgb255 70 89 120) ] (text titleText)
-                , (if compact then
+                , if compact then
                     column
                         [ width fill
                         , spacing 12
@@ -5081,7 +4900,7 @@ viewFlash model =
                             }
                         ]
 
-                   else
+                  else
                     row
                         [ width fill
                         , spacing 12
@@ -5102,7 +4921,6 @@ viewFlash model =
                             , label = text "Close"
                             }
                         ]
-                   )
                 ]
 
 
@@ -5207,22 +5025,10 @@ viewDataPanel model =
                 compact =
                     isCompactLayout model
 
-                headerTitle =
-                    case model.selectedEntity of
-                        Nothing ->
-                            "No entity selected"
-
-                        Just entity ->
-                            entityDisplayName entity ++ " records"
-
                 createLabel =
                     case model.selectedEntity of
                         Just entity ->
-                            if workspace == AppWorkspace then
-                                "New " ++ entityDisplayName entity
-
-                            else
-                                "New " ++ entityDisplayName entity
+                            "New " ++ entityDisplayName entity
 
                         Nothing ->
                             if workspace == AppWorkspace then
@@ -5235,68 +5041,25 @@ viewDataPanel model =
                     none
 
                 actionsBar =
-                    if compact then
-                        wrappedRow [ width fill, spacing 10 ]
-                            [ Input.button
-                                [ Background.color (rgb255 34 124 95)
-                                , Font.color (rgb255 248 252 250)
-                                , Border.rounded 10
-                                , paddingEach { top = 10, right = 14, bottom = 10, left = 14 }
-                                ]
-                                { onPress = Just StartCreate
-                                , label = text createLabel
-                                }
-                            , Input.button
-                                [ Background.color (rgb255 224 231 241)
-                                , Border.rounded 10
-                                , paddingEach { top = 10, right = 14, bottom = 10, left = 14 }
-                                ]
-                                { onPress = Just ReloadRows
-                                , label = text "Refresh"
-                                }
+                    wrappedRow [ width fill, spacing 10 ]
+                        [ Input.button
+                            [ Background.color (rgb255 34 124 95)
+                            , Font.color (rgb255 248 252 250)
+                            , Border.rounded 10
+                            , paddingEach { top = 10, right = 14, bottom = 10, left = 14 }
                             ]
-
-                    else if workspace == AppWorkspace then
-                        wrappedRow [ width fill, spacing 10 ]
-                            [ Input.button
-                                [ Background.color (rgb255 34 124 95)
-                                , Font.color (rgb255 248 252 250)
-                                , Border.rounded 10
-                                , paddingEach { top = 10, right = 14, bottom = 10, left = 14 }
-                                ]
-                                { onPress = Just StartCreate
-                                , label = text createLabel
-                                }
-                            , Input.button
-                                [ Background.color (rgb255 224 231 241)
-                                , Border.rounded 10
-                                , paddingEach { top = 10, right = 14, bottom = 10, left = 14 }
-                                ]
-                                { onPress = Just ReloadRows
-                                , label = text "Refresh"
-                                }
+                            { onPress = Just StartCreate
+                            , label = text createLabel
+                            }
+                        , Input.button
+                            [ Background.color (rgb255 224 231 241)
+                            , Border.rounded 10
+                            , paddingEach { top = 10, right = 14, bottom = 10, left = 14 }
                             ]
-
-                    else
-                        wrappedRow [ width fill, spacing 10 ]
-                            [ Input.button
-                                [ Background.color (rgb255 34 124 95)
-                                , Font.color (rgb255 248 252 250)
-                                , Border.rounded 10
-                                , paddingEach { top = 10, right = 14, bottom = 10, left = 14 }
-                                ]
-                                { onPress = Just StartCreate
-                                , label = text createLabel
-                                }
-                            , Input.button
-                                [ Background.color (rgb255 224 231 241)
-                                , Border.rounded 10
-                                , paddingEach { top = 10, right = 14, bottom = 10, left = 14 }
-                                ]
-                                { onPress = Just ReloadRows
-                                , label = text "Refresh"
-                                }
-                            ]
+                            { onPress = Just ReloadRows
+                            , label = text "Refresh"
+                            }
+                        ]
 
                 rowsBlock =
                     el
@@ -5310,7 +5073,12 @@ viewDataPanel model =
                                     7
                             , right = 0
                             , bottom = 0
-                            , left = if compact && workspace == AppWorkspace then 0 else 8
+                            , left =
+                                if compact && workspace == AppWorkspace then
+                                    0
+
+                                else
+                                    8
                             }
                          , htmlAttribute (HtmlAttr.style "min-height" "0")
                          , htmlAttribute (HtmlAttr.style "min-width" "0")
@@ -5338,12 +5106,7 @@ viewDataPanel model =
             else
                 column
                     ([ width
-                            (if compact then
-                                fill
-
-                             else
-                                fillPortion 3
-                            )
+                        (fillPortion 3)
                      , spacing 10
                      , Background.color (rgb255 255 255 255)
                      , Border.rounded 14
@@ -5353,12 +5116,7 @@ viewDataPanel model =
                      , htmlAttribute (HtmlAttr.style "min-height" "0")
                      , htmlAttribute (HtmlAttr.style "min-width" "0")
                      ]
-                        ++ (if compact then
-                                []
-
-                            else
-                                [ height fill ]
-                           )
+                        ++ [ height fill ]
                     )
                     [ actionsBar
                     , rowsBlock
@@ -5447,7 +5205,14 @@ viewActionPanel model actionInfo =
                                     , paddingEach { top = 10, right = 14, bottom = 10, left = 14 }
                                     ]
                                     { onPress = Just RunAction
-                                    , label = text (if workspace == AppWorkspace then "Continue" else "Run action")
+                                    , label =
+                                        text
+                                            (if workspace == AppWorkspace then
+                                                "Continue"
+
+                                             else
+                                                "Run action"
+                                            )
                                     }
                                 ]
 
@@ -5461,7 +5226,14 @@ viewActionPanel model actionInfo =
                                     , paddingEach { top = 10, right = 14, bottom = 10, left = 14 }
                                     ]
                                     { onPress = Just RunAction
-                                    , label = text (if workspace == AppWorkspace then "Continue" else "Run action")
+                                    , label =
+                                        text
+                                            (if workspace == AppWorkspace then
+                                                "Continue"
+
+                                             else
+                                                "Run action"
+                                            )
                                     }
                                 ]
                       ]
@@ -5479,7 +5251,15 @@ viewActionPanel model actionInfo =
                                     , Border.color (rgb255 226 232 239)
                                     , padding 12
                                     ]
-                                    (el [ Font.bold ] (text (if workspace == AppWorkspace then "Result" else "Response"))
+                                    (el [ Font.bold ]
+                                        (text
+                                            (if workspace == AppWorkspace then
+                                                "Result"
+
+                                             else
+                                                "Response"
+                                            )
+                                        )
                                         :: (response
                                                 |> Dict.toList
                                                 |> List.map
@@ -5500,13 +5280,29 @@ viewRows : Model -> Element Msg
 viewRows model =
     case ( model.selectedEntity, model.rows ) of
         ( Nothing, _ ) ->
-            paragraph [] [ text (if currentWorkspace model == AppWorkspace then "Choose something from the menu." else "Choose an entity from the sidebar.") ]
+            paragraph []
+                [ text
+                    (if currentWorkspace model == AppWorkspace then
+                        "Choose something from the menu."
+
+                     else
+                        "Choose an entity from the sidebar."
+                    )
+                ]
 
         ( Just _, NotAsked ) ->
             paragraph [] [ text "No data loaded yet." ]
 
         ( Just _, Loading ) ->
-            paragraph [] [ text (if currentWorkspace model == AppWorkspace then "Loading..." else "Loading records...") ]
+            paragraph []
+                [ text
+                    (if currentWorkspace model == AppWorkspace then
+                        "Loading..."
+
+                     else
+                        "Loading records..."
+                    )
+                ]
 
         ( Just _, Failed message ) ->
             paragraph [ Font.color (rgb255 176 60 46) ] [ text message ]
@@ -5547,7 +5343,6 @@ viewRows model =
                     (List.map
                         (\record ->
                             viewRowCard
-                                (isCompactLayout model)
                                 (currentWorkspace model)
                                 entity
                                 (rowId entity record == selectedRowId && selectedRowId /= Nothing)
@@ -5558,8 +5353,8 @@ viewRows model =
                     )
 
 
-viewRowCard : Bool -> WorkspaceMode -> Entity -> Bool -> Row -> Element Msg
-viewRowCard compact workspace entity isSelected rowValue =
+viewRowCard : WorkspaceMode -> Entity -> Bool -> Row -> Element Msg
+viewRowCard workspace entity isSelected rowValue =
     let
         wrappingTextAttrs =
             [ width fill
@@ -5590,29 +5385,19 @@ viewRowCard compact workspace entity isSelected rowValue =
                   else
                     Just
                         (paragraph
-                            ([ Font.size 13, Font.color (rgb255 90 103 120) ] ++ wrappingTextAttrs)
+                            (Font.size 13 :: Font.color (rgb255 90 103 120) :: wrappingTextAttrs)
                             [ text summary ]
                         )
                 ]
 
         cardBody =
-            if compact then
-                row
-                    [ width fill
-                    , spacing 12
-                    ]
-                    [ column [ width fill, spacing 8 ] bodyContent
-                    , el [ Font.size 18, Font.color (rgb255 132 145 162), centerY ] (text "›")
-                    ]
-
-            else
-                row
-                    [ width fill
-                    , spacing 12
-                    ]
-                    [ column [ width fill, spacing 8 ] bodyContent
-                    , el [ Font.size 18, Font.color (rgb255 132 145 162), centerY ] (text "›")
-                    ]
+            row
+                [ width fill
+                , spacing 12
+                ]
+                [ column [ width fill, spacing 8 ] bodyContent
+                , el [ Font.size 18, Font.color (rgb255 132 145 162), centerY ] (text "›")
+                ]
     in
     Input.button
         [ width fill
@@ -5647,12 +5432,12 @@ viewInspector model =
             else
                 column
                     ([ width
-                            (if isCompactLayout model then
-                                fill
+                        (if isCompactLayout model then
+                            fill
 
-                             else
-                                fillPortion 2
-                            )
+                         else
+                            fillPortion 2
+                        )
                      , spacing 14
                      , htmlAttribute (HtmlAttr.style "min-height" "0")
                      , htmlAttribute (HtmlAttr.style "min-width" "0")
@@ -5661,8 +5446,8 @@ viewInspector model =
                                 []
 
                             else
-                           [ height fill, scrollbarY ]
-                       )
+                                [ height fill, scrollbarY ]
+                           )
                     )
                     [ viewActionInfo actionInfo ]
 
@@ -5686,12 +5471,12 @@ viewInspector model =
             in
             column
                 ([ width
-                        (if compact then
-                            fill
+                    (if compact then
+                        fill
 
-                         else
-                            fillPortion 2
-                        )
+                     else
+                        fillPortion 2
+                    )
                  , spacing 14
                  , htmlAttribute (HtmlAttr.style "min-height" "0")
                  , htmlAttribute (HtmlAttr.style "min-width" "0")
@@ -5810,7 +5595,7 @@ viewPerformancePanel model =
                     , label = text "Refresh"
                     }
                 ]
-            , viewMonitoringVersion compact model.adminVersion model.monitoringVersionDetailsOpen
+            , viewMonitoringVersion model.adminVersion model.monitoringVersionDetailsOpen
             , el
                 [ width fill
                 , height (px 1)
@@ -5848,8 +5633,8 @@ viewPerformancePanel model =
             ]
 
 
-viewMonitoringVersion : Bool -> Remote AdminVersionPayload -> Bool -> Element Msg
-viewMonitoringVersion compact versionRemote detailsOpen =
+viewMonitoringVersion : Remote AdminVersionPayload -> Bool -> Element Msg
+viewMonitoringVersion versionRemote detailsOpen =
     case versionRemote of
         NotAsked ->
             none
@@ -6089,7 +5874,7 @@ viewRequestLogQuery query =
         , padding 8
         ]
         (List.concat
-            [ (case query.reason of
+            [ case query.reason of
                 Just reasonText ->
                     if String.trim reasonText == "" then
                         []
@@ -6099,7 +5884,6 @@ viewRequestLogQuery query =
 
                 Nothing ->
                     []
-              )
             , [ paragraph
                     [ Font.size 12
                     , Font.family [ Font.monospace ]
@@ -6601,16 +6385,6 @@ displayFieldsForEntity workspace entity =
         entity.fields
 
 
-displayLabelForRow : WorkspaceMode -> Entity -> Row -> String
-displayLabelForRow workspace entity rowValue =
-    case rowPrimaryFieldValue workspace entity rowValue of
-        Just ( _, value ) ->
-            value
-
-        Nothing ->
-            entity.name
-
-
 rowCardTitle : WorkspaceMode -> Entity -> Row -> String
 rowCardTitle workspace entity rowValue =
     case rowPrimaryFieldValue workspace entity rowValue of
@@ -6690,11 +6464,14 @@ shouldIncludePreviewMetadata entity primaryFieldName field =
         lowerName =
             String.toLower field.name
     in
-    field.fieldType /= BoolType
+    field.fieldType
+        /= BoolType
         && not field.primary
         && not field.auto
-        && primaryFieldName /= Just field.name
-        && lowerName /= String.toLower entity.primaryKey
+        && primaryFieldName
+        /= Just field.name
+        && lowerName
+        /= String.toLower entity.primaryKey
         && not (List.member lowerName [ "createdat", "updatedat", "deletedat", "created_at", "updated_at", "deleted_at" ])
 
 
@@ -6753,7 +6530,15 @@ statusBadgeForBoolean fieldName boolValue =
          else
             rgb255 88 98 113
         )
-        (fieldLabel fieldName ++ ": " ++ (if boolValue then "Yes" else "No"))
+        (fieldLabel fieldName
+            ++ ": "
+            ++ (if boolValue then
+                    "Yes"
+
+                else
+                    "No"
+               )
+        )
 
 
 statusBadge : Element.Color -> Element.Color -> String -> Element Msg
@@ -6852,9 +6637,6 @@ viewFormPanel model =
 formCard : Model -> Entity -> String -> Element Msg
 formCard model entity titleText =
     let
-        workspace =
-            currentWorkspace model
-
         formFields =
             appVisibleFields entity
 
@@ -6897,7 +6679,11 @@ formCard model entity titleText =
         , padding 14
         ]
         (List.concat
-            [ [ el [ Font.bold, Font.size 18 ] (text (if workspace == AppWorkspace then titleText else titleText)) ]
+            [ [ el [ Font.bold, Font.size 18 ]
+                    (text
+                        titleText
+                    )
+              ]
             , List.map fieldInput formFields
             , [ (if isCompactLayout model then
                     wrappedRow [ width fill, spacing 10 ]
@@ -6905,27 +6691,6 @@ formCard model entity titleText =
                  else
                     row [ spacing 10 ]
                 )
-                    (if isCompactLayout model then
-                        [ Input.button
-                            [ Background.color (rgb255 34 124 95)
-                            , Font.color (rgb255 247 252 249)
-                            , Border.rounded 8
-                            , paddingEach { top = 10, right = 12, bottom = 10, left = 12 }
-                            ]
-                            { onPress = Just SubmitForm
-                            , label = text "Save"
-                            }
-                        , Input.button
-                            [ Background.color (rgb255 233 236 242)
-                            , Border.rounded 8
-                            , paddingEach { top = 10, right = 12, bottom = 10, left = 12 }
-                            ]
-                            { onPress = Just CancelForm
-                            , label = text "Cancel"
-                            }
-                        ]
-
-                     else
                     [ Input.button
                         [ Background.color (rgb255 34 124 95)
                         , Font.color (rgb255 247 252 249)
@@ -6944,7 +6709,6 @@ formCard model entity titleText =
                         , label = text "Cancel"
                         }
                     ]
-                    )
               ]
             ]
         )
@@ -7048,8 +6812,8 @@ viewSelectedRow model =
                         , Border.color (rgb255 226 232 239)
                         , padding 14
                         ]
-                        ([ viewPanelHeader compact detailTitle detailSubtitle detailActions ]
-                            ++ (visibleRows
+                        (viewPanelHeader compact detailTitle detailSubtitle detailActions
+                            :: (visibleRows
                                     |> List.map
                                         (\( field, value ) ->
                                             column
@@ -7079,8 +6843,8 @@ networkErrorMessage =
     "We could not connect right now. Please try again in a moment."
 
 
-httpErrorToString : Model -> ApiHttpError -> String
-httpErrorToString model httpError =
+httpErrorToString : ApiHttpError -> String
+httpErrorToString httpError =
     case httpError of
         ApiBadUrl message ->
             "Bad URL: " ++ message
@@ -7163,7 +6927,8 @@ isValidEmailDomainLabel label =
                     False
     in
     not (String.isEmpty label)
-        && String.length label <= 63
+        && String.length label
+        <= 63
         && not startsOrEndsWithDash
         && List.all
             (\char ->
@@ -7209,8 +6974,8 @@ isWhitespaceChar char =
             False
 
 
-authRequestCodeErrorToString : Model -> ApiHttpError -> String
-authRequestCodeErrorToString model httpError =
+authRequestCodeErrorToString : ApiHttpError -> String
+authRequestCodeErrorToString httpError =
     case httpError of
         ApiTimeout ->
             "We could not send the code in time. Please try again."
@@ -7225,11 +6990,11 @@ authRequestCodeErrorToString model httpError =
             message
 
         _ ->
-            httpErrorToString model httpError
+            httpErrorToString httpError
 
 
-authLoginErrorToString : Model -> ApiHttpError -> String
-authLoginErrorToString model httpError =
+authLoginErrorToString : ApiHttpError -> String
+authLoginErrorToString httpError =
     case httpError of
         ApiTimeout ->
             "We could not complete the sign-in in time. Please try again."
@@ -7244,7 +7009,7 @@ authLoginErrorToString model httpError =
             message
 
         _ ->
-            httpErrorToString model httpError
+            httpErrorToString httpError
 
 
 shouldReloadCrudAfterLogin : Model -> Bool
@@ -7271,10 +7036,10 @@ isCrudScreen model =
                 Nothing ->
                     False
     in
-    (not model.performanceMode)
-        && (not model.requestLogsMode)
-        && (not model.databaseMode)
-        && (not hasActionSelection)
+    not model.performanceMode
+        && not model.requestLogsMode
+        && not model.databaseMode
+        && not hasActionSelection
         && hasEntitySelection
 
 
