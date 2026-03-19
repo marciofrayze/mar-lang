@@ -390,20 +390,50 @@ page model =
 topBar : Model -> Element Msg
 topBar model =
     panel
-        [ column [ width fill, spacing 12 ]
-            [ wrappedRow [ width fill, spacing 12 ]
-                [ el [ Font.size 28, Font.bold, Font.color (rgb255 22 57 96) ] (text "Mar")
-                , el [ width fill ] none
-                , topSearchArea model
-                ]
-            , wrappedRow [ width fill, spacing 8 ]
-                [ navItem model.route Home "Home"
-                , navItem model.route GettingStarted "Getting Started"
-                , navItem model.route Examples "Examples"
-                , navItem model.route AdvancedGuide "Advanced"
+        [ row [ width fill, spacing 10, alignTop ]
+            [ websiteLogoBlock
+            , column [ width fill, spacing 12 ]
+                [ wrappedRow [ width fill, spacing 12 ]
+                    [ el [ Font.size 28, Font.bold, Font.color (rgb255 22 57 96) ] (text "Mar")
+                    , el [ width fill ] none
+                    , topSearchArea model
+                    ]
+                , wrappedRow [ width fill, spacing 8 ]
+                    [ navItem model.route Home "Home"
+                    , navItem model.route GettingStarted "Getting Started"
+                    , navItem model.route Examples "Examples"
+                    , navItem model.route AdvancedGuide "Advanced"
+                    ]
                 ]
             ]
         ]
+
+
+websiteLogoBlock : Element Msg
+websiteLogoBlock =
+    el
+        [ width (px 86)
+        , height (px 86)
+        ]
+        (html
+            (Html.div
+                [ HtmlAttr.style "width" "100%"
+                , HtmlAttr.style "height" "100%"
+                , HtmlAttr.style "display" "flex"
+                , HtmlAttr.style "align-items" "center"
+                , HtmlAttr.style "justify-content" "center"
+                ]
+                [ Html.img
+                    [ HtmlAttr.src "mar.svg"
+                    , HtmlAttr.alt "Mar"
+                    , HtmlAttr.style "width" "58px"
+                    , HtmlAttr.style "height" "58px"
+                    , HtmlAttr.style "display" "block"
+                    ]
+                    []
+                ]
+            )
+        )
 
 
 topSearchArea : Model -> Element Msg
@@ -761,10 +791,10 @@ docSearchSectionText maybeSectionId =
         Just sectionId ->
             case sectionId of
                 "home-hero" ->
-                    "Home hero. A simple declarative backend language. Mar compiles declarative source into a self-contained server executable with API, auth, admin panel, monitoring, and backups. Inspired by Elm, PocketBase, and Rails. Get Started. Advanced Guide."
+                    "Home hero. A simple declarative backend language. Mar compiles declarative source into a self-contained server executable with a REST API, database, authentication, authorization, admin panel, monitoring, schema migrations, and backups. All in a single binary. Inspired by Elm, PocketBase, and Rails. Get Started. Advanced Guide."
 
                 "why-mar" ->
-                    "Why Mar. Less glue code. More backend. Declarative at its core. You describe the system at a higher level. Opinionated on purpose. Mar chooses a coherent runtime instead of exposing endless assembly decisions. Everything bundled. Authentication, authorization, admin tools, logs, monitoring, and built-in database backups come together."
+                    "Why Mar. Less glue code. More backend. Declarative at its core. You describe the system at a higher level. Opinionated on purpose. Mar chooses a coherent runtime instead of exposing endless assembly decisions. Everything bundled. Authentication, authorization, admin tools, logs, monitoring, schema migrations, and built-in database backups are included from the start."
 
                 "who-mar-is-for" ->
                     "Who Mar Is For. Mar is a strong fit for people who want the backend to stay boring in the best way: simple to run, easy to update, operational from day one, and without a lot of handwritten glue. Good fit for small teams, internal tools, MVPs, and product teams that want a coherent backend."
@@ -779,7 +809,7 @@ docSearchSectionText maybeSectionId =
                     "Quick Start. Create todo.mar. Develop. Runs the app locally with hot reload and opens the Admin UI while you edit todo.mar. Compile. Run mar compile to package self-contained executables for all supported platforms and generate frontend clients. Serve. Choose the target folder for your platform, start that executable, and open the printed Admin URL. Mar compile produces a single self-contained executable per target platform. Each one already includes API, auth, embedded Admin UI, monitoring dashboards, request logs, and SQLite backup tools. Ready for the next step. Next: Advanced Guide."
 
                 "advanced-fundamentals" ->
-                    "Advanced Guide. Core concepts of the language. Mar is a declarative backend DSL inspired by Elm, PocketBase, and Rails, implemented in Go with focus on readability, maintainability, and simple deployment."
+                    "Advanced Guide. Core concepts of the language. Mar is a declarative DSL (domain-specific language) for backends, inspired by Elm, PocketBase, and Rails, implemented in Elm and Go with focus on readability, maintainability, and simple deployment."
 
                 "syntax-model" ->
                     "Syntax model. Top-level statements: app, port, database, public, system, auth, entity, type alias, action. Fields use the form fieldName: Type with modifiers such as primary, auto, optional, and default. Built-in field types include Int, String, Bool, Float, and Posix. Posix follows Elm Time.Posix and stores Unix milliseconds. Comments use Elm-style line comments."
@@ -1221,7 +1251,7 @@ advancedLanguagePage model =
                     , Font.color (rgb255 72 95 123)
                     , width fill
                     ]
-                    [ text "Mar is a declarative backend DSL inspired by "
+                    [ text "Mar is a declarative DSL (domain-specific language) for backends, inspired by "
                     , newTabLink
                         [ Font.color (rgb255 36 82 132)
                         , Font.semiBold
@@ -1257,10 +1287,19 @@ advancedLanguagePage model =
                         { url = "https://go.dev"
                         , label = text "Go"
                         }
+                    , text " and "
+                    , newTabLink
+                        [ Font.color (rgb255 36 82 132)
+                        , Font.semiBold
+                        , htmlAttribute (HtmlAttr.style "cursor" "pointer")
+                        ]
+                        { url = "https://elm-lang.org"
+                        , label = text "Elm"
+                        }
                     , text " with focus on readability, maintainability, and simple deployment."
                     ]
                 , docSubsectionTitle "Fundamentals"
-                , bodyText "Mar reads top-to-bottom as a declarative app definition. A Mar app is centered around entities, rules, authorization, optional auth configuration, and typed actions. Built-in field types are Int, String, Bool, Float, and Posix."
+                , bodyText "Mar reads top-to-bottom as a declarative app definition. A Mar app is centered around entities, rules, authorization, auth configuration, and typed actions. Built-in field types are Int, String, Bool, Float, and Posix."
                 , docSubsectionTitle "Quick Examples"
                 , codeFromString model "todo.mar" 450 todoExampleSource
                 , codeFromString model "action.mar" 575 actionExampleSource
@@ -1719,7 +1758,7 @@ hero =
             [ paragraph [ Font.size 38, Font.bold, Font.color (rgb255 16 44 79), width (fill |> maximum 900) ]
                 [ text "A simple declarative backend language." ]
             , paragraph [ Font.size 18, Font.color (rgb255 72 95 123), width fill ]
-                [ text "Mar compiles declarative source into a self-contained server executable with API, auth, admin panel, monitoring, and backups." ]
+                [ text "Mar compiles declarative source into a self-contained server executable with a REST API, database, authentication, authorization, admin panel, monitoring, schema migrations, and backups. All in a single binary." ]
             , paragraph [ Font.size 16, Font.color (rgb255 96 116 140), width (fill |> maximum 880) ]
                 [ text "Inspired by "
                 , newTabLink
@@ -2230,7 +2269,7 @@ whyOpinionated =
 
 whyBundled : Element Msg
 whyBundled =
-    whyFeatureStrip "Everything bundled" "Authentication, authorization, admin tools, logs, monitoring, and built-in database backups come together."
+    whyFeatureStrip "Everything bundled" "Authentication, authorization, admin tools, logs, monitoring, schema migrations, and built-in database backups are included from the start."
 
 
 whyLayoutChosen : Element Msg
@@ -2295,7 +2334,7 @@ audienceHeadlineCopy =
 
 audienceSummaryCopy : String
 audienceSummaryCopy =
-    "Predictable to run. Easy to reason about. Small enough to maintain without losing operational depth."
+    "Predictable to run. Easy to reason about."
 
 
 audienceNeedOne : String
@@ -2305,7 +2344,7 @@ audienceNeedOne =
 
 audienceNeedTwo : String
 audienceNeedTwo =
-    "You want built-in auth, admin tools, logs, monitoring, and backups."
+    "You want built-in auth, admin tools, logs, monitoring, a database, schema migrations, and backups."
 
 
 audienceNeedThree : String
