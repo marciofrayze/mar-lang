@@ -43,27 +43,27 @@
     <script>
       const app = Elm.Main.init({ node: document.getElementById('app') });
 
-      const scheduleScrollToTop = () => {
-        const run = () => window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+      const runSoon = (effect) => {
+        effect();
+        window.requestAnimationFrame(effect);
+        window.setTimeout(effect, 0);
+      };
 
-        run();
-        window.requestAnimationFrame(run);
-        window.setTimeout(run, 0);
+      const scheduleScrollToTop = () => {
+        runSoon(() => {
+          window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+        });
       };
 
       const scheduleScrollToElement = (id) => {
-        const run = () => {
+        runSoon(() => {
           const element = document.getElementById(id);
 
           if (!element) return;
 
           const top = element.getBoundingClientRect().top + window.scrollY - 88;
           window.scrollTo({ top, left: 0, behavior: 'auto' });
-        };
-
-        run();
-        window.requestAnimationFrame(run);
-        window.setTimeout(run, 0);
+        });
       };
 
       if (app.ports && app.ports.copyToClipboard) {
