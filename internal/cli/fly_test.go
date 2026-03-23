@@ -73,6 +73,9 @@ func TestRequireFlyDeployFilesReturnsStyledErrorWhenMissing(t *testing.T) {
 	if !strings.Contains(msg, "Fly deploy files are missing") {
 		t.Fatalf("expected deploy files title, got %q", msg)
 	}
+	if !strings.Contains(msg, "Before you can deploy to Fly.io, you need to generate the deployment configuration files.") {
+		t.Fatalf("expected detailed deploy hint, got %q", msg)
+	}
 	if !strings.Contains(msg, "Run: mar fly init <app.mar>") {
 		t.Fatalf("expected init hint, got %q", msg)
 	}

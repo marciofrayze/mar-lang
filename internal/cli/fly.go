@@ -421,6 +421,27 @@ func runFlyProvision(binaryName, inputPath string) error {
 	if err != nil {
 		return err
 	}
+	flyDir := filepath.Join("deploy", "fly")
+	dockerfilePath := filepath.Join(flyDir, "Dockerfile")
+	flyTomlPath := filepath.Join(flyDir, "fly.toml")
+
+	if err := requireFlyDeployFiles(dockerfilePath, flyTomlPath); err != nil {
+		return err
+	}
+
+	if _, err := readFlyAppName(flyTomlPath); err != nil {
+		return err
+	}
+	if _, err := readFlyPrimaryRegion(flyTomlPath); err != nil {
+		return err
+	}
+	if _, err := readFlyVolumeName(flyTomlPath); err != nil {
+		return err
+	}
+	if _, err := findFlyCommand(); err != nil {
+		return err
+	}
+
 	confirmed, err := confirmFlyAction(
 		"Fly provision",
 		[]string{
@@ -438,18 +459,10 @@ func runFlyProvision(binaryName, inputPath string) error {
 		return nil
 	}
 
-	flyDir := filepath.Join("deploy", "fly")
-	dockerfilePath := filepath.Join(flyDir, "Dockerfile")
-	flyTomlPath := filepath.Join(flyDir, "fly.toml")
-
 	fmt.Println()
 	fmt.Printf("%s\n", colorizeCLI(useColor, "\033[1m", "Fly provision"))
 	fmt.Printf("  %s %s\n", colorizeCLI(useColor, "\033[1;36m", "App source:"), inputPath)
 	fmt.Printf("  %s %s\n", colorizeCLI(useColor, "\033[1;36m", "Config:"), flyTomlPath)
-
-	if err := requireFlyDeployFiles(dockerfilePath, flyTomlPath); err != nil {
-		return err
-	}
 
 	flyAppName, err := readFlyAppName(flyTomlPath)
 	if err != nil {
@@ -546,6 +559,26 @@ func runFlyDeploy(inputPath string, assumeYes bool) error {
 	if err != nil {
 		return err
 	}
+	buildRoot, outputName := defaultBuildLayout(inputPath, "")
+	outputPath := targetOutputPath(buildRoot, outputName, runtimeTarget{OS: "linux", Arch: "amd64"})
+	flyDir := filepath.Join("deploy", "fly")
+	dockerfilePath := filepath.Join(flyDir, "Dockerfile")
+	flyTomlPath := filepath.Join(flyDir, "fly.toml")
+
+	if err := requireFlyDeployFiles(dockerfilePath, flyTomlPath); err != nil {
+		return err
+	}
+
+	flyAppName, err := readFlyAppName(flyTomlPath)
+	if err != nil {
+		return err
+	}
+
+	flyCmd, err := findFlyCommand()
+	if err != nil {
+		return err
+	}
+
 	if !assumeYes {
 		confirmed, err := confirmFlyAction(
 			"Fly deploy",
@@ -564,25 +597,10 @@ func runFlyDeploy(inputPath string, assumeYes bool) error {
 		}
 	}
 
-	buildRoot, outputName := defaultBuildLayout(inputPath, "")
-	outputPath := targetOutputPath(buildRoot, outputName, runtimeTarget{OS: "linux", Arch: "amd64"})
-	flyDir := filepath.Join("deploy", "fly")
-	dockerfilePath := filepath.Join(flyDir, "Dockerfile")
-	flyTomlPath := filepath.Join(flyDir, "fly.toml")
-
 	fmt.Println()
 	fmt.Printf("%s\n", colorizeCLI(useColor, "\033[1m", "Fly deploy"))
 	fmt.Printf("  %s %s\n", colorizeCLI(useColor, "\033[1;36m", "App source:"), inputPath)
 	fmt.Printf("  %s %s\n", colorizeCLI(useColor, "\033[1;36m", "Config:"), flyTomlPath)
-
-	if err := requireFlyDeployFiles(dockerfilePath, flyTomlPath); err != nil {
-		return err
-	}
-
-	flyAppName, err := readFlyAppName(flyTomlPath)
-	if err != nil {
-		return err
-	}
 
 	fmt.Printf("\n%s\n", colorizeCLI(useColor, "\033[1;33m", "Step 1/3"))
 	fmt.Printf("  %s\n", "Validating Fly deployment files")
@@ -599,11 +617,6 @@ func runFlyDeploy(inputPath string, assumeYes bool) error {
 	if app.Auth != nil && looksLikePlaceholderEmail(strings.TrimSpace(app.Auth.EmailFrom)) {
 		fmt.Printf("\n%s\n", colorizeCLI(useColor, "\033[1;31m", "Warnings"))
 		fmt.Printf("  %s\n", "auth.email_from still looks like a placeholder: "+strings.TrimSpace(app.Auth.EmailFrom))
-	}
-
-	flyCmd, err := findFlyCommand()
-	if err != nil {
-		return err
 	}
 
 	fmt.Printf("\n%s\n", colorizeCLI(useColor, "\033[1;33m", "Step 3/3"))
@@ -645,6 +658,10 @@ func runFlyDestroy(binaryName, inputPath string) error {
 	if err != nil {
 		return err
 	}
+	flyCmd, err := findFlyCommand()
+	if err != nil {
+		return err
+	}
 
 	confirmed, err := confirmFlyDestroy(binaryName, flyAppName)
 	if err != nil {
@@ -652,11 +669,6 @@ func runFlyDestroy(binaryName, inputPath string) error {
 	}
 	if !confirmed {
 		return nil
-	}
-
-	flyCmd, err := findFlyCommand()
-	if err != nil {
-		return err
 	}
 
 	fmt.Println()
@@ -706,6 +718,7 @@ func requireFlyDeployFiles(dockerfilePath, flyTomlPath string) error {
 		fmt.Fprintf(&b, "  %s\n", path)
 	}
 	fmt.Fprintf(&b, "\n%s\n", colorizeCLI(useColor, "\033[1;33m", "Hint:"))
+	fmt.Fprintf(&b, "  Before you can deploy to Fly.io, you need to generate the deployment configuration files.\n")
 	fmt.Fprintf(&b, "  Run: %s\n", colorizeCLI(useColor, "\033[1;32m", "mar fly init <app.mar>"))
 	return styledCLIError(strings.TrimRight(b.String(), "\n") + "\n")
 }
