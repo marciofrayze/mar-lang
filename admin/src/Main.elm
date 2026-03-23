@@ -489,13 +489,19 @@ main =
 init : Flags -> Url -> Nav.Key -> ( Model, Cmd Msg )
 init flags url navKey =
     let
+        storedAuthToken =
+            String.trim flags.authToken
+
+        storedSystemAuthToken =
+            String.trim flags.systemAuthToken
+
         initialModel =
             { apiBase = flags.apiBase
             , navKey = navKey
             , currentUrl = url
             , currentRoute = routeFromUrl url
-            , authToken = String.trim flags.authToken
-            , systemAuthToken = String.trim flags.systemAuthToken
+            , authToken = storedAuthToken
+            , systemAuthToken = storedSystemAuthToken
             , currentEmail = Nothing
             , currentRole = Nothing
             , currentSystemEmail = Nothing
@@ -506,7 +512,7 @@ init flags url navKey =
             , authSubmitting = Nothing
             , sessionRestorePending = True
             , firstAdminCodeRequested = False
-            , authToolsOpen = String.trim flags.authToken == "" && String.trim flags.systemAuthToken == ""
+            , authToolsOpen = storedAuthToken == "" && storedSystemAuthToken == ""
             , workspace = AppWorkspace
             , schema = Loading
             , selectedEntity = Nothing
@@ -533,15 +539,9 @@ init flags url navKey =
             , mobileSidebarOpen = False
             , keepMobileSidebarOpenOnNextRoute = False
             }
-
-        restoreAppAuthCmd =
-            loadAuthMe AppAuthScope initialModel
     in
     ( initialModel
-    , Cmd.batch
-        [ loadSchema flags.apiBase
-        , restoreAppAuthCmd
-        ]
+    , loadSchema flags.apiBase
     )
 
 
@@ -1012,10 +1012,10 @@ update msg model =
                                         == ""
                             }
                     in
-                    applyCurrentRoute nextModel
+                    ( nextModel, loadAuthMe AppAuthScope nextModel )
 
                 Err httpError ->
-                    ( { model | schema = Failed (httpErrorToString httpError), rows = Failed "schema unavailable" }, Cmd.none )
+                    ( { model | schema = Failed (httpErrorToString httpError), rows = Failed "schema unavailable", sessionRestorePending = False }, Cmd.none )
 
         SelectEntity entityName ->
             let
@@ -1248,24 +1248,13 @@ update msg model =
                                         , flash = Just "Login successful."
                                     }
 
-                                meCmd =
-                                    loadAuthMe AppAuthScope nextModel
-
                                 schemaCmd =
                                     loadSchema model.apiBase
 
                                 saveSessionCmd =
                                     saveSessionFromModel nextModel
                             in
-                            if shouldReloadCrudAfterLogin model then
-                                let
-                                    loadingModel =
-                                        { nextModel | rows = Loading }
-                                in
-                                ( loadingModel, Cmd.batch [ loadRows loadingModel, meCmd, schemaCmd, saveSessionCmd ] )
-
-                            else
-                                ( nextModel, Cmd.batch [ meCmd, schemaCmd, saveSessionCmd ] )
+                            ( nextModel, Cmd.batch [ schemaCmd, saveSessionCmd ] )
 
                 Err httpError ->
                     ( { model | authSubmitting = Nothing, flash = Just (authLoginErrorToString httpError) }, Cmd.none )
@@ -1279,32 +1268,6 @@ update msg model =
                                 nextWorkspace =
                                     workspaceForCurrentRoute response.role model.currentRoute
 
-                                preferredEntity =
-                                    case model.schema of
-                                        Loaded schema ->
-                                            preferredInitialEntity schema
-
-                                        _ ->
-                                            Nothing
-
-                                nextSelectedEntity =
-                                    if model.selectedEntity == Nothing then
-                                        preferredEntity
-
-                                    else
-                                        model.selectedEntity
-
-                                shouldLoadRows =
-                                    nextWorkspace
-                                        == AppWorkspace
-                                        && nextSelectedEntity
-                                        /= Nothing
-                                        && (model.selectedEntity
-                                                == Nothing
-                                                || model.rows
-                                                == NotAsked
-                                           )
-
                                 nextModel =
                                     { model
                                         | currentEmail = Just response.email
@@ -1313,21 +1276,10 @@ update msg model =
                                         , sessionRestorePending = False
                                         , authToolsOpen = False
                                         , workspace = nextWorkspace
-                                        , selectedEntity = nextSelectedEntity
-                                        , rows =
-                                            if shouldLoadRows then
-                                                Loading
-
-                                            else
-                                                model.rows
                                         , flash = Nothing
                                     }
                             in
-                            if shouldLoadRows then
-                                ( nextModel, loadRows nextModel )
-
-                            else
-                                ( nextModel, Cmd.none )
+                            applyCurrentRoute nextModel
 
                 Err httpError ->
                     if isUnauthorizedError httpError then
@@ -7026,53 +6978,3 @@ authLoginErrorToString httpError =
 
         _ ->
             httpErrorToString httpError
-
-
-shouldReloadCrudAfterLogin : Model -> Bool
-shouldReloadCrudAfterLogin model =
-    isCrudScreen model && hasAuthorizationError model.rows
-
-
-isCrudScreen : Model -> Bool
-isCrudScreen model =
-    let
-        hasEntitySelection =
-            case model.selectedEntity of
-                Just _ ->
-                    True
-
-                Nothing ->
-                    False
-
-        hasActionSelection =
-            case model.selectedAction of
-                Just _ ->
-                    True
-
-                Nothing ->
-                    False
-    in
-    not model.performanceMode
-        && not model.requestLogsMode
-        && not model.databaseMode
-        && not hasActionSelection
-        && hasEntitySelection
-
-
-hasAuthorizationError : Remote (List Row) -> Bool
-hasAuthorizationError rowsRemote =
-    case rowsRemote of
-        Failed message ->
-            let
-                lowered =
-                    String.toLower message
-            in
-            String.contains "401" message
-                || String.contains "403" message
-                || String.contains "authentication required" lowered
-                || String.contains "not authorized" lowered
-                || String.contains "admin role required" lowered
-                || String.contains "forbidden" lowered
-
-        _ ->
-            False
