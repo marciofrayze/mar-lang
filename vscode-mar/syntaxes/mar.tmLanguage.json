@@ -263,7 +263,7 @@
         },
         {
           "name": "support.function.mar",
-          "match": "\\b(contains|startsWith|endsWith|len|matches|isRole)\\b(?=\\s*\\()"
+          "match": "\\b(contains|startsWith|endsWith|len|matches)\\b(?=\\s*\\()"
         },
         {
           "name": "variable.language.mar",

@@ -1423,8 +1423,7 @@ advancedLanguageReferencePage =
                     ]
                 , languageReferenceGroup "Built-in functions and values"
                     [ languageReferenceItem "len, contains, startsWith, endsWith, matches" "Built-in helpers available inside rule and authorize expressions."
-                    , languageReferenceItem "isRole" "Checks the authenticated user role inside authorize expressions."
-                    , languageReferenceItem "auth_authenticated, auth_email, auth_user_id, auth_role" "Built-in authentication values available in expressions."
+                    , languageReferenceItem "auth_authenticated, auth_email, auth_user_id, auth_role" "Built-in authentication values available in expressions. For example: `auth_role == \"admin\"`."
                     , languageReferenceItem "true, false, null" "Built-in literals."
                     ]
                 ]
@@ -3537,7 +3536,7 @@ wordToken word =
     else if List.member word [ "primary", "auto", "optional", "default" ] then
         token "#B7C5D9" word
 
-    else if List.member word [ "len", "contains", "startsWith", "endsWith", "matches", "isRole" ] then
+    else if List.member word [ "len", "contains", "startsWith", "endsWith", "matches" ] then
         token "#82E0AA" word
 
     else if List.member word [ "input", "auth_authenticated", "auth_email", "auth_user_id", "auth_role", "true", "false", "null" ] then
@@ -3735,9 +3734,9 @@ entity User {
 
   -- Admin always has read-only access to User, even without explicit rules.
   -- These rules are still useful when non-admin user access should be allowed.
-  authorize all when isRole("admin")
-  authorize get when auth_authenticated and (id == auth_user_id or isRole("admin"))
-  authorize delete when isRole("admin")
+  authorize all when auth_role == "admin"
+  authorize get when auth_authenticated and (id == auth_user_id or auth_role == "admin")
+  authorize delete when auth_role == "admin"
 }
 """
 
@@ -3758,10 +3757,10 @@ auth {
 entity User {
   displayName: String optional
 
-  authorize all when isRole("admin")
-  authorize get when auth_authenticated and (id == auth_user_id or isRole("admin"))
-  authorize update when auth_authenticated and ((id == auth_user_id and role == auth_role) or isRole("admin"))
-  authorize delete when isRole("admin")
+  authorize all when auth_role == "admin"
+  authorize get when auth_authenticated and (id == auth_user_id or auth_role == "admin")
+  authorize update when auth_authenticated and ((id == auth_user_id and role == auth_role) or auth_role == "admin")
+  authorize delete when auth_role == "admin"
 }
 
 entity Book {
@@ -3776,8 +3775,8 @@ entity Book {
 
   authorize all when true
   authorize create when auth_authenticated
-  authorize update when isRole("admin")
-  authorize delete when isRole("admin")
+  authorize update when auth_role == "admin"
+  authorize delete when auth_role == "admin"
 }
 
 type alias PlaceBookOrderInput =

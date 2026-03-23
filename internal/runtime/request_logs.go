@@ -371,7 +371,7 @@ func (r *Runtime) describeAuthAndAdminQueryReason(route, sqlUpper string) string
 			return "Mark the login code as used"
 		case strings.Contains(sqlUpper, "INSERT INTO MAR_SESSIONS"):
 			return "Create a new authenticated session"
-		case isRoleUpdateQuery(sqlUpper):
+		case isAuthRoleUpdateQuery(sqlUpper):
 			return "Promote the authenticated user to admin"
 		case tableMatchesQuery(sqlUpper, authUserTable):
 			return "Load the authenticated user record"
@@ -393,7 +393,7 @@ func (r *Runtime) describeAuthAndAdminQueryReason(route, sqlUpper string) string
 			return "Check whether first-admin bootstrap is still allowed"
 		case strings.Contains(sqlUpper, "INSERT INTO MAR_AUTH_CODES"):
 			return "Create the first-admin verification code"
-		case isRoleUpdateQuery(sqlUpper):
+		case isAuthRoleUpdateQuery(sqlUpper):
 			return "Promote the first user to admin"
 		case strings.Contains(sqlUpper, "INSERT INTO "):
 			return "Create the first auth user"
@@ -575,7 +575,7 @@ func normalizeSQLTableName(raw string) string {
 	return strings.Trim(trimmed, ",")
 }
 
-func isRoleUpdateQuery(sqlUpper string) bool {
+func isAuthRoleUpdateQuery(sqlUpper string) bool {
 	return strings.Contains(sqlUpper, " SET ") && strings.Contains(sqlUpper, "ROLE") && strings.Contains(sqlUpper, " WHERE ")
 }
 

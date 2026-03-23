@@ -9,7 +9,6 @@ import (
 
 type ParserOptions struct {
 	AllowedVariables map[string]struct{}
-	AllowRoleFunc    bool
 }
 
 type tokenKind string
@@ -349,11 +348,6 @@ func (p *parser) parseCall(name string) (Expr, error) {
 
 	switch name {
 	case "contains", "startsWith", "endsWith", "len", "matches":
-		return Call{Name: name, Args: args}, nil
-	case "isRole":
-		if !p.opts.AllowRoleFunc {
-			return nil, fmt.Errorf("function isRole is only allowed in authorize expressions")
-		}
 		return Call{Name: name, Args: args}, nil
 	default:
 		return nil, fmt.Errorf("unknown function %q", name)

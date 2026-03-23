@@ -201,13 +201,6 @@ func (c Call) Eval(ctx map[string]any) (any, error) {
 			return nil, err
 		}
 		return ok, nil
-	case "isRole":
-		if len(vals) != 1 {
-			return nil, fmt.Errorf("isRole expects 1 argument")
-		}
-		role, _ := ToString(ctx["auth_role"])
-		expected, _ := ToString(vals[0])
-		return role != "" && role == expected, nil
 	default:
 		return nil, fmt.Errorf("unknown function %q", c.Name)
 	}

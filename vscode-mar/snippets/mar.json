@@ -12,10 +12,10 @@
       "  ${4:displayName}: String optional",
       "  ${5:rule \\\"Email must be valid\\\" expect matches(email, \\\"^[^@\\\\s]+@[^@\\\\s]+\\\\.[^@\\\\s]+$\\\")}",
       "  rule \"Role must be admin or user\" expect role == \"admin\" or role == \"user\"",
-      "  authorize all when isRole(\"admin\")",
-      "  authorize get when auth_authenticated and (id == auth_user_id or isRole(\"admin\"))",
-      "  authorize update when auth_authenticated and (id == auth_user_id or isRole(\"admin\"))",
-      "  authorize delete when isRole(\"admin\")",
+      "  authorize all when auth_role == \"admin\"",
+      "  authorize get when auth_authenticated and (id == auth_user_id or auth_role == \"admin\")",
+      "  authorize update when auth_authenticated and (id == auth_user_id or auth_role == \"admin\")",
+      "  authorize delete when auth_role == \"admin\"",
       "}",
       "",
       "auth {",
@@ -135,8 +135,8 @@
     "description": "Create full CRUD authorization rules",
     "body": [
       "authorize all when ${1:auth_authenticated}",
-      "authorize get when ${2:auth_authenticated and (id == auth_user_id or isRole(\"admin\"))}",
-      "authorize delete when ${5:isRole(\"admin\")}" 
+      "authorize get when ${2:auth_authenticated and (id == auth_user_id or auth_role == \"admin\")}",
+      "authorize delete when ${5:auth_role == \"admin\"}" 
     ]
   },
   "Mar Type Alias": {

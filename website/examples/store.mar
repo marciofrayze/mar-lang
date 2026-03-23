@@ -26,10 +26,10 @@ entity User {
   rule "User email must be valid" expect matches(email, "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")
   rule "Role must be admin or user" expect role == "admin" or role == "user"
 
-  authorize all when isRole("admin")
-  authorize get when auth_authenticated and (id == auth_user_id or isRole("admin"))
-  authorize update when auth_authenticated and ((id == auth_user_id and role == auth_role) or isRole("admin"))
-  authorize delete when isRole("admin")
+  authorize all when auth_role == "admin"
+  authorize get when auth_authenticated and (id == auth_user_id or auth_role == "admin")
+  authorize update when auth_authenticated and ((id == auth_user_id and role == auth_role) or auth_role == "admin")
+  authorize delete when auth_role == "admin"
 }
 
 -- Books are public to browse, but only admins can manage them.
@@ -47,8 +47,8 @@ entity Book {
 
   authorize all when true
   authorize create when auth_authenticated
-  authorize update when isRole("admin")
-  authorize delete when isRole("admin")
+  authorize update when auth_role == "admin"
+  authorize delete when auth_role == "admin"
 }
 
 -- Order and OrderItem are linked by orderRef.
@@ -67,10 +67,10 @@ entity Order {
   rule "Currency must be BRL or USD" expect currency == "BRL" or currency == "USD"
 
   authorize list when auth_authenticated
-  authorize get when auth_authenticated and (userId == auth_user_id or isRole("admin"))
-  authorize create when auth_authenticated and (userId == auth_user_id or isRole("admin"))
-  authorize update when auth_authenticated and (userId == auth_user_id or isRole("admin"))
-  authorize delete when isRole("admin")
+  authorize get when auth_authenticated and (userId == auth_user_id or auth_role == "admin")
+  authorize create when auth_authenticated and (userId == auth_user_id or auth_role == "admin")
+  authorize update when auth_authenticated and (userId == auth_user_id or auth_role == "admin")
+  authorize delete when auth_role == "admin"
 }
 
 entity OrderItem {
@@ -86,11 +86,11 @@ entity OrderItem {
   rule "Unit price must be greater than zero" expect unitPrice > 0
   rule "Line total must be greater than zero" expect lineTotal > 0
 
-  authorize list when auth_authenticated and (userId == auth_user_id or isRole("admin"))
-  authorize get when auth_authenticated and (userId == auth_user_id or isRole("admin"))
-  authorize create when auth_authenticated and (userId == auth_user_id or isRole("admin"))
-  authorize update when auth_authenticated and (userId == auth_user_id or isRole("admin"))
-  authorize delete when isRole("admin")
+  authorize list when auth_authenticated and (userId == auth_user_id or auth_role == "admin")
+  authorize get when auth_authenticated and (userId == auth_user_id or auth_role == "admin")
+  authorize create when auth_authenticated and (userId == auth_user_id or auth_role == "admin")
+  authorize update when auth_authenticated and (userId == auth_user_id or auth_role == "admin")
+  authorize delete when auth_role == "admin"
 }
 
 entity AuditLog {
@@ -98,11 +98,11 @@ entity AuditLog {
   event: String
   orderRef: String optional
 
-  authorize list when isRole("admin")
-  authorize get when isRole("admin")
+  authorize list when auth_role == "admin"
+  authorize get when auth_role == "admin"
   authorize create when auth_authenticated
-  authorize update when isRole("admin")
-  authorize delete when isRole("admin")
+  authorize update when auth_role == "admin"
+  authorize delete when auth_role == "admin"
 }
 
 -- =========================================

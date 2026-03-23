@@ -590,7 +590,7 @@ app TodoApi
 entity Todo {
   title: String
   authorize all when auth_authenticated
-  authorize delete when isRole("admin")
+  authorize delete when auth_role == "admin"
 }
 `
 
@@ -612,7 +612,7 @@ entity Todo {
 		"get":    "auth_authenticated",
 		"create": "auth_authenticated",
 		"update": "auth_authenticated",
-		"delete": `isRole("admin")`,
+		"delete": `auth_role == "admin"`,
 	}
 	for _, authz := range todo.Authorizations {
 		if expected[authz.Action] != authz.Expression {

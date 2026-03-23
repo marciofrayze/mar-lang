@@ -80,7 +80,6 @@ var (
 		"primary":                                 "Marks a field as primary key.",
 		"auto":                                    "Marks a field as auto-generated.",
 		"input":                                   "References the action input record (for example `input.userId`). Action step aliases may also be referenced like `todo.id`.",
-		"isRole":                                  "Authorization helper: `isRole(\"admin\")`.",
 		"len":                                     "Returns the string length.",
 		"contains":                                "Returns true when text contains a substring.",
 		"startsWith":                              "Returns true when text starts with a prefix.",

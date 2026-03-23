@@ -40,7 +40,7 @@ func (r *Runtime) compileExpressions() error {
 		}
 		authorizers := map[string]expr.Expr{}
 		for _, rule := range entity.Authorizations {
-			node, err := expr.Parse(rule.Expression, expr.ParserOptions{AllowedVariables: authVars, AllowRoleFunc: true})
+			node, err := expr.Parse(rule.Expression, expr.ParserOptions{AllowedVariables: authVars})
 			if err != nil {
 				return fmt.Errorf("compile authorization %s.%s: %w", entity.Name, rule.Action, err)
 			}
