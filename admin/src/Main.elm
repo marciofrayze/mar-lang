@@ -4362,6 +4362,7 @@ authActionButton backgroundColor textColor onPress labelText =
                 rgba255 255 255 0 0
             )
          , paddingEach { top = 10, right = 14, bottom = 10, left = 14 }
+         , cupertinoFocusRing
          , htmlAttribute (HtmlAttr.style "outline" "none")
          , htmlAttribute (HtmlAttr.style "-webkit-tap-highlight-color" "rgba(0,0,0,0)")
          , htmlAttribute
@@ -4473,7 +4474,7 @@ cupertinoButton backgroundColor textColor borderColor onPress labelText =
 cupertinoFocusRing : Element.Attribute msg
 cupertinoFocusRing =
     Element.focused
-        [ Border.glow (rgba255 94 135 218 0.45) 3
+        [ Border.glow (rgba255 94 135 218 0.42) 3
         ]
 
 
@@ -4577,7 +4578,9 @@ nextBooleanRawValue rawValue =
 boolToggleButton : BooleanFieldState -> Maybe Msg -> Element Msg
 boolToggleButton state onPress =
     Input.button
-        []
+        [ cupertinoFocusRing
+        , htmlAttribute (HtmlAttr.style "outline" "none")
+        ]
         { onPress = onPress
         , label =
             row
@@ -4609,7 +4612,6 @@ boolToggleButton state onPress =
                     )
                 , Border.rounded 999
                 , paddingEach { top = 3, right = 3, bottom = 3, left = 3 }
-                , cupertinoFocusRing
                 , htmlAttribute (HtmlAttr.style "box-shadow" "inset 0 1px 0 rgba(255,255,255,0.72)")
                 ]
                 (case state of
