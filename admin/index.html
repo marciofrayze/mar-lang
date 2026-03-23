@@ -39,17 +39,8 @@
     <div id="app"></div>
     <script src="/_mar/admin/dist/app.js"></script>
     <script>
-      const sessionStorageKey = 'mar.admin.session';
-
-      function clearLegacySessionStorage() {
-        try {
-          window.localStorage.removeItem(sessionStorageKey);
-        } catch (_) {}
-      }
-
       const params = new URLSearchParams(window.location.search);
       const apiBase = params.get('api') || window.location.origin;
-      clearLegacySessionStorage();
 
       const app = Elm.Main.init({
         node: document.getElementById('app'),
