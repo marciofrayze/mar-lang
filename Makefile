@@ -1,5 +1,5 @@
 GOCACHE ?= $(CURDIR)/.gocache
-GO_MIN_VERSION := 1.26
+GO_MIN_VERSION := 1.26.1
 ELM_REQUIRED_VERSION := 0.19.1
 GO_VERSION := $(shell go version | awk '{print $$3}' 2>/dev/null | sed 's/^go//')
 MAR_VERSION := $(shell tr -d '\r\n' < VERSION 2>/dev/null)
