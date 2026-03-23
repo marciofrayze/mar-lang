@@ -1,11 +1,9 @@
 package runtime
 
 import (
-	"net/http"
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 )
 
 func TestAuthCodesAndSessionsAreStoredAsHashes(t *testing.T) {
@@ -44,62 +42,5 @@ func TestAuthCodesAndSessionsAreStoredAsHashes(t *testing.T) {
 	}
 	if !strings.HasPrefix(storedToken, "sha256:") {
 		t.Fatalf("expected session token hash prefix, got %q", storedToken)
-	}
-}
-
-func TestLegacyPlainTextCodesAndSessionsStillWork(t *testing.T) {
-	requireSQLite3(t)
-
-	r := mustNewAuthRuntime(t, filepath.Join(t.TempDir(), "auth-legacy-compat.db"))
-	email := "legacy@example.com"
-	_ = requestCodeAndUseKnownCode(t, r, email)
-
-	user, found, err := r.loadAuthUserByEmail("", email)
-	if err != nil {
-		t.Fatalf("load auth user failed: %v", err)
-	}
-	if !found {
-		t.Fatal("expected auth user to exist")
-	}
-
-	userID := user["id"]
-	if r.usesAppAuthEntity() {
-		userID = user[r.authUser.PrimaryKey]
-	}
-
-	legacyCode := "123456"
-	now := time.Now().UnixMilli()
-	if _, err := r.DB.Exec(
-		`INSERT INTO mar_auth_codes (email, user_id, code, grant_role, expires_at, used, created_at) VALUES (?, ?, ?, ?, ?, 0, ?)`,
-		email,
-		userID,
-		legacyCode,
-		"",
-		now+600000,
-		now+1,
-	); err != nil {
-		t.Fatalf("insert legacy auth code failed: %v", err)
-	}
-
-	loginRec := doRuntimeRequest(r, http.MethodPost, "/auth/login", `{"email":"`+email+`","code":"`+legacyCode+`"}`, "")
-	if loginRec.Code != http.StatusOK {
-		t.Fatalf("expected legacy auth code login to succeed, got %d body=%s", loginRec.Code, loginRec.Body.String())
-	}
-
-	legacyToken := "legacy-plain-token"
-	if _, err := r.DB.Exec(
-		`INSERT INTO mar_sessions (token, user_id, email, expires_at, revoked, created_at) VALUES (?, ?, ?, ?, 0, ?)`,
-		legacyToken,
-		userID,
-		email,
-		now+600000,
-		now+2,
-	); err != nil {
-		t.Fatalf("insert legacy session failed: %v", err)
-	}
-
-	meRec := doRuntimeRequest(r, http.MethodGet, "/auth/me", "", legacyToken)
-	if meRec.Code != http.StatusOK {
-		t.Fatalf("expected legacy session token to authenticate, got %d body=%s", meRec.Code, meRec.Body.String())
 	}
 }

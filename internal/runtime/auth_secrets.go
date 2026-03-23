@@ -39,8 +39,5 @@ func storedSecretMatches(storedValue, rawValue string) bool {
 	if stored == "" || raw == "" {
 		return false
 	}
-	if subtle.ConstantTimeCompare([]byte(stored), []byte(raw)) == 1 {
-		return true
-	}
 	return subtle.ConstantTimeCompare([]byte(stored), []byte(hashAuthSecret(raw))) == 1
 }

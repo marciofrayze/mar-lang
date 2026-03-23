@@ -58,7 +58,7 @@ func (m *metricsCollector) recordRequest(method, route string, status int, durat
 		method = "UNKNOWN"
 	}
 	if route == "" {
-		route = "/unknown"
+		route = "/"
 	}
 	seconds := duration.Seconds()
 

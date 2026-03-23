@@ -394,7 +394,7 @@ func (r *Runtime) route(w http.ResponseWriter, req *http.Request, requestID stri
 		return nil
 	}
 
-	if method == http.MethodPost && (path == "/_mar/backups" || path == "/_mar/backup") {
+	if method == http.MethodPost && path == "/_mar/backups" {
 		if !r.authEnabled() {
 			return newAPIError(http.StatusNotFound, "auth_not_enabled", "Authentication is not enabled")
 		}
@@ -680,19 +680,13 @@ func (r *Runtime) metricsRouteLabel(req *http.Request) string {
 		return path
 	case "/_mar/request-logs":
 		return path
-	case "/_mar/backup":
-		// Backward compatibility alias kept for one version.
-		return "/_mar/backups"
 	}
 	if path == "/_mar/admin" || strings.HasPrefix(path, "/_mar/admin/") {
 		return "/_mar/admin"
 	}
 
 	if strings.HasPrefix(path, "/auth/") {
-		if path == "/auth/request-code" || path == "/auth/login" || path == "/auth/logout" || path == "/auth/me" {
-			return path
-		}
-		return "/auth/:unknown"
+		return path
 	}
 
 	if strings.HasPrefix(path, "/actions/") {
@@ -700,7 +694,7 @@ func (r *Runtime) metricsRouteLabel(req *http.Request) string {
 		if name != "" && !strings.Contains(name, "/") {
 			return "/actions/:name"
 		}
-		return "/actions/:unknown"
+		return path
 	}
 
 	for i := range r.App.Entities {
@@ -717,7 +711,7 @@ func (r *Runtime) metricsRouteLabel(req *http.Request) string {
 		}
 	}
 
-	return "/unknown"
+	return path
 }
 
 func isAdminRole(role any) bool {

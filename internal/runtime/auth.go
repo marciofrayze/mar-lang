@@ -39,10 +39,6 @@ func (r *Runtime) authConfig() model.AuthConfig {
 	return cfg
 }
 
-func (r *Runtime) usesAppAuthEntity() bool {
-	return r.authUser != nil
-}
-
 // resolveAuth resolves a bearer token into an active session and hydrated auth user.
 func (r *Runtime) resolveAuth(req *http.Request, requestID string) (authSession, error) {
 	token := parseBearerToken(req.Header.Get("Authorization"))
@@ -57,8 +53,7 @@ func (r *Runtime) resolveAuth(req *http.Request, requestID string) (authSession,
 	row, ok, err := queryRowForRequest(
 		r.DB,
 		requestID,
-		`SELECT user_id, email, expires_at, revoked FROM mar_sessions WHERE token = ? OR token = ? LIMIT 1`,
-		token,
+		`SELECT user_id, email, expires_at, revoked FROM mar_sessions WHERE token = ? LIMIT 1`,
 		tokenHash,
 	)
 	if err != nil {
@@ -539,7 +534,7 @@ func (r *Runtime) handleAuthLogout(w http.ResponseWriter, req *http.Request, req
 	if !auth.Authenticated || auth.Token == "" {
 		return newAPIError(http.StatusUnauthorized, "auth_required", "Authentication required")
 	}
-	if _, err := r.DB.ExecTagged(requestID, `UPDATE mar_sessions SET revoked = 1 WHERE token = ? OR token = ?`, auth.Token, hashAuthSecret(auth.Token)); err != nil {
+	if _, err := r.DB.ExecTagged(requestID, `UPDATE mar_sessions SET revoked = 1 WHERE token = ?`, hashAuthSecret(auth.Token)); err != nil {
 		return err
 	}
 	clearSessionCookie(w, req)
