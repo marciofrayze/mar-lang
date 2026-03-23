@@ -51,7 +51,7 @@ func TestWaitForDevServerStopsWhenProcessExits(t *testing.T) {
 	done := make(chan error, 1)
 	done <- errors.New("startup failed")
 
-	ready, exited, err := waitForDevServer("http://127.0.0.1:1/health", 200*time.Millisecond, done)
+	ready, exited, err := waitForDevServer([]string{"http://127.0.0.1:1/health"}, 200*time.Millisecond, done)
 	if ready {
 		t.Fatal("expected server to be reported as not ready")
 	}

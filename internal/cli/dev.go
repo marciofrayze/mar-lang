@@ -101,7 +101,8 @@ func runDev(binaryName, inputPath, outputPath string) error {
 		process = nextProcess
 		adminURL := fmt.Sprintf("http://127.0.0.1:%d/_mar/admin", app.Port)
 		healthURL := fmt.Sprintf("http://127.0.0.1:%d/health", app.Port)
-		ready, exited, processErr := waitForDevServer(healthURL, 8*time.Second, process.done)
+		schemaURL := fmt.Sprintf("http://127.0.0.1:%d/_mar/schema", app.Port)
+		ready, exited, processErr := waitForDevServer([]string{healthURL, schemaURL}, 8*time.Second, process.done)
 		if exited {
 			process = nil
 			if processErr != nil {
@@ -289,7 +290,7 @@ func resolveDevDatabaseOverride(sourcePath string, databasePath string) string {
 	return filepath.Join(filepath.Dir(absoluteSource), cleanedDatabase)
 }
 
-func waitForDevServer(url string, timeout time.Duration, processDone <-chan error) (bool, bool, error) {
+func waitForDevServer(urls []string, timeout time.Duration, processDone <-chan error) (bool, bool, error) {
 	client := &http.Client{Timeout: 500 * time.Millisecond}
 	deadline := time.Now().Add(timeout)
 
@@ -300,12 +301,21 @@ func waitForDevServer(url string, timeout time.Duration, processDone <-chan erro
 		default:
 		}
 
-		resp, err := client.Get(url)
-		if err == nil {
-			_ = resp.Body.Close()
-			if resp.StatusCode >= 200 && resp.StatusCode < 500 {
-				return true, false, nil
+		allReady := true
+		for _, url := range urls {
+			resp, err := client.Get(url)
+			if err != nil {
+				allReady = false
+				break
 			}
+			_ = resp.Body.Close()
+			if resp.StatusCode != http.StatusOK {
+				allReady = false
+				break
+			}
+		}
+		if allReady {
+			return true, false, nil
 		}
 		time.Sleep(150 * time.Millisecond)
 	}

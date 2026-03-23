@@ -133,9 +133,6 @@ func runServe(app *model.App, bundle *appbundle.Bundle) error {
 		AppBuildTime: bundle.Metadata.AppBuildTime,
 		ManifestHash: bundle.Metadata.ManifestHash,
 	})
-	if err := r.ValidateStartup(); err != nil {
-		return err
-	}
 
 	useColor := appSupportsANSI(os.Stdout)
 	adminURL := fmt.Sprintf("http://127.0.0.1:%d/_mar/admin", app.Port)

@@ -22,25 +22,29 @@ import (
 
 // Runtime hosts the compiled Mar app state and serves its HTTP API on top of SQLite.
 type Runtime struct {
-	App            *model.App
-	DB             *sqlitecli.DB
-	entitiesByRes  map[string]*model.Entity
-	entitiesByName map[string]*model.Entity
-	aliasesByName  map[string]*model.TypeAlias
-	actionsByName  map[string]*model.Action
-	rules          map[string][]compiledRule
-	authorizers    map[string]map[string]expr.Expr
-	authUser       *model.Entity
-	metrics        *metricsCollector
-	requestLogs    *requestLogStore
-	dbQueries      *dbQueryCollector
-	authRateLimit  *authRateLimiter
-	authLogOnce    sync.Once
-	requestTraceID uint64
-	startupValid   bool
-	publicFS       fs.FS
-	adminFS        fs.FS
-	versionInfo    VersionInfo
+	App             *model.App
+	DB              *sqlitecli.DB
+	entitiesByRes   map[string]*model.Entity
+	entitiesByName  map[string]*model.Entity
+	aliasesByName   map[string]*model.TypeAlias
+	actionsByName   map[string]*model.Action
+	rules           map[string][]compiledRule
+	authorizers     map[string]map[string]expr.Expr
+	authUser        *model.Entity
+	metrics         *metricsCollector
+	requestLogs     *requestLogStore
+	dbQueries       *dbQueryCollector
+	authRateLimit   *authRateLimiter
+	authLogOnce     sync.Once
+	requestTraceID  uint64
+	startupValid    bool
+	startupMu       sync.RWMutex
+	startupEnforced bool
+	startupReady    bool
+	startupErr      error
+	publicFS        fs.FS
+	adminFS         fs.FS
+	versionInfo     VersionInfo
 }
 
 type compiledRule struct {
@@ -217,9 +221,7 @@ func (r *Runtime) Close() error {
 
 // Serve starts the HTTP server and blocks until shutdown or an unrecoverable server error.
 func (r *Runtime) Serve(ctx context.Context) error {
-	if err := r.ValidateStartup(); err != nil {
-		return err
-	}
+	r.beginStartupReadiness()
 
 	server := &http.Server{
 		Addr:         fmt.Sprintf("0.0.0.0:%d", r.App.Port),
@@ -231,11 +233,11 @@ func (r *Runtime) Serve(ctx context.Context) error {
 
 	errCh := make(chan error, 1)
 	go func() {
-		r.printStartupBanner()
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- err
 		}
 	}()
+	go r.runStartupReadinessChecks()
 
 	sigCtx, stop := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -248,6 +250,36 @@ func (r *Runtime) Serve(ctx context.Context) error {
 	case err := <-errCh:
 		return err
 	}
+}
+
+func (r *Runtime) beginStartupReadiness() {
+	r.startupMu.Lock()
+	defer r.startupMu.Unlock()
+	r.startupEnforced = true
+	r.startupReady = false
+	r.startupErr = nil
+}
+
+func (r *Runtime) runStartupReadinessChecks() {
+	err := r.ValidateStartup()
+
+	r.startupMu.Lock()
+	r.startupErr = err
+	r.startupReady = err == nil
+	r.startupMu.Unlock()
+
+	if err != nil {
+		PrintStartupError(err, "")
+		return
+	}
+
+	r.printStartupBanner()
+}
+
+func (r *Runtime) startupReadiness() (bool, bool, error) {
+	r.startupMu.RLock()
+	defer r.startupMu.RUnlock()
+	return r.startupEnforced, r.startupReady, r.startupErr
 }
 
 // handleHTTP applies shared transport behavior before delegating to route.
@@ -320,8 +352,28 @@ func (r *Runtime) route(w http.ResponseWriter, req *http.Request, requestID stri
 	}
 
 	if method == http.MethodGet && path == "/health" {
-		r.writeJSON(w, http.StatusOK, map[string]any{"ok": true, "app": r.App.AppName})
+		enforced, ready, startupErr := r.startupReadiness()
+		if enforced && !ready {
+			payload := map[string]any{
+				"ok":     false,
+				"app":    r.App.AppName,
+				"status": "starting",
+			}
+			if startupErr != nil {
+				payload["status"] = "failed"
+				payload["message"] = "Startup checks failed. Check the application logs."
+			}
+			r.writeJSON(w, http.StatusServiceUnavailable, payload)
+			return nil
+		}
+		r.writeJSON(w, http.StatusOK, map[string]any{"ok": true, "app": r.App.AppName, "status": "ready"})
 		return nil
+	}
+	if enforced, ready, startupErr := r.startupReadiness(); enforced && !ready {
+		if startupErr != nil {
+			return newAPIError(http.StatusServiceUnavailable, "startup_check_failed", "Startup checks failed. Check the application logs.")
+		}
+		return newAPIError(http.StatusServiceUnavailable, "app_starting", "App is still starting. Try again shortly.")
 	}
 	if served, err := r.serveAdminAsset(w, req, path); served {
 		return err
