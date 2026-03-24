@@ -2921,7 +2921,12 @@ viewMobileBottomNav model =
                 , htmlAttribute (HtmlAttr.style "box-shadow" "none")
                 , htmlAttribute (HtmlAttr.style "-webkit-tap-highlight-color" "rgba(0,0,0,0)")
                 ]
-                { onPress = Just ToggleMobileSidebar
+                { onPress =
+                    if model.mobileSidebarOpen then
+                        Nothing
+
+                    else
+                        Just ToggleMobileSidebar
                 , label =
                     el
                         [ width fill
