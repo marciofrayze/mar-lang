@@ -12,9 +12,13 @@ import (
 
 // handleList returns all rows from an entity resource after authorization.
 func (r *Runtime) handleList(w http.ResponseWriter, requestID string, entity *model.Entity, auth authSession) error {
-	if err := r.ensureAuthorized(entity, "list", auth, entityNullContext(entity)); err != nil {
-		return err
+	if !r.hasAuthorizer(entity, "read", auth) {
+		if !auth.Authenticated {
+			return newAPIError(http.StatusUnauthorized, "auth_required", "Authentication required")
+		}
+		return newAPIError(http.StatusForbidden, "not_authorized", fmt.Sprintf("Not authorized to read %s", entity.Name))
 	}
+
 	table, _ := quoteIdentifier(entity.Table)
 	pk, _ := quoteIdentifier(entity.PrimaryKey)
 	query := fmt.Sprintf("SELECT * FROM %s ORDER BY %s DESC", table, pk)
@@ -24,7 +28,10 @@ func (r *Runtime) handleList(w http.ResponseWriter, requestID string, entity *mo
 	}
 	out := make([]map[string]any, 0, len(rows))
 	for _, row := range rows {
-		out = append(out, decodeEntityRow(entity, row))
+		decoded := decodeEntityRow(entity, row)
+		if r.isAuthorized(entity, "read", auth, decoded) {
+			out = append(out, decoded)
+		}
 	}
 	r.writeJSON(w, http.StatusOK, out)
 	return nil
@@ -40,7 +47,7 @@ func (r *Runtime) handleGet(w http.ResponseWriter, requestID string, entity *mod
 		return newAPIError(http.StatusNotFound, "entity_not_found", entity.Name+" not found")
 	}
 	decoded := decodeEntityRow(entity, row)
-	if err := r.ensureAuthorized(entity, "get", auth, decoded); err != nil {
+	if err := r.ensureAuthorized(entity, "read", auth, decoded); err != nil {
 		return err
 	}
 	r.writeJSON(w, http.StatusOK, decoded)
@@ -188,7 +195,7 @@ func (r *Runtime) fetchByID(requestID string, entity *model.Entity, id any) (map
 func decodeEntityRow(entity *model.Entity, row map[string]any) map[string]any {
 	out := map[string]any{}
 	for _, field := range entity.Fields {
-		out[field.Name] = decodeDBValue(&field, row[field.Name])
+		out[field.Name] = decodeDBValue(&field, row[model.FieldStorageName(&field)])
 	}
 	return out
 }
@@ -220,16 +227,44 @@ func (r *Runtime) ensureAuthorized(entity *model.Entity, action string, auth aut
 	if !r.appAuthEnabled() {
 		return nil
 	}
-	if r.allowAdminBuiltInUserAccess(entity, action, auth) {
-		return nil
-	}
-	authorizers := r.authorizers[entity.Name]
-	rule, hasRule := authorizers[action]
-	if !hasRule {
+	if !r.hasAuthorizer(entity, action, auth) {
 		if !auth.Authenticated {
 			return newAPIError(http.StatusUnauthorized, "auth_required", "Authentication required")
 		}
 		return newAPIError(http.StatusForbidden, "not_authorized", fmt.Sprintf("Not authorized to %s %s", action, entity.Name))
+	}
+	if !r.isAuthorized(entity, action, auth, entityContext) {
+		if !auth.Authenticated {
+			return newAPIError(http.StatusUnauthorized, "auth_required", "Authentication required")
+		}
+		return newAPIError(http.StatusForbidden, "not_authorized", fmt.Sprintf("Not authorized to %s %s", action, entity.Name))
+	}
+	return nil
+}
+
+func (r *Runtime) hasAuthorizer(entity *model.Entity, action string, auth authSession) bool {
+	if !r.appAuthEnabled() {
+		return true
+	}
+	if r.allowAdminBuiltInUserAccess(entity, action, auth) {
+		return true
+	}
+	authorizers := r.authorizers[entity.Name]
+	_, hasRule := authorizers[action]
+	return hasRule
+}
+
+func (r *Runtime) isAuthorized(entity *model.Entity, action string, auth authSession, entityContext map[string]any) bool {
+	if !r.appAuthEnabled() {
+		return true
+	}
+	if r.allowAdminBuiltInUserAccess(entity, action, auth) {
+		return true
+	}
+	authorizers := r.authorizers[entity.Name]
+	rule, hasRule := authorizers[action]
+	if !hasRule {
+		return false
 	}
 
 	ctx := map[string]any{}
@@ -243,18 +278,9 @@ func (r *Runtime) ensureAuthorized(entity *model.Entity, action string, auth aut
 
 	v, err := rule.Eval(ctx)
 	if err != nil {
-		if !auth.Authenticated {
-			return newAPIError(http.StatusUnauthorized, "auth_required", "Authentication required")
-		}
-		return newAPIError(http.StatusForbidden, "not_authorized", fmt.Sprintf("Not authorized to %s %s", action, entity.Name))
+		return false
 	}
-	if !expr.ToBool(v) {
-		if !auth.Authenticated {
-			return newAPIError(http.StatusUnauthorized, "auth_required", "Authentication required")
-		}
-		return newAPIError(http.StatusForbidden, "not_authorized", fmt.Sprintf("Not authorized to %s %s", action, entity.Name))
-	}
-	return nil
+	return expr.ToBool(v)
 }
 
 func (r *Runtime) allowAdminBuiltInUserAccess(entity *model.Entity, action string, auth authSession) bool {
@@ -269,7 +295,7 @@ func (r *Runtime) allowAdminBuiltInUserAccess(entity *model.Entity, action strin
 	}
 
 	switch action {
-	case "list", "get":
+	case "read":
 		return true
 	default:
 		return false
@@ -310,7 +336,7 @@ func buildInsert(entity *model.Entity, payload map[string]any) (*insertBuild, er
 				if err != nil {
 					return nil, err
 				}
-				out.Columns = append(out.Columns, field.Name)
+				out.Columns = append(out.Columns, model.FieldStorageName(&field))
 				out.Values = append(out.Values, dbValue)
 				out.Context[field.Name] = apiValue
 				continue
@@ -325,7 +351,7 @@ func buildInsert(entity *model.Entity, payload map[string]any) (*insertBuild, er
 		if err != nil {
 			return nil, err
 		}
-		out.Columns = append(out.Columns, field.Name)
+		out.Columns = append(out.Columns, model.FieldStorageName(&field))
 		out.Values = append(out.Values, dbValue)
 		out.Context[field.Name] = apiValue
 	}
@@ -358,7 +384,7 @@ func buildUpdate(entity *model.Entity, payload map[string]any, current map[strin
 		if err != nil {
 			return nil, err
 		}
-		out.Columns = append(out.Columns, field.Name)
+		out.Columns = append(out.Columns, model.FieldStorageName(&field))
 		out.Values = append(out.Values, dbValue)
 		out.Context[field.Name] = apiValue
 	}

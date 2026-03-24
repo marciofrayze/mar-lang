@@ -14,7 +14,7 @@ import Html.Events as HtmlEvents
 import Http
 import Json.Decode as Decode
 import Json.Encode as Encode
-import Mar.Api exposing (ActionInfo, AuthInfo, Entity, Field, FieldType(..), InputAliasField, InputAliasInfo, Row, Schema, decodeRows, decodeSchema, encodePayload, fieldTypeLabel, rowDecoder, valueToDisplayString, valueToString)
+import Mar.Api exposing (ActionInfo, AuthInfo, Entity, Field, FieldType(..), InputAliasField, InputAliasInfo, Row, Schema, decodeRows, decodeSchema, encodePayload, fieldSchemaLabel, fieldTypeLabel, formatPosixInputMillis, parsePosixInput, rowDecoder, valueToDisplayString, valueToString)
 import Url exposing (Url)
 
 
@@ -1145,7 +1145,11 @@ update msg model =
                     ( { model | backups = Failed (httpErrorToString httpError) }, Cmd.none )
 
         SetAuthEmail email ->
-            ( { model | authEmail = email, authInlineMessage = Nothing }, Cmd.none )
+            if model.authSubmitting == Just AuthSubmitSendingCode then
+                ( model, Cmd.none )
+
+            else
+                ( { model | authEmail = email, authInlineMessage = Nothing }, Cmd.none )
 
         SetAuthCode code ->
             ( { model | authCode = code }, Cmd.none )
@@ -1291,20 +1295,29 @@ update msg model =
                         case scope of
                             AppAuthScope ->
                                 let
+                                    shouldShowExpiredMessage =
+                                        (not model.sessionRestorePending)
+                                            && (String.trim model.authToken /= "" || model.currentEmail /= Nothing)
+
                                     nextModel =
                                         { model
                                             | authToken = ""
                                             , currentEmail = Nothing
                                             , currentRole = Nothing
-                                            , authStage = AuthStageEmail
+                                            , authStage =
+                                                if model.firstAdminCodeRequested || model.authStage == AuthStageCode then
+                                                    AuthStageCode
+
+                                                else
+                                                    AuthStageEmail
                                             , sessionRestorePending = False
                                             , authToolsOpen = True
                                             , flash =
-                                                if model.sessionRestorePending then
-                                                    Nothing
+                                                if shouldShowExpiredMessage then
+                                                    Just "Session expired. Please login again."
 
                                                 else
-                                                    Just "Session expired. Please login again."
+                                                    Nothing
                                         }
                                 in
                                 ( nextModel, saveSessionFromModel nextModel )
@@ -2324,12 +2337,12 @@ encodeActionField valuesByName field partialResult =
                                 Err (fieldLabel field.name ++ " expects a decimal number")
 
                     "Posix" ->
-                        case parsePosixMillis rawValue of
+                        case parsePosixInput rawValue of
                             Just value ->
                                 Ok (( field.name, Encode.float value ) :: items)
 
                             Nothing ->
-                                Err (fieldLabel field.name ++ " expects Unix milliseconds")
+                                Err (fieldLabel field.name ++ " expects a date/time or Unix milliseconds")
 
                     "Bool" ->
                         let
@@ -2412,7 +2425,16 @@ fieldDefaultText : Field -> String
 fieldDefaultText field =
     case field.defaultValue of
         Just defaultValue ->
-            valueToString defaultValue
+            case field.fieldType of
+                PosixType ->
+                    defaultValue
+                        |> Decode.decodeValue Decode.float
+                        |> Result.toMaybe
+                        |> Maybe.map formatPosixInputMillis
+                        |> Maybe.withDefault (valueToString defaultValue)
+
+                _ ->
+                    valueToString defaultValue
 
         Nothing ->
             case field.fieldType of
@@ -2430,23 +2452,20 @@ fieldDefaultText field =
 placeholderForType : String -> String -> String
 placeholderForType fieldName fieldType =
     if fieldType == "Posix" then
-        "Unix milliseconds since epoch"
+        "YYYY-MM-DDTHH:MM"
 
     else
         fieldPlaceholder fieldName
 
 
-parsePosixMillis : String -> Maybe Float
-parsePosixMillis rawValue =
-    String.toFloat rawValue
-        |> Maybe.andThen
-            (\value ->
-                if isWholeNumber value then
-                    Just value
+placeholderForField : Field -> String
+placeholderForField field =
+    case field.relationEntity of
+        Just entityName ->
+            entityName ++ " id"
 
-                else
-                    Nothing
-            )
+        Nothing ->
+            placeholderForType field.name (fieldTypeLabel field.fieldType)
 
 
 isWholeNumber : Float -> Bool
@@ -2608,7 +2627,19 @@ formFromRow model rowValue =
                         let
                             valueText =
                                 Dict.get field.name rowValue
-                                    |> Maybe.map valueToString
+                                    |> Maybe.map
+                                        (\value ->
+                                            case field.fieldType of
+                                                PosixType ->
+                                                    value
+                                                        |> Decode.decodeValue Decode.float
+                                                        |> Result.toMaybe
+                                                        |> Maybe.map formatPosixInputMillis
+                                                        |> Maybe.withDefault (valueToString value)
+
+                                                _ ->
+                                                    valueToString value
+                                        )
                                     |> Maybe.withDefault ""
                         in
                         ( field.name, valueText )
@@ -4196,6 +4227,7 @@ viewAuthEmailStage model firstAdminMode actionLabel submitMsg isLoading =
                 ++ [ htmlAttribute (HtmlAttr.type_ "email")
                    , htmlAttribute (HtmlAttr.attribute "autocomplete" "email")
                    , htmlAttribute (HtmlAttr.attribute "inputmode" "email")
+                   , htmlAttribute (HtmlAttr.readonly isLoading)
                    ]
                 ++ (if isLoading then
                         []
@@ -5241,6 +5273,21 @@ viewActionPanel model actionInfo =
                             False
                             (Dict.get field.name model.actionFormValues |> Maybe.withDefault "false")
                             (SetActionField field.name)
+
+                    else if field.fieldType == "Posix" then
+                        Input.text
+                            (cupertinoTextInputAttrs
+                                ++ [ htmlAttribute (HtmlAttr.type_ "datetime-local") ]
+                            )
+                            { onChange = SetActionField field.name
+                            , text = Dict.get field.name model.actionFormValues |> Maybe.withDefault ""
+                            , placeholder =
+                                Just
+                                    (Input.placeholder []
+                                        (text (placeholderForType field.name field.fieldType))
+                                    )
+                            , label = Input.labelAbove [ Font.size 12 ] (text (fieldLabel field.name ++ " (UTC)"))
+                            }
 
                     else
                         Input.text cupertinoTextInputAttrs
@@ -6667,7 +6714,7 @@ viewEntitySchema model =
                     (\field ->
                         row [ width fill, spacing 8 ]
                             [ el [ Font.bold ] (text (fieldLabel field.name))
-                            , el [ Font.size 12, Font.color (rgb255 93 103 120) ] (text (fieldTypeLabel field.fieldType))
+                            , el [ Font.size 12, Font.color (rgb255 93 103 120) ] (text (fieldSchemaLabel field))
                             , if field.primary then
                                 badge "primary"
 
@@ -6746,6 +6793,21 @@ formCard model entity titleText =
                         )
                         (SetFormField field.name)
 
+                PosixType ->
+                    Input.text
+                        (cupertinoTextInputAttrs
+                            ++ [ htmlAttribute (HtmlAttr.type_ "datetime-local") ]
+                        )
+                        { onChange = SetFormField field.name
+                        , text = Dict.get field.name model.formValues |> Maybe.withDefault ""
+                        , placeholder =
+                            Just
+                                (Input.placeholder []
+                                    (text (placeholderForField field))
+                                )
+                        , label = Input.labelAbove [ Font.size 12 ] (text (fieldLabel field.name ++ " (UTC)"))
+                        }
+
                 _ ->
                     Input.text cupertinoTextInputAttrs
                         { onChange = SetFormField field.name
@@ -6753,7 +6815,7 @@ formCard model entity titleText =
                         , placeholder =
                             Just
                                 (Input.placeholder []
-                                    (text (placeholderForType field.name (fieldTypeLabel field.fieldType)))
+                                    (text (placeholderForField field))
                                 )
                         , label = Input.labelAbove [ Font.size 12 ] (text (fieldLabel field.name))
                         }

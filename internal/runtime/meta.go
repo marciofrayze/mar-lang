@@ -13,6 +13,9 @@ func (r *Runtime) schemaPayload(requestID string) map[string]any {
 				"auto":     field.Auto,
 				"optional": field.Optional,
 			}
+			if field.RelationEntity != "" {
+				fieldPayload["relationEntity"] = field.RelationEntity
+			}
 			if field.Default != nil {
 				fieldPayload["default"] = field.Default
 			}

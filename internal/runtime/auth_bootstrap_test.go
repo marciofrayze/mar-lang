@@ -148,8 +148,7 @@ entity Todo {
   id: Int primary auto
   title: String
 
-  authorize list when user_authenticated
-  authorize get when user_authenticated
+  authorize read when user_authenticated
   authorize create when user_authenticated
   authorize update when user_authenticated
   authorize delete when user_authenticated

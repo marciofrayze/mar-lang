@@ -257,6 +257,9 @@ func Parse(source string) (*model.App, error) {
 	if err := injectImplicitUserEntity(app, userExtension); err != nil {
 		return nil, err
 	}
+	if err := resolveEntityRelations(app); err != nil {
+		return nil, err
+	}
 	if err := validateAuthConfig(app); err != nil {
 		return nil, err
 	}
@@ -392,13 +395,21 @@ func parseUserExtensionBlock(lines []line, idx *int) (*model.Entity, error) {
 		}
 
 		if m := match(`^rule\s+"([^"]+)"\s+expect\s+(.+)$`, trimmed); m != nil {
-			rawRules = append(rawRules, model.Rule{Message: strings.TrimSpace(m[1]), Expression: strings.TrimSpace(m[2])})
+			rawRules = append(rawRules, model.Rule{
+				Message:    strings.TrimSpace(m[1]),
+				Expression: strings.TrimSpace(m[2]),
+				LineNo:     ln.number,
+			})
 			(*idx)++
 			continue
 		}
 
-		if m := match(`^authorize\s+(all|list|get|create|update|delete)\s+when\s+(.+)$`, trimmed); m != nil {
-			rawAuthz = append(rawAuthz, model.Authorization{Action: m[1], Expression: strings.TrimSpace(m[2])})
+		if m := match(`^authorize\s+(all|read|create|update|delete)\s+when\s+(.+)$`, trimmed); m != nil {
+			rawAuthz = append(rawAuthz, model.Authorization{
+				Action:     m[1],
+				Expression: strings.TrimSpace(m[2]),
+				LineNo:     ln.number,
+			})
 			(*idx)++
 			continue
 		}
@@ -417,6 +428,15 @@ func parseUserExtensionBlock(lines []line, idx *int) (*model.Entity, error) {
 				continue
 			}
 			ent.Fields = append(ent.Fields, field)
+			(*idx)++
+			continue
+		}
+
+		if field, ok, err := parseBelongsToStatement(trimmed, ln.number); ok {
+			if err != nil {
+				return nil, err
+			}
+			ent.Fields = append(ent.Fields, *field)
 			(*idx)++
 			continue
 		}
@@ -776,6 +796,10 @@ func unknownStatementError(lineNumber int, scope, trimmed string, candidates []s
 	return fmt.Errorf("line %d: %s %q%s", lineNumber, label, trimmed, suggest.DidYouMeanSuffix(statementSuggestionKey(trimmed), candidates))
 }
 
+func hasLinePrefixedError(err error) bool {
+	return err != nil && strings.HasPrefix(err.Error(), "line ")
+}
+
 func statementSuggestionKey(trimmed string) string {
 	parts := strings.Fields(strings.TrimSpace(trimmed))
 	if len(parts) == 0 {
@@ -811,19 +835,30 @@ func parseEntityBlock(lines []line, idx *int, name string) (*model.Entity, error
 		if trimmed == "}" {
 			(*idx)++
 			if err := finalizeEntity(ent, rawRules, rawAuthz); err != nil {
+				if hasLinePrefixedError(err) {
+					return nil, err
+				}
 				return nil, fmt.Errorf("line %d: %w", ln.number, err)
 			}
 			return ent, nil
 		}
 
 		if m := match(`^rule\s+"([^"]+)"\s+expect\s+(.+)$`, trimmed); m != nil {
-			rawRules = append(rawRules, model.Rule{Message: strings.TrimSpace(m[1]), Expression: strings.TrimSpace(m[2])})
+			rawRules = append(rawRules, model.Rule{
+				Message:    strings.TrimSpace(m[1]),
+				Expression: strings.TrimSpace(m[2]),
+				LineNo:     ln.number,
+			})
 			(*idx)++
 			continue
 		}
 
-		if m := match(`^authorize\s+(all|list|get|create|update|delete)\s+when\s+(.+)$`, trimmed); m != nil {
-			rawAuthz = append(rawAuthz, model.Authorization{Action: m[1], Expression: strings.TrimSpace(m[2])})
+		if m := match(`^authorize\s+(all|read|create|update|delete)\s+when\s+(.+)$`, trimmed); m != nil {
+			rawAuthz = append(rawAuthz, model.Authorization{
+				Action:     m[1],
+				Expression: strings.TrimSpace(m[2]),
+				LineNo:     ln.number,
+			})
 			(*idx)++
 			continue
 		}
@@ -834,6 +869,15 @@ func parseEntityBlock(lines []line, idx *int, name string) (*model.Entity, error
 				return nil, err
 			}
 			ent.Fields = append(ent.Fields, field)
+			(*idx)++
+			continue
+		}
+
+		if field, ok, err := parseBelongsToStatement(trimmed, ln.number); ok {
+			if err != nil {
+				return nil, err
+			}
+			ent.Fields = append(ent.Fields, *field)
 			(*idx)++
 			continue
 		}
@@ -901,28 +945,43 @@ func finalizeEntity(ent *model.Entity, rawRules []model.Rule, rawAuthz []model.A
 
 	for _, rule := range rawRules {
 		if strings.TrimSpace(rule.Message) == "" {
+			if rule.LineNo > 0 {
+				return fmt.Errorf("line %d: rule message cannot be empty", rule.LineNo)
+			}
 			return fmt.Errorf("rule message cannot be empty")
 		}
 		if strings.TrimSpace(rule.Expression) == "" {
+			if rule.LineNo > 0 {
+				return fmt.Errorf("line %d: rule expression cannot be empty", rule.LineNo)
+			}
 			return fmt.Errorf("rule expression cannot be empty")
 		}
 		if _, err := expr.Parse(rule.Expression, expr.ParserOptions{AllowedVariables: allowedVars}); err != nil {
+			if rule.LineNo > 0 {
+				return fmt.Errorf("line %d: invalid rule expression %q (%w)", rule.LineNo, rule.Expression, err)
+			}
 			return fmt.Errorf("invalid rule expression %q (%w)", rule.Expression, err)
 		}
 		ent.Rules = append(ent.Rules, rule)
 	}
 
 	exprVars := expr.AllowedVariablesWithBuiltins(allowedVars)
-	authorizeOps := []string{"list", "get", "create", "update", "delete"}
+	authorizeOps := []string{"read", "create", "update", "delete"}
 	seenAction := map[string]bool{}
 	var allExpression string
 	var hasAll bool
 	for _, authz := range rawAuthz {
 		if seenAction[authz.Action] {
+			if authz.LineNo > 0 {
+				return fmt.Errorf("line %d: duplicate authorize rule for %q", authz.LineNo, authz.Action)
+			}
 			return fmt.Errorf("duplicate authorize rule for %q", authz.Action)
 		}
 		seenAction[authz.Action] = true
 		if _, err := expr.Parse(authz.Expression, expr.ParserOptions{AllowedVariables: exprVars}); err != nil {
+			if authz.LineNo > 0 {
+				return fmt.Errorf("line %d: invalid authorization expression %q (%w)", authz.LineNo, authz.Expression, err)
+			}
 			return fmt.Errorf("invalid authorization expression %q (%w)", authz.Expression, err)
 		}
 		if authz.Action == "all" {
@@ -946,6 +1005,44 @@ func finalizeEntity(ent *model.Entity, rawRules []model.Rule, rawAuthz []model.A
 			resolved = append(resolved, model.Authorization{Action: action, Expression: expression})
 		}
 		ent.Authorizations = resolved
+	}
+
+	return nil
+}
+
+func resolveEntityRelations(app *model.App) error {
+	if app == nil {
+		return nil
+	}
+
+	entitiesByName := make(map[string]*model.Entity, len(app.Entities))
+	for i := range app.Entities {
+		entitiesByName[app.Entities[i].Name] = &app.Entities[i]
+	}
+
+	for i := range app.Entities {
+		ent := &app.Entities[i]
+		seenStorageNames := map[string]bool{}
+		for j := range ent.Fields {
+			field := &ent.Fields[j]
+			if field.RelationEntity != "" {
+				target := entitiesByName[field.RelationEntity]
+				if target == nil {
+					return fmt.Errorf("entity %s field %s references unknown entity %s", ent.Name, field.Name, field.RelationEntity)
+				}
+				pk := entityPrimaryField(target)
+				if pk == nil || !isPrimitiveFieldType(pk.Type) {
+					return fmt.Errorf("entity %s field %s cannot belong_to %s because %s primary key is unsupported", ent.Name, field.Name, field.RelationEntity, field.RelationEntity)
+				}
+				field.Type = pk.Type
+			}
+
+			storageName := model.FieldStorageName(field)
+			if seenStorageNames[storageName] {
+				return fmt.Errorf("entity %s has duplicate stored field %q", ent.Name, storageName)
+			}
+			seenStorageNames[storageName] = true
+		}
 	}
 
 	return nil
@@ -1035,6 +1132,75 @@ func parseAliasFieldToken(alias *model.TypeAlias, seen map[string]bool, token st
 	}
 	seen[name] = true
 	alias.Fields = append(alias.Fields, model.AliasField{Name: name, Type: m[2]})
+	return nil
+}
+
+func parseBelongsToStatement(trimmed string, lineNo int) (*model.Field, bool, error) {
+	if !strings.HasPrefix(trimmed, "belongs_to ") {
+		return nil, false, nil
+	}
+
+	rest := strings.TrimSpace(strings.TrimPrefix(trimmed, "belongs_to"))
+	if rest == "" {
+		return nil, true, fmt.Errorf("line %d: belongs_to requires a target entity", lineNo)
+	}
+
+	var fieldName string
+	var targetEntity string
+	var rawAttrs string
+
+	if before, after, ok := strings.Cut(rest, ":"); ok {
+		fieldName = strings.TrimSpace(before)
+		after = strings.TrimSpace(after)
+		parts := strings.Fields(after)
+		if len(parts) == 0 {
+			return nil, true, fmt.Errorf("line %d: belongs_to %s requires a target entity", lineNo, fieldName)
+		}
+		targetEntity = parts[0]
+		rawAttrs = strings.TrimSpace(strings.TrimPrefix(after, targetEntity))
+	} else {
+		parts := strings.Fields(rest)
+		targetEntity = parts[0]
+		fieldName = toSnake(targetEntity)
+		if len(parts) > 1 {
+			rawAttrs = strings.Join(parts[1:], " ")
+		}
+	}
+
+	if !fieldNameRe.MatchString(fieldName) {
+		return nil, true, fmt.Errorf("line %d: belongs_to field name %q is invalid", lineNo, fieldName)
+	}
+	if !upperNameRe.MatchString(targetEntity) {
+		return nil, true, fmt.Errorf("line %d: belongs_to target %q is invalid", lineNo, targetEntity)
+	}
+
+	field := &model.Field{
+		Name:           fieldName,
+		RelationEntity: targetEntity,
+	}
+	if err := parseBelongsToAttributes(field, rawAttrs, lineNo); err != nil {
+		return nil, true, err
+	}
+	return field, true, nil
+}
+
+func parseBelongsToAttributes(field *model.Field, raw string, lineNo int) error {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+
+	tokens, err := tokenizeFieldAttributes(raw)
+	if err != nil {
+		return fmt.Errorf("line %d: %w", lineNo, err)
+	}
+	for _, token := range tokens {
+		switch token {
+		case "optional":
+			field.Optional = true
+		default:
+			return fmt.Errorf("line %d: belongs_to only supports the optional modifier", lineNo)
+		}
+	}
 	return nil
 }
 
@@ -1712,6 +1878,27 @@ func parseFieldDefaultLiteral(fieldType string, raw string, lineNo int) (any, er
 	default:
 		return nil, fmt.Errorf("line %d: unsupported field type %s", lineNo, fieldType)
 	}
+}
+
+func isPrimitiveFieldType(fieldType string) bool {
+	switch strings.TrimSpace(fieldType) {
+	case "Int", "String", "Bool", "Float", "Posix":
+		return true
+	default:
+		return false
+	}
+}
+
+func entityPrimaryField(entity *model.Entity) *model.Field {
+	if entity == nil {
+		return nil
+	}
+	for i := range entity.Fields {
+		if entity.Fields[i].Name == entity.PrimaryKey {
+			return &entity.Fields[i]
+		}
+	}
+	return nil
 }
 
 func toKebab(v string) string {

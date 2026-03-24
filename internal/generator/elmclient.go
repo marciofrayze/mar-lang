@@ -76,6 +76,7 @@ func GenerateElmClient(app *model.App) (*ElmClientOutput, error) {
 	writeLine(buf, "type alias FieldMeta =")
 	writeLine(buf, "    { name : String")
 	writeLine(buf, "    , fieldType : String")
+	writeLine(buf, "    , relationEntity : Maybe String")
 	writeLine(buf, "    , primary : Bool")
 	writeLine(buf, "    , auto : Bool")
 	writeLine(buf, "    , optional : Bool")
@@ -165,6 +166,7 @@ func GenerateElmClient(app *model.App) (*ElmClientOutput, error) {
 			}
 			writeLine(buf, "                { name = "+elmString(field.Name))
 			writeLine(buf, "                , fieldType = "+elmString(field.Type))
+			writeLine(buf, "                , relationEntity = "+elmMaybeString(field.RelationEntity))
 			writeLine(buf, "                , primary = "+elmBool(field.Primary))
 			writeLine(buf, "                , auto = "+elmBool(field.Auto))
 			writeLine(buf, "                , optional = "+elmBool(field.Optional))
@@ -409,6 +411,13 @@ func elmMaybeValue(value any) string {
 	default:
 		return "Nothing"
 	}
+}
+
+func elmMaybeString(value string) string {
+	if strings.TrimSpace(value) == "" {
+		return "Nothing"
+	}
+	return "Just " + elmString(value)
 }
 
 // sanitizeModuleName converts arbitrary app names into valid Elm module identifiers.

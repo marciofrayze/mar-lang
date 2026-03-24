@@ -84,6 +84,34 @@ done:Bool default false
 	}
 }
 
+func TestFormatBelongsToCanonicalOutput(t *testing.T) {
+	src := `
+app BillingApi
+entity Invoice{
+total:Float
+belongs_to customer:User optional
+belongs_to User
+}
+`
+
+	formatted, err := Format(src)
+	if err != nil {
+		t.Fatalf("format failed: %v", err)
+	}
+
+	expected := "" +
+		"app BillingApi\n" +
+		"entity Invoice {\n" +
+		"  total: Float\n" +
+		"  belongs_to customer: User optional\n" +
+		"  belongs_to User\n" +
+		"}\n"
+
+	if formatted != expected {
+		t.Fatalf("unexpected formatted output\n--- expected ---\n%s\n--- got ---\n%s", expected, formatted)
+	}
+}
+
 func TestFormatInvalidSourceReturnsParserError(t *testing.T) {
 	src := `
 app Broken

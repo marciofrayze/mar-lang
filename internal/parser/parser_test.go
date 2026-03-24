@@ -314,6 +314,117 @@ action scheduleTodo {
 	}
 }
 
+func TestParseSupportsBelongsToDefaultName(t *testing.T) {
+	src := `
+app TodoApi
+
+entity Todo {
+  title: String
+  belongs_to User
+}
+`
+
+	app, err := Parse(src)
+	if err != nil {
+		t.Fatalf("Parse returned error: %v", err)
+	}
+
+	var todo *model.Entity
+	for i := range app.Entities {
+		if app.Entities[i].Name == "Todo" {
+			todo = &app.Entities[i]
+			break
+		}
+	}
+	if todo == nil {
+		t.Fatal("expected Todo entity to be present")
+	}
+
+	var userField *model.Field
+	for i := range todo.Fields {
+		if todo.Fields[i].Name == "user" {
+			userField = &todo.Fields[i]
+			break
+		}
+	}
+	if userField == nil {
+		t.Fatal("expected user belongs_to field to be present")
+	}
+	if userField.RelationEntity != "User" {
+		t.Fatalf("expected relation entity User, got %q", userField.RelationEntity)
+	}
+	if userField.Type != "Int" {
+		t.Fatalf("expected user belongs_to field to resolve to Int, got %q", userField.Type)
+	}
+}
+
+func TestParseSupportsNamedOptionalBelongsTo(t *testing.T) {
+	src := `
+app BillingApi
+
+entity Invoice {
+  total: Float
+  belongs_to customer: User
+  belongs_to approver: User optional
+}
+`
+
+	app, err := Parse(src)
+	if err != nil {
+		t.Fatalf("Parse returned error: %v", err)
+	}
+
+	var invoice *model.Entity
+	for i := range app.Entities {
+		if app.Entities[i].Name == "Invoice" {
+			invoice = &app.Entities[i]
+			break
+		}
+	}
+	if invoice == nil {
+		t.Fatal("expected Invoice entity to be present")
+	}
+
+	var customer *model.Field
+	var approver *model.Field
+	for i := range invoice.Fields {
+		switch invoice.Fields[i].Name {
+		case "customer":
+			customer = &invoice.Fields[i]
+		case "approver":
+			approver = &invoice.Fields[i]
+		}
+	}
+	if customer == nil || approver == nil {
+		t.Fatalf("expected customer and approver belongs_to fields, got %+v", invoice.Fields)
+	}
+	if customer.RelationEntity != "User" || customer.Optional {
+		t.Fatalf("unexpected customer relation field: %+v", *customer)
+	}
+	if approver.RelationEntity != "User" || !approver.Optional {
+		t.Fatalf("unexpected approver relation field: %+v", *approver)
+	}
+}
+
+func TestParseRejectsBelongsToUnknownEntity(t *testing.T) {
+	src := `
+app TodoApi
+
+entity Todo {
+  title: String
+  belongs_to Project
+}
+`
+
+	_, err := Parse(src)
+	if err == nil {
+		t.Fatal("expected parse error for unknown belongs_to target")
+	}
+	if !strings.Contains(err.Error(), "references unknown entity Project") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestParseRejectsHashComments(t *testing.T) {
 	src := `
 # application
@@ -565,13 +676,12 @@ entity Todo {
 		t.Fatal("expected Todo entity")
 	}
 
-	if len(todo.Authorizations) != 5 {
-		t.Fatalf("expected 5 expanded authorization rules, got %d", len(todo.Authorizations))
+	if len(todo.Authorizations) != 4 {
+		t.Fatalf("expected 4 expanded authorization rules, got %d", len(todo.Authorizations))
 	}
 
 	expected := map[string]string{
-		"list":   "user_authenticated",
-		"get":    "user_authenticated",
+		"read":   "user_authenticated",
 		"create": "user_authenticated",
 		"update": "user_authenticated",
 		"delete": "user_authenticated",
@@ -608,8 +718,7 @@ entity Todo {
 	}
 
 	expected := map[string]string{
-		"list":   "user_authenticated",
-		"get":    "user_authenticated",
+		"read":   "user_authenticated",
 		"create": "user_authenticated",
 		"update": "user_authenticated",
 		"delete": `user_role == "admin"`,
@@ -656,6 +765,26 @@ entity Todo {
 	}
 	if todo.Rules[0].Expression != "length title >= 3" {
 		t.Fatalf("unexpected rule expression: %q", todo.Rules[0].Expression)
+	}
+}
+
+func TestParseRuleErrorUsesOriginalRuleLine(t *testing.T) {
+	src := `
+app Demo
+
+entity Student {
+  fullName: String
+
+  rule "Student code must have at least 4 chars" expect length externalCode >= 4
+}
+`
+
+	_, err := Parse(src)
+	if err == nil {
+		t.Fatal("expected parse error for unknown identifier in rule")
+	}
+	if !strings.Contains(err.Error(), `line 7: invalid rule expression "length externalCode >= 4" (unknown identifier "externalCode")`) {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 

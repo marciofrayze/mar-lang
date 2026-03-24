@@ -11,6 +11,7 @@ Mar has a built-in `User` entity in every app, and entity operations are protect
 - Public assets config (`public`, `dir`, `mount`, `spa_fallback`)
 - System config (`system`, `request_logs_buffer`, `http_max_request_body_mb`, auth rate limits, security headers like `security_frame_policy`/`security_referrer_policy`/`security_content_type_nosniff`, and `sqlite_*` options like `sqlite_mmap_size_mb` and `sqlite_cache_size_kb`)
 - Rule/authz keywords (`rule`, `expect`, `when`, `authorize`)
+- Relationship syntax (`belongs_to User`, `belongs_to customer: User optional`)
 - Action syntax (`action <name> { input: Alias ... todo = load Todo { ... } updatedTodo = update Todo { ... } }`)
 - Auth config keys (`code_ttl_minutes`, `session_ttl_hours`, `email_transport`, etc.)
 - Built-in `User` entity support and auth-aware snippets
@@ -25,6 +26,8 @@ Mar has a built-in `User` entity in every app, and entity operations are protect
 - `app`
 - `entity`
 - `field`
+- `belongs_to`
+- `belongs_to_named`
 - `rule`
 - `authorize`
 - `auth`

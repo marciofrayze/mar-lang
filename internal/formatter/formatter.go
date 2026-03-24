@@ -22,21 +22,23 @@ var (
 	actionInputRe = regexp.MustCompile(`^input\s*:\s*([A-Za-z][A-Za-z0-9_]*)$`)
 	actionStepRe  = regexp.MustCompile(`^(?:([a-z][A-Za-z0-9_]*)\s*=\s*)?(load|create|update|delete)\s+([A-Za-z][A-Za-z0-9_]*)\s*\{$`)
 
-	entityFieldRe = regexp.MustCompile(`^([a-z][A-Za-z0-9_]*)\s*:\s*(Int|String|Bool|Float|Posix)(?:\s+(.*))?$`)
-	ruleRe        = regexp.MustCompile(`^rule\s+"([^"]+)"\s+expect\s+(.+)$`)
-	authorizeRe   = regexp.MustCompile(`^authorize\s+(all|list|get|create|update|delete)\s+when\s+(.+)$`)
-	systemIntRe   = regexp.MustCompile(`^(request_logs_buffer|sqlite_busy_timeout_ms|sqlite_wal_autocheckpoint|auth_request_code_rate_limit_per_minute|auth_login_rate_limit_per_minute|admin_ui_session_ttl_hours)\s+([0-9]{1,7})$`)
-	systemModeRe  = regexp.MustCompile(`^(sqlite_journal_mode)\s+(wal|delete|truncate|persist|memory|off)$`)
-	systemSyncRe  = regexp.MustCompile(`^(sqlite_synchronous)\s+(off|normal|full|extra)$`)
-	systemBoolRe  = regexp.MustCompile(`^(sqlite_foreign_keys|security_content_type_nosniff)\s+(true|false)$`)
-	systemFrameRe = regexp.MustCompile(`^(security_frame_policy)\s+(deny|sameorigin)$`)
-	systemRefRe   = regexp.MustCompile(`^(security_referrer_policy)\s+(strict-origin-when-cross-origin|no-referrer)$`)
-	systemLimitRe = regexp.MustCompile(`^(sqlite_journal_size_limit_mb)\s+(-?[0-9]{1,4})$`)
-	systemMBRe    = regexp.MustCompile(`^(sqlite_mmap_size_mb|http_max_request_body_mb)\s+([0-9]{1,5})$`)
-	systemKBRe    = regexp.MustCompile(`^(sqlite_cache_size_kb)\s+([0-9]{1,7})$`)
-	publicQuoteRe = regexp.MustCompile(`^(dir|mount|spa_fallback)\s+"([^"]+)"$`)
-	authStmtRe    = regexp.MustCompile(`^(code_ttl_minutes|session_ttl_hours|email_transport|smtp_port|smtp_starttls)\s+(.+)$`)
-	authQuoteRe   = regexp.MustCompile(`^(email_from|email_subject|smtp_host|smtp_username|smtp_password_env)\s+"([^"]+)"$`)
+	entityFieldRe    = regexp.MustCompile(`^([a-z][A-Za-z0-9_]*)\s*:\s*(Int|String|Bool|Float|Posix)(?:\s+(.*))?$`)
+	belongsToNamedRe = regexp.MustCompile(`^belongs_to\s+([a-z][A-Za-z0-9_]*)\s*:\s*([A-Za-z][A-Za-z0-9_]*)(?:\s+(.*))?$`)
+	belongsToShortRe = regexp.MustCompile(`^belongs_to\s+([A-Za-z][A-Za-z0-9_]*)(?:\s+(.*))?$`)
+	ruleRe           = regexp.MustCompile(`^rule\s+"([^"]+)"\s+expect\s+(.+)$`)
+	authorizeRe      = regexp.MustCompile(`^authorize\s+(all|read|create|update|delete)\s+when\s+(.+)$`)
+	systemIntRe      = regexp.MustCompile(`^(request_logs_buffer|sqlite_busy_timeout_ms|sqlite_wal_autocheckpoint|auth_request_code_rate_limit_per_minute|auth_login_rate_limit_per_minute|admin_ui_session_ttl_hours)\s+([0-9]{1,7})$`)
+	systemModeRe     = regexp.MustCompile(`^(sqlite_journal_mode)\s+(wal|delete|truncate|persist|memory|off)$`)
+	systemSyncRe     = regexp.MustCompile(`^(sqlite_synchronous)\s+(off|normal|full|extra)$`)
+	systemBoolRe     = regexp.MustCompile(`^(sqlite_foreign_keys|security_content_type_nosniff)\s+(true|false)$`)
+	systemFrameRe    = regexp.MustCompile(`^(security_frame_policy)\s+(deny|sameorigin)$`)
+	systemRefRe      = regexp.MustCompile(`^(security_referrer_policy)\s+(strict-origin-when-cross-origin|no-referrer)$`)
+	systemLimitRe    = regexp.MustCompile(`^(sqlite_journal_size_limit_mb)\s+(-?[0-9]{1,4})$`)
+	systemMBRe       = regexp.MustCompile(`^(sqlite_mmap_size_mb|http_max_request_body_mb)\s+([0-9]{1,5})$`)
+	systemKBRe       = regexp.MustCompile(`^(sqlite_cache_size_kb)\s+([0-9]{1,7})$`)
+	publicQuoteRe    = regexp.MustCompile(`^(dir|mount|spa_fallback)\s+"([^"]+)"$`)
+	authStmtRe       = regexp.MustCompile(`^(code_ttl_minutes|session_ttl_hours|email_transport|smtp_port|smtp_starttls)\s+(.+)$`)
+	authQuoteRe      = regexp.MustCompile(`^(email_from|email_subject|smtp_host|smtp_username|smtp_password_env)\s+"([^"]+)"$`)
 
 	aliasFieldRe        = regexp.MustCompile(`^([a-z][A-Za-z0-9_]*)\s*:\s*(Int|String|Bool|Float|Posix)\s*$`)
 	actionFieldAssignRe = regexp.MustCompile(`^([a-z][A-Za-z0-9_]*)\s*:\s*(.+)$`)
@@ -242,6 +244,20 @@ func normalizeLine(trimmed string, state *formatState) string {
 			}
 			return m[1] + ": " + m[2] + " " + normalizeFieldAttributes(attrs)
 		}
+		if m := belongsToNamedRe.FindStringSubmatch(trimmed); m != nil {
+			attrs := normalizeBelongsToAttributes(m[3])
+			if attrs == "" {
+				return "belongs_to " + m[1] + ": " + m[2]
+			}
+			return "belongs_to " + m[1] + ": " + m[2] + " " + attrs
+		}
+		if m := belongsToShortRe.FindStringSubmatch(trimmed); m != nil {
+			attrs := normalizeBelongsToAttributes(m[2])
+			if attrs == "" {
+				return "belongs_to " + m[1]
+			}
+			return "belongs_to " + m[1] + " " + attrs
+		}
 		if m := ruleRe.FindStringSubmatch(trimmed); m != nil {
 			return `rule "` + m[1] + `" expect ` + strings.TrimSpace(m[2])
 		}
@@ -346,6 +362,14 @@ func normalizeFieldAttributes(value string) string {
 		return collapseSpaces(value)
 	}
 	return strings.Join(tokens, " ")
+}
+
+func normalizeBelongsToAttributes(value string) string {
+	tokens, err := tokenizeFieldAttributes(value)
+	if err != nil || len(tokens) == 0 {
+		return collapseSpaces(value)
+	}
+	return "optional"
 }
 
 func tokenizeFieldAttributes(raw string) ([]string, error) {

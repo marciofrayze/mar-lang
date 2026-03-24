@@ -191,8 +191,29 @@
           }
         },
         {
+          "name": "meta.belongs-to.declaration.mar",
+          "match": "\\b(belongs_to)\\s+(?:([a-z][A-Za-z0-9_]*)\\s*(:)\\s*)?([A-Z][A-Za-z0-9_]*)(?:\\s+(optional))?\\b",
+          "captures": {
+            "1": {
+              "name": "keyword.control.declaration.mar"
+            },
+            "2": {
+              "name": "variable.other.member.mar"
+            },
+            "3": {
+              "name": "punctuation.separator.key-value.mar"
+            },
+            "4": {
+              "name": "entity.name.type.mar"
+            },
+            "5": {
+              "name": "storage.modifier.mar"
+            }
+          }
+        },
+        {
           "name": "meta.authorize.action.mar",
-          "match": "\\b(authorize)\\s+(all|list|get|create|update|delete)\\b",
+          "match": "\\b(authorize)\\s+(all|read|create|update|delete)\\b",
           "captures": {
             "1": {
               "name": "keyword.control.authorization.mar"
@@ -235,7 +256,7 @@
       "patterns": [
         {
           "name": "keyword.control.declaration.mar",
-          "match": "\\b(app|port|database|system|public|entity|auth|type|alias)\\b"
+          "match": "\\b(app|port|database|system|public|entity|auth|type|alias|belongs_to)\\b"
         },
         {
           "name": "keyword.control.rule.mar",
@@ -275,7 +296,7 @@
         },
         {
           "name": "support.constant.action.mar",
-          "match": "\\b(list|get|load|create|update|delete)\\b"
+          "match": "\\b(read|load|create|update|delete)\\b"
         }
       ]
     },

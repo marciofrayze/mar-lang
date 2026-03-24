@@ -351,18 +351,22 @@ func builtinFunctionArity(name string) (int, bool) {
 
 func (p *parser) canStartFunctionApplication(arity int) bool {
 	original := p.idx
+	originalAllowed := p.opts.AllowedVariables
+	p.opts.AllowedVariables = nil
+	defer func() {
+		p.idx = original
+		p.opts.AllowedVariables = originalAllowed
+	}()
+
 	p.idx++
 	for i := 0; i < arity; i++ {
 		if !canStartPrimaryLike(p.peek()) {
-			p.idx = original
 			return false
 		}
 		if _, err := p.parseUnary(); err != nil {
-			p.idx = original
 			return false
 		}
 	}
-	p.idx = original
 	return true
 }
 

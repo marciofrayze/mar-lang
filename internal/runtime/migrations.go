@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -13,6 +14,12 @@ type tableInfoRow struct {
 	Type    string
 	NotNull int
 	PK      int
+}
+
+type foreignKeyInfoRow struct {
+	FromColumn string
+	ToTable    string
+	ToColumn   string
 }
 
 func (r *Runtime) runMigrations() error {
@@ -123,6 +130,27 @@ func (r *Runtime) readTableInfo(tableName string) ([]tableInfoRow, error) {
 	return info, nil
 }
 
+func (r *Runtime) readForeignKeyInfo(tableName string) ([]foreignKeyInfoRow, error) {
+	quoted, err := quoteIdentifier(tableName)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := r.DB.QueryRows("PRAGMA foreign_key_list(" + quoted + ")")
+	if err != nil {
+		return nil, err
+	}
+
+	info := make([]foreignKeyInfoRow, 0, len(rows))
+	for _, item := range rows {
+		info = append(info, foreignKeyInfoRow{
+			FromColumn: fmt.Sprintf("%v", item["from"]),
+			ToTable:    fmt.Sprintf("%v", item["table"]),
+			ToColumn:   fmt.Sprintf("%v", item["to"]),
+		})
+	}
+	return info, nil
+}
+
 // migrateEntityTable applies safe forward-only schema updates for an app entity table.
 func (r *Runtime) migrateEntityTable(entity *model.Entity) error {
 	exists, err := r.tableExists(entity.Table)
@@ -132,7 +160,7 @@ func (r *Runtime) migrateEntityTable(entity *model.Entity) error {
 	if !exists {
 		cols := make([]string, 0, len(entity.Fields))
 		for _, field := range entity.Fields {
-			cols = append(cols, entityColumnDefinition(&field))
+			cols = append(cols, r.entityColumnDefinition(entity, &field))
 		}
 		table, _ := quoteIdentifier(entity.Table)
 		sqlText := fmt.Sprintf("CREATE TABLE %s (%s);", table, strings.Join(cols, ", "))
@@ -146,6 +174,10 @@ func (r *Runtime) migrateEntityTable(entity *model.Entity) error {
 	if err != nil {
 		return err
 	}
+	existingFKs, err := r.readForeignKeyInfo(entity.Table)
+	if err != nil {
+		return err
+	}
 	existingByName := map[string]tableInfoRow{}
 	for _, row := range existing {
 		existingByName[row.Name] = row
@@ -153,21 +185,30 @@ func (r *Runtime) migrateEntityTable(entity *model.Entity) error {
 	expected := map[string]bool{}
 
 	for _, field := range entity.Fields {
-		expected[field.Name] = true
-		row, ok := existingByName[field.Name]
+		storageName := model.FieldStorageName(&field)
+		expected[storageName] = true
+		row, ok := existingByName[storageName]
+		if field.RelationEntity != "" {
+			if !ok {
+				return r.blockRelationMigration(entity, &field, false)
+			}
+			if !r.hasExpectedForeignKey(existingFKs, entity, &field) {
+				return r.blockRelationMigration(entity, &field, true)
+			}
+		}
 		if !ok {
 			if field.Primary || field.Auto {
-				return fmt.Errorf("migration blocked for entity %s: cannot auto-add primary/auto field %q to existing table %s", entity.Name, field.Name, entity.Table)
+				return fmt.Errorf("migration blocked for entity %s: cannot auto-add primary/auto field %q to existing table %s", entity.Name, storageName, entity.Table)
 			}
 			if !field.Optional && field.Default == nil {
-				return fmt.Errorf("migration blocked for entity %s: cannot auto-add required field %q (%s) to existing table %s", entity.Name, field.Name, field.Type, entity.Table)
+				return fmt.Errorf("migration blocked for entity %s: cannot auto-add required field %q (%s) to existing table %s", entity.Name, storageName, field.Type, entity.Table)
 			}
 			table, _ := quoteIdentifier(entity.Table)
-			sqlText := fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s;", table, entityColumnDefinition(&field))
+			sqlText := fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s;", table, r.entityColumnDefinition(entity, &field))
 			if _, err := r.DB.Exec(sqlText); err != nil {
 				return err
 			}
-			if err := r.recordMigration(entity.Table, "add_column_"+field.Name, sqlText); err != nil {
+			if err := r.recordMigration(entity.Table, "add_column_"+storageName, sqlText); err != nil {
 				return err
 			}
 			continue
@@ -330,8 +371,8 @@ func assertCompatibleColumn(entityName, tableName string, field *model.Field, ex
 	return nil
 }
 
-func entityColumnDefinition(field *model.Field) string {
-	name, _ := quoteIdentifier(field.Name)
+func (r *Runtime) entityColumnDefinition(entity *model.Entity, field *model.Field) string {
+	name, _ := quoteIdentifier(model.FieldStorageName(field))
 	parts := []string{name, typeToSQLite(field.Type)}
 	if field.Primary {
 		parts = append(parts, "PRIMARY KEY")
@@ -345,7 +386,125 @@ func entityColumnDefinition(field *model.Field) string {
 	if defaultSQL, ok := fieldDefaultSQL(field); ok {
 		parts = append(parts, "DEFAULT "+defaultSQL)
 	}
+	if field.RelationEntity != "" {
+		target := r.relationTargetEntity(field)
+		if target != nil {
+			targetTable, _ := quoteIdentifier(target.Table)
+			targetPrimary, _ := quoteIdentifier(model.FieldStorageName(primaryField(target)))
+			parts = append(parts, fmt.Sprintf("REFERENCES %s(%s)", targetTable, targetPrimary))
+		}
+	}
 	return strings.Join(parts, " ")
+}
+
+func (r *Runtime) relationTargetEntity(field *model.Field) *model.Entity {
+	if r == nil || r.App == nil || field == nil || field.RelationEntity == "" {
+		return nil
+	}
+	for i := range r.App.Entities {
+		if r.App.Entities[i].Name == field.RelationEntity {
+			return &r.App.Entities[i]
+		}
+	}
+	return nil
+}
+
+func (r *Runtime) hasExpectedForeignKey(existing []foreignKeyInfoRow, entity *model.Entity, field *model.Field) bool {
+	target := r.relationTargetEntity(field)
+	if entity == nil || field == nil || target == nil {
+		return false
+	}
+	expectedFrom := model.FieldStorageName(field)
+	expectedTable := target.Table
+	expectedTo := model.FieldStorageName(primaryField(target))
+	for _, fk := range existing {
+		if strings.EqualFold(fk.FromColumn, expectedFrom) &&
+			strings.EqualFold(fk.ToTable, expectedTable) &&
+			strings.EqualFold(fk.ToColumn, expectedTo) {
+			return true
+		}
+	}
+	return false
+}
+
+func (r *Runtime) blockRelationMigration(entity *model.Entity, field *model.Field, relationColumnExists bool) error {
+	target := r.relationTargetEntity(field)
+	if entity == nil || field == nil || target == nil {
+		return fmt.Errorf("migration blocked for entity %s: relation %q could not be resolved", entity.Name, field.Name)
+	}
+
+	sourceTable := entity.Table
+	sourceColumn := model.FieldStorageName(field)
+	targetTable := target.Table
+	targetColumn := model.FieldStorageName(primaryField(target))
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "migration blocked for entity %s: table %q already exists, and relation %q requires a foreign key %s.%s -> %s.%s\n\n",
+		entity.Name,
+		sourceTable,
+		field.Name,
+		sourceTable,
+		sourceColumn,
+		targetTable,
+		targetColumn,
+	)
+	fmt.Fprintf(&b, "SQLite cannot add this foreign key with ALTER TABLE, so Mar does not migrate it automatically.\n\n")
+	fmt.Fprintf(&b, "Hint:\n")
+	fmt.Fprintf(&b, "  Migrate the table manually, then restart the app.\n")
+	fmt.Fprintf(&b, "  Suggested Manual Migration SQL:\n")
+	for _, line := range strings.Split(r.manualRelationMigrationSQL(entity, field, target, relationColumnExists), "\n") {
+		if strings.TrimSpace(line) == "" {
+			fmt.Fprintf(&b, "\n")
+		} else {
+			fmt.Fprintf(&b, "    %s\n", line)
+		}
+	}
+	return errors.New(strings.TrimRight(b.String(), "\n"))
+}
+
+func (r *Runtime) manualRelationMigrationSQL(entity *model.Entity, relationField *model.Field, target *model.Entity, relationColumnExists bool) string {
+	newTableName := entity.Table + "_new"
+
+	columnDefs := make([]string, 0, len(entity.Fields))
+	insertColumns := make([]string, 0, len(entity.Fields))
+	selectColumns := make([]string, 0, len(entity.Fields))
+
+	for _, field := range entity.Fields {
+		columnDefs = append(columnDefs, "  "+r.entityColumnDefinition(entity, &field))
+		storageName := model.FieldStorageName(&field)
+		insertColumns = append(insertColumns, storageName)
+
+		if field.RelationEntity != "" && field.Name == relationField.Name {
+			if relationColumnExists {
+				selectColumns = append(selectColumns, storageName)
+			} else if field.Optional {
+				selectColumns = append(selectColumns, "NULL AS "+storageName)
+			} else {
+				selectColumns = append(
+					selectColumns,
+					"/* replace NULL with a valid "+target.Table+"."+model.FieldStorageName(primaryField(target))+" value */ NULL AS "+storageName,
+				)
+			}
+		} else {
+			selectColumns = append(selectColumns, storageName)
+		}
+	}
+
+	return strings.Join(
+		[]string{
+			"CREATE TABLE " + newTableName + " (",
+			strings.Join(columnDefs, ",\n"),
+			");",
+			"",
+			"INSERT INTO " + newTableName + " (" + strings.Join(insertColumns, ", ") + ")",
+			"SELECT " + strings.Join(selectColumns, ", "),
+			"FROM " + entity.Table + ";",
+			"",
+			"DROP TABLE " + entity.Table + ";",
+			"ALTER TABLE " + newTableName + " RENAME TO " + entity.Table + ";",
+		},
+		"\n",
+	)
 }
 
 func fieldDefaultSQL(field *model.Field) (string, bool) {

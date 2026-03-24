@@ -58,3 +58,15 @@ func TestParseRejectsLegacyFunctionSyntax(t *testing.T) {
 		}
 	}
 }
+
+func TestParseReportsUnknownIdentifierInsideElmStyleFunction(t *testing.T) {
+	opts := ParserOptions{AllowedVariables: map[string]struct{}{"fullName": {}}}
+
+	_, err := Parse(`length externalCode >= 4`, opts)
+	if err == nil {
+		t.Fatal("expected Parse to fail for unknown identifier inside function application")
+	}
+	if err.Error() != `unknown identifier "externalCode"` {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}

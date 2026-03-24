@@ -13,7 +13,7 @@
       "  ${5:rule \\\"Email must be valid\\\" expect matches \\\"^[^@\\\\s]+@[^@\\\\s]+\\\\.[^@\\\\s]+$\\\" email}",
       "  rule \"Role must be admin or user\" expect role == \"admin\" or role == \"user\"",
       "  authorize all when user_role == \"admin\"",
-      "  authorize get when user_authenticated and (id == user_id or user_role == \"admin\")",
+      "  authorize read when user_authenticated and (id == user_id or user_role == \"admin\")",
       "  authorize update when user_authenticated and (id == user_id or user_role == \"admin\")",
       "  authorize delete when user_role == \"admin\"",
       "}",
@@ -68,6 +68,16 @@
     "description": "Create a field declaration with a literal default",
     "body": "${1:fieldName}: ${2|Int,String,Bool,Float,Posix|} default ${3:value}"
   },
+  "Mar Belongs To": {
+    "prefix": "belongs_to",
+    "description": "Create a belongs_to relationship inside an entity",
+    "body": "belongs_to ${1:User}"
+  },
+  "Mar Named Belongs To": {
+    "prefix": "belongs_to_named",
+    "description": "Create a named belongs_to relationship inside an entity",
+    "body": "belongs_to ${1:owner}: ${2:User}${3: optional}"
+  },
   "Mar Rule": {
     "prefix": "rule",
     "description": "Create a business rule inside an entity",
@@ -76,7 +86,7 @@
   "Mar Authorize": {
     "prefix": "authorize",
     "description": "Create one authorize rule",
-    "body": "authorize ${1|all,list,get,create,update,delete|} when ${2:user_authenticated}"
+    "body": "authorize ${1|all,read,create,update,delete|} when ${2:user_authenticated}"
   },
   "Mar Auth Block": {
     "prefix": "auth",
@@ -135,7 +145,7 @@
     "description": "Create full CRUD authorization rules",
     "body": [
       "authorize all when ${1:user_authenticated}",
-      "authorize get when ${2:user_authenticated and (id == user_id or user_role == \"admin\")}",
+      "authorize read when ${2:user_authenticated and (id == user_id or user_role == \"admin\")}",
       "authorize delete when ${5:user_role == \"admin\"}" 
     ]
   },

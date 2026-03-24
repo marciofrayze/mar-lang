@@ -326,7 +326,7 @@ func (r *Runtime) tryAutoCreateAuthUserWithRole(requestID, email, roleValue stri
 			continue
 		}
 
-		quoted, err := quoteIdentifier(field.Name)
+		quoted, err := quoteIdentifier(model.FieldStorageName(&field))
 		if err != nil {
 			return nil, false, err
 		}

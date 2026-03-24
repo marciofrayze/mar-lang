@@ -201,6 +201,110 @@ entity Book {
 	}
 }
 
+func TestMigrationsCreateForeignKeyForNewRelationTable(t *testing.T) {
+	requireSQLite3(t)
+
+	dbPath := filepath.Join(t.TempDir(), "migration-new-relation-fk.db")
+
+	app := mustParseApp(t, `
+app RelationCreateApi
+
+entity User {
+  email: String
+}
+
+entity Todo {
+  title: String
+  belongs_to User
+}
+`)
+	app.Database = dbPath
+
+	if _, err := New(app); err != nil {
+		t.Fatalf("runtime.New failed: %v", err)
+	}
+
+	db := sqlitecli.Open(dbPath)
+	rows, err := db.QueryRows(`PRAGMA foreign_key_list("todos")`)
+	if err != nil {
+		t.Fatalf("PRAGMA foreign_key_list failed: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("expected one foreign key on todos, got %+v", rows)
+	}
+	fk := rows[0]
+	if fmt.Sprintf("%v", fk["from"]) != "user_id" {
+		t.Fatalf("expected foreign key from user_id, got %+v", fk)
+	}
+	if fmt.Sprintf("%v", fk["table"]) != "users" {
+		t.Fatalf("expected foreign key target table users, got %+v", fk)
+	}
+	if fmt.Sprintf("%v", fk["to"]) != "id" {
+		t.Fatalf("expected foreign key target column id, got %+v", fk)
+	}
+}
+
+func TestMigrationsBlockAddingRelationToExistingTable(t *testing.T) {
+	requireSQLite3(t)
+
+	dbPath := filepath.Join(t.TempDir(), "migration-existing-relation-block.db")
+
+	appV1 := mustParseApp(t, `
+app RelationBlockApi
+
+entity User {
+  email: String
+}
+
+entity Todo {
+  title: String
+}
+`)
+	appV1.Database = dbPath
+	if _, err := New(appV1); err != nil {
+		t.Fatalf("runtime.New(v1) failed: %v", err)
+	}
+
+	appV2 := mustParseApp(t, `
+app RelationBlockApi
+
+entity User {
+  email: String
+}
+
+entity Todo {
+  title: String
+  belongs_to User
+}
+`)
+	appV2.Database = dbPath
+
+	_, err := New(appV2)
+	if err == nil {
+		t.Fatal("expected relation migration to be blocked for existing table")
+	}
+
+	msg := err.Error()
+	if !strings.Contains(msg, `table "todos" already exists`) {
+		t.Fatalf("unexpected error message: %v", err)
+	}
+	if !strings.Contains(msg, `todos.user_id -> users.id`) {
+		t.Fatalf("unexpected error message: %v", err)
+	}
+	if !strings.Contains(msg, `Migrate the table manually, then restart the app.`) {
+		t.Fatalf("unexpected error message: %v", err)
+	}
+	if !strings.Contains(msg, `Suggested Manual Migration SQL:`) {
+		t.Fatalf("unexpected error message: %v", err)
+	}
+	if !strings.Contains(msg, `CREATE TABLE todos_new (`) {
+		t.Fatalf("unexpected error message: %v", err)
+	}
+	if !strings.Contains(msg, `/* replace NULL with a valid users.id value */ NULL AS user_id`) {
+		t.Fatalf("unexpected error message: %v", err)
+	}
+}
+
 func TestMigrationsCreateAuthEmailUniqueIndexForInternalUsers(t *testing.T) {
 	requireSQLite3(t)
 

@@ -41,6 +41,7 @@ func GenerateTSClient(app *model.App) (*TSClientOutput, error) {
 	writeTSLine(buf, "export interface FieldMeta {")
 	writeTSLine(buf, "  name: string;")
 	writeTSLine(buf, "  fieldType: string;")
+	writeTSLine(buf, "  relationEntity: string | null;")
 	writeTSLine(buf, "  primary: boolean;")
 	writeTSLine(buf, "  auto: boolean;")
 	writeTSLine(buf, "  optional: boolean;")
@@ -181,6 +182,7 @@ func GenerateTSClient(app *model.App) (*TSClientOutput, error) {
 			writeTSLine(buf, "        {")
 			writeTSLine(buf, "          name: "+strconv.Quote(field.Name)+",")
 			writeTSLine(buf, "          fieldType: "+strconv.Quote(field.Type)+",")
+			writeTSLine(buf, "          relationEntity: "+tsNullableString(field.RelationEntity)+",")
 			writeTSLine(buf, "          primary: "+fmt.Sprintf("%t", field.Primary)+",")
 			writeTSLine(buf, "          auto: "+fmt.Sprintf("%t", field.Auto)+",")
 			writeTSLine(buf, "          optional: "+fmt.Sprintf("%t", field.Optional)+",")
@@ -320,6 +322,13 @@ func GenerateTSClient(app *model.App) (*TSClientOutput, error) {
 		Source:     buf.Bytes(),
 	}
 	return out, nil
+}
+
+func tsNullableString(value string) string {
+	if strings.TrimSpace(value) == "" {
+		return "null"
+	}
+	return strconv.Quote(value)
 }
 
 func writeTSLine(buf *bytes.Buffer, line string) {

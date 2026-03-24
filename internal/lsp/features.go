@@ -69,7 +69,9 @@ var (
 		"smtp_starttls":                           "Controls whether Mar upgrades the SMTP connection with STARTTLS.",
 		"rule":                                    "Adds validation logic for entity records.",
 		"expect":                                  "Used in `rule` clauses to declare the condition that must be true.",
-		"authorize":                               "Adds authorization rules for CRUD actions. Use `authorize all when ...` to set a default for every operation and override specific operations when needed.",
+		"authorize":                               "Adds authorization rules for CRUD actions. Use `authorize all when ...` to set a default rule for read, create, update, and delete, and override specific operations when needed.",
+		"read":                                    "Used in authorize clauses to control single-record reads and which rows appear in list responses.",
+		"belongs_to":                              "Declares a singular relationship to another entity. Example: `belongs_to User` or `belongs_to customer: User optional`.",
 		"type":                                    "Used with `type alias` to define an action input record.",
 		"alias":                                   "Used with `type alias` to define an action input record.",
 		"action":                                  "Declares an action endpoint with `input` and one or more `load`, `create`, `update`, or `delete` steps. Steps may bind aliases like `todo = load Todo { ... }`.",
@@ -276,6 +278,14 @@ func parseEntityDocumentSymbol(lines []string, startLine int, match []int) (lspD
 				Kind:           8, // Field
 				Range:          makeRange(i, 0, len(line)),
 				SelectionRange: makeRange(i, field[2], field[3]),
+			})
+		} else if fieldName, start, end, ok := belongsToFieldDeclaration(line); ok {
+			children = append(children, lspDocumentSymbol{
+				Name:           fieldName,
+				Detail:         "field",
+				Kind:           8, // Field
+				Range:          makeRange(i, 0, len(line)),
+				SelectionRange: makeRange(i, start, end),
 			})
 		}
 		endLine = i

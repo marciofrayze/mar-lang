@@ -95,7 +95,7 @@ func (r *Runtime) executeActionStep(tx *sqlitecli.ImmediateTx, action *model.Act
 			return nil, newAPIError(http.StatusNotFound, "entity_not_found", entity.Name+" not found")
 		}
 		decoded := decodeEntityRow(entity, row)
-		if err := r.ensureAuthorized(entity, "get", auth, decoded); err != nil {
+		if err := r.ensureAuthorized(entity, "read", auth, decoded); err != nil {
 			return nil, err
 		}
 		return decoded, nil

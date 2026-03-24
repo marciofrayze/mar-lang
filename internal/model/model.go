@@ -64,22 +64,35 @@ type Entity struct {
 }
 
 type Field struct {
-	Name     string `json:"name"`
-	Type     string `json:"type"`
-	Primary  bool   `json:"primary"`
-	Auto     bool   `json:"auto"`
-	Optional bool   `json:"optional"`
-	Default  any    `json:"default,omitempty"`
+	Name           string `json:"name"`
+	Type           string `json:"type"`
+	RelationEntity string `json:"relationEntity,omitempty"`
+	Primary        bool   `json:"primary"`
+	Auto           bool   `json:"auto"`
+	Optional       bool   `json:"optional"`
+	Default        any    `json:"default,omitempty"`
+}
+
+func FieldStorageName(field *Field) string {
+	if field == nil {
+		return ""
+	}
+	if field.RelationEntity != "" {
+		return field.Name + "_id"
+	}
+	return field.Name
 }
 
 type Rule struct {
 	Message    string `json:"message"`
 	Expression string `json:"expression"`
+	LineNo     int    `json:"-"`
 }
 
 type Authorization struct {
 	Action     string `json:"action"`
 	Expression string `json:"expression"`
+	LineNo     int    `json:"-"`
 }
 
 type TypeAlias struct {

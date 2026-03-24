@@ -73,7 +73,7 @@ type editorSnapshot struct {
 var (
 	marEditorKeywords = map[string]struct{}{
 		"app": {}, "port": {}, "database": {}, "public": {}, "system": {}, "auth": {}, "entity": {}, "action": {}, "type": {}, "alias": {},
-		"rule": {}, "expect": {}, "authorize": {}, "when": {}, "all": {}, "list": {}, "get": {}, "load": {}, "create": {}, "update": {}, "delete": {},
+		"rule": {}, "expect": {}, "authorize": {}, "when": {}, "all": {}, "read": {}, "load": {}, "create": {}, "update": {}, "delete": {}, "belongs_to": {},
 	}
 	marEditorFunctions = map[string]struct{}{
 		"length": {}, "contains": {}, "starts_with": {}, "ends_with": {}, "matches": {},

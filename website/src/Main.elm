@@ -806,18 +806,19 @@ docSearchSectionText maybeSectionId =
 
                 "syntax-model" ->
                     "Syntax model. Top-level statements: app, port, database, public, system, auth, entity, type alias, action. Fields use the form fieldName: Type with modifiers such as primary, auto, optional, and default. Built-in field types include Int, String, Bool, Float, and Posix. Posix follows Elm Time.Posix and stores Unix milliseconds. Comments use Elm-style line comments."
+                    ++ " Singular relationships use belongs_to."
 
                 "authentication-and-authorization" ->
-                    "Authentication and authorization. Mar includes a built-in email-code login flow and per-operation authorization rules. Authentication endpoints are always available. Every Mar app includes a built-in User entity that you may extend. Entity access is deny-by-default unless you declare authorize rules. Admin always has read-only access to the built-in User entity, even without explicit authorize rules. authorize all when sets a default rule for list, get, create, update, and delete, and specific operations can still override it. System features use the same session and require role equals admin."
+                    "Authentication and authorization. Mar includes a built-in email-code login flow and per-operation authorization rules. Authentication endpoints are always available. Every Mar app includes a built-in User entity that you may extend. Entity access is deny-by-default unless you declare authorize rules. Admin always has read-only access to the built-in User entity, even without explicit authorize rules. authorize all when sets a default rule for read, create, update, and delete, and specific operations can still override it. read also controls which rows appear in list responses. System features use the same session and require role equals admin."
 
                 "rules-and-typed-actions" ->
                     "Rules and typed actions. Rules are for validation close to the entity definition. Actions are for multi-step reads and writes that must succeed or fail together. Action steps can load, create, update, and delete rows inside the same transaction. Steps may bind aliases such as order = create Order or todo = load Todo, and later steps may reference alias fields like order.id. rule validates entity data and returns HTTP 422 when validation fails. Actions run in a single atomic transaction. Mar checks input types and assigned entity fields at compile time. Current limitations. Single .mar entry file per app. No multi-file projects or imports."
 
                 "language-reference" ->
-                    "Language Reference. Browse the current keywords, built-in names, functions, primitive types, and configuration options. Built-in primitive types include Int, String, Bool, Float, and Posix. Posix stores Unix milliseconds and follows Elm Time.Posix."
+                    "Language Reference. Browse the current keywords, built-in names, functions, primitive types, relationship syntax, and configuration options. Built-in primitive types include Int, String, Bool, Float, and Posix. Posix stores Unix milliseconds and follows Elm Time.Posix."
 
                 "validation-and-authorization-reference" ->
-                    "Validation and authorization reference. rule, expect, when, authorize, all, list, get, create, update, delete."
+                    "Validation and authorization reference. rule, expect, when, authorize, all, read, create, update, delete."
 
                 "auth-config-reference" ->
                     "Auth config reference. User, code_ttl_minutes, session_ttl_hours, email_transport, email_from, email_subject, smtp_host, smtp_port, smtp_username, smtp_password_env, smtp_starttls."
@@ -939,20 +940,26 @@ docSearchEntries =
     , { title = "Advanced Fundamentals"
       , route = AdvancedFundamentals
       , sectionId = Just "advanced-fundamentals"
-      , summary = "Understand the core syntax, built-in User model, rules, and authorization."
-      , keywords = [ "language", "entities", "rules", "authorize", "user", "auth", "Posix", "timestamp", "Unix milliseconds", "default" ]
+      , summary = "Understand the core syntax, built-in User model, relationships, rules, and authorization."
+      , keywords = [ "language", "entities", "relationships", "belongs_to", "rules", "authorize", "user", "auth", "Posix", "timestamp", "Unix milliseconds", "default" ]
       }
     , { title = "Syntax model"
       , route = AdvancedFundamentals
       , sectionId = Just "syntax-model"
-      , summary = "Top-level statements, fields, comments, and the basic shape of a Mar app."
-      , keywords = [ "app", "port", "database", "public", "system", "auth", "entity", "type alias", "action", "comments", "Posix", "Int", "String", "Bool", "Float", "default" ]
+      , summary = "Top-level statements, fields, belongs_to relationships, comments, and the basic shape of a Mar app."
+      , keywords = [ "app", "port", "database", "public", "system", "auth", "entity", "belongs_to", "type alias", "action", "comments", "Posix", "Int", "String", "Bool", "Float", "default" ]
+      }
+    , { title = "Relationships"
+      , route = AdvancedFundamentals
+      , sectionId = Just "relationships"
+      , summary = "Singular relationships with belongs_to and many-to-many via explicit join entities."
+      , keywords = [ "relationships", "belongs_to", "join entity", "many to many", "foreign key", "user_id", "customer_id" ]
       }
     , { title = "Authentication and authorization"
       , route = AdvancedFundamentals
       , sectionId = Just "authentication-and-authorization"
       , summary = "Built-in User entity, email-code login, deny-by-default access, and authorize rules."
-      , keywords = [ "authentication", "authorization", "auth", "user", "authorize", "all", "list", "get", "create", "update", "delete" ]
+      , keywords = [ "authentication", "authorization", "auth", "user", "authorize", "all", "read", "create", "update", "delete" ]
       }
     , { title = "Rules and typed actions"
       , route = AdvancedFundamentals
@@ -963,14 +970,14 @@ docSearchEntries =
     , { title = "Language Reference"
       , route = AdvancedLanguageReference
       , sectionId = Just "language-reference"
-      , summary = "Browse the current keywords, built-in names, primitive types, functions, and configuration options."
-      , keywords = [ "reference", "keywords", "functions", "system", "auth", "public", "Posix", "Int", "String", "Bool", "Float", "primitive types", "default" ]
+      , summary = "Browse the current keywords, built-in names, relationship syntax, primitive types, functions, and configuration options."
+      , keywords = [ "reference", "keywords", "belongs_to", "functions", "system", "auth", "public", "Posix", "Int", "String", "Bool", "Float", "primitive types", "default" ]
       }
     , { title = "Validation and authorization reference"
       , route = AdvancedLanguageReference
       , sectionId = Just "validation-and-authorization-reference"
       , summary = "Reference for rule, expect, when, authorize, and CRUD operations."
-      , keywords = [ "rule", "expect", "when", "authorize", "all", "list", "get", "create", "update", "delete" ]
+      , keywords = [ "rule", "expect", "when", "authorize", "all", "read", "create", "update", "delete" ]
       }
     , { title = "Auth config reference"
       , route = AdvancedLanguageReference
@@ -1292,9 +1299,10 @@ advancedLanguagePage model =
                     , text " with focus on readability, maintainability, and simple deployment."
                     ]
                 , docSubsectionTitle "Fundamentals"
-                , bodyText "Mar reads top-to-bottom as a declarative app definition. A Mar app is centered around entities, rules, authorization, auth configuration, and typed actions. Built-in field types are Int, String, Bool, Float, and Posix."
+                , bodyText "Mar reads top-to-bottom as a declarative app definition. A Mar app is centered around entities, relationships, rules, authorization, auth configuration, and typed actions. Built-in field types are Int, String, Bool, Float, and Posix."
                 , docSubsectionTitle "Quick Examples"
                 , codeFromString model "todo.mar" 320 todoExampleSource
+                , codeFromString model "relationships.mar" 260 relationshipExampleSource
                 , codeFromString model "action.mar" 575 actionExampleSource
                 ]
             , anchoredSection "syntax-model"
@@ -1302,9 +1310,20 @@ advancedLanguagePage model =
                 , docList
                     [ "Top-level statements: app, port, database, public, system, auth, entity, type alias, action."
                     , "Fields use the form fieldName: Type with optional modifiers such as primary, auto, optional, and default."
+                    , "Singular relationships use `belongs_to`, for example `belongs_to User` or `belongs_to customer: User optional`."
                     , "Built-in field types are Int, String, Bool, Float, and Posix. `Posix` follows Elm `Time.Posix` and stores Unix milliseconds."
                     , "Comments use Elm-style line comments: -- this is a comment."
                     ]
+                ]
+            , anchoredSection "relationships"
+                [ docSubsectionTitle "Relationships"
+                , docList
+                    [ "`belongs_to User` declares a singular relationship and derives the logical name `user` automatically."
+                    , "`belongs_to customer: User` names the relationship explicitly and stores it as `customer_id` in SQLite."
+                    , "The API, rules, authorize clauses, and Admin use the logical field name such as `customer` or `user`, not the stored `_id` column name."
+                    , "Many-to-many stays explicit: create a join entity with multiple `belongs_to` declarations."
+                    ]
+                , codeFromString model "relationships-join.mar" 280 relationshipJoinExampleSource
                 ]
             , anchoredSection "authentication-and-authorization"
                 [ docSubsectionTitle "Authentication and Authorization"
@@ -1316,7 +1335,8 @@ advancedLanguagePage model =
                     , "Every Mar app includes a built-in User entity that you may extend."
                     , "Entity access is deny-by-default unless you declare authorize rules."
                     , "Admin always has read-only access to the built-in User entity, even without explicit authorize rules."
-                    , "`authorize all when ...` sets a default rule for list, get, create, update, and delete, and specific operations can still override it."
+                    , "`authorize all when ...` sets a default rule for read, create, update, and delete, and specific operations can still override it."
+                    , "`read` applies both to single-record reads and to which rows appear in list responses."
                     , "System features use the same session and require role == \"admin\"."
                     ]
                 ]
@@ -1373,6 +1393,7 @@ advancedLanguageReferencePage =
                     , languageReferenceItem "auto" "Marks a field as auto-generated."
                     , languageReferenceItem "optional" "Marks a field as nullable."
                     , languageReferenceItem "default" "Assigns a literal default value to a field, such as `done: Bool default false`."
+                    , languageReferenceItem "belongs_to" "Declares a singular relationship, such as `belongs_to User` or `belongs_to customer: User optional`. Mar stores the foreign key as `<name>_id` in SQLite and exposes the logical name in the API."
                     ]
                 , languageReferenceGroup "Built-in primitive types"
                     [ languageReferenceItem "Int" "Whole-number field type."
@@ -1388,7 +1409,7 @@ advancedLanguageReferencePage =
                     , languageReferenceItem "expect" "Introduces the boolean expression enforced by a rule."
                     , languageReferenceItem "when" "Introduces the boolean expression used by an authorization clause."
                     , languageReferenceItem "authorize" "Declares per-operation authorization rules."
-                    , languageReferenceItem "all, list, get, create, update, delete" "The supported operations for authorize clauses. `all` sets a default rule for every CRUD operation."
+                    , languageReferenceItem "all, read, create, update, delete" "The supported operations for authorize clauses. `all` sets a default rule for every CRUD operation. `read` controls both single-record reads and row visibility in list responses."
                     ]
                 , languageReferenceGroup "Actions"
                     [ languageReferenceItem "input" "Declares the action input type and is also used in expressions such as input.userId."
@@ -3521,7 +3542,7 @@ isPunctuationChar char =
 
 marCrudOperationWords : List String
 marCrudOperationWords =
-    [ "all", "list", "get", "load", "create", "update", "delete" ]
+    [ "all", "read", "load", "create", "update", "delete" ]
 
 
 marKeywordWords : List String
@@ -3534,6 +3555,7 @@ marKeywordWords =
     , "expect"
     , "when"
     , "authorize"
+    , "belongs_to"
     , "auth"
     , "type"
     , "alias"
@@ -3665,6 +3687,36 @@ entity Todo {
 
   rule "Title must have at least 3 chars" expect length title >= 3
   authorize all when user_authenticated
+}
+"""
+
+
+relationshipExampleSource : String
+relationshipExampleSource =
+    """entity Todo {
+  title: String
+  done: Bool
+  belongs_to User
+
+  authorize all when user_authenticated and (user == user_id or user_role == "admin")
+}
+"""
+
+
+relationshipJoinExampleSource : String
+relationshipJoinExampleSource =
+    """entity Student {
+  name: String
+}
+
+entity Course {
+  title: String
+}
+
+entity Enrollment {
+  belongs_to Student
+  belongs_to Course
+  enrolled_at: Posix
 }
 """
 
@@ -3810,7 +3862,7 @@ entity User {
   -- Admin always has read-only access to User, even without explicit rules.
   -- These rules are still useful when non-admin user access should be allowed.
   authorize all when user_role == "admin"
-  authorize get when user_authenticated and (id == user_id or user_role == "admin")
+  authorize read when user_authenticated and (id == user_id or user_role == "admin")
   authorize delete when user_role == "admin"
 }
 """
@@ -3833,7 +3885,7 @@ entity User {
   displayName: String optional
 
   authorize all when user_role == "admin"
-  authorize get when user_authenticated and (id == user_id or user_role == "admin")
+  authorize read when user_authenticated and (id == user_id or user_role == "admin")
   authorize update when user_authenticated and ((id == user_id and role == user_role) or user_role == "admin")
   authorize delete when user_role == "admin"
 }

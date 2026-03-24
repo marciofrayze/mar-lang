@@ -62,8 +62,10 @@ type symbolCatalog struct {
 }
 
 var (
-	entityDeclRe = regexp.MustCompile(`^\s*entity\s+([A-Za-z][A-Za-z0-9_]*)\s*\{`)
-	fieldDeclRe  = regexp.MustCompile(`^\s*([a-z][A-Za-z0-9_]*)\s*:\s*(Int|String|Bool|Float|Posix)\b`)
+	entityDeclRe     = regexp.MustCompile(`^\s*entity\s+([A-Za-z][A-Za-z0-9_]*)\s*\{`)
+	fieldDeclRe      = regexp.MustCompile(`^\s*([a-z][A-Za-z0-9_]*)\s*:\s*(Int|String|Bool|Float|Posix)\b`)
+	belongsToNamedRe = regexp.MustCompile(`^\s*belongs_to\s+([a-z][A-Za-z0-9_]*)\s*:\s*([A-Za-z][A-Za-z0-9_]*)\b`)
+	belongsToShortRe = regexp.MustCompile(`^\s*belongs_to\s+([A-Za-z][A-Za-z0-9_]*)\b`)
 
 	typeAliasDeclRe  = regexp.MustCompile(`^\s*type\s+alias\s+([A-Za-z][A-Za-z0-9_]*)\s*=\s*(.*)$`)
 	aliasFieldDeclRe = regexp.MustCompile(`([a-z][A-Za-z0-9_]*)\s*:\s*(Int|String|Bool|Float|Posix)\b`)
@@ -76,7 +78,7 @@ var (
 	actionAliasRefRe    = regexp.MustCompile(`\b([a-z][A-Za-z0-9_]*)\.([a-z][A-Za-z0-9_]*)\b`)
 
 	ruleLineRe      = regexp.MustCompile(`^\s*rule\s+"[^"]+"\s+expect\s+(.+)$`)
-	authorizeLineRe = regexp.MustCompile(`^\s*authorize\s+(?:all|list|get|create|update|delete)\s+when\s+(.+)$`)
+	authorizeLineRe = regexp.MustCompile(`^\s*authorize\s+(?:all|read|create|update|delete)\s+when\s+(.+)$`)
 	wordRe          = regexp.MustCompile(`\b[A-Za-z_][A-Za-z0-9_]*\b`)
 
 	authOpenRe = regexp.MustCompile(`^\s*auth\s*\{\s*$`)
@@ -84,6 +86,31 @@ var (
 	upperIdentifierRe = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_]*$`)
 	lowerIdentifierRe = regexp.MustCompile(`^[a-z][A-Za-z0-9_]*$`)
 )
+
+func belongsToFieldDeclaration(line string) (string, int, int, bool) {
+	if match := belongsToNamedRe.FindStringSubmatchIndex(line); match != nil {
+		return line[match[2]:match[3]], match[2], match[3], true
+	}
+	if match := belongsToShortRe.FindStringSubmatchIndex(line); match != nil {
+		target := line[match[2]:match[3]]
+		return toSnakeIdentifier(target), match[2], match[3], true
+	}
+	return "", 0, 0, false
+}
+
+func toSnakeIdentifier(value string) string {
+	var b strings.Builder
+	for i, r := range value {
+		if i > 0 && r >= 'A' && r <= 'Z' {
+			prev := rune(value[i-1])
+			if (prev >= 'a' && prev <= 'z') || (prev >= '0' && prev <= '9') {
+				b.WriteByte('_')
+			}
+		}
+		b.WriteRune(r)
+	}
+	return strings.ToLower(b.String())
+}
 
 func (s *server) handleDefinition(id json.RawMessage, params textDocumentPositionParams) {
 	index := s.buildWorkspaceSymbolIndex()
@@ -295,6 +322,16 @@ func indexDeclarations(uri, text string, catalog *symbolCatalog, index *workspac
 				index.add(symbolOccurrence{
 					URI:         uri,
 					Range:       makeRange(lineNo, match[2], match[3]),
+					Key:         key,
+					Name:        fieldName,
+					Kind:        symbolEntityField,
+					Declaration: true,
+				})
+			} else if fieldName, start, end, ok := belongsToFieldDeclaration(line); ok {
+				key := catalog.entityFieldKey(currentEntity, fieldName)
+				index.add(symbolOccurrence{
+					URI:         uri,
+					Range:       makeRange(lineNo, start, end),
 					Key:         key,
 					Name:        fieldName,
 					Kind:        symbolEntityField,
