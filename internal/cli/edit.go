@@ -74,6 +74,9 @@ var (
 		"app": {}, "port": {}, "database": {}, "public": {}, "system": {}, "auth": {}, "entity": {}, "action": {}, "type": {}, "alias": {},
 		"rule": {}, "expect": {}, "authorize": {}, "when": {}, "all": {}, "list": {}, "get": {}, "load": {}, "create": {}, "update": {}, "delete": {},
 	}
+	marEditorFunctions = map[string]struct{}{
+		"length": {}, "contains": {}, "starts_with": {}, "ends_with": {}, "matches": {},
+	}
 	marEditorTypes = map[string]struct{}{
 		"String": {}, "Int": {}, "Bool": {}, "Float": {}, "Posix": {},
 	}
@@ -1358,7 +1361,7 @@ func editorHighlightLine(line string, useColor bool, selectFrom, selectTo int, h
 			}
 			declaresAlias := k < len(runes) && runes[k] == '='
 			switch {
-			case token == "input" || strings.HasPrefix(token, "input.") || strings.HasPrefix(token, "auth_"):
+			case token == "input" || strings.HasPrefix(token, "input.") || strings.HasPrefix(token, "user_") || strings.HasPrefix(token, "auth_"):
 				style = "\033[38;5;81m"
 			case declaresAlias:
 				style = "\033[38;5;81m"
@@ -1366,6 +1369,8 @@ func editorHighlightLine(line string, useColor bool, selectFrom, selectTo int, h
 				style = "\033[38;5;81m"
 			case tokenInSet(token, marEditorKeywords):
 				style = "\033[38;5;75m"
+			case tokenInSet(token, marEditorFunctions):
+				style = "\033[38;5;114m"
 			case tokenInSet(token, marEditorTypes):
 				style = "\033[38;5;141m"
 			case tokenInSet(token, marEditorFieldModifiers):

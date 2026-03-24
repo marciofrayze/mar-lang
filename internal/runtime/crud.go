@@ -236,10 +236,10 @@ func (r *Runtime) ensureAuthorized(entity *model.Entity, action string, auth aut
 	for k, v := range entityContext {
 		ctx[k] = v
 	}
-	ctx["auth_authenticated"] = auth.Authenticated
-	ctx["auth_email"] = auth.Email
-	ctx["auth_user_id"] = auth.UserID
-	ctx["auth_role"] = auth.Role
+	ctx["user_authenticated"] = auth.Authenticated
+	ctx["user_email"] = auth.Email
+	ctx["user_id"] = auth.UserID
+	ctx["user_role"] = auth.Role
 
 	v, err := rule.Eval(ctx)
 	if err != nil {

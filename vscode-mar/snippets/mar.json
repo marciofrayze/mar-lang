@@ -10,12 +10,12 @@
       "-- Extend the built-in User with extra profile fields if needed.",
       "entity User {",
       "  ${4:displayName}: String optional",
-      "  ${5:rule \\\"Email must be valid\\\" expect matches(email, \\\"^[^@\\\\s]+@[^@\\\\s]+\\\\.[^@\\\\s]+$\\\")}",
+      "  ${5:rule \\\"Email must be valid\\\" expect matches \\\"^[^@\\\\s]+@[^@\\\\s]+\\\\.[^@\\\\s]+$\\\" email}",
       "  rule \"Role must be admin or user\" expect role == \"admin\" or role == \"user\"",
-      "  authorize all when auth_role == \"admin\"",
-      "  authorize get when auth_authenticated and (id == auth_user_id or auth_role == \"admin\")",
-      "  authorize update when auth_authenticated and (id == auth_user_id or auth_role == \"admin\")",
-      "  authorize delete when auth_role == \"admin\"",
+      "  authorize all when user_role == \"admin\"",
+      "  authorize get when user_authenticated and (id == user_id or user_role == \"admin\")",
+      "  authorize update when user_authenticated and (id == user_id or user_role == \"admin\")",
+      "  authorize delete when user_role == \"admin\"",
       "}",
       "",
       "auth {",
@@ -29,7 +29,7 @@
       "entity ${6:Todo} {",
       "  id: Int primary auto",
       "  ${7:title}: String",
-      "  authorize all when auth_authenticated",
+      "  authorize all when user_authenticated",
       "}",
       "",
       "type alias ${8:RegisterUserInput} =",
@@ -54,7 +54,7 @@
       "  id: Int primary auto",
       "  ${2:name}: ${3:String}",
       "  ${4:rule \\\"Validation message\\\" expect true}",
-      "  authorize all when ${5:auth_authenticated}",
+      "  authorize all when ${5:user_authenticated}",
       "}"
     ]
   },
@@ -76,7 +76,7 @@
   "Mar Authorize": {
     "prefix": "authorize",
     "description": "Create one authorize rule",
-    "body": "authorize ${1|all,list,get,create,update,delete|} when ${2:auth_authenticated}"
+    "body": "authorize ${1|all,list,get,create,update,delete|} when ${2:user_authenticated}"
   },
   "Mar Auth Block": {
     "prefix": "auth",
@@ -134,9 +134,9 @@
     "prefix": "authzcrud",
     "description": "Create full CRUD authorization rules",
     "body": [
-      "authorize all when ${1:auth_authenticated}",
-      "authorize get when ${2:auth_authenticated and (id == auth_user_id or auth_role == \"admin\")}",
-      "authorize delete when ${5:auth_role == \"admin\"}" 
+      "authorize all when ${1:user_authenticated}",
+      "authorize get when ${2:user_authenticated and (id == user_id or user_role == \"admin\")}",
+      "authorize delete when ${5:user_role == \"admin\"}" 
     ]
   },
   "Mar Type Alias": {

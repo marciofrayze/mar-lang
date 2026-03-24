@@ -20,7 +20,7 @@ auth {
 
 entity Todo {
   title: String
-  authorize all when auth_role == "admin"
+  authorize all when user_role == "admin"
 }
 `)
 

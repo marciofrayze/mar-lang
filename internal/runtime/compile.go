@@ -30,10 +30,10 @@ func (r *Runtime) compileExpressions() error {
 		r.rules[entity.Name] = compiledRules
 
 		authVars := map[string]struct{}{
-			"auth_authenticated": {},
-			"auth_email":         {},
-			"auth_user_id":       {},
-			"auth_role":          {},
+			"user_authenticated": {},
+			"user_email":         {},
+			"user_id":            {},
+			"user_role":          {},
 		}
 		for name := range fieldVars {
 			authVars[name] = struct{}{}

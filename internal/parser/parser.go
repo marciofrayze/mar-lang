@@ -913,10 +913,10 @@ func finalizeEntity(ent *model.Entity, rawRules []model.Rule, rawAuthz []model.A
 	}
 
 	authVars := map[string]struct{}{
-		"auth_authenticated": {},
-		"auth_email":         {},
-		"auth_user_id":       {},
-		"auth_role":          {},
+		"user_authenticated": {},
+		"user_email":         {},
+		"user_id":            {},
+		"user_role":          {},
 	}
 	for name := range allowedVars {
 		authVars[name] = struct{}{}
@@ -1517,9 +1517,9 @@ func inferActionExprType(node expr.Expr, variableTypes map[string]string) (strin
 		}
 	case expr.Call:
 		switch n.Name {
-		case "contains", "startsWith", "endsWith", "matches":
+		case "contains", "starts_with", "ends_with", "matches":
 			return "Bool", nil
-		case "len":
+		case "length":
 			return "Int", nil
 		default:
 			return "", fmt.Errorf("unsupported function %q", n.Name)

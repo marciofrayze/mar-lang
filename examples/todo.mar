@@ -30,5 +30,5 @@ entity Todo {
   title: String
   done: Bool
 
-  authorize all when auth_authenticated
+  authorize all when user_authenticated
 }

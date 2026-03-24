@@ -262,6 +262,25 @@ func (p *parser) parseUnary() (Expr, error) {
 		}
 		return Unary{Op: "-", Right: right}, nil
 	}
+	return p.parseApplication()
+}
+
+func (p *parser) parseApplication() (Expr, error) {
+	tok := p.peek()
+	if tok.kind == tokWord {
+		if arity, ok := builtinFunctionArity(tok.text); ok && p.canStartFunctionApplication(arity) {
+			p.next()
+			args := make([]Expr, 0, arity)
+			for i := 0; i < arity; i++ {
+				arg, err := p.parseUnary()
+				if err != nil {
+					return nil, err
+				}
+				args = append(args, arg)
+			}
+			return Call{Name: tok.text, Args: args}, nil
+		}
+	}
 	return p.parsePrimary()
 }
 
@@ -296,9 +315,6 @@ func (p *parser) parsePrimary() (Expr, error) {
 		if tok.text == "null" {
 			return Literal{Value: nil}, nil
 		}
-		if p.peekOp("(") {
-			return p.parseCall(tok.text)
-		}
 		if p.opts.AllowedVariables != nil {
 			if _, ok := p.opts.AllowedVariables[tok.text]; !ok {
 				return nil, fmt.Errorf("unknown identifier %q", tok.text)
@@ -322,36 +338,39 @@ func (p *parser) parsePrimary() (Expr, error) {
 	return nil, fmt.Errorf("unexpected token %q", tok.text)
 }
 
-func (p *parser) parseCall(name string) (Expr, error) {
-	if !p.peekOp("(") {
-		return nil, fmt.Errorf("expected (")
+func builtinFunctionArity(name string) (int, bool) {
+	switch name {
+	case "length":
+		return 1, true
+	case "contains", "starts_with", "ends_with", "matches":
+		return 2, true
+	default:
+		return 0, false
 	}
-	p.next()
-	args := make([]Expr, 0, 2)
-	if !p.peekOp(")") {
-		for {
-			arg, err := p.parseExpression()
-			if err != nil {
-				return nil, err
-			}
-			args = append(args, arg)
-			if p.peekOp(")") {
-				break
-			}
-			if !p.peekOp(",") {
-				return nil, fmt.Errorf("expected ,")
-			}
-			p.next()
+}
+
+func (p *parser) canStartFunctionApplication(arity int) bool {
+	original := p.idx
+	p.idx++
+	for i := 0; i < arity; i++ {
+		if !canStartPrimaryLike(p.peek()) {
+			p.idx = original
+			return false
+		}
+		if _, err := p.parseUnary(); err != nil {
+			p.idx = original
+			return false
 		}
 	}
-	p.next()
+	p.idx = original
+	return true
+}
 
-	switch name {
-	case "contains", "startsWith", "endsWith", "len", "matches":
-		return Call{Name: name, Args: args}, nil
-	default:
-		return nil, fmt.Errorf("unknown function %q", name)
+func canStartPrimaryLike(tok token) bool {
+	if tok.kind == tokNumber || tok.kind == tokString || tok.kind == tokWord {
+		return true
 	}
+	return tok.kind == tokOp && (tok.text == "(" || tok.text == "-")
 }
 
 func (p *parser) peek() token {

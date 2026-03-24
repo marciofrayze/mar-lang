@@ -168,35 +168,35 @@ func (c Call) Eval(ctx map[string]any) (any, error) {
 		if len(vals) != 2 {
 			return nil, fmt.Errorf("contains expects 2 arguments")
 		}
-		left, _ := ToString(vals[0])
-		right, _ := ToString(vals[1])
-		return Contains(left, right), nil
-	case "startsWith":
+		needle, _ := ToString(vals[0])
+		text, _ := ToString(vals[1])
+		return Contains(text, needle), nil
+	case "starts_with":
 		if len(vals) != 2 {
-			return nil, fmt.Errorf("startsWith expects 2 arguments")
+			return nil, fmt.Errorf("starts_with expects 2 arguments")
 		}
-		left, _ := ToString(vals[0])
-		right, _ := ToString(vals[1])
-		return StartsWith(left, right), nil
-	case "endsWith":
+		prefix, _ := ToString(vals[0])
+		text, _ := ToString(vals[1])
+		return StartsWith(text, prefix), nil
+	case "ends_with":
 		if len(vals) != 2 {
-			return nil, fmt.Errorf("endsWith expects 2 arguments")
+			return nil, fmt.Errorf("ends_with expects 2 arguments")
 		}
-		left, _ := ToString(vals[0])
-		right, _ := ToString(vals[1])
-		return EndsWith(left, right), nil
-	case "len":
+		suffix, _ := ToString(vals[0])
+		text, _ := ToString(vals[1])
+		return EndsWith(text, suffix), nil
+	case "length":
 		if len(vals) != 1 {
-			return nil, fmt.Errorf("len expects 1 argument")
+			return nil, fmt.Errorf("length expects 1 argument")
 		}
 		return Length(vals[0]), nil
 	case "matches":
 		if len(vals) != 2 {
 			return nil, fmt.Errorf("matches expects 2 arguments")
 		}
-		subj, _ := ToString(vals[0])
-		pattern, _ := ToString(vals[1])
-		ok, err := Matches(subj, pattern)
+		pattern, _ := ToString(vals[0])
+		text, _ := ToString(vals[1])
+		ok, err := Matches(text, pattern)
 		if err != nil {
 			return nil, err
 		}

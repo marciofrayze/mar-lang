@@ -219,9 +219,9 @@ entity Todo {
   title: String
   done: Bool
 
-  rule "Title must have at least 3 chars" expect len(title) >= 3
+  rule "Title must have at least 3 chars" expect length title >= 3
 
-  authorize all when auth_authenticated
+  authorize all when user_authenticated
 }
 `, appName, projectName+".db")) + "\n"
 }

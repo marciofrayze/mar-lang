@@ -263,7 +263,7 @@
         },
         {
           "name": "support.function.mar",
-          "match": "\\b(contains|startsWith|endsWith|len|matches)\\b(?=\\s*\\()"
+          "match": "\\b(contains|starts_with|ends_with|length|matches)\\b"
         },
         {
           "name": "variable.language.mar",
@@ -271,7 +271,7 @@
         },
         {
           "name": "variable.language.mar",
-          "match": "\\b(input|auth_authenticated|auth_email|auth_user_id|auth_role)\\b"
+          "match": "\\b(input|user_authenticated|user_email|user_id|user_role)\\b"
         },
         {
           "name": "support.constant.action.mar",

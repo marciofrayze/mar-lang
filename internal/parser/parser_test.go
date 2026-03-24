@@ -543,7 +543,7 @@ app TodoApi
 
 entity Todo {
   title: String
-  authorize all when auth_authenticated
+  authorize all when user_authenticated
 }
 `
 
@@ -570,11 +570,11 @@ entity Todo {
 	}
 
 	expected := map[string]string{
-		"list":   "auth_authenticated",
-		"get":    "auth_authenticated",
-		"create": "auth_authenticated",
-		"update": "auth_authenticated",
-		"delete": "auth_authenticated",
+		"list":   "user_authenticated",
+		"get":    "user_authenticated",
+		"create": "user_authenticated",
+		"update": "user_authenticated",
+		"delete": "user_authenticated",
 	}
 	for _, authz := range todo.Authorizations {
 		if expected[authz.Action] != authz.Expression {
@@ -589,8 +589,8 @@ app TodoApi
 
 entity Todo {
   title: String
-  authorize all when auth_authenticated
-  authorize delete when auth_role == "admin"
+  authorize all when user_authenticated
+  authorize delete when user_role == "admin"
 }
 `
 
@@ -608,11 +608,11 @@ entity Todo {
 	}
 
 	expected := map[string]string{
-		"list":   "auth_authenticated",
-		"get":    "auth_authenticated",
-		"create": "auth_authenticated",
-		"update": "auth_authenticated",
-		"delete": `auth_role == "admin"`,
+		"list":   "user_authenticated",
+		"get":    "user_authenticated",
+		"create": "user_authenticated",
+		"update": "user_authenticated",
+		"delete": `user_role == "admin"`,
 	}
 	for _, authz := range todo.Authorizations {
 		if expected[authz.Action] != authz.Expression {
@@ -627,7 +627,7 @@ app TodoApi
 
 entity Todo {
   title: String
-  rule "Title must have at least 3 chars" expect len(title) >= 3
+  rule "Title must have at least 3 chars" expect length title >= 3
 }
 `
 
@@ -654,7 +654,7 @@ entity Todo {
 	if todo.Rules[0].Message != "Title must have at least 3 chars" {
 		t.Fatalf("unexpected rule message: %q", todo.Rules[0].Message)
 	}
-	if todo.Rules[0].Expression != "len(title) >= 3" {
+	if todo.Rules[0].Expression != "length title >= 3" {
 		t.Fatalf("unexpected rule expression: %q", todo.Rules[0].Expression)
 	}
 }

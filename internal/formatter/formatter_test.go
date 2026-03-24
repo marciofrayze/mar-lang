@@ -308,7 +308,7 @@ func TestFormatPreservesRuleExpectSyntax(t *testing.T) {
 app TodoApi
 entity Todo {
 title:String
-rule "Title must have at least 3 chars" expect len(title) >= 3
+rule "Title must have at least 3 chars" expect length title >= 3
 }
 `
 
@@ -321,7 +321,7 @@ rule "Title must have at least 3 chars" expect len(title) >= 3
 		"app TodoApi\n" +
 		"entity Todo {\n" +
 		"  title: String\n" +
-		"  rule \"Title must have at least 3 chars\" expect len(title) >= 3\n" +
+		"  rule \"Title must have at least 3 chars\" expect length title >= 3\n" +
 		"}\n"
 
 	if formatted != expected {

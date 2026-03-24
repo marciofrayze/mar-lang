@@ -48,7 +48,7 @@ func TestCreateInitProjectCreatesStarterFiles(t *testing.T) {
 	if !strings.Contains(marText, `database "todo-app.db"`) {
 		t.Fatalf("expected database path in starter .mar, got %q", marText)
 	}
-	if !strings.Contains(marText, `authorize all when auth_authenticated`) {
+	if !strings.Contains(marText, `authorize all when user_authenticated`) {
 		t.Fatalf("expected starter authorize rule in .mar, got %q", marText)
 	}
 	if _, err := parseMarFile(filepath.Join(tmpDir, "todo-app", "todo-app.mar")); err != nil {

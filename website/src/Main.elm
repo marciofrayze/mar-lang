@@ -1422,8 +1422,8 @@ advancedLanguageReferencePage =
                     , languageReferenceItem "spa_fallback" "Sets the fallback file used for SPA-style routes."
                     ]
                 , languageReferenceGroup "Built-in functions and values"
-                    [ languageReferenceItem "len, contains, startsWith, endsWith, matches" "Built-in helpers available inside rule and authorize expressions."
-                    , languageReferenceItem "auth_authenticated, auth_email, auth_user_id, auth_role" "Built-in authentication values available in expressions. For example: `auth_role == \"admin\"`."
+                    [ languageReferenceItem "length, contains, starts_with, ends_with, matches" "Built-in helpers available inside rule and authorize expressions, using Elm-like application syntax such as `contains \"@\" email`."
+                    , languageReferenceItem "user_authenticated, user_email, user_id, user_role" "Built-in authentication values available in expressions. For example: `user_role == \"admin\"`."
                     , languageReferenceItem "true, false, null" "Built-in literals."
                     ]
                 ]
@@ -3536,10 +3536,10 @@ wordToken word =
     else if List.member word [ "primary", "auto", "optional", "default" ] then
         token "#B7C5D9" word
 
-    else if List.member word [ "len", "contains", "startsWith", "endsWith", "matches" ] then
+    else if List.member word [ "length", "contains", "starts_with", "ends_with", "matches" ] then
         token "#82E0AA" word
 
-    else if List.member word [ "input", "auth_authenticated", "auth_email", "auth_user_id", "auth_role", "true", "false", "null" ] then
+    else if List.member word [ "input", "user_authenticated", "user_email", "user_id", "user_role", "true", "false", "null" ] then
         token "#C3D7FF" word
 
     else
@@ -3588,8 +3588,8 @@ entity Todo {
   title: String
   done: Bool
 
-  rule "Title must have at least 3 chars" expect len(title) >= 3
-  authorize all when auth_authenticated
+  rule "Title must have at least 3 chars" expect length title >= 3
+  authorize all when user_authenticated
 }
 """
 
@@ -3734,9 +3734,9 @@ entity User {
 
   -- Admin always has read-only access to User, even without explicit rules.
   -- These rules are still useful when non-admin user access should be allowed.
-  authorize all when auth_role == "admin"
-  authorize get when auth_authenticated and (id == auth_user_id or auth_role == "admin")
-  authorize delete when auth_role == "admin"
+  authorize all when user_role == "admin"
+  authorize get when user_authenticated and (id == user_id or user_role == "admin")
+  authorize delete when user_role == "admin"
 }
 """
 
@@ -3757,10 +3757,10 @@ auth {
 entity User {
   displayName: String optional
 
-  authorize all when auth_role == "admin"
-  authorize get when auth_authenticated and (id == auth_user_id or auth_role == "admin")
-  authorize update when auth_authenticated and ((id == auth_user_id and role == auth_role) or auth_role == "admin")
-  authorize delete when auth_role == "admin"
+  authorize all when user_role == "admin"
+  authorize get when user_authenticated and (id == user_id or user_role == "admin")
+  authorize update when user_authenticated and ((id == user_id and role == user_role) or user_role == "admin")
+  authorize delete when user_role == "admin"
 }
 
 entity Book {
@@ -3774,9 +3774,9 @@ entity Book {
   rule "Price must be greater than zero" expect price > 0
 
   authorize all when true
-  authorize create when auth_authenticated
-  authorize update when auth_role == "admin"
-  authorize delete when auth_role == "admin"
+  authorize create when user_authenticated
+  authorize update when user_role == "admin"
+  authorize delete when user_role == "admin"
 }
 
 type alias PlaceBookOrderInput =
