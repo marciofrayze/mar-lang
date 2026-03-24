@@ -3435,8 +3435,8 @@ viewSidebar model =
                         "none"
                     )
                 )
+            , cupertinoFocusRing
             ]
-                ++ buttonInteractionAttrs
 
         workspaceToggleAttrs backgroundColor textColor paddingValues =
             [ width fill
@@ -3456,8 +3456,8 @@ viewSidebar model =
                         "none"
                     )
                 )
+            , cupertinoFocusRing
             ]
-                ++ buttonInteractionAttrs
 
         ( authEntities, crudEntities, actions ) =
             case model.schema of
@@ -4277,7 +4277,7 @@ viewAuthCodeStage model firstAdminMode resendLabel resendMsg loginLoading resend
                 none
 
               else
-                authSecondaryButton
+                cupertinoNeutralButton
                     (if loginLoading || resendLoading then
                         Nothing
 
@@ -4285,7 +4285,7 @@ viewAuthCodeStage model firstAdminMode resendLabel resendMsg loginLoading resend
                         Just BackToAuthEmail
                     )
                     "Use another email"
-            , authSecondaryButton
+            , cupertinoNeutralButton
                 (if loginLoading || resendLoading then
                     Nothing
 
@@ -4344,7 +4344,7 @@ viewAuthSessionStage model =
               else
                 el [ Font.size 12, Font.color (rgb255 93 103 120) ] (text ("Role: " ++ roleText))
             ]
-        , wrappedRow [ width fill, spacing 10 ] [ authDangerButton (Just LogoutSession) "Logout" ]
+        , wrappedRow [ width fill, spacing 10 ] [ cupertinoDangerButton (Just LogoutSession) "Logout" ]
         ]
 
 
@@ -4425,21 +4425,6 @@ authStatusLine maybeErrorMessage maybeStatusMessage =
         )
 
 
-authSecondaryButton : Maybe Msg -> String -> Element Msg
-authSecondaryButton onPress labelText =
-    cupertinoNeutralButton onPress labelText
-
-
-authDangerButton : Maybe Msg -> String -> Element Msg
-authDangerButton onPress labelText =
-    cupertinoDangerButton onPress labelText
-
-
-authUtilityButton : Element.Color -> Element.Color -> Maybe Msg -> String -> Element Msg
-authUtilityButton backgroundColor textColor onPress labelText =
-    cupertinoButton backgroundColor textColor (rgba255 255 255 0 0) onPress labelText
-
-
 cupertinoPrimaryButton : Maybe Msg -> String -> Element Msg
 cupertinoPrimaryButton onPress labelText =
     cupertinoButton
@@ -4479,18 +4464,13 @@ cupertinoButton backgroundColor textColor borderColor onPress labelText =
          , Border.width 1
          , Border.color borderColor
          , paddingEach { top = 8, right = 14, bottom = 8, left = 14 }
+         , cupertinoFocusRing
          , htmlAttribute (HtmlAttr.style "box-shadow" "0 1px 3px rgba(31,41,55,0.08), inset 0 1px 0 rgba(255,255,255,0.58)")
          ]
-            ++ buttonInteractionAttrs
         )
         { onPress = onPress
         , label = text labelText
         }
-
-
-buttonInteractionAttrs : List (Element.Attribute msg)
-buttonInteractionAttrs =
-    [ cupertinoFocusRing ]
 
 
 unstyledButtonAttrs : List (Element.Attribute msg)
@@ -4607,7 +4587,7 @@ nextBooleanRawValue rawValue =
 boolToggleButton : BooleanFieldState -> Maybe Msg -> Element Msg
 boolToggleButton state onPress =
     Input.button
-        (unstyledButtonAttrs ++ buttonInteractionAttrs)
+        (unstyledButtonAttrs ++ [ cupertinoFocusRing ])
         { onPress = onPress
         , label =
             row
@@ -4701,9 +4681,9 @@ boolUnsetButton selected onPress =
             )
          , Border.rounded 999
          , paddingEach { top = 8, right = 12, bottom = 8, left = 12 }
+         , cupertinoFocusRing
          , htmlAttribute (HtmlAttr.style "box-shadow" "inset 0 1px 0 rgba(255,255,255,0.72)")
          ]
-            ++ buttonInteractionAttrs
         )
         { onPress = onPress
         , label = text "Unset"
