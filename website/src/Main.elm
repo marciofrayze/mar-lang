@@ -1319,7 +1319,7 @@ advancedLanguagePage model =
                 , docList
                     [ "Top-level statements: app, port, database, public, system, auth, entity, type alias, action."
                     , "Fields use the form fieldName: Type with optional modifiers such as primary, auto, optional, and default."
-                    , "Singular relationships use `belongs_to`, for example `belongs_to User` or `belongs_to customer: User optional`."
+                    , "Singular relationships use `belongs_to`, for example `belongs_to User`, `belongs_to current_user`, or `belongs_to customer: User optional`."
                     , "Built-in field types are Int, String, Bool, Float, and Posix. `Posix` follows Elm `Time.Posix` and stores Unix milliseconds."
                     , "Comments use Elm-style line comments: -- this is a comment."
                     ]
@@ -1328,6 +1328,7 @@ advancedLanguagePage model =
                 [ docSubsectionTitle "Relationships"
                 , docList
                     [ "`belongs_to User` declares a singular relationship and derives the logical name `user` automatically."
+                    , "`belongs_to current_user` declares a required relationship to the authenticated built-in `User`, fills it automatically on create, and keeps it out of create and update payloads."
                     , "`belongs_to customer: User` names the relationship explicitly and stores it as `customer_id` in SQLite."
                     , "The API, rules, authorize clauses, and Admin use the logical field name such as `customer` or `user`, not the stored `_id` column name."
                     , "Many-to-many stays explicit: create a join entity with multiple `belongs_to` declarations."
@@ -1402,7 +1403,7 @@ advancedLanguageReferencePage =
                     , languageReferenceItem "auto" "Marks a field as auto-generated."
                     , languageReferenceItem "optional" "Marks a field as nullable."
                     , languageReferenceItem "default" "Assigns a literal default value to a field, such as `done: Bool default false`."
-                    , languageReferenceItem "belongs_to" "Declares a singular relationship, such as `belongs_to User` or `belongs_to customer: User optional`. Mar stores the foreign key as `<name>_id` in SQLite and exposes the logical name in the API."
+                    , languageReferenceItem "belongs_to" "Declares a singular relationship, such as `belongs_to User`, `belongs_to current_user`, or `belongs_to customer: User optional`. Mar stores the foreign key as `<name>_id` in SQLite and exposes the logical name in the API."
                     ]
                 , languageReferenceGroup "Built-in primitive types"
                     [ languageReferenceItem "Int" "Whole-number field type."
@@ -3721,12 +3722,12 @@ entity PersonalTodo {
   title: String
   done: Bool
 
-  -- This creates a user relationship for each todo.
-  -- The authorize rules below use it so users only see their own todos.
-  belongs_to User
+  -- This automatically assigns each todo to the authenticated user.
+  -- The authorize rules below use the generated `user` field so users only see their own todos.
+  belongs_to current_user
 
   authorize read when user_authenticated and (user == user_id or user_role == "admin")
-  authorize create when user_authenticated and user == user_id
+  authorize create when user_authenticated
   authorize update when user_authenticated and (user == user_id or user_role == "admin")
   authorize delete when user_authenticated and (user == user_id or user_role == "admin")
 }
@@ -3741,9 +3742,9 @@ entity PersonalTodo {
   title: String
   done: Bool
 
-  -- This creates a user relationship for each todo.
-  -- The authorize rules below use it so users only see their own todos.
-  belongs_to User
+  -- This automatically assigns each todo to the authenticated user.
+  -- The authorize rules below use the generated `user` field so users only see their own todos.
+  belongs_to current_user
 
   authorize all when user_authenticated and (user == user_id or user_role == "admin")
 }

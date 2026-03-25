@@ -84,8 +84,11 @@ func (r *Runtime) handleDelete(w http.ResponseWriter, requestID string, entity *
 
 // handleCreate validates payload, checks rules/authorization, inserts, and returns the created row.
 func (r *Runtime) handleCreate(w http.ResponseWriter, requestID string, entity *model.Entity, auth authSession, payload map[string]any) error {
-	insert, err := buildInsert(entity, payload)
+	insert, err := r.buildInsert(entity, payload, auth)
 	if err != nil {
+		if apiErr, ok := err.(*apiError); ok {
+			return apiErr
+		}
 		return newAPIError(http.StatusBadRequest, "invalid_entity_payload", err.Error())
 	}
 	if err := r.ensureAuthorized(entity, "create", auth, insert.Context); err != nil {
@@ -147,8 +150,11 @@ func (r *Runtime) handleUpdate(w http.ResponseWriter, requestID string, entity *
 		return newAPIError(http.StatusNotFound, "entity_not_found", entity.Name+" not found")
 	}
 	current := decodeEntityRow(entity, row)
-	update, err := buildUpdate(entity, payload, current)
+	update, err := r.buildUpdate(entity, payload, current, auth)
 	if err != nil {
+		if apiErr, ok := err.(*apiError); ok {
+			return apiErr
+		}
 		return newAPIError(http.StatusBadRequest, "invalid_entity_payload", err.Error())
 	}
 	if err := r.ensureAuthorized(entity, "update", auth, update.Context); err != nil {
@@ -316,7 +322,7 @@ type updateBuild struct {
 }
 
 // buildInsert normalizes create payload values and builds SQL-ready insert input.
-func buildInsert(entity *model.Entity, payload map[string]any) (*insertBuild, error) {
+func (r *Runtime) buildInsert(entity *model.Entity, payload map[string]any, auth authSession) (*insertBuild, error) {
 	if payload == nil {
 		return nil, fmt.Errorf("JSON body must be an object")
 	}
@@ -330,16 +336,21 @@ func buildInsert(entity *model.Entity, payload map[string]any) (*insertBuild, er
 			out.Context[field.Name] = nil
 			continue
 		}
+		if field.CurrentUser {
+			if !auth.Authenticated {
+				return nil, authRequiredError()
+			}
+			if err := appendInsertFieldValue(out, &field, auth.UserID); err != nil {
+				return nil, err
+			}
+			continue
+		}
 		value, ok := payload[field.Name]
 		if !ok {
 			if field.Default != nil {
-				dbValue, apiValue, err := normalizeInputValue(&field, field.Default)
-				if err != nil {
+				if err := appendInsertFieldValue(out, &field, field.Default); err != nil {
 					return nil, err
 				}
-				out.Columns = append(out.Columns, model.FieldStorageName(&field))
-				out.Values = append(out.Values, dbValue)
-				out.Context[field.Name] = apiValue
 				continue
 			}
 			if !field.Optional {
@@ -348,19 +359,15 @@ func buildInsert(entity *model.Entity, payload map[string]any) (*insertBuild, er
 			out.Context[field.Name] = nil
 			continue
 		}
-		dbValue, apiValue, err := normalizeInputValue(&field, value)
-		if err != nil {
+		if err := appendInsertFieldValue(out, &field, value); err != nil {
 			return nil, err
 		}
-		out.Columns = append(out.Columns, model.FieldStorageName(&field))
-		out.Values = append(out.Values, dbValue)
-		out.Context[field.Name] = apiValue
 	}
 	return out, nil
 }
 
 // buildUpdate normalizes update payload values and merges them into current entity context.
-func buildUpdate(entity *model.Entity, payload map[string]any, current map[string]any) (*updateBuild, error) {
+func (r *Runtime) buildUpdate(entity *model.Entity, payload map[string]any, current map[string]any, auth authSession) (*updateBuild, error) {
 	if payload == nil {
 		return nil, fmt.Errorf("JSON body must be an object")
 	}
@@ -377,11 +384,18 @@ func buildUpdate(entity *model.Entity, payload map[string]any, current map[strin
 		if field.Primary {
 			continue
 		}
+		if field.CurrentUser {
+			if !auth.Authenticated {
+				return nil, authRequiredError()
+			}
+			out.Context[field.Name] = auth.UserID
+			continue
+		}
 		value, ok := payload[field.Name]
 		if !ok {
 			continue
 		}
-		dbValue, apiValue, err := normalizeInputValue(&field, value)
+		dbValue, apiValue, err := normalizeFieldValue(&field, value)
 		if err != nil {
 			return nil, err
 		}
@@ -408,6 +422,9 @@ func assertNoUnknownFields(entity *model.Entity, payload map[string]any, mode st
 		if field == nil {
 			return fmt.Errorf("unknown field %q%s", key, suggest.DidYouMeanSuffix(key, knownNames))
 		}
+		if field.CurrentUser {
+			return fmt.Errorf("field %s is managed automatically and cannot be provided", key)
+		}
 		if mode == "create" && field.Primary && field.Auto {
 			return fmt.Errorf("field %s is auto-generated and cannot be provided", key)
 		}
@@ -416,4 +433,23 @@ func assertNoUnknownFields(entity *model.Entity, payload map[string]any, mode st
 		}
 	}
 	return nil
+}
+
+func authRequiredError() *apiError {
+	return newAPIError(http.StatusUnauthorized, "auth_required", "Authentication required")
+}
+
+func appendInsertFieldValue(out *insertBuild, field *model.Field, value any) error {
+	dbValue, apiValue, err := normalizeFieldValue(field, value)
+	if err != nil {
+		return err
+	}
+	out.Columns = append(out.Columns, model.FieldStorageName(field))
+	out.Values = append(out.Values, dbValue)
+	out.Context[field.Name] = apiValue
+	return nil
+}
+
+func normalizeFieldValue(field *model.Field, value any) (any, any, error) {
+	return normalizeInputValue(field, value)
 }

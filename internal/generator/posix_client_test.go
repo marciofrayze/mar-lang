@@ -110,3 +110,42 @@ func TestGeneratedClientsIncludeFieldDefaultsInSchemaMetadata(t *testing.T) {
 		t.Fatalf("expected Elm schema metadata to include Posix default, source:\n%s", elmSource)
 	}
 }
+
+func TestGeneratedClientsIncludeCurrentUserBelongsToMetadata(t *testing.T) {
+	app := &model.App{
+		AppName:  "PersonalTodo",
+		Port:     4200,
+		Database: "todo.db",
+		Entities: []model.Entity{
+			{
+				Name:       "Todo",
+				Table:      "todos",
+				Resource:   "/todos",
+				PrimaryKey: "id",
+				Fields: []model.Field{
+					{Name: "id", Type: "Int", Primary: true, Auto: true},
+					{Name: "title", Type: "String"},
+					{Name: "user", Type: "Int", RelationEntity: "User", CurrentUser: true},
+				},
+			},
+		},
+	}
+
+	tsOut, err := GenerateTSClient(app)
+	if err != nil {
+		t.Fatalf("GenerateTSClient returned error: %v", err)
+	}
+	tsSource := string(tsOut.Source)
+	if !strings.Contains(tsSource, `currentUser: true`) {
+		t.Fatalf("expected TS schema metadata to include currentUser flag, source:\n%s", tsSource)
+	}
+
+	elmOut, err := GenerateElmClient(app)
+	if err != nil {
+		t.Fatalf("GenerateElmClient returned error: %v", err)
+	}
+	elmSource := string(elmOut.Source)
+	if !strings.Contains(elmSource, `, currentUser = True`) {
+		t.Fatalf("expected Elm schema metadata to include currentUser flag, source:\n%s", elmSource)
+	}
+}

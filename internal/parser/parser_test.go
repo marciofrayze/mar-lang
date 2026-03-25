@@ -492,6 +492,107 @@ entity Invoice {
 	}
 }
 
+func TestParseSupportsBelongsToCurrentUser(t *testing.T) {
+	src := `
+app PersonalTodo
+
+entity Todo {
+  title: String
+  belongs_to current_user
+}
+`
+
+	app, err := Parse(src)
+	if err != nil {
+		t.Fatalf("Parse returned error: %v", err)
+	}
+
+	var todo *model.Entity
+	for i := range app.Entities {
+		if app.Entities[i].Name == "Todo" {
+			todo = &app.Entities[i]
+			break
+		}
+	}
+	if todo == nil {
+		t.Fatal("expected Todo entity to be present")
+	}
+
+	var userField *model.Field
+	for i := range todo.Fields {
+		if todo.Fields[i].Name == "user" {
+			userField = &todo.Fields[i]
+			break
+		}
+	}
+	if userField == nil {
+		t.Fatal("expected user field to be present")
+	}
+	if userField.RelationEntity != "User" {
+		t.Fatalf("expected relation entity User, got %q", userField.RelationEntity)
+	}
+	if !userField.CurrentUser {
+		t.Fatalf("expected current_user relation flag, got %+v", *userField)
+	}
+}
+
+func TestParseRejectsBelongsToCurrentUserWithModifiers(t *testing.T) {
+	src := `
+app PersonalTodo
+
+entity Todo {
+  title: String
+  belongs_to current_user optional
+}
+`
+
+	_, err := Parse(src)
+	if err == nil {
+		t.Fatal("expected parse error for belongs_to current_user modifiers")
+	}
+	if !strings.Contains(err.Error(), "belongs_to current_user does not support modifiers") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestParseRejectsBelongsToCurrentUserWithCustomFieldName(t *testing.T) {
+	src := `
+app PersonalTodo
+
+entity Todo {
+  title: String
+  belongs_to owner: current_user
+}
+`
+
+	_, err := Parse(src)
+	if err == nil {
+		t.Fatal("expected parse error for named belongs_to current_user")
+	}
+	if !strings.Contains(err.Error(), "belongs_to current_user does not support a custom field name") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestParseRejectsBelongsToCurrentUserOnUserEntity(t *testing.T) {
+	src := `
+app PersonalTodo
+
+entity User {
+  title: String
+  belongs_to current_user
+}
+`
+
+	_, err := Parse(src)
+	if err == nil {
+		t.Fatal("expected parse error for User entity using belongs_to current_user")
+	}
+	if !strings.Contains(err.Error(), "entity User field user cannot use belongs_to current_user") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestParseRejectsBelongsToUnknownEntity(t *testing.T) {
 	src := `
 app TodoApi

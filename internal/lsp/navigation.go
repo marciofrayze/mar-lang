@@ -62,10 +62,11 @@ type symbolCatalog struct {
 }
 
 var (
-	entityDeclRe     = regexp.MustCompile(`^\s*entity\s+([A-Za-z][A-Za-z0-9_]*)\s*\{`)
-	fieldDeclRe      = regexp.MustCompile(`^\s*([a-z][A-Za-z0-9_]*)\s*:\s*(Int|String|Bool|Float|Posix)\b`)
-	belongsToNamedRe = regexp.MustCompile(`^\s*belongs_to\s+([a-z][A-Za-z0-9_]*)\s*:\s*([A-Za-z][A-Za-z0-9_]*)\b`)
-	belongsToShortRe = regexp.MustCompile(`^\s*belongs_to\s+([A-Za-z][A-Za-z0-9_]*)\b`)
+	entityDeclRe           = regexp.MustCompile(`^\s*entity\s+([A-Za-z][A-Za-z0-9_]*)\s*\{`)
+	fieldDeclRe            = regexp.MustCompile(`^\s*([a-z][A-Za-z0-9_]*)\s*:\s*(Int|String|Bool|Float|Posix)\b`)
+	belongsToNamedRe       = regexp.MustCompile(`^\s*belongs_to\s+([a-z][A-Za-z0-9_]*)\s*:\s*([A-Za-z][A-Za-z0-9_]*)\b`)
+	belongsToCurrentUserRe = regexp.MustCompile(`^\s*belongs_to\s+(current_user)\b`)
+	belongsToShortRe       = regexp.MustCompile(`^\s*belongs_to\s+([A-Za-z][A-Za-z0-9_]*)\b`)
 
 	typeAliasDeclRe  = regexp.MustCompile(`^\s*type\s+alias\s+([A-Za-z][A-Za-z0-9_]*)\s*=\s*(.*)$`)
 	aliasFieldDeclRe = regexp.MustCompile(`([a-z][A-Za-z0-9_]*)\s*:\s*(Int|String|Bool|Float|Posix)\b`)
@@ -88,6 +89,9 @@ var (
 )
 
 func belongsToFieldDeclaration(line string) (string, int, int, bool) {
+	if match := belongsToCurrentUserRe.FindStringSubmatchIndex(line); match != nil {
+		return "user", match[2], match[3], true
+	}
 	if match := belongsToNamedRe.FindStringSubmatchIndex(line); match != nil {
 		return line[match[2]:match[3]], match[2], match[3], true
 	}
@@ -99,6 +103,9 @@ func belongsToFieldDeclaration(line string) (string, int, int, bool) {
 }
 
 func belongsToEntityReference(line string) (string, int, int, bool) {
+	if match := belongsToCurrentUserRe.FindStringSubmatchIndex(line); match != nil {
+		return "User", match[2], match[3], true
+	}
 	if match := belongsToNamedRe.FindStringSubmatchIndex(line); match != nil {
 		return line[match[4]:match[5]], match[4], match[5], true
 	}
@@ -736,7 +743,7 @@ func (index *workspaceSymbolIndex) symbolAt(uri string, pos lspPosition) (symbol
 			continue
 		}
 		span := occ.Range.End.Character - occ.Range.Start.Character
-		if !found || span < bestSpan || (span == bestSpan && occ.Declaration && !best.Declaration) {
+		if !found || span < bestSpan || (span == bestSpan && prefersOccurrence(occ, best)) {
 			best = occ
 			found = true
 			bestSpan = span
@@ -744,6 +751,24 @@ func (index *workspaceSymbolIndex) symbolAt(uri string, pos lspPosition) (symbol
 	}
 
 	return best, found
+}
+
+func prefersOccurrence(next symbolOccurrence, current symbolOccurrence) bool {
+	if sameRange(next.Range, current.Range) &&
+		current.Kind == symbolEntityField &&
+		current.Declaration &&
+		next.Kind == symbolEntity &&
+		!next.Declaration {
+		return true
+	}
+	return next.Declaration && !current.Declaration
+}
+
+func sameRange(a lspRange, b lspRange) bool {
+	return a.Start.Line == b.Start.Line &&
+		a.Start.Character == b.Start.Character &&
+		a.End.Line == b.End.Line &&
+		a.End.Character == b.End.Character
 }
 
 func (index *workspaceSymbolIndex) definition(key string) (lspLocation, bool) {

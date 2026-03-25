@@ -16,23 +16,26 @@ app PersonalTodo
 -- The password is not stored in the `.mar` file.  It must be provided through an
 -- environment variable.
 -- You may use any SMTP provider, but we recommend Resend (https://resend.com).
-
 auth {
-  email_transport console
-  email_from "no-reply@personal-todo.local"
-  email_subject "Your PersonalTodo login code"
+  email_transport smtp
+  email_from "no-reply@yourdomain.com"
+  email_subject "Your Personal Todo login code"
+  smtp_host "smtp.resend.com"
+  smtp_username "resend"
+  smtp_password_env "RESEND_API_KEY"
 }
 
-entity PersonalTodo {
+entity Todo {
   title: String
   done: Bool
 
-  -- This creates a user relationship for each todo.
-  -- The authorize rules below use it so users only interact with their own todos.
-  belongs_to User
+  -- This automatically assigns each todo to the authenticated user.
+  belongs_to current_user
 
+  -- Users can only interact with their own todos.
+  -- Admins can read and manage all todos.
   authorize read when user_authenticated and (user == user_id or user_role == "admin")
-  authorize create when user_authenticated and user == user_id
+  authorize create when user_authenticated
   authorize update when user_authenticated and (user == user_id or user_role == "admin")
   authorize delete when user_authenticated and (user == user_id or user_role == "admin")
 }

@@ -424,6 +424,7 @@ func keywordCompletionItems() []map[string]any {
 		"expect",
 		"authorize",
 		"belongs_to",
+		"current_user",
 		"all",
 		"read",
 		"action",

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -179,5 +180,113 @@ entity Todo {
 	memberGetAdminRec := doRuntimeRequest(r, http.MethodGet, fmt.Sprintf("/todos/%v", adminRows[1]["id"]), "", memberToken)
 	if memberGetAdminRec.Code != http.StatusForbidden {
 		t.Fatalf("expected member get on foreign todo to be forbidden, got %d body=%s", memberGetAdminRec.Code, memberGetAdminRec.Body.String())
+	}
+}
+
+func TestEntityCRUDSupportsBelongsToCurrentUser(t *testing.T) {
+	requireSQLite3(t)
+
+	r := mustNewRuntimeFromSource(t, filepath.Join(t.TempDir(), "belongs-to-current-user.db"), `
+app PersonalTodo
+
+auth {
+  email_transport console
+}
+
+entity Todo {
+  title: String
+  belongs_to current_user
+
+  authorize read when user_authenticated and (user == user_id or user_role == "admin")
+  authorize create when user_authenticated
+  authorize update when user_authenticated and (user == user_id or user_role == "admin")
+  authorize delete when user_authenticated and (user == user_id or user_role == "admin")
+}
+`)
+
+	loginCode := requestCodeAndUseKnownCode(t, r, "owner@example.com")
+	token := loginWithCodeAndReadToken(t, r, "owner@example.com", loginCode)
+
+	userRow, found, err := r.loadAuthUserByEmail("", "owner@example.com")
+	if err != nil {
+		t.Fatalf("load auth user failed: %v", err)
+	}
+	if !found {
+		t.Fatal("expected auth user to exist")
+	}
+	userID := userRow[r.authUser.PrimaryKey]
+	userIDInt, ok := toInt64(userID)
+	if !ok {
+		t.Fatalf("expected auth user id to be Int, got %#v", userID)
+	}
+
+	rec := doRuntimeRequest(r, http.MethodPost, "/todos", `{"title":"Mine"}`, token)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201 when creating todo, got %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	var created map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &created); err != nil {
+		t.Fatalf("decode create response failed: %v body=%s", err, rec.Body.String())
+	}
+	if created["user"] != float64(userIDInt) {
+		t.Fatalf("expected created todo to belong to current user, got %#v", created["user"])
+	}
+
+	row, ok, err := queryRow(r.DB, `SELECT user_id FROM todos WHERE id = 1`)
+	if err != nil {
+		t.Fatalf("query todo row failed: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected todo row to exist")
+	}
+	if row["user_id"] != userIDInt {
+		t.Fatalf("expected stored user_id=%#v, got %#v", userIDInt, row["user_id"])
+	}
+}
+
+func TestEntityCRUDRejectsManualPayloadForBelongsToCurrentUser(t *testing.T) {
+	requireSQLite3(t)
+
+	r := mustNewRuntimeFromSource(t, filepath.Join(t.TempDir(), "belongs-to-current-user-reject.db"), `
+app PersonalTodo
+
+auth {
+  email_transport console
+}
+
+entity Todo {
+  title: String
+  belongs_to current_user
+
+  authorize create when user_authenticated
+  authorize read when user_authenticated and user == user_id
+  authorize update when user_authenticated and user == user_id
+  authorize delete when user_authenticated and user == user_id
+}
+`)
+
+	loginCode := requestCodeAndUseKnownCode(t, r, "owner@example.com")
+	token := loginWithCodeAndReadToken(t, r, "owner@example.com", loginCode)
+
+	createRec := doRuntimeRequest(r, http.MethodPost, "/todos", `{"title":"Mine","user":999}`, token)
+	if createRec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 when providing managed field on create, got %d body=%s", createRec.Code, createRec.Body.String())
+	}
+	if !strings.Contains(createRec.Body.String(), "managed automatically") {
+		t.Fatalf("expected managed field error on create, got body=%s", createRec.Body.String())
+	}
+
+	validCreateRec := doRuntimeRequest(r, http.MethodPost, "/todos", `{"title":"Mine"}`, token)
+	if validCreateRec.Code != http.StatusCreated {
+		t.Fatalf("expected valid create to succeed, got %d body=%s", validCreateRec.Code, validCreateRec.Body.String())
+	}
+
+	updateRec := doRuntimeRequest(r, http.MethodPatch, "/todos/1", `{"user":999}`, token)
+	if updateRec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 when providing managed field on update, got %d body=%s", updateRec.Code, updateRec.Body.String())
+	}
+	if !strings.Contains(updateRec.Body.String(), "managed automatically") {
+		t.Fatalf("expected managed field error on update, got body=%s", updateRec.Body.String())
 	}
 }

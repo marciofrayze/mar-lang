@@ -38,6 +38,12 @@
       "contents": "belongs_to ${1:owner}: ${2:User}${3: optional}"
     },
     {
+      "trigger": "belongs_to_current_user",
+      "annotation": "Current user belongs_to relation",
+      "kind": "snippet",
+      "contents": "belongs_to current_user"
+    },
+    {
       "trigger": "rule",
       "annotation": "Rule",
       "kind": "snippet",

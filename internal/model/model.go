@@ -68,6 +68,7 @@ type Field struct {
 	Name           string `json:"name"`
 	Type           string `json:"type"`
 	RelationEntity string `json:"relationEntity,omitempty"`
+	CurrentUser    bool   `json:"currentUser,omitempty"`
 	Primary        bool   `json:"primary"`
 	Auto           bool   `json:"auto"`
 	Optional       bool   `json:"optional"`

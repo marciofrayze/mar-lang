@@ -1,12 +1,13 @@
--- =========================================
--- Application
--- =========================================
-
 app SharedTodo
 
--- =========================================
--- Entities
--- =========================================
+auth {
+  email_transport smtp
+  email_from "no-reply@yourdomain.com"
+  email_subject "Your Shared Todo login code"
+  smtp_host "smtp.resend.com"
+  smtp_username "resend"
+  smtp_password_env "RESEND_API_KEY"
+}
 
 entity SharedTodo {
   title: String

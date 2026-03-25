@@ -87,10 +87,13 @@ done:Bool default false
 func TestFormatBelongsToCanonicalOutput(t *testing.T) {
 	src := `
 app BillingApi
+entity Customer {
+name:String
+}
 entity Invoice{
 total:Float
-belongs_to customer:User optional
-belongs_to User
+belongs_to customer:Customer optional
+belongs_to current_user
 }
 `
 
@@ -101,10 +104,13 @@ belongs_to User
 
 	expected := "" +
 		"app BillingApi\n" +
+		"entity Customer {\n" +
+		"  name: String\n" +
+		"}\n" +
 		"entity Invoice {\n" +
 		"  total: Float\n" +
-		"  belongs_to customer: User optional\n" +
-		"  belongs_to User\n" +
+		"  belongs_to customer: Customer optional\n" +
+		"  belongs_to current_user\n" +
 		"}\n"
 
 	if formatted != expected {

@@ -2765,7 +2765,11 @@ placeholderForType fieldName fieldType =
 
 placeholderForField : Field -> String
 placeholderForField field =
-    case field.relationEntity of
+    if field.currentUser then
+        "Current user"
+
+    else
+        case field.relationEntity of
         Just entityName ->
             "Select " ++ humanizeIdentifier entityName
 
@@ -3053,8 +3057,7 @@ formDefaults model =
             Dict.empty
 
         Just entity ->
-            entity.fields
-                |> List.filter (\field -> not field.primary)
+            appVisibleFields entity
                 |> List.map
                     (\field ->
                         ( field.name
@@ -3071,8 +3074,7 @@ formFromRow model rowValue =
             Dict.empty
 
         Just entity ->
-            entity.fields
-                |> List.filter (\field -> not field.primary)
+            appVisibleFields entity
                 |> List.map
                     (\field ->
                         let
@@ -6119,15 +6121,15 @@ viewRows model =
 
         ( Just entity, Loaded records ) ->
             if List.isEmpty records then
-                paragraph []
-                    [ text
-                        (if currentWorkspace model == AppWorkspace then
-                            "Nothing here yet. Create the first one to get started."
-
-                         else
-                            "No records yet."
-                        )
+                el
+                    [ width fill
+                    , centerX
+                    , paddingEach { top = 28, right = 0, bottom = 16, left = 0 }
+                    , Font.size 16
+                    , Font.center
+                    , Font.color (rgb255 93 103 120)
                     ]
+                    (text "Nothing here yet.")
 
             else
                 let
@@ -7234,7 +7236,12 @@ viewActionInfo actionInfo =
 appVisibleFields : Entity -> List Field
 appVisibleFields entity =
     entity.fields
-        |> List.filter (\field -> not field.primary)
+        |> List.filter isAppVisibleField
+
+
+isAppVisibleField : Field -> Bool
+isAppVisibleField field =
+    not field.primary && not field.currentUser
 
 
 displayFieldsForEntity : WorkspaceMode -> Entity -> List Field
@@ -7246,6 +7253,7 @@ displayFieldsForEntity workspace entity =
         in
         if List.isEmpty visible then
             entity.fields
+                |> List.filter (\field -> not field.currentUser)
 
         else
             visible

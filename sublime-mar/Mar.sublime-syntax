@@ -89,6 +89,10 @@ contexts:
         1: variable.other.member.mar
         2: punctuation.separator.key-value.mar
         3: storage.type.mar
+    - match: '\b(belongs_to)\s+(current_user)\b'
+      captures:
+        1: keyword.control.declaration.mar
+        2: variable.language.mar
     - match: '\b(belongs_to)\s+(?:({{lower_ident}})\s*(:)\s*)?({{upper_ident}})(?:\s+(optional))?\b'
       captures:
         1: keyword.control.declaration.mar

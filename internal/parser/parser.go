@@ -1027,6 +1027,9 @@ func resolveEntityRelations(app *model.App) error {
 		for j := range ent.Fields {
 			field := &ent.Fields[j]
 			if field.RelationEntity != "" {
+				if field.CurrentUser && ent.Name == "User" {
+					return fmt.Errorf("entity %s field %s cannot use belongs_to current_user", ent.Name, field.Name)
+				}
 				target := entitiesByName[field.RelationEntity]
 				if target == nil {
 					return fmt.Errorf("entity %s field %s references unknown entity %s", ent.Name, field.Name, field.RelationEntity)
@@ -1146,6 +1149,17 @@ func parseBelongsToStatement(trimmed string, lineNo int) (*model.Field, bool, er
 		return nil, true, fmt.Errorf("line %d: belongs_to requires a target entity", lineNo)
 	}
 
+	if rest == "current_user" {
+		return &model.Field{
+			Name:           "user",
+			RelationEntity: "User",
+			CurrentUser:    true,
+		}, true, nil
+	}
+	if strings.HasPrefix(rest, "current_user ") {
+		return nil, true, fmt.Errorf("line %d: belongs_to current_user does not support modifiers", lineNo)
+	}
+
 	var fieldName string
 	var targetEntity string
 	var rawAttrs string
@@ -1158,6 +1172,9 @@ func parseBelongsToStatement(trimmed string, lineNo int) (*model.Field, bool, er
 			return nil, true, fmt.Errorf("line %d: belongs_to %s requires a target entity", lineNo, fieldName)
 		}
 		targetEntity = parts[0]
+		if targetEntity == "current_user" {
+			return nil, true, fmt.Errorf("line %d: belongs_to current_user does not support a custom field name", lineNo)
+		}
 		rawAttrs = strings.TrimSpace(strings.TrimPrefix(after, targetEntity))
 	} else {
 		parts := strings.Fields(rest)

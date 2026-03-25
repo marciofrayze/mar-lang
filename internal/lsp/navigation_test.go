@@ -87,3 +87,45 @@ func TestDefinitionOnBelongsToEntityReferenceResolvesToEntityDeclaration(t *test
 		t.Fatalf("expected definition on line 0, got %d", def.Range.Start.Line)
 	}
 }
+
+func TestDefinitionOnBelongsToCurrentUserResolvesToUserEntityDeclaration(t *testing.T) {
+	uri := filePathToURI(filepath.Join(t.TempDir(), "personal-todo.mar"))
+	text := strings.Join([]string{
+		"entity User {",
+		"}",
+		"",
+		"entity PersonalTodo {",
+		"  belongs_to current_user",
+		"}",
+		"",
+	}, "\n")
+
+	index := buildWorkspaceSymbolIndex(map[string]string{uri: text})
+	line := 4
+	character := strings.Index("  belongs_to current_user", "current_user")
+	if character < 0 {
+		t.Fatalf("expected test fixture to contain current_user reference")
+	}
+
+	symbol, ok := index.symbolAt(uri, lspPosition{Line: line, Character: character})
+	if !ok {
+		t.Fatalf("expected symbol at belongs_to current_user reference")
+	}
+	if symbol.Kind != symbolEntity {
+		t.Fatalf("expected entity symbol, got %q", symbol.Kind)
+	}
+	if symbol.Name != "User" {
+		t.Fatalf("expected symbol name User, got %q", symbol.Name)
+	}
+
+	def, ok := index.definition(symbol.Key)
+	if !ok {
+		t.Fatalf("expected definition for current_user reference")
+	}
+	if def.URI != uri {
+		t.Fatalf("expected definition in same document, got %q", def.URI)
+	}
+	if def.Range.Start.Line != 0 {
+		t.Fatalf("expected definition on line 0, got %d", def.Range.Start.Line)
+	}
+}

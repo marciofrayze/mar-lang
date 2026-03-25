@@ -100,8 +100,11 @@ func (r *Runtime) executeActionStep(tx *sqlitecli.ImmediateTx, action *model.Act
 		}
 		return decoded, nil
 	case "create":
-		insert, err := buildInsert(entity, stepPayload)
+		insert, err := r.buildInsert(entity, stepPayload, auth)
 		if err != nil {
+			if apiErr, ok := err.(*apiError); ok {
+				return nil, apiErr
+			}
 			return nil, newAPIError(http.StatusBadRequest, "invalid_action_input", fmt.Sprintf("Action %s step create %s: %s", action.Name, entity.Name, err.Error()))
 		}
 		if err := r.ensureAuthorized(entity, "create", auth, insert.Context); err != nil {
@@ -147,8 +150,11 @@ func (r *Runtime) executeActionStep(tx *sqlitecli.ImmediateTx, action *model.Act
 			}
 			updatePayload[key] = value
 		}
-		update, err := buildUpdate(entity, updatePayload, current)
+		update, err := r.buildUpdate(entity, updatePayload, current, auth)
 		if err != nil {
+			if apiErr, ok := err.(*apiError); ok {
+				return nil, apiErr
+			}
 			return nil, newAPIError(http.StatusBadRequest, "invalid_action_input", fmt.Sprintf("Action %s step update %s: %s", action.Name, entity.Name, err.Error()))
 		}
 		if err := r.ensureAuthorized(entity, "update", auth, update.Context); err != nil {

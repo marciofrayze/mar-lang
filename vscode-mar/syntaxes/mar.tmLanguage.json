@@ -203,6 +203,18 @@
           }
         },
         {
+          "name": "meta.belongs-to.current-user.mar",
+          "match": "\\b(belongs_to)\\s+(current_user)\\b",
+          "captures": {
+            "1": {
+              "name": "keyword.control.declaration.mar"
+            },
+            "2": {
+              "name": "variable.language.mar"
+            }
+          }
+        },
+        {
           "name": "meta.belongs-to.declaration.mar",
           "match": "\\b(belongs_to)\\s+(?:([a-z][A-Za-z0-9_]*)\\s*(:)\\s*)?([A-Z][A-Za-z0-9_]*)(?:\\s+(optional))?\\b",
           "captures": {

@@ -39,7 +39,7 @@ all:
 	$(call print_title,Mar compiler ready)
 	$(call print_ok,./mar)
 	@$(MAKE) --no-print-directory CHAINED=1 website
-	@$(MAKE) --no-print-directory vscode-plugin
+	@$(MAKE) --no-print-directory CHAINED=1 vscode-plugin
 	@$(MAKE) --no-print-directory sublime-plugin
 
 check: check-go check-elm
@@ -266,6 +266,7 @@ vscode-plugin: check-npx check-npm
 			printf "  Output: \033[1;32m%s\033[0m\n" "$${out#../}"; \
 			printf "  Install in VS Code with: \033[1;32mcode --install-extension %s --force\033[0m\n" "$${out#../}"; \
 		fi'
+	@if [ -z "$(CHAINED)" ]; then printf "\n"; fi
 
 sublime-plugin: check-zip
 	$(call print_title,Sublime Text package)
