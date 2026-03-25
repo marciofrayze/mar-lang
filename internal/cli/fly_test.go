@@ -96,6 +96,7 @@ func TestValidateFlyInitPrereqsBlocksPlaceholderEmailBeforePrompts(t *testing.T)
 	err := validateFlyInitPrereqs(&model.App{
 		Auth: &model.AuthConfig{
 			EmailFrom: "no-reply@mar.local",
+			EmailTransport: "smtp",
 		},
 	})
 	if err == nil {
@@ -106,6 +107,38 @@ func TestValidateFlyInitPrereqsBlocksPlaceholderEmailBeforePrompts(t *testing.T)
 	}
 	if !strings.Contains(err.Error(), "auth.email_from is still using a placeholder value") {
 		t.Fatalf("expected placeholder email explanation, got %q", err.Error())
+	}
+}
+
+func TestValidateFlyInitPrereqsBlocksConsoleEmailTransport(t *testing.T) {
+	err := validateFlyInitPrereqs(&model.App{
+		Auth: &model.AuthConfig{
+			EmailTransport: "console",
+			EmailFrom:      "no-reply@segunda.tech",
+		},
+	})
+	if err == nil {
+		t.Fatal("expected console email transport to block fly init")
+	}
+	if !strings.Contains(err.Error(), "Fly init blocked") {
+		t.Fatalf("expected fly init blocked message, got %q", err.Error())
+	}
+	if !strings.Contains(err.Error(), "auth.email_transport is set to console") {
+		t.Fatalf("expected console transport explanation, got %q", err.Error())
+	}
+}
+
+func TestValidateFlyAuthForDeployBlocksConsoleTransport(t *testing.T) {
+	err := validateFlyAuthForDeploy(&model.App{
+		Auth: &model.AuthConfig{
+			EmailTransport: "console",
+		},
+	}, "Fly deploy blocked")
+	if err == nil {
+		t.Fatal("expected console email transport to block fly deploy")
+	}
+	if !strings.Contains(err.Error(), "Fly deploy blocked") {
+		t.Fatalf("expected fly deploy blocked title, got %q", err.Error())
 	}
 }
 
@@ -264,5 +297,93 @@ func TestParseFlyDeployArgsSupportsOptionalYes(t *testing.T) {
 				t.Fatalf("parseFlyDeployArgs(%q) = (%q, %v, %v), want (%q, %v, %v)", tt.args, gotPath, gotYes, gotValid, tt.wantPath, tt.wantYes, tt.wantValid)
 			}
 		})
+	}
+}
+
+func TestPromptFlyAppMemoryUsesDefaultOnBlank(t *testing.T) {
+	got, err := promptFlyAppMemory(bufio.NewReader(strings.NewReader("\n")), &bytes.Buffer{}, false)
+	if err != nil {
+		t.Fatalf("promptFlyAppMemory returned error: %v", err)
+	}
+	if got != "256mb" {
+		t.Fatalf("expected default memory, got %q", got)
+	}
+}
+
+func TestPromptFlyAppMemoryAcceptsNumberedChoice(t *testing.T) {
+	got, err := promptFlyAppMemory(bufio.NewReader(strings.NewReader("3\n")), &bytes.Buffer{}, false)
+	if err != nil {
+		t.Fatalf("promptFlyAppMemory returned error: %v", err)
+	}
+	if got != "1gb" {
+		t.Fatalf("expected numbered selection to resolve to 1gb, got %q", got)
+	}
+}
+
+func TestPromptFlyAppMemoryRetriesAfterInvalidInput(t *testing.T) {
+	var out bytes.Buffer
+
+	got, err := promptFlyAppMemory(bufio.NewReader(strings.NewReader("99\n512mb\n")), &out, false)
+	if err != nil {
+		t.Fatalf("promptFlyAppMemory returned error: %v", err)
+	}
+	if got != "512mb" {
+		t.Fatalf("expected retry selection to resolve to 512mb, got %q", got)
+	}
+	if !strings.Contains(out.String(), "Choose one of the listed options") {
+		t.Fatalf("expected retry hint after invalid input, got %q", out.String())
+	}
+}
+
+func TestRunFlyDestroyRejectsYesFlagInPlaceOfMarPath(t *testing.T) {
+	t.Setenv("NO_COLOR", "1")
+
+	err := runFly("mar", []string{"destroy", "--yes"})
+	if err == nil {
+		t.Fatal("expected usage error when --yes is passed to fly destroy")
+	}
+
+	msg := err.Error()
+	if !strings.Contains(msg, "Fly usage") {
+		t.Fatalf("expected fly usage message, got %q", msg)
+	}
+	if !strings.Contains(msg, "mar fly destroy <app.mar>") {
+		t.Fatalf("expected destroy usage hint, got %q", msg)
+	}
+}
+
+func TestRunFlyDestroyRequiresExistingMarFile(t *testing.T) {
+	missingPath := filepath.Join(t.TempDir(), "missing.mar")
+
+	err := runFlyDestroy("mar", missingPath)
+	if err == nil {
+		t.Fatal("expected missing .mar file to fail")
+	}
+	if !os.IsNotExist(err) {
+		t.Fatalf("expected missing file error, got %v", err)
+	}
+}
+
+func TestRenderFlyTomlUsesLeanDefaultVMConfig(t *testing.T) {
+	got := renderFlyToml(flyInitResult{
+		FlyAppName:  "mar-lang-todo",
+		RegionCode:  "gru",
+		Port:        4200,
+		DatabaseFly: "/data/personal-todo.db",
+		AppMemory:   "256mb",
+		VolumeName:  "personal-todo_data",
+	})
+
+	if !strings.Contains(got, "  size = \"shared-cpu-1x\"\n") {
+		t.Fatalf("expected shared cpu vm size, got:\n%s", got)
+	}
+	if !strings.Contains(got, "  memory = \"256mb\"\n") {
+		t.Fatalf("expected lean default memory, got:\n%s", got)
+	}
+	if strings.Contains(got, "cpus = ") {
+		t.Fatalf("did not expect explicit cpus line in lean template, got:\n%s", got)
+	}
+	if strings.Contains(got, "memory_mb = ") {
+		t.Fatalf("did not expect memory_mb line in lean template, got:\n%s", got)
 	}
 }

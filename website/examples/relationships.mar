@@ -1,0 +1,21 @@
+app EnrollmentApi
+
+entity Student {
+  name: String
+
+  authorize all when true
+}
+
+entity Course {
+  title: String
+
+  authorize all when true
+}
+
+entity Enrollment {
+  belongs_to Student
+  belongs_to Course
+  enrolled_at: Posix
+
+  authorize all when true
+}

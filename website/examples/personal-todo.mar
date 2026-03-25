@@ -1,0 +1,15 @@
+app PersonalTodo
+
+entity PersonalTodo {
+  title: String
+  done: Bool
+
+  -- This creates a user relationship for each todo.
+  -- The authorize rules below use it so users only see their own todos.
+  belongs_to User
+
+  authorize read when user_authenticated and (user == user_id or user_role == "admin")
+  authorize create when user_authenticated and user == user_id
+  authorize update when user_authenticated and (user == user_id or user_role == "admin")
+  authorize delete when user_authenticated and (user == user_id or user_role == "admin")
+}

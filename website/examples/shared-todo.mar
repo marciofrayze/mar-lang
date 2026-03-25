@@ -2,13 +2,13 @@
 -- Application
 -- =========================================
 
-app Todo
+app SharedTodo
 
 -- =========================================
 -- Entities
 -- =========================================
 
-entity Todo {
+entity SharedTodo {
   title: String
   done: Bool
 

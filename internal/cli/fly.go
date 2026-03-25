@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"mar/internal/model"
@@ -18,9 +19,11 @@ import (
 )
 
 const flyDatabasePathEnv = "MAR_DATABASE_PATH"
+const defaultFlyAppMemory = "256mb"
 
 var flyAppNameRe = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
 var errFlySecretPromptInterrupted = errors.New("interrupted")
+var flyAppMemoryOptions = []string{"256mb", "512mb", "1gb", "2gb"}
 
 type flyRegion struct {
 	Continent string
@@ -60,6 +63,7 @@ type flyInitResult struct {
 	BinaryPath      string
 	DatabaseLocal   string
 	DatabaseFly     string
+	AppMemory       string
 	DockerfilePath  string
 	FlyTomlPath     string
 	SMTPPasswordEnv string
@@ -74,12 +78,12 @@ func runFly(binaryName string, args []string) error {
 	}
 	switch args[0] {
 	case "init":
-		if len(args) != 2 {
+		if len(args) != 2 || !looksLikeMarFile(args[1]) {
 			return flyUsageError(binaryName)
 		}
 		return runFlyInit(binaryName, args[1])
 	case "provision":
-		if len(args) != 2 {
+		if len(args) != 2 || !looksLikeMarFile(args[1]) {
 			return flyUsageError(binaryName)
 		}
 		return runFlyProvision(binaryName, args[1])
@@ -90,7 +94,7 @@ func runFly(binaryName string, args []string) error {
 		}
 		return runFlyDeploy(inputPath, assumeYes)
 	case "destroy":
-		if len(args) != 2 {
+		if len(args) != 2 || !looksLikeMarFile(args[1]) {
 			return flyUsageError(binaryName)
 		}
 		return runFlyDestroy(binaryName, args[1])
@@ -180,6 +184,10 @@ func runFlyInit(binaryName, inputPath string) error {
 	if err != nil {
 		return err
 	}
+	appMemory, err := resolveFlyAppMemory()
+	if err != nil {
+		return err
+	}
 
 	buildRoot, outputName := defaultBuildLayout(inputPath, "")
 	target := runtimeTarget{OS: "linux", Arch: "amd64"}
@@ -201,6 +209,7 @@ func runFlyInit(binaryName, inputPath string) error {
 		Port:           app.Port,
 		DatabaseLocal:  dbLocal,
 		DatabaseFly:    dbFly,
+		AppMemory:      appMemory,
 		DockerfilePath: filepath.Join(flyDir, "Dockerfile"),
 		FlyTomlPath:    filepath.Join(flyDir, "fly.toml"),
 		VolumeName:     volumeName,
@@ -234,6 +243,10 @@ func validateFlyInitPrereqs(app *model.App) error {
 		return nil
 	}
 
+	if err := validateFlyAuthForDeploy(app, "Fly init blocked"); err != nil {
+		return err
+	}
+
 	emailFrom := strings.TrimSpace(app.Auth.EmailFrom)
 	if looksLikePlaceholderEmail(emailFrom) {
 		return placeholderEmailFlyInitError(emailFrom)
@@ -254,6 +267,7 @@ func confirmFlyAction(title string, details []string, canceledMessage string) (b
 		fmt.Printf("  %s\n", detail)
 	}
 	reader := bufio.NewReader(os.Stdin)
+	fmt.Println()
 	confirmed, err := promptYesNo(reader, os.Stdout, useColor, "Continue? [y/N]", false)
 	if err != nil {
 		return false, err
@@ -305,6 +319,7 @@ func confirmFlyDestroy(binaryName, appName string) (bool, error) {
 	fmt.Printf("  %s\n", colorizeCLI(useColor, "\033[1;31m", "This action is destructive and cannot be undone."))
 
 	reader := bufio.NewReader(os.Stdin)
+	fmt.Println()
 	confirmed, err := promptYesNo(reader, os.Stdout, useColor, "Continue? [y/N]", false)
 	if err != nil {
 		return false, err
@@ -423,6 +438,9 @@ func runFlyProvision(binaryName, inputPath string) error {
 		return err
 	}
 	printAppWarnings(app)
+	if err := validateFlyAuthForDeploy(app, "Fly provision blocked"); err != nil {
+		return err
+	}
 	flyDir := filepath.Join("deploy", "fly")
 	dockerfilePath := filepath.Join(flyDir, "Dockerfile")
 	flyTomlPath := filepath.Join(flyDir, "fly.toml")
@@ -562,6 +580,9 @@ func runFlyDeploy(inputPath string, assumeYes bool) error {
 		return err
 	}
 	printAppWarnings(app)
+	if err := validateFlyAuthForDeploy(app, "Fly deploy blocked"); err != nil {
+		return err
+	}
 	buildRoot, outputName := defaultBuildLayout(inputPath, "")
 	outputPath := targetOutputPath(buildRoot, outputName, runtimeTarget{OS: "linux", Arch: "amd64"})
 	flyDir := filepath.Join("deploy", "fly")
@@ -576,6 +597,23 @@ func runFlyDeploy(inputPath string, assumeYes bool) error {
 	if err != nil {
 		return err
 	}
+	regionCode, err := readFlyPrimaryRegion(flyTomlPath)
+	if err != nil {
+		return err
+	}
+	volumeName, err := readFlyVolumeName(flyTomlPath)
+	if err != nil {
+		return err
+	}
+	vmSize, err := readOptionalFlyTomlStringValue(flyTomlPath, "[vm]", "size")
+	if err != nil {
+		return err
+	}
+	vmMemory, err := readOptionalFlyTomlStringValue(flyTomlPath, "[vm]", "memory")
+	if err != nil {
+		return err
+	}
+	_, flyDBPath := resolveFlyDatabasePaths(app.Database, outputName)
 
 	flyCmd, err := findFlyCommand()
 	if err != nil {
@@ -587,7 +625,14 @@ func runFlyDeploy(inputPath string, assumeYes bool) error {
 			"Fly deploy",
 			[]string{
 				"This step publishes the current version of your app to Fly.io.",
-				"It will rebuild the Linux executable, use the generated " + colorizeCLI(cliSupportsANSIStream(os.Stdout), "\033[1;35m", "deploy/fly/fly.toml") + " config, and run " + colorizeCLI(cliSupportsANSIStream(os.Stdout), "\033[1;32m", "fly deploy") + ".",
+				"Fly app: " + colorizeCLI(useColor, "\033[1;36m", flyAppName),
+				"Region: " + colorizeCLI(useColor, "\033[1;36m", regionCode),
+				"App size: " + colorizeCLI(useColor, "\033[1;36m", vmSize),
+				"App memory: " + colorizeCLI(useColor, "\033[1;36m", vmMemory),
+				"Volume: " + colorizeCLI(useColor, "\033[1;36m", volumeName),
+				"Fly SQLite path: " + colorizeCLI(useColor, "\033[1;36m", flyDBPath),
+				"Config: " + colorizeCLI(useColor, "\033[1;35m", "deploy/fly/fly.toml"),
+				"It will rebuild the Linux executable and run " + colorizeCLI(cliSupportsANSIStream(os.Stdout), "\033[1;32m", "fly deploy") + ".",
 				"If the deploy succeeds, the Fly.io app URL will be opened automatically.",
 			},
 			"Fly deploy canceled",
@@ -649,6 +694,10 @@ func runFlyDeploy(inputPath string, assumeYes bool) error {
 }
 
 func runFlyDestroy(binaryName, inputPath string) error {
+	if _, err := parseMarFile(inputPath); err != nil {
+		return err
+	}
+
 	useColor := cliSupportsANSIStream(os.Stdout)
 	flyDir := filepath.Join("deploy", "fly")
 	flyTomlPath := filepath.Join(flyDir, "fly.toml")
@@ -692,8 +741,8 @@ func runFlyDestroy(binaryName, inputPath string) error {
 	}
 
 	fmt.Println()
-	fmt.Printf("  %s\n", "Destroying the Fly.io app")
-	if err := runFlyCLICommand(useColor, inputPath, "Destroy app", flyCmd, "apps", "destroy", flyAppName, "--yes"); err != nil {
+	fmt.Printf("  %s\n", colorizeCLI(useColor, "\033[1;34m", "Destroying the Fly.io app"))
+	if err := runFlyCLICommand(useColor, inputPath, "", flyCmd, "apps", "destroy", flyAppName, "--yes"); err != nil {
 		return err
 	}
 
@@ -755,7 +804,7 @@ func resolveFlyAppName(app *model.App) (string, error) {
 	fmt.Printf("%s\n", colorizeCLI(useColor, "\033[1m", "Fly app name"))
 	fmt.Printf("  This is the app name you will use on Fly.io.\n")
 	fmt.Printf("  Press Enter to use %s\n", colorizeCLI(useColor, "\033[1;36m", defaultName))
-	fmt.Printf("  %s ", colorizeCLI(useColor, "\033[1;36m", "Fly app name?"))
+	fmt.Printf("  %s ", colorizeCLI(useColor, "\033[1;36m", "Fly app name:"))
 
 	reader := bufio.NewReader(os.Stdin)
 	line, err := reader.ReadString('\n')
@@ -862,7 +911,7 @@ func resolveFlyRegion() (flyRegion, error) {
 
 	reader := bufio.NewReader(os.Stdin)
 	for {
-		fmt.Printf("\n  %s ", colorizeCLI(useColor, "\033[1;36m", "Region code?"))
+		fmt.Printf("\n  %s ", colorizeCLI(useColor, "\033[1;36m", "Region code:"))
 		line, err := reader.ReadString('\n')
 		if err != nil && strings.TrimSpace(line) == "" {
 			return flyRegion{}, err
@@ -882,6 +931,64 @@ func resolveFlyRegion() (flyRegion, error) {
 			colorizeCLI(useColor, "\033[1;32m", "fra"),
 		)
 	}
+}
+
+func resolveFlyAppMemory() (string, error) {
+	if value := strings.TrimSpace(os.Getenv("FLY_MEMORY")); value != "" {
+		memory, ok := normalizeFlyAppMemory(value)
+		if !ok {
+			return "", fmt.Errorf("invalid FLY_MEMORY %q: use one of %s", value, strings.Join(flyAppMemoryOptions, ", "))
+		}
+		return memory, nil
+	}
+	if !stdinIsTerminal() {
+		return defaultFlyAppMemory, nil
+	}
+
+	useColor := cliSupportsANSIStream(os.Stdout)
+	fmt.Printf("%s\n", colorizeCLI(useColor, "\033[1m", "App memory"))
+	fmt.Printf("  Smaller values cost less, but give the app less headroom.\n")
+	reader := bufio.NewReader(os.Stdin)
+	return promptFlyAppMemory(reader, os.Stdout, useColor)
+}
+
+func promptFlyAppMemory(reader *bufio.Reader, out io.Writer, useColor bool) (string, error) {
+	for {
+		fmt.Fprintf(out, "  %s\n", colorizeCLI(useColor, "\033[1;36m", "Choose app memory:"))
+		for i, option := range flyAppMemoryOptions {
+			label := option
+			if option == defaultFlyAppMemory {
+				label += " (default)"
+			}
+			fmt.Fprintf(out, "  %d. %s\n", i+1, label)
+		}
+		fmt.Fprintf(out, "\n  %s ", colorizeCLI(useColor, "\033[1;36m", "App memory:"))
+		line, err := reader.ReadString('\n')
+		if err != nil && strings.TrimSpace(line) == "" {
+			return "", err
+		}
+		answer := strings.TrimSpace(line)
+		if answer == "" {
+			return defaultFlyAppMemory, nil
+		}
+		if selected, ok := normalizeFlyAppMemory(answer); ok {
+			return selected, nil
+		}
+		if idx, err := strconv.Atoi(answer); err == nil && idx >= 1 && idx <= len(flyAppMemoryOptions) {
+			return flyAppMemoryOptions[idx-1], nil
+		}
+		fmt.Fprintf(out, "  %s\n", colorizeCLI(useColor, "\033[1;33m", "Choose one of the listed options, such as 1, 2, 512mb, or 1gb."))
+	}
+}
+
+func normalizeFlyAppMemory(value string) (string, bool) {
+	normalized := strings.ToLower(strings.TrimSpace(value))
+	for _, option := range flyAppMemoryOptions {
+		if normalized == option {
+			return option, true
+		}
+	}
+	return "", false
 }
 
 func findFlyRegion(code string) (flyRegion, bool) {
@@ -949,9 +1056,8 @@ func renderFlyToml(result flyInitResult) string {
 	fmt.Fprintf(&b, "    timeout = %q\n", "2s")
 	fmt.Fprintf(&b, "    grace_period = %q\n\n", "10s")
 	fmt.Fprintf(&b, "[[vm]]\n")
-	fmt.Fprintf(&b, "  memory = %q\n", "1gb")
-	fmt.Fprintf(&b, "  cpus = 1\n")
-	fmt.Fprintf(&b, "  memory_mb = 1024\n")
+	fmt.Fprintf(&b, "  size = %q\n", "shared-cpu-1x")
+	fmt.Fprintf(&b, "  memory = %q\n", result.AppMemory)
 	return b.String()
 }
 
@@ -996,16 +1102,58 @@ func placeholderEmailFlyInitError(email string) error {
 	fmt.Fprintf(&b, "\n")
 	fmt.Fprintf(&b, "  Example:\n")
 	fmt.Fprintf(&b, "    %s {\n", authKeyword)
-	fmt.Fprintf(&b, "      code_ttl_minutes %s\n", exampleValues("10"))
-	fmt.Fprintf(&b, "      session_ttl_hours %s\n", exampleValues("24"))
 	fmt.Fprintf(&b, "      email_transport %s\n", exampleValues("smtp"))
 	fmt.Fprintf(&b, "      email_from %s\n", exampleValues("\"no-reply@yourdomain.com\""))
-	fmt.Fprintf(&b, "      email_subject %s\n", exampleValues("\"Your login code\""))
 	fmt.Fprintf(&b, "      smtp_host %s\n", exampleValues("\"smtp.resend.com\""))
-	fmt.Fprintf(&b, "      smtp_port %s\n", exampleValues("587"))
 	fmt.Fprintf(&b, "      smtp_username %s\n", exampleValues("\"resend\""))
 	fmt.Fprintf(&b, "      smtp_password_env %s\n", exampleValues("\"RESEND_API_KEY\""))
-	fmt.Fprintf(&b, "      smtp_starttls %s\n", exampleValues("true"))
+	fmt.Fprintf(&b, "    }\n")
+	fmt.Fprintf(&b, "\n")
+	fmt.Fprintf(&b, "  Learn more:\n")
+	fmt.Fprintf(&b, "    %s\n", url)
+
+	return styledCLIError(strings.TrimRight(b.String(), "\n") + "\n")
+}
+
+func validateFlyAuthForDeploy(app *model.App, title string) error {
+	if app == nil || app.Auth == nil {
+		return nil
+	}
+
+	transport := strings.ToLower(strings.TrimSpace(app.Auth.EmailTransport))
+	if transport != "console" {
+		return nil
+	}
+	return consoleEmailFlyDeployError(title)
+}
+
+func consoleEmailFlyDeployError(title string) error {
+	useColor := cliSupportsANSIStream(os.Stderr)
+	fieldName := colorizeCLI(useColor, "\033[1m", "auth.email_transport")
+	fieldValue := colorizeCLI(useColor, "\033[36m", "console")
+	url := colorizeCLI(useColor, "\033[34m", "https://mar-lang.dev/#advanced/deploy")
+	authKeyword := colorizeCLI(useColor, "\033[1m", "auth")
+	exampleValues := func(value string) string {
+		return colorizeCLI(useColor, "\033[36m", value)
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "%s\n", colorizeCLI(useColor, "\033[1;31m", title))
+	fmt.Fprintf(&b, "  %s is set to %s\n", fieldName, fieldValue)
+	fmt.Fprintf(&b, "\n")
+	fmt.Fprintf(&b, "  Fly.io deploys require SMTP so login codes can be delivered to real users.\n")
+	fmt.Fprintf(&b, "  The console transport is only intended for local development.\n")
+	fmt.Fprintf(&b, "\n%s\n", colorizeCLI(useColor, "\033[1;33m", "Hint:"))
+	fmt.Fprintf(&b, "  Configure SMTP with a real email provider before provisioning or deploying.\n")
+	fmt.Fprintf(&b, "  We currently recommend Resend for the simplest setup.\n")
+	fmt.Fprintf(&b, "\n")
+	fmt.Fprintf(&b, "  Example:\n")
+	fmt.Fprintf(&b, "    %s {\n", authKeyword)
+	fmt.Fprintf(&b, "      email_transport %s\n", exampleValues("smtp"))
+	fmt.Fprintf(&b, "      email_from %s\n", exampleValues("\"no-reply@yourdomain.com\""))
+	fmt.Fprintf(&b, "      smtp_host %s\n", exampleValues("\"smtp.resend.com\""))
+	fmt.Fprintf(&b, "      smtp_username %s\n", exampleValues("\"resend\""))
+	fmt.Fprintf(&b, "      smtp_password_env %s\n", exampleValues("\"RESEND_API_KEY\""))
 	fmt.Fprintf(&b, "    }\n")
 	fmt.Fprintf(&b, "\n")
 	fmt.Fprintf(&b, "  Learn more:\n")
@@ -1048,6 +1196,7 @@ func printFlyInitSummary(inputPath string, result flyInitResult) {
 	fmt.Printf("  %s %s\n", colorizeCLI(useColor, "\033[1;36m", "Source:"), inputPath)
 	fmt.Printf("  %s %s\n", colorizeCLI(useColor, "\033[1;36m", "Fly app:"), result.FlyAppName)
 	fmt.Printf("  %s %s (%s)\n", colorizeCLI(useColor, "\033[1;36m", "Fly region:"), result.RegionName, result.RegionCode)
+	fmt.Printf("  %s %s\n", colorizeCLI(useColor, "\033[1;36m", "App memory:"), result.AppMemory)
 	fmt.Printf("  %s %s\n", colorizeCLI(useColor, "\033[1;36m", "Linux binary path:"), result.BinaryPath)
 	if result.DatabaseLocal != "" && result.DatabaseFly != "" {
 		fmt.Printf("  %s %s\n", colorizeCLI(useColor, "\033[1;36m", "SQLite path:"), result.DatabaseLocal)
@@ -1096,7 +1245,9 @@ func runFlyCLICommand(useColor bool, inputPath, title string, flyCmd string, arg
 	if len(args) > 0 {
 		display += " " + strings.Join(maskFlyCLIArgs(args), " ")
 	}
-	fmt.Printf("  %s\n", colorizeCLI(useColor, "\033[1;36m", title))
+	if strings.TrimSpace(title) != "" {
+		fmt.Printf("  %s\n", colorizeCLI(useColor, "\033[1;36m", title))
+	}
 	fmt.Printf("    %s\n", colorizeCLI(useColor, "\033[1;32m", display))
 
 	var captured bytes.Buffer
@@ -1180,7 +1331,7 @@ func resolveFlySecretValue(envName string) (string, error) {
 	useColor := cliSupportsANSIStream(os.Stdout)
 	fmt.Printf("\n  %s\n", colorizeCLI(useColor, "\033[1;36m", "SMTP secret"))
 	fmt.Printf("    %s %s\n", "Enter the value for", colorizeCLI(useColor, "\033[1;36m", envName))
-	fmt.Printf("    %s ", colorizeCLI(useColor, "\033[1;36m", "Value?"))
+	fmt.Printf("    %s ", colorizeCLI(useColor, "\033[1;36m", "Value:"))
 	value, err := readMaskedSecret(os.Stdin, os.Stdout)
 	if err != nil {
 		return "", err
@@ -1265,6 +1416,14 @@ func readFlyPrimaryRegion(flyTomlPath string) (string, error) {
 
 func readFlyVolumeName(flyTomlPath string) (string, error) {
 	return readFlyTomlStringValue(flyTomlPath, "mounts", "source")
+}
+
+func readOptionalFlyTomlStringValue(flyTomlPath, section, key string) (string, error) {
+	value, err := readFlyTomlStringValue(flyTomlPath, section, key)
+	if err != nil && strings.Contains(err.Error(), "missing ") {
+		return "", nil
+	}
+	return value, err
 }
 
 func readFlyTomlStringValue(flyTomlPath, section, key string) (string, error) {

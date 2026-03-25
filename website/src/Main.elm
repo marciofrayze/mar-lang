@@ -796,7 +796,7 @@ docSearchSectionText maybeSectionId =
                     "Getting Started. Install Mar, iterate quickly with hot reload, and deploy as a single executable."
 
                 "install" ->
-                    "Install. Download Mar from the GitHub releases page. Add mar to your PATH. Check mar version. Choose an editor. Try mar edit in the terminal for quick experiments. It is extremely experimental. For a fuller editing experience, use the VSCode extension. Install Mar Developer Tools from Visual Studio Marketplace. The VSCode extension requires mar on your PATH to work correctly."
+                    "Install. Download Mar from the GitHub releases page. Add mar to your PATH. Check mar version. Choose an editor. Try mar edit in the terminal for quick experiments. It is extremely experimental. For a fuller editing experience, use the VSCode extension or the Sublime Text package. The editor plugins require mar on your PATH to work correctly."
 
                 "quick-start" ->
                     "Quick Start. Create todo.mar. Develop. Runs the app locally with hot reload and opens the Admin UI while you edit todo.mar. Compile. Run mar compile to package self-contained executables for all supported platforms and generate frontend clients. Serve. Choose the target folder for your platform, start that executable, and open the printed Admin URL. Mar compile produces a single self-contained executable per target platform. Each one already includes API, auth, embedded Admin UI, monitoring dashboards, request logs, and SQLite backup tools. Ready for the next step. Next: Advanced Guide."
@@ -878,10 +878,13 @@ docSearchSectionText maybeSectionId =
                     "Compiler pipeline. Parse. Validate. Generate clients. Build bundle. Stamp prebuilt runtimes. Single executable per target platform. Typed clients. Packaged executables."
 
                 "examples" ->
-                    "Examples. Browse the Todo API and BookStore API examples."
+                    "Examples. Browse the Shared Todo API, Personal Todo API, and BookStore API examples."
 
-                "todo-api-example" ->
-                    "Todo API example. Minimal CRUD example using todo.mar."
+                "shared-todo-api-example" ->
+                    "Shared Todo API example. Minimal CRUD example using shared-todo.mar."
+
+                "personal-todo-api-example" ->
+                    "Personal Todo API example. User-owned todos with admin access, using personal-todo.mar."
 
                 "bookstore-api-example" ->
                     "BookStore API example. Auth, roles, and transactional action example using store.mar. placeBookOrder."
@@ -934,8 +937,8 @@ docSearchEntries =
     , { title = "Choose an editor"
       , route = GettingStarted
       , sectionId = Just "install"
-      , summary = "Try mar edit in the terminal for quick experiments. It is extremely experimental. For a fuller editing experience, use the VSCode extension."
-      , keywords = [ "vscode", "editor", "extension", "formatting", "lsp", "syntax highlighting", "Mar Developer Tools", "marketplace", "mar edit", "terminal editor", "experimental" ]
+      , summary = "Try mar edit in the terminal for quick experiments. For a fuller editing experience, use the VSCode extension or the Sublime Text package."
+      , keywords = [ "vscode", "sublime", "sublime text", "editor", "extension", "plugin", "formatting", "lsp", "syntax highlighting", "Mar Developer Tools", "marketplace", "Package Control", "mar edit", "terminal editor", "experimental" ]
       }
     , { title = "Advanced Fundamentals"
       , route = AdvancedFundamentals
@@ -1084,14 +1087,20 @@ docSearchEntries =
     , { title = "Examples"
       , route = Examples
       , sectionId = Just "examples"
-      , summary = "Browse the Todo API and BookStore API examples."
-      , keywords = [ "examples", "todo", "store", "bookstore", "sample apps" ]
+      , summary = "Browse the Shared Todo API, Personal Todo API, and BookStore API examples."
+      , keywords = [ "examples", "shared todo", "personal todo", "store", "bookstore", "sample apps" ]
       }
-    , { title = "Todo API example"
+    , { title = "Shared Todo API example"
       , route = Examples
-      , sectionId = Just "todo-api-example"
-      , summary = "Minimal CRUD example using todo.mar."
-      , keywords = [ "todo", "todo.mar", "minimal crud", "example" ]
+      , sectionId = Just "shared-todo-api-example"
+      , summary = "Minimal CRUD example using shared-todo.mar."
+      , keywords = [ "shared todo", "shared-todo.mar", "minimal crud", "example" ]
+      }
+    , { title = "Personal Todo API example"
+      , route = Examples
+      , sectionId = Just "personal-todo-api-example"
+      , summary = "User-owned todo example with admin access using personal-todo.mar."
+      , keywords = [ "personal todo", "personal-todo.mar", "belongs_to user", "admin", "example" ]
       }
     , { title = "BookStore API example"
       , route = Examples
@@ -1301,8 +1310,8 @@ advancedLanguagePage model =
                 , docSubsectionTitle "Fundamentals"
                 , bodyText "Mar reads top-to-bottom as a declarative app definition. A Mar app is centered around entities, relationships, rules, authorization, auth configuration, and typed actions. Built-in field types are Int, String, Bool, Float, and Posix."
                 , docSubsectionTitle "Quick Examples"
-                , codeFromString model "todo.mar" 320 todoExampleSource
-                , codeFromString model "relationships.mar" 260 relationshipExampleSource
+                , codeFromString model "shared-todo.mar" 320 sharedTodoExampleSource
+                , codeFromString model "personal-todo.mar" 300 relationshipExampleSource
                 , codeFromString model "action.mar" 575 actionExampleSource
                 ]
             , anchoredSection "syntax-model"
@@ -1743,14 +1752,23 @@ examplesPage model =
         [ width fill
         , spacing 20
         ]
-        [ panelWithAttributes [ htmlAttribute (HtmlAttr.id "examples"), htmlAttribute (HtmlAttr.id "todo-api-example") ]
+        [ panelWithAttributes [ htmlAttribute (HtmlAttr.id "examples"), htmlAttribute (HtmlAttr.id "shared-todo-api-example") ]
             [ row [ width fill, spacing 12 ]
                 [ column [ width fill, spacing 4 ]
-                    [ paragraph [ Font.size 22, Font.bold, Font.color (rgb255 20 53 89) ] [ text "Todo API" ]
+                    [ paragraph [ Font.size 22, Font.bold, Font.color (rgb255 20 53 89) ] [ text "Shared Todo API" ]
                     , paragraph [ Font.size 15, Font.color (rgb255 95 114 138) ] [ text "Minimal CRUD example" ]
                     ]
                 ]
-            , codeFromString model "todo.mar" 360 todoExampleSource
+            , codeFromString model "shared-todo.mar" 360 sharedTodoExampleSource
+            ]
+        , panelWithAttributes [ htmlAttribute (HtmlAttr.id "personal-todo-api-example") ]
+            [ row [ width fill, spacing 12 ]
+                [ column [ width fill, spacing 4 ]
+                    [ paragraph [ Font.size 22, Font.bold, Font.color (rgb255 20 53 89) ] [ text "Personal Todo API" ]
+                    , paragraph [ Font.size 15, Font.color (rgb255 95 114 138) ] [ text "User-owned todos with admin access" ]
+                    ]
+                ]
+            , codeFromString model "personal-todo.mar" 420 personalTodoExampleSource
             ]
         , panelWithAttributes [ htmlAttribute (HtmlAttr.id "bookstore-api-example") ]
             [ row [ width fill, spacing 12 ]
@@ -1933,7 +1951,25 @@ pathInstallRow model =
             [ width fill
             , spacing 8
             ]
-            [ installSubitem model "macOS/Linux" """mv mar /usr/local/bin/mar
+            [ column
+                [ width fill
+                , spacing 6
+                , Background.color (rgb255 250 252 255)
+                , Border.width 1
+                , Border.color (rgb255 223 232 244)
+                , Border.rounded 10
+                , paddingEach { top = 10, right = 10, bottom = 10, left = 10 }
+                ]
+                [ el [ Font.size 13, Font.semiBold, Font.color (rgb255 70 93 121) ] (text "macOS")
+                , paragraph [ Font.size 15, Font.color (rgb255 72 95 123), width fill ]
+                    [ text "If you installed Mar using the macOS "
+                    , inlineCommand ".pkg"
+                    , text ", "
+                    , inlineCommand "mar"
+                    , text " should already be on your PATH, with no manual setup required."
+                    ]
+                ]
+            , installSubitem model "Linux" """mv mar /usr/local/bin/mar
 chmod +x /usr/local/bin/mar"""
             , column
                 [ width fill
@@ -1947,20 +1983,13 @@ chmod +x /usr/local/bin/mar"""
                 [ el [ Font.size 13, Font.semiBold, Font.color (rgb255 70 93 121) ] (text "Windows")
                 , column [ width fill, spacing 6 ]
                     [ paragraph [ Font.size 15, Font.color (rgb255 72 95 123), width fill ]
-                        [ text "1. Extract "
-                        , inlineCommand "mar.exe"
-                        , text " to a folder such as "
-                        , inlineCommand "C:\\Tools\\mar"
-                        , text "."
-                        ]
-                    , paragraph [ Font.size 15, Font.color (rgb255 72 95 123), width fill ]
-                        [ text "2. Open "
+                        [ text "Open "
                         , el [ Font.color (rgb255 28 66 108), Font.semiBold ] (text "Windows Environment Variables")
                         , text ", edit "
                         , inlineCommand "Path"
-                        , text ", and add that folder (for example, "
-                        , inlineCommand "C:\\Tools\\mar"
-                        , text ")."
+                        , text ", and add the folder where "
+                        , inlineCommand "mar.exe"
+                        , text " was extracted."
                         ]
                     ]
                 ]
@@ -1983,14 +2012,20 @@ pluginInstallRow model =
             [ stepBadge "4"
             , el [ Font.bold, Font.size 18, Font.color (rgb255 28 66 108) ] (text "Choose an editor")
             ]
-        , wrappedRow
+        , column
             [ width fill
             , spacing 10
             ]
             [ el
-                [ width (fill |> minimum 300 |> maximum 520)
-                , alignTop
-                ]
+                [ width fill ]
+                (column
+                    [ width fill
+                    , spacing 10
+                    ]
+                    [ editOptionCard model "Recommended" "VSCode" [ text "Use the VSCode extension for the fuller editing experience. Install ", newTabLink [ Font.semiBold, Font.color (rgb255 28 66 108), Font.underline ] { url = "https://marketplace.visualstudio.com/items?itemName=mar-lang.mar-language-support", label = text "Mar Developer Tools" }, text " from Visual Studio Marketplace. Make sure ", inlineCommand "mar", text " is on your PATH so the extension works correctly." ] "code todo.mar" False ]
+                )
+            , el
+                [ width fill ]
                 (column
                     [ width fill
                     , spacing 10
@@ -2008,59 +2043,42 @@ pluginInstallRow model =
                             [ width fill
                             , spacing 8
                             ]
-                            [ editBadge "Recommended" False
-                            , el [ Font.bold, Font.size 16, Font.color (rgb255 28 66 108) ] (text "VSCode")
+                            [ editBadge "Supported" False
+                            , el [ Font.bold, Font.size 16, Font.color (rgb255 28 66 108) ] (text "Sublime Text")
                             ]
                         , wrappedRow
                             [ width fill
                             , spacing 8
                             ]
-                            [ commandSnippet model "code todo.mar" ]
+                            [ commandSnippet model "subl todo.mar" ]
                         , paragraph
                             [ Font.size 14
                             , Font.color (rgb255 83 105 132)
                             , width fill
                             ]
-                            [ text "Use the VSCode extension for the fuller editing experience." ]
-                        ]
-                    , column
-                        [ width fill
-                        , spacing 6
-                        , Background.color (rgb255 250 253 255)
-                        , Border.width 1
-                        , Border.color (rgb255 222 232 244)
-                        , Border.rounded 10
-                        , padding 12
-                        ]
-                        [ paragraph [ Font.size 14, Font.color (rgb255 70 93 121), width fill ]
+                            [ text "Use the official Sublime Text package for syntax highlighting, completions, and LSP integration." ]
+                        , paragraph
+                            [ Font.size 14
+                            , Font.color (rgb255 72 95 123)
+                            , width fill
+                            ]
                             [ text "Install "
-                            , newTabLink [ Font.semiBold, Font.color (rgb255 28 66 108), Font.underline ]
-                                { url = "https://marketplace.visualstudio.com/items?itemName=mar-lang.mar-language-support"
-                                , label = text "Mar Developer Tools"
-                                }
-                            , text " from Visual Studio Marketplace."
+                            , inlineCommand "Mar"
+                            , text " via Package Control."
                             ]
                         , paragraph
                             [ Font.size 14
                             , Font.color (rgb255 72 95 123)
                             , width fill
                             ]
-                            [ text "Make sure "
+                            [ text "For LSP features, install the Sublime "
+                            , inlineCommand "LSP"
+                            , text " package and make sure "
                             , inlineCommand "mar"
-                            , text " is on your PATH so the extension works correctly."
+                            , text " is on your PATH."
                             ]
                         ]
-                    ]
-                )
-            , el
-                [ width (fill |> minimum 300 |> maximum 520)
-                , alignTop
-                ]
-                (column
-                    [ width fill
-                    , spacing 10
-                    ]
-                    [ editOptionCard model "Experimental" "Terminal editor" [ text "Feeling adventurous? Try the built-in experimental terminal editor." ] "mar edit todo.mar" True ]
+                    , editOptionCard model "Experimental" "Terminal editor" [ text "Feeling adventurous? Try the built-in experimental terminal editor." ] "mar edit todo.mar" True ]
                 )
             ]
         ]
@@ -3041,7 +3059,7 @@ isMarBinaryToken chunk =
                 |> List.head
                 |> Maybe.withDefault chunk
     in
-    List.member normalized [ "mar", "code" ]
+    List.member normalized [ "mar", "code", "subl" ]
 
 
 isCLICommandToken : String -> Bool
@@ -3663,7 +3681,7 @@ commentToken value =
 
 codeBlock : Model -> Element Msg
 codeBlock model =
-    codeFromString model "todo.mar" 340 todoExampleSource
+    codeFromString model "shared-todo.mar" 340 sharedTodoExampleSource
 
 
 token : String -> String -> Html.Html msg
@@ -3671,17 +3689,17 @@ token color value =
     Html.span [ HtmlAttr.style "color" color ] [ Html.text value ]
 
 
-todoExampleSource : String
-todoExampleSource =
+sharedTodoExampleSource : String
+sharedTodoExampleSource =
     """-- A minimal CRUD application.
 -- This example shows the basic Mar structure:
 -- app, entity, rule, and authorization.
 
 -- Application
-app TodoApi
+app SharedTodo
 
 -- Entity
-entity Todo {
+entity SharedTodo {
   title: String
   done: Bool
 
@@ -3691,11 +3709,40 @@ entity Todo {
 """
 
 
-relationshipExampleSource : String
-relationshipExampleSource =
-    """entity Todo {
+personalTodoExampleSource : String
+personalTodoExampleSource =
+    """-- A personal todo application.
+-- Each user sees their own todos.
+-- Admin can read and manage every todo.
+
+app PersonalTodo
+
+entity PersonalTodo {
   title: String
   done: Bool
+
+  -- This creates a user relationship for each todo.
+  -- The authorize rules below use it so users only see their own todos.
+  belongs_to User
+
+  authorize read when user_authenticated and (user == user_id or user_role == "admin")
+  authorize create when user_authenticated and user == user_id
+  authorize update when user_authenticated and (user == user_id or user_role == "admin")
+  authorize delete when user_authenticated and (user == user_id or user_role == "admin")
+}
+"""
+
+
+relationshipExampleSource : String
+relationshipExampleSource =
+    """app PersonalTodo
+
+entity PersonalTodo {
+  title: String
+  done: Bool
+
+  -- This creates a user relationship for each todo.
+  -- The authorize rules below use it so users only see their own todos.
   belongs_to User
 
   authorize all when user_authenticated and (user == user_id or user_role == "admin")
@@ -3724,10 +3771,37 @@ entity Enrollment {
 actionExampleSource : String
 actionExampleSource =
     """-- A transactional action example.
--- This example shows how one action can load,
--- create, update, and delete in a single atomic operation.
+-- This is a complete app, not just an action snippet.
 
--- Action input
+app OrderWorkflow
+
+entity Inventory {
+  stock: Int
+
+  authorize all when true
+}
+
+entity Order {
+  userId: Int
+  total: Float
+  status: String
+
+  authorize all when true
+}
+
+entity Cart {
+  checkedOut: Bool
+
+  authorize all when true
+}
+
+entity AuditLog {
+  userId: Int
+  event: String
+
+  authorize all when true
+}
+
 type alias PlaceOrderInput =
   { userId : Int
   , inventoryId : Int
@@ -3735,7 +3809,6 @@ type alias PlaceOrderInput =
   , total : Float
   }
 
--- Atomic action
 action placeOrder {
   input: PlaceOrderInput
 

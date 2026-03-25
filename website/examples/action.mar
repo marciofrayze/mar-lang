@@ -1,0 +1,63 @@
+app OrderWorkflow
+
+entity Inventory {
+  stock: Int
+
+  authorize all when true
+}
+
+entity Order {
+  userId: Int
+  total: Float
+  status: String
+
+  authorize all when true
+}
+
+entity Cart {
+  checkedOut: Bool
+
+  authorize all when true
+}
+
+entity AuditLog {
+  userId: Int
+  event: String
+
+  authorize all when true
+}
+
+type alias PlaceOrderInput =
+  { userId : Int
+  , inventoryId : Int
+  , cartId : Int
+  , total : Float
+  }
+
+action placeOrder {
+  input: PlaceOrderInput
+
+  inventory = load Inventory {
+    id: input.inventoryId
+  }
+
+  order = create Order {
+    userId: input.userId
+    total: input.total
+    status: "created"
+  }
+
+  updatedInventory = update Inventory {
+    id: inventory.id
+    stock: inventory.stock - 1
+  }
+
+  deletedCart = delete Cart {
+    id: input.cartId
+  }
+
+  audit = create AuditLog {
+    userId: order.userId
+    event: "order created"
+  }
+}

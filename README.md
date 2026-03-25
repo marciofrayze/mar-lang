@@ -7,7 +7,8 @@
 
 Examples:
 
-- [examples/todo.mar](examples/todo.mar)
+- [examples/shared-todo.mar](examples/shared-todo.mar)
+- [examples/personal-todo.mar](examples/personal-todo.mar)
 - [examples/store.mar](examples/store.mar)
 
 Note: parts of this project were developed with the assistance of generative AI tools.
