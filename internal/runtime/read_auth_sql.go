@@ -8,9 +8,11 @@ import (
 )
 
 type readAuthSQLExpr struct {
-	sql    string
-	args   []any
-	isNull bool
+	sql     string
+	args    []any
+	isNull  bool
+	isBool  bool
+	boolVal bool
 }
 
 func (r *Runtime) buildListQuery(entity *model.Entity, auth authSession) (string, []any, error) {
@@ -51,6 +53,12 @@ func (r *Runtime) listReadAuthorizationWhere(entity *model.Entity, auth authSess
 	if !ok || compiled.sql == "" {
 		return "", nil, false
 	}
+	if compiled.isBool {
+		if compiled.boolVal {
+			return "", nil, false
+		}
+		return "0", nil, true
+	}
 	return compiled.sql, compiled.args, true
 }
 
@@ -75,8 +83,11 @@ func (r *Runtime) compileReadAuthPredicateSQL(entity *model.Entity, auth authSes
 		if !ok {
 			return readAuthSQLExpr{}, false
 		}
+		if right.isBool {
+			return readAuthSQLExpr{sql: boolSQL(!right.boolVal), isBool: true, boolVal: !right.boolVal}, true
+		}
 		return readAuthSQLExpr{
-			sql:  fmt.Sprintf("(NOT (%s))", right.sql),
+			sql:  fmt.Sprintf("(NOT %s)", right.sql),
 			args: append([]any{}, right.args...),
 		}, true
 	case expr.Binary:
@@ -90,8 +101,11 @@ func (r *Runtime) compileReadAuthPredicateSQL(entity *model.Entity, auth authSes
 			if !ok {
 				return readAuthSQLExpr{}, false
 			}
+			if simplified, ok := simplifyLogicalPredicateSQL(n.Op, left, right); ok {
+				return simplified, true
+			}
 			return readAuthSQLExpr{
-				sql:  fmt.Sprintf("((%s) %s (%s))", left.sql, sqlLogicalOp(n.Op), right.sql),
+				sql:  fmt.Sprintf("(%s %s %s)", left.sql, sqlLogicalOp(n.Op), right.sql),
 				args: append(append([]any{}, left.args...), right.args...),
 			}, true
 		case "==", "!=", ">", ">=", "<", "<=":
@@ -103,13 +117,16 @@ func (r *Runtime) compileReadAuthPredicateSQL(entity *model.Entity, auth authSes
 			if !ok {
 				return readAuthSQLExpr{}, false
 			}
+			if simplified, ok := simplifyComparisonPredicateSQL(n.Op, left, right); ok {
+				return simplified, true
+			}
 			if (n.Op == "==" || n.Op == "!=") && (left.isNull || right.isNull) {
 				op := "IS"
 				if n.Op == "!=" {
 					op = "IS NOT"
 				}
 				return readAuthSQLExpr{
-					sql:  fmt.Sprintf("((%s) %s (%s))", left.sql, op, right.sql),
+					sql:  fmt.Sprintf("(%s %s %s)", left.sql, op, right.sql),
 					args: append(append([]any{}, left.args...), right.args...),
 				}, true
 			}
@@ -117,7 +134,7 @@ func (r *Runtime) compileReadAuthPredicateSQL(entity *model.Entity, auth authSes
 				return readAuthSQLExpr{}, false
 			}
 			return readAuthSQLExpr{
-				sql:  fmt.Sprintf("((%s) %s (%s))", left.sql, n.Op, right.sql),
+				sql:  fmt.Sprintf("(%s %s %s)", left.sql, sqlComparisonOp(n.Op), right.sql),
 				args: append(append([]any{}, left.args...), right.args...),
 			}, true
 		default:
@@ -157,11 +174,11 @@ func readAuthPredicateExprFromValue(value any) (readAuthSQLExpr, bool) {
 	switch v := value.(type) {
 	case bool:
 		if v {
-			return readAuthSQLExpr{sql: "1"}, true
+			return readAuthSQLExpr{sql: "1", isBool: true, boolVal: true}, true
 		}
-		return readAuthSQLExpr{sql: "0"}, true
+		return readAuthSQLExpr{sql: "0", isBool: true, boolVal: false}, true
 	case nil:
-		return readAuthSQLExpr{sql: "0"}, true
+		return readAuthSQLExpr{sql: "0", isBool: true, boolVal: false}, true
 	default:
 		return readAuthSQLExpr{}, false
 	}
@@ -222,4 +239,77 @@ func sqlLogicalOp(op string) string {
 		return "AND"
 	}
 	return "OR"
+}
+
+func sqlComparisonOp(op string) string {
+	if op == "==" {
+		return "="
+	}
+	return op
+}
+
+func boolSQL(value bool) string {
+	if value {
+		return "1"
+	}
+	return "0"
+}
+
+func simplifyLogicalPredicateSQL(op string, left, right readAuthSQLExpr) (readAuthSQLExpr, bool) {
+	if !left.isBool && !right.isBool {
+		return readAuthSQLExpr{}, false
+	}
+
+	switch op {
+	case "and":
+		if left.isBool && !left.boolVal {
+			return readAuthSQLExpr{sql: "0", isBool: true, boolVal: false}, true
+		}
+		if right.isBool && !right.boolVal {
+			return readAuthSQLExpr{sql: "0", isBool: true, boolVal: false}, true
+		}
+		if left.isBool && left.boolVal {
+			return right, true
+		}
+		if right.isBool && right.boolVal {
+			return left, true
+		}
+	case "or":
+		if left.isBool && left.boolVal {
+			return readAuthSQLExpr{sql: "1", isBool: true, boolVal: true}, true
+		}
+		if right.isBool && right.boolVal {
+			return readAuthSQLExpr{sql: "1", isBool: true, boolVal: true}, true
+		}
+		if left.isBool && !left.boolVal {
+			return right, true
+		}
+		if right.isBool && !right.boolVal {
+			return left, true
+		}
+	}
+
+	return readAuthSQLExpr{}, false
+}
+
+func simplifyComparisonPredicateSQL(op string, left, right readAuthSQLExpr) (readAuthSQLExpr, bool) {
+	if len(left.args) == 1 && len(right.args) == 1 && left.sql == "?" && right.sql == "?" {
+		result, ok := compareReadAuthConstantArgs(op, left.args[0], right.args[0])
+		if !ok {
+			return readAuthSQLExpr{}, false
+		}
+		return readAuthSQLExpr{sql: boolSQL(result), isBool: true, boolVal: result}, true
+	}
+	return readAuthSQLExpr{}, false
+}
+
+func compareReadAuthConstantArgs(op string, left, right any) (bool, bool) {
+	switch op {
+	case "==":
+		return left == right, true
+	case "!=":
+		return left != right, true
+	default:
+		return false, false
+	}
 }

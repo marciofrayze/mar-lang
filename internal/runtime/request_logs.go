@@ -121,6 +121,8 @@ type requestLogEntry struct {
 	Method       string            `json:"method"`
 	Path         string            `json:"path"`
 	Route        string            `json:"route"`
+	UserEmail    string            `json:"userEmail,omitempty"`
+	UserRole     string            `json:"userRole,omitempty"`
 	Status       int               `json:"status"`
 	DurationMs   float64           `json:"durationMs"`
 	Timestamp    string            `json:"timestamp"`
@@ -231,8 +233,11 @@ func requestLogsBufferSize(app *model.App) int {
 	return clampRequestBuffer(app.System.RequestLogsBuffer)
 }
 
-func (r *Runtime) captureRequestLog(req *http.Request, requestID, route string, status int, duration time.Duration, errMessage string) {
+func (r *Runtime) captureRequestLog(req *http.Request, requestID, route string, status int, duration time.Duration, errMessage string, auth authSession) {
 	if r == nil || r.requestLogs == nil {
+		return
+	}
+	if strings.TrimSpace(route) == "/health" {
 		return
 	}
 
@@ -254,6 +259,8 @@ func (r *Runtime) captureRequestLog(req *http.Request, requestID, route string, 
 		Method:       req.Method,
 		Path:         req.URL.Path,
 		Route:        route,
+		UserEmail:    strings.TrimSpace(auth.Email),
+		UserRole:     requestLogUserRole(auth),
 		Status:       status,
 		DurationMs:   duration.Seconds() * 1000,
 		Timestamp:    time.Now().Format("2006-01-02 15:04:05"),
@@ -273,6 +280,8 @@ func sanitizeRequestLogs(entries []requestLogEntry) []requestLogEntry {
 			Method:       entry.Method,
 			Path:         sanitizeSensitiveText(entry.Path),
 			Route:        entry.Route,
+			UserEmail:    entry.UserEmail,
+			UserRole:     entry.UserRole,
 			Status:       entry.Status,
 			DurationMs:   entry.DurationMs,
 			Timestamp:    entry.Timestamp,
@@ -293,6 +302,33 @@ func sanitizeRequestLogs(entries []requestLogEntry) []requestLogEntry {
 		out = append(out, sanitized)
 	}
 	return out
+}
+
+func requestLogUserRole(auth authSession) string {
+	if auth.Role == nil {
+		return ""
+	}
+	return strings.TrimSpace(fmt.Sprint(auth.Role))
+}
+
+func (r *Runtime) rememberRequestAuth(requestID string, auth authSession) {
+	if r == nil || strings.TrimSpace(requestID) == "" {
+		return
+	}
+	r.requestAuthMu.Lock()
+	defer r.requestAuthMu.Unlock()
+	r.requestAuthByID[requestID] = auth
+}
+
+func (r *Runtime) takeRequestAuth(requestID string) authSession {
+	if r == nil || strings.TrimSpace(requestID) == "" {
+		return authSession{}
+	}
+	r.requestAuthMu.Lock()
+	defer r.requestAuthMu.Unlock()
+	auth := r.requestAuthByID[requestID]
+	delete(r.requestAuthByID, requestID)
+	return auth
 }
 
 func sanitizeSQLForLogs(sqlText string) string {

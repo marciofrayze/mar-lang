@@ -325,6 +325,8 @@ type alias RequestLogEntry =
     , method : String
     , path : String
     , route : String
+    , userEmail : Maybe String
+    , userRole : Maybe String
     , status : Int
     , durationMs : Float
     , timestamp : String
@@ -2292,15 +2294,17 @@ requestLogsPayloadDecoder =
 requestLogEntryDecoder : Decode.Decoder RequestLogEntry
 requestLogEntryDecoder =
     Decode.map8
-        (\id method path route status durationMs timestamp queryCount ->
+        (\id method path route userInfo status durationMs timing ->
             { id = id
             , method = method
             , path = path
             , route = route
+            , userEmail = Tuple.first userInfo
+            , userRole = Tuple.second userInfo
             , status = status
             , durationMs = durationMs
-            , timestamp = timestamp
-            , queryCount = queryCount
+            , timestamp = Tuple.first timing
+            , queryCount = Tuple.second timing
             , queryTimeMs = 0
             , errorMessage = ""
             , queries = []
@@ -2310,10 +2314,16 @@ requestLogEntryDecoder =
         (Decode.field "method" Decode.string)
         (Decode.field "path" Decode.string)
         (Decode.field "route" Decode.string)
+        (Decode.map2 Tuple.pair
+            (Decode.oneOf [ Decode.field "userEmail" (Decode.nullable Decode.string), Decode.succeed Nothing ])
+            (Decode.oneOf [ Decode.field "userRole" (Decode.nullable Decode.string), Decode.succeed Nothing ])
+        )
         (Decode.field "status" Decode.int)
         (Decode.field "durationMs" Decode.float)
-        (Decode.field "timestamp" Decode.string)
-        (Decode.field "queryCount" Decode.int)
+        (Decode.map2 Tuple.pair
+            (Decode.field "timestamp" Decode.string)
+            (Decode.field "queryCount" Decode.int)
+        )
         |> Decode.andThen
             (\base ->
                 Decode.map3
@@ -6223,6 +6233,28 @@ viewRequestLogEntry entry =
 
         querySummary =
             String.fromInt entry.queryCount ++ " " ++ queryLabel ++ ", " ++ formatMs entry.queryTimeMs
+
+        userSummary =
+            case ( entry.userEmail, entry.userRole ) of
+                ( Just email, Just role ) ->
+                    if String.trim role == "" then
+                        "User: " ++ email
+
+                    else
+                        "User: " ++ email ++ " (" ++ role ++ ")"
+
+                ( Just email, Nothing ) ->
+                    "User: " ++ email
+
+                ( Nothing, Just role ) ->
+                    if String.trim role == "" then
+                        "User: Unauthenticated"
+
+                    else
+                        "Role: " ++ role
+
+                ( Nothing, Nothing ) ->
+                    "User: Unauthenticated"
     in
     column
         (cupertinoInsetCardAttrs 12 ++ [ width fill, spacing 8 ])
@@ -6241,6 +6273,11 @@ viewRequestLogEntry entry =
                     , el [ Font.size 12, Font.color (rgb255 93 103 120) ] (text querySummary)
                     ]
               ]
+            , if String.trim userSummary /= "" then
+                [ el [ Font.size 12, Font.color (rgb255 93 103 120) ] (text userSummary) ]
+
+              else
+                []
             , if String.trim entry.errorMessage /= "" then
                 [ paragraph [ Font.size 12, Font.color (rgb255 176 60 46) ] [ text ("Error: " ++ entry.errorMessage) ] ]
 

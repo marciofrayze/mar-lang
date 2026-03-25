@@ -34,6 +34,8 @@ type Runtime struct {
 	metrics         *metricsCollector
 	requestLogs     *requestLogStore
 	dbQueries       *dbQueryCollector
+	requestAuthMu   sync.Mutex
+	requestAuthByID map[string]authSession
 	authRateLimit   *authRateLimiter
 	authLogOnce     sync.Once
 	requestTraceID  uint64
@@ -138,6 +140,7 @@ func New(app *model.App) (*Runtime, error) {
 		metrics:        newMetricsCollector(),
 		requestLogs:    newRequestLogStore(requestLogsBufferSize(app)),
 		dbQueries:      newDBQueryCollector(requestLogsBufferSize(app)),
+		requestAuthByID: map[string]authSession{},
 		authRateLimit:  newAuthRateLimiter(authRequestCodeRateLimitPerMinute(app), authLoginRateLimitPerMinute(app)),
 	}
 	db.SetQueryHook(func(event sqlitecli.QueryEvent) {
@@ -295,7 +298,7 @@ func (r *Runtime) handleHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 		duration := time.Since(startedAt)
 		r.metrics.recordRequest(req.Method, routeLabel, status, duration)
-		r.captureRequestLog(req, requestID, routeLabel, status, duration, requestError)
+		r.captureRequestLog(req, requestID, routeLabel, status, duration, requestError, r.takeRequestAuth(requestID))
 	}
 
 	setCORSHeaders(writer)
@@ -393,6 +396,7 @@ func (r *Runtime) route(w http.ResponseWriter, req *http.Request, requestID stri
 	if err != nil {
 		return err
 	}
+	r.rememberRequestAuth(requestID, auth)
 
 	if method == http.MethodGet && path == "/_mar/perf" {
 		if !r.authEnabled() {

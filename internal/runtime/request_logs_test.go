@@ -55,6 +55,8 @@ func TestRequestLogsEndpointRequiresAuthAndReturnsCapturedLogs(t *testing.T) {
 	}
 	type loggedRequest struct {
 		Path       string        `json:"path"`
+		UserEmail  string        `json:"userEmail"`
+		UserRole   string        `json:"userRole"`
 		QueryCount int           `json:"queryCount"`
 		Queries    []loggedQuery `json:"queries"`
 	}
@@ -83,6 +85,9 @@ func TestRequestLogsEndpointRequiresAuthAndReturnsCapturedLogs(t *testing.T) {
 	for _, requestLog := range payload.Logs {
 		if requestLog.Path == "/todos" {
 			foundTodoList = true
+			if requestLog.UserEmail != "owner@example.com" {
+				t.Fatalf("expected request log user email, got %+v", requestLog)
+			}
 			if requestLog.QueryCount < 1 {
 				t.Fatalf("expected /todos to execute at least one query, got %d", requestLog.QueryCount)
 			}
@@ -262,6 +267,43 @@ entity Todo {
 	}
 }
 
+func TestRequestLogsOmitWhereForAdminListWhenReadRuleIsAlwaysTrue(t *testing.T) {
+	requireSQLite3(t)
+
+	r := mustNewRuntimeFromSource(t, filepath.Join(t.TempDir(), "request-logs-read-pushdown-admin.db"), `
+app TodoReadFilter
+
+auth {
+  email_transport console
+}
+
+entity Todo {
+  title: String
+  belongs_to User
+
+  authorize read when user_authenticated and (user == user_id or user_role == "admin")
+}
+`)
+
+	adminCode := requestCodeAndUseKnownCode(t, r, "owner@example.com")
+	adminToken := loginWithCodeAndReadToken(t, r, "owner@example.com", adminCode)
+
+	listRec := doRuntimeRequest(r, http.MethodGet, "/todos", "", adminToken)
+	if listRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for GET /todos, got %d body=%s", listRec.Code, listRec.Body.String())
+	}
+
+	logsRec := doRuntimeRequest(r, http.MethodGet, "/_mar/request-logs?limit=20", "", adminToken)
+	if logsRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for request logs, got %d body=%s", logsRec.Code, logsRec.Body.String())
+	}
+
+	body := logsRec.Body.String()
+	if strings.Contains(body, `FROM \"todos\" WHERE`) {
+		t.Fatalf("expected admin list query to omit WHERE, got body=%s", body)
+	}
+}
+
 func TestRequestLogsAddAuthQueryReasons(t *testing.T) {
 	requireSQLite3(t)
 
@@ -375,6 +417,39 @@ func TestRequestLogsEndpointMasksSensitiveValues(t *testing.T) {
 	}
 	if strings.Contains(normalizedBody, "<masked-email>") || strings.Contains(normalizedBody, "<masked>") {
 		t.Fatalf("expected no legacy masked markers in body=%s", body)
+	}
+}
+
+func TestRequestLogsSkipHealthAndDoNotExposeNilRoleForUnauthenticatedRequests(t *testing.T) {
+	requireSQLite3(t)
+
+	r := mustNewAuthRuntime(t, filepath.Join(t.TempDir(), "request-logs-nil-role.db"))
+	loginCode := requestCodeAndUseKnownCode(t, r, "owner@example.com")
+	token := loginWithCodeAndReadToken(t, r, "owner@example.com", loginCode)
+
+	healthRec := doRuntimeRequest(r, http.MethodGet, "/health", "", "")
+	if healthRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for /health, got %d body=%s", healthRec.Code, healthRec.Body.String())
+	}
+	versionRec := doRuntimeRequest(r, http.MethodGet, "/_mar/version", "", "")
+	if versionRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for /_mar/version, got %d body=%s", versionRec.Code, versionRec.Body.String())
+	}
+
+	rec := doRuntimeRequest(r, http.MethodGet, "/_mar/request-logs?limit=20", "", token)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for request logs, got %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	body := rec.Body.String()
+	if strings.Contains(body, "<nil>") {
+		t.Fatalf("expected request logs to omit nil role values, got body=%s", body)
+	}
+	if strings.Contains(body, "\"path\":\"/health\"") {
+		t.Fatalf("expected /health to be omitted from request logs, got body=%s", body)
+	}
+	if !strings.Contains(body, "\"path\":\"/_mar/version\"") {
+		t.Fatalf("expected public version request to remain in request logs, got body=%s", body)
 	}
 }
 
