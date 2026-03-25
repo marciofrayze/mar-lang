@@ -40,7 +40,7 @@ all:
 	$(call print_ok,./mar)
 	@$(MAKE) --no-print-directory CHAINED=1 website
 	@$(MAKE) --no-print-directory vscode-plugin
-	@printf "\n"
+	@$(MAKE) --no-print-directory sublime-plugin
 
 check: check-go check-elm
 
@@ -277,24 +277,38 @@ sublime-plugin: check-zip
 		cd sublime-mar && zip -qr "../$$out" .; \
 		if [ -n "$$NO_COLOR" ] || ! [ -t 1 ]; then \
 			printf "  %s\n" "Output: $$out"; \
-			printf "  %s\n" "Install in Sublime Text by copying it to Installed Packages/"; \
+			printf "  %s\n" "Install in Sublime Text with: cp $$out \"$$HOME/Library/Application Support/Sublime Text/Installed Packages/\""; \
+			printf "\n"; \
 		else \
 			printf "  Output: \033[1;32m%s\033[0m\n" "$$out"; \
-			printf "  Install in Sublime Text by copying it to \033[1;32mInstalled Packages/\033[0m\n"; \
+			printf "  Install in Sublime Text with: \033[1;32mcp %s \"$$HOME/Library/Application Support/Sublime Text/Installed Packages/\"\033[0m\n" "$$out"; \
+			printf "\n"; \
 		fi'
 
 compiler-assets: check-go admin
 	$(call print_title,Compiler assets)
 	$(call print_info,Refreshing embedded admin assets and runtime stubs)
 	@GOCACHE="$(GOCACHE)" ./scripts/build-compiler-assets.sh
-	@sh -c 'if [ -n "$$NO_COLOR" ] || ! [ -t 1 ]; then printf "  %s\n" "Embedded admin assets: internal/cli/compiler_assets/admin"; else printf "  Embedded admin assets: \033[1;32minternal/cli/compiler_assets/admin\033[0m\n"; fi'
-	@sh -c 'if [ -n "$$NO_COLOR" ] || ! [ -t 1 ]; then printf "  %s\n" "Runtime stubs: internal/cli/runtime_stubs"; else printf "  Runtime stubs: \033[1;32minternal/cli/runtime_stubs\033[0m\n"; fi'
+	@sh -c '\
+		bytes=$$(wc -c < internal/cli/compiler_assets/admin/dist/app.js | tr -d " "); \
+		size_kb=$$(awk "BEGIN { printf \"%.1f\", $$bytes / 1024 }"); \
+		if [ -n "$$NO_COLOR" ] || ! [ -t 1 ]; then \
+			printf "  %s\n" "Embedded admin bundle: internal/cli/compiler_assets/admin/dist/app.js ($$size_kb KB, copied from minified admin/dist/app.js)"; \
+		else \
+			printf "  Embedded admin bundle: \033[1;32m%s\033[0m \033[38;5;245m(%s KB, copied from minified admin/dist/app.js)\033[0m\n" "internal/cli/compiler_assets/admin/dist/app.js" "$$size_kb"; \
+		fi'
 
 mar: check-go compiler-assets
 	$(call print_title,Mar compiler)
 	$(call print_info,Building ./mar with Go $(GO_VERSION))
 	@GOCACHE="$(GOCACHE)" go build -trimpath -ldflags="$(MAR_LDFLAGS)" -o mar ./cmd/mar
-	@sh -c 'if [ -n "$$NO_COLOR" ] || ! [ -t 1 ]; then printf "  %s\n" "Output: ./mar"; else printf "  Output: \033[1;32m./mar\033[0m\n"; fi'
+	@sh -c '\
+		size=$$(du -sh mar | awk "{print \$$1}"); \
+		if [ -n "$$NO_COLOR" ] || ! [ -t 1 ]; then \
+			printf "  %s\n" "Output: ./mar ($$size)"; \
+		else \
+			printf "  Output: \033[1;32m%s\033[0m \033[38;5;245m(%s)\033[0m\n" "./mar" "$$size"; \
+		fi'
 
 mar-release: check-go compiler-assets
 	$(call print_title,Mar release)
