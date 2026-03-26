@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"mar/internal/expr"
 	"mar/internal/model"
@@ -331,9 +332,16 @@ func (r *Runtime) buildInsert(entity *model.Entity, payload map[string]any, auth
 	}
 
 	out := &insertBuild{Context: map[string]any{}}
+	now := time.Now().UnixMilli()
 	for _, field := range entity.Fields {
 		if field.Primary && field.Auto {
 			out.Context[field.Name] = nil
+			continue
+		}
+		if model.IsAuditTimestampField(&field) {
+			if err := appendInsertFieldValue(out, &field, now); err != nil {
+				return nil, err
+			}
 			continue
 		}
 		if field.CurrentUser {
@@ -384,6 +392,20 @@ func (r *Runtime) buildUpdate(entity *model.Entity, payload map[string]any, curr
 		if field.Primary {
 			continue
 		}
+		if model.IsCreatedAtField(&field) {
+			continue
+		}
+		if model.IsUpdatedAtField(&field) {
+			now := time.Now().UnixMilli()
+			dbValue, apiValue, err := normalizeFieldValue(&field, now)
+			if err != nil {
+				return nil, err
+			}
+			out.Columns = append(out.Columns, model.FieldStorageName(&field))
+			out.Values = append(out.Values, dbValue)
+			out.Context[field.Name] = apiValue
+			continue
+		}
 		if field.CurrentUser {
 			if !auth.Authenticated {
 				return nil, authRequiredError()
@@ -425,7 +447,7 @@ func assertNoUnknownFields(entity *model.Entity, payload map[string]any, mode st
 		if field.CurrentUser {
 			return fmt.Errorf("field %s is managed automatically and cannot be provided", key)
 		}
-		if mode == "create" && field.Primary && field.Auto {
+		if field.Auto {
 			return fmt.Errorf("field %s is auto-generated and cannot be provided", key)
 		}
 		if mode == "update" && field.Primary {

@@ -894,6 +894,10 @@ func finalizeEntity(ent *model.Entity, rawRules []model.Rule, rawAuthz []model.A
 	if len(ent.Fields) == 0 {
 		return fmt.Errorf("entity %s has no fields", ent.Name)
 	}
+	ent.Fields = append(ent.Fields,
+		model.Field{Name: "created_at", Type: "Posix", Auto: true},
+		model.Field{Name: "updated_at", Type: "Posix", Auto: true},
+	)
 
 	primaryCount := 0
 	seenFields := map[string]bool{}
@@ -1466,7 +1470,10 @@ func validateActions(app *model.App) error {
 				if field == nil {
 					return fmt.Errorf("action %s assigns unknown field %s.%s%s", action.Name, entity.Name, item.Field, suggest.DidYouMeanSuffix(item.Field, entityFieldNames(entity)))
 				}
-				if step.Kind == "create" && field.Primary && field.Auto {
+				if step.Kind == "create" && field.Auto {
+					return fmt.Errorf("action %s cannot assign auto-generated field %s.%s", action.Name, entity.Name, item.Field)
+				}
+				if step.Kind == "update" && field.Auto && !field.Primary {
 					return fmt.Errorf("action %s cannot assign auto-generated field %s.%s", action.Name, entity.Name, item.Field)
 				}
 				assignments[item.Field] = item
@@ -1503,7 +1510,7 @@ func validateActions(app *model.App) error {
 			case "create":
 				writeSteps++
 				for _, field := range entity.Fields {
-					if field.Primary && field.Auto {
+					if field.Auto {
 						continue
 					}
 					if field.Optional || field.Default != nil {
@@ -1565,7 +1572,7 @@ func authBootstrapWarnings(app *model.App) []string {
 
 	blockingFields := make([]string, 0, len(userEntity.Fields))
 	for _, field := range userEntity.Fields {
-		if field.Primary && field.Auto {
+		if field.Auto {
 			continue
 		}
 		if field.Name == app.Auth.EmailField {

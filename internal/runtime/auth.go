@@ -331,6 +331,7 @@ func (r *Runtime) createBootstrapAdminUser(requestID, email string, payload map[
 	ctx := entityNullContext(r.authUser)
 	missingFields := make([]string, 0, 4)
 	blockedRelationFields := make([]string, 0, 2)
+	now := time.Now().UnixMilli()
 
 	addValue := func(field model.Field, rawValue any) error {
 		quoted, err := quoteIdentifier(model.FieldStorageName(&field))
@@ -350,6 +351,12 @@ func (r *Runtime) createBootstrapAdminUser(requestID, email string, payload map[
 
 	for _, field := range r.authUser.Fields {
 		if field.Primary && field.Auto {
+			continue
+		}
+		if model.IsAuditTimestampField(&field) {
+			if err := addValue(field, now); err != nil {
+				return nil, err
+			}
 			continue
 		}
 
@@ -459,6 +466,7 @@ func (r *Runtime) tryAutoCreateAuthUserWithRole(requestID, email, roleValue stri
 	values := make([]any, 0, len(r.authUser.Fields))
 	ctx := entityNullContext(r.authUser)
 	hasEmailField := false
+	now := time.Now().UnixMilli()
 
 	for _, field := range r.authUser.Fields {
 		if field.Primary && field.Auto {
@@ -471,6 +479,11 @@ func (r *Runtime) tryAutoCreateAuthUserWithRole(requestID, email, roleValue stri
 		}
 
 		switch {
+		case model.IsAuditTimestampField(&field):
+			columns = append(columns, quoted)
+			placeholders = append(placeholders, "?")
+			values = append(values, now)
+			ctx[field.Name] = now
 		case field.Name == cfg.EmailField:
 			columns = append(columns, quoted)
 			placeholders = append(placeholders, "?")

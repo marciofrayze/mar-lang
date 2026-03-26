@@ -395,7 +395,7 @@ func (r *Runtime) entityColumnDefinition(entity *model.Entity, field *model.Fiel
 	if field.Primary {
 		parts = append(parts, "PRIMARY KEY")
 	}
-	if field.Auto {
+	if field.Primary && field.Auto {
 		parts = append(parts, "AUTOINCREMENT")
 	}
 	if !field.Optional && !field.Primary {

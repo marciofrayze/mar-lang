@@ -162,7 +162,7 @@ entity Book {
 	if err != nil {
 		t.Fatalf("runtime.New(v1) failed: %v", err)
 	}
-	if _, err := r1.DB.Exec(`INSERT INTO books (title) VALUES (?)`, "First book"); err != nil {
+	if _, err := r1.DB.Exec(`INSERT INTO books (title, created_at, updated_at) VALUES (?, ?, ?)`, "First book", int64(1), int64(1)); err != nil {
 		t.Fatalf("seed insert failed: %v", err)
 	}
 
@@ -203,7 +203,7 @@ entity Book {
 	if err != nil {
 		t.Fatalf("runtime.New(v1) failed: %v", err)
 	}
-	if _, err := r1.DB.Exec(`INSERT INTO books (title) VALUES (?)`, "First book"); err != nil {
+	if _, err := r1.DB.Exec(`INSERT INTO books (title, created_at, updated_at) VALUES (?, ?, ?)`, "First book", int64(1), int64(1)); err != nil {
 		t.Fatalf("seed insert failed: %v", err)
 	}
 
@@ -371,11 +371,11 @@ entity Todo {
 		t.Fatalf("runtime.New failed: %v", err)
 	}
 
-	_, err = r.DB.Exec(`INSERT INTO users (email, role) VALUES (?, ?)`, "user@example.com", "user")
+	_, err = r.DB.Exec(`INSERT INTO users (email, role, created_at, updated_at) VALUES (?, ?, ?, ?)`, "user@example.com", "user", int64(1), int64(1))
 	if err != nil {
 		t.Fatalf("first insert failed: %v", err)
 	}
-	_, err = r.DB.Exec(`INSERT INTO users (email, role) VALUES (?, ?)`, "USER@example.com", "admin")
+	_, err = r.DB.Exec(`INSERT INTO users (email, role, created_at, updated_at) VALUES (?, ?, ?, ?)`, "USER@example.com", "admin", int64(2), int64(2))
 	if err == nil {
 		t.Fatal("expected duplicate built-in auth email to fail")
 	}
@@ -407,11 +407,11 @@ auth {
 		t.Fatalf("runtime.New failed: %v", err)
 	}
 
-	_, err = r.DB.Exec(`INSERT INTO users (email, role) VALUES (?, ?)`, "user@example.com", "user")
+	_, err = r.DB.Exec(`INSERT INTO users (email, role, created_at, updated_at) VALUES (?, ?, ?, ?)`, "user@example.com", "user", int64(1), int64(1))
 	if err != nil {
 		t.Fatalf("first insert failed: %v", err)
 	}
-	_, err = r.DB.Exec(`INSERT INTO users (email, role) VALUES (?, ?)`, "USER@example.com", "admin")
+	_, err = r.DB.Exec(`INSERT INTO users (email, role, created_at, updated_at) VALUES (?, ?, ?, ?)`, "USER@example.com", "admin", int64(2), int64(2))
 	if err == nil {
 		t.Fatal("expected duplicate app auth email to fail")
 	}

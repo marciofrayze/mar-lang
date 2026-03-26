@@ -3772,7 +3772,6 @@ entity Enrollment {
 actionExampleSource : String
 actionExampleSource =
     """-- A transactional action example.
--- This is a complete app, not just an action snippet.
 
 app OrderWorkflow
 

@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestEntityCRUDSupportsBelongsToFields(t *testing.T) {
@@ -288,5 +289,66 @@ entity Todo {
 	}
 	if !strings.Contains(updateRec.Body.String(), "managed automatically") {
 		t.Fatalf("expected managed field error on update, got body=%s", updateRec.Body.String())
+	}
+}
+
+func TestEntityCRUDAutoTimestamps(t *testing.T) {
+	requireSQLite3(t)
+
+	r := mustNewRuntimeFromSource(t, filepath.Join(t.TempDir(), "timestamps.db"), `
+app TimestampApi
+
+entity Todo {
+  title: String
+  authorize all when true
+}
+`)
+
+	createRec := doRuntimeRequest(r, http.MethodPost, "/todos", `{"title":"First"}`, "")
+	if createRec.Code != http.StatusCreated {
+		t.Fatalf("expected 201 when creating todo, got %d body=%s", createRec.Code, createRec.Body.String())
+	}
+
+	var created map[string]any
+	if err := json.Unmarshal(createRec.Body.Bytes(), &created); err != nil {
+		t.Fatalf("decode create response failed: %v body=%s", err, createRec.Body.String())
+	}
+	createdAt, createdAtOK := created["created_at"].(float64)
+	updatedAt, updatedAtOK := created["updated_at"].(float64)
+	if !createdAtOK || !updatedAtOK {
+		t.Fatalf("expected create response to include timestamps, got %#v", created)
+	}
+	if createdAt <= 0 || updatedAt <= 0 {
+		t.Fatalf("expected positive timestamps, got created_at=%v updated_at=%v", createdAt, updatedAt)
+	}
+
+	row, ok, err := queryRow(r.DB, `SELECT created_at, updated_at FROM todos WHERE id = 1`)
+	if err != nil {
+		t.Fatalf("query todo row failed: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected todo row to exist")
+	}
+	initialUpdatedAt := row["updated_at"]
+
+	time.Sleep(2 * time.Millisecond)
+
+	updateRec := doRuntimeRequest(r, http.MethodPatch, "/todos/1", `{"title":"Second"}`, "")
+	if updateRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 when updating todo, got %d body=%s", updateRec.Code, updateRec.Body.String())
+	}
+
+	updatedRow, ok, err := queryRow(r.DB, `SELECT created_at, updated_at FROM todos WHERE id = 1`)
+	if err != nil {
+		t.Fatalf("query updated todo row failed: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected updated todo row to exist")
+	}
+	if updatedRow["created_at"] != row["created_at"] {
+		t.Fatalf("expected created_at to remain stable, got before=%#v after=%#v", row["created_at"], updatedRow["created_at"])
+	}
+	if updatedRow["updated_at"] == initialUpdatedAt {
+		t.Fatalf("expected updated_at to change on update, got %#v", updatedRow["updated_at"])
 	}
 }

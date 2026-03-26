@@ -61,11 +61,17 @@ entity Book {
 	if book.PrimaryKey != "id" {
 		t.Fatalf("expected derived primary key id, got %q", book.PrimaryKey)
 	}
-	if len(book.Fields) != 3 {
-		t.Fatalf("expected 3 fields (including derived id), got %d", len(book.Fields))
+	if len(book.Fields) != 5 {
+		t.Fatalf("expected 5 fields (including derived id and timestamps), got %d", len(book.Fields))
 	}
 	if book.Fields[0].Name != "id" || !book.Fields[0].Primary || !book.Fields[0].Auto {
 		t.Fatalf("expected first field to be derived auto primary id, got %+v", book.Fields[0])
+	}
+	if book.Fields[len(book.Fields)-2].Name != "created_at" || book.Fields[len(book.Fields)-2].Type != "Posix" || !book.Fields[len(book.Fields)-2].Auto {
+		t.Fatalf("expected created_at timestamp field, got %+v", book.Fields[len(book.Fields)-2])
+	}
+	if book.Fields[len(book.Fields)-1].Name != "updated_at" || book.Fields[len(book.Fields)-1].Type != "Posix" || !book.Fields[len(book.Fields)-1].Auto {
+		t.Fatalf("expected updated_at timestamp field, got %+v", book.Fields[len(book.Fields)-1])
 	}
 }
 

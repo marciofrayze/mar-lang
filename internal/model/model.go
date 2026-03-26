@@ -85,6 +85,18 @@ func FieldStorageName(field *Field) string {
 	return field.Name
 }
 
+func IsCreatedAtField(field *Field) bool {
+	return field != nil && field.Name == "created_at"
+}
+
+func IsUpdatedAtField(field *Field) bool {
+	return field != nil && field.Name == "updated_at"
+}
+
+func IsAuditTimestampField(field *Field) bool {
+	return IsCreatedAtField(field) || IsUpdatedAtField(field)
+}
+
 type Rule struct {
 	Message    string `json:"message"`
 	Expression string `json:"expression"`

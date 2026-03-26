@@ -7241,7 +7241,7 @@ appVisibleFields entity =
 
 isAppVisibleField : Field -> Bool
 isAppVisibleField field =
-    not field.primary && not field.currentUser
+    not field.primary && not field.currentUser && not field.auto
 
 
 displayFieldsForEntity : WorkspaceMode -> Entity -> List Field
