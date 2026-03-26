@@ -12,7 +12,7 @@ MACOS_DEVELOPER_ID_APP ?=
 MACOS_DEVELOPER_ID_INSTALLER ?=
 MACOS_NOTARY_PROFILE ?=
 
-.PHONY: all check check-go check-elm check-elm-live check-python3 check-node check-npm check-npx check-zip check-codesign check-pkgbuild check-notarytool check-stapler check-macos-release-config admin website website-serve website-dev vscode-plugin sublime-plugin compiler-assets mar mar-release mar-release-zip mar-release-macos _mar-release-macos-sign _mar-release-macos-pkg _mar-release-macos-notarize _mar-release-macos-validate test clean distclean
+.PHONY: all check check-go check-elm check-elm-live check-python3 check-node check-npm check-npx check-zip check-codesign check-pkgbuild check-notarytool check-stapler check-macos-release-config admin website website-serve website-dev vscode-plugin compiler-assets mar mar-release mar-release-zip mar-release-macos _mar-release-macos-sign _mar-release-macos-pkg _mar-release-macos-notarize _mar-release-macos-validate test clean distclean
 
 define print_title
 	@sh -c 'if [ -n "$$NO_COLOR" ] || ! [ -t 1 ]; then printf "\n%s\n" "$(1)"; else printf "\n\033[1;36m%s\033[0m\n" "$(1)"; fi'
@@ -40,7 +40,6 @@ all:
 	$(call print_ok,./mar)
 	@$(MAKE) --no-print-directory CHAINED=1 website
 	@$(MAKE) --no-print-directory CHAINED=1 vscode-plugin
-	@$(MAKE) --no-print-directory sublime-plugin
 
 check: check-go check-elm
 
@@ -267,24 +266,6 @@ vscode-plugin: check-npx check-npm
 			printf "  Install in VS Code with: \033[1;32mcode --install-extension %s --force\033[0m\n" "$${out#../}"; \
 		fi'
 	@if [ -z "$(CHAINED)" ]; then printf "\n"; fi
-
-sublime-plugin: check-zip
-	$(call print_title,Sublime Text package)
-	$(call print_info,Packaging sublime-mar into a .sublime-package)
-	@sh -c '\
-		out="dist/sublime/Mar.sublime-package"; \
-		mkdir -p dist/sublime; \
-		rm -f "$$out"; \
-		cd sublime-mar && zip -qr "../$$out" .; \
-		if [ -n "$$NO_COLOR" ] || ! [ -t 1 ]; then \
-			printf "  %s\n" "Output: $$out"; \
-			printf "  %s\n" "Install in Sublime Text with: cp $$out \"$$HOME/Library/Application Support/Sublime Text/Installed Packages/\""; \
-			printf "\n"; \
-		else \
-			printf "  Output: \033[1;32m%s\033[0m\n" "$$out"; \
-			printf "  Install in Sublime Text with: \033[1;32mcp %s \"$$HOME/Library/Application Support/Sublime Text/Installed Packages/\"\033[0m\n" "$$out"; \
-			printf "\n"; \
-		fi'
 
 compiler-assets: check-go admin
 	$(call print_title,Compiler assets)
