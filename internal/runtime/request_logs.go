@@ -339,7 +339,7 @@ func sanitizeSQLForLogs(sqlText string) string {
 
 func sanitizeInsertValuesByColumnName(sqlText string) string {
 	match := sqlInsertValuesPattern.FindStringSubmatchIndex(sqlText)
-	if match == nil || len(match) < 6 {
+	if len(match) < 6 {
 		return sqlText
 	}
 

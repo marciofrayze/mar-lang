@@ -358,76 +358,6 @@ func (db *DB) QueryRowTagged(requestID, query string, args ...any) (map[string]a
 	return rows[0], true, nil
 }
 
-// ExecTx executes statements in a single transaction and rolls back on failure.
-func (db *DB) ExecTx(statements []Statement) error {
-	return db.ExecTxTagged("", statements)
-}
-
-// ExecTxTagged executes statements in a single transaction and tags its log event with a request identifier.
-func (db *DB) ExecTxTagged(requestID string, statements []Statement) error {
-	logSQL := txStatementSummary(statements)
-	if len(statements) == 0 {
-		return nil
-	}
-	if err := db.ensureOpen(); err != nil {
-		db.emitQueryEvent(QueryEvent{
-			RequestID:  requestID,
-			SQL:        logSQL,
-			DurationMs: 0,
-			RowCount:   0,
-			Error:      err.Error(),
-		})
-		return err
-	}
-
-	startedAt := time.Now()
-	tx, err := db.sqlDB.BeginTx(context.Background(), nil)
-	if err != nil {
-		db.emitQueryEvent(QueryEvent{
-			RequestID:  requestID,
-			SQL:        logSQL,
-			DurationMs: elapsedMs(startedAt),
-			RowCount:   0,
-			Error:      err.Error(),
-		})
-		return err
-	}
-
-	for i, stmt := range statements {
-		if _, err := tx.Exec(stmt.Query, stmt.Args...); err != nil {
-			_ = tx.Rollback()
-			db.emitQueryEvent(QueryEvent{
-				RequestID:  requestID,
-				SQL:        logSQL,
-				DurationMs: elapsedMs(startedAt),
-				RowCount:   0,
-				Error:      fmt.Sprintf("statement %d: %v", i+1, err),
-			})
-			return fmt.Errorf("statement %d: %w", i+1, err)
-		}
-	}
-
-	if err := tx.Commit(); err != nil {
-		db.emitQueryEvent(QueryEvent{
-			RequestID:  requestID,
-			SQL:        logSQL,
-			DurationMs: elapsedMs(startedAt),
-			RowCount:   0,
-			Error:      err.Error(),
-		})
-		return err
-	}
-
-	db.emitQueryEvent(QueryEvent{
-		RequestID:  requestID,
-		SQL:        logSQL,
-		DurationMs: elapsedMs(startedAt),
-		RowCount:   0,
-		Error:      "",
-	})
-	return nil
-}
-
 // WithImmediateTxTagged executes fn inside a BEGIN IMMEDIATE transaction.
 func (db *DB) WithImmediateTxTagged(requestID string, fn func(*ImmediateTx) error) error {
 	if err := db.ensureOpen(); err != nil {
@@ -618,22 +548,6 @@ func scanRows(rows *sql.Rows) ([]map[string]any, error) {
 		return result, err
 	}
 	return result, nil
-}
-
-func txStatementSummary(statements []Statement) string {
-	if len(statements) == 0 {
-		return ""
-	}
-	var b strings.Builder
-	b.WriteString("BEGIN; ")
-	for i, stmt := range statements {
-		if i > 0 {
-			b.WriteString("; ")
-		}
-		b.WriteString(interpolateSQLForLog(stmt.Query, stmt.Args))
-	}
-	b.WriteString("; COMMIT;")
-	return b.String()
 }
 
 func interpolateSQLForLog(query string, args []any) string {

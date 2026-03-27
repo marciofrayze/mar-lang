@@ -719,11 +719,11 @@ func validateRenameName(kind symbolKind, name string) error {
 	switch kind {
 	case symbolEntity, symbolAlias:
 		if !upperIdentifierRe.MatchString(name) {
-			return fmt.Errorf("This symbol requires UpperCamelCase. Example: %q", "OrderItem")
+			return fmt.Errorf("this symbol requires UpperCamelCase. Example: %q", "OrderItem")
 		}
 	case symbolAction, symbolEntityField, symbolAliasField:
 		if !lowerIdentifierRe.MatchString(name) {
-			return fmt.Errorf("This symbol requires lowerCamelCase. Example: %q", "orderItem")
+			return fmt.Errorf("this symbol requires lowerCamelCase. Example: %q", "orderItem")
 		}
 	}
 	return nil
