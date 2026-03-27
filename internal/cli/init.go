@@ -157,13 +157,13 @@ func createInitProject(baseDir, projectName string) (*initProjectResult, error) 
 	gitIgnorePath := filepath.Join(projectDir, ".gitignore")
 	readmePath := filepath.Join(projectDir, "README.md")
 
-	if err := os.WriteFile(marFilePath, []byte(renderInitMar(projectName, appName)), 0o644); err != nil {
+	if err := os.WriteFile(marFilePath, []byte(renderInitMar(appName)), 0o644); err != nil {
 		return nil, err
 	}
 	if err := os.WriteFile(gitIgnorePath, []byte(renderInitGitIgnore()), 0o644); err != nil {
 		return nil, err
 	}
-	if err := os.WriteFile(readmePath, []byte(renderInitReadme(projectName, appName, marFileName)), 0o644); err != nil {
+	if err := os.WriteFile(readmePath, []byte(renderInitReadme(appName, marFileName)), 0o644); err != nil {
 		return nil, err
 	}
 
@@ -208,7 +208,7 @@ func projectNameToAppName(projectName string) string {
 	return value
 }
 
-func renderInitMar(projectName, appName string) string {
+func renderInitMar(appName string) string {
 	return strings.TrimSpace(fmt.Sprintf(`
 app %s
 
@@ -234,7 +234,7 @@ dist/
 `) + "\n"
 }
 
-func renderInitReadme(projectName, appName, marFileName string) string {
+func renderInitReadme(appName, marFileName string) string {
 	return strings.TrimSpace(fmt.Sprintf(`
 # %s
 
