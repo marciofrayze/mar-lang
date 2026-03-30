@@ -1149,6 +1149,7 @@ footer : Element Msg
 footer =
     el
         [ width fill
+        , moveDown 3
         , paddingEach { top = 0, right = 0, bottom = 0, left = 0 }
         ]
         (row
@@ -1343,7 +1344,7 @@ advancedLanguagePage model =
                     , text " with focus on readability, maintainability, and simple deployment."
                     ]
                 , docSubsectionTitle "Fundamentals"
-                , bodyText "Mar reads top-to-bottom as a declarative app definition. A Mar app is centered around entities, relationships, rules, authorization, auth configuration, and typed actions. Built-in field types are Int, String, Bool, Float, Date, and DateTime."
+                , bodyText "Mar reads top-to-bottom as a declarative app definition. A Mar app is centered around entities, relationships, rules, authorization, auth configuration, and typed actions."
                 , docSubsectionTitle "Quick Examples"
                 , codeFromString model "shared-todo.mar" 0 sharedTodoExampleSource
                 , codeFromString model "personal-todo.mar" 300 relationshipExampleSource
@@ -3810,9 +3811,11 @@ token color value =
 sharedTodoExampleSource : String
 sharedTodoExampleSource =
     """app SharedTodo
+
 entity Todo {
   title: String
   done: Bool
+
   rule "Title must have at least 3 chars" expect length title >= 3
 
   authorize all when user_authenticated
