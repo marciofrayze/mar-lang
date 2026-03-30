@@ -19,7 +19,6 @@ func TestSMTPStartupCheckRequiresPasswordEnv(t *testing.T) {
 app MailApi
 
 auth {
-  email_transport smtp
   email_from "no-reply@example.com"
   email_subject "Your login code"
   smtp_host "smtp.example.com"
@@ -61,7 +60,6 @@ func TestSMTPStartupCheckSucceedsWithReachableServer(t *testing.T) {
 app MailApi
 
 auth {
-  email_transport smtp
   email_from "no-reply@example.com"
   email_subject "Your login code"
   smtp_host "%s"
@@ -86,7 +84,6 @@ func TestSMTPStartupCheckIsSkippedInDevMode(t *testing.T) {
 app MailApi
 
 auth {
-  email_transport smtp
   email_from "no-reply@example.com"
   email_subject "Your login code"
   smtp_host "smtp.example.com"
@@ -99,9 +96,6 @@ auth {
 
 	if err := r.runStartupChecks(); err != nil {
 		t.Fatalf("expected SMTP startup check to be skipped in dev mode, got %v", err)
-	}
-	if got := r.authConfig().EmailTransport; got != "console" {
-		t.Fatalf("expected dev mode to override SMTP to console, got %q", got)
 	}
 }
 
@@ -152,6 +146,30 @@ func handleFakeSMTPConn(conn net.Conn) {
 			}
 		case strings.HasPrefix(strings.ToUpper(line), "AUTH PLAIN"):
 			if !writeLine("235 2.7.0 Authentication successful") {
+				return
+			}
+		case strings.HasPrefix(strings.ToUpper(line), "MAIL FROM:"):
+			if !writeLine("250 2.1.0 OK") {
+				return
+			}
+		case strings.HasPrefix(strings.ToUpper(line), "RCPT TO:"):
+			if !writeLine("250 2.1.5 OK") {
+				return
+			}
+		case strings.HasPrefix(strings.ToUpper(line), "DATA"):
+			if !writeLine("354 End data with <CR><LF>.<CR><LF>") {
+				return
+			}
+			for {
+				dataLine, err := reader.ReadString('\n')
+				if err != nil {
+					return
+				}
+				if strings.TrimSpace(dataLine) == "." {
+					break
+				}
+			}
+			if !writeLine("250 2.0.0 OK") {
 				return
 			}
 		case strings.HasPrefix(strings.ToUpper(line), "QUIT"):

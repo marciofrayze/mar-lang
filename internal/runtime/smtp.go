@@ -37,8 +37,11 @@ func (r *Runtime) ValidateStartup() error {
 
 func (r *Runtime) validateEmailDeliveryStartup() error {
 	cfg := r.authConfig()
-	if cfg.EmailTransport != "smtp" {
+	if isMarDevMode() {
 		return nil
+	}
+	if err := validateRequiredSMTPConfig(cfg); err != nil {
+		return err
 	}
 
 	useColor := supportsANSI()
@@ -98,7 +101,6 @@ func loadSMTPPassword(cfg model.AuthConfig) (string, error) {
 			Title:   "SMTP CONFIG ERROR",
 			Message: "I cannot start this app because the SMTP password environment variable is not configured.",
 			Details: []startupDetail{
-				{Label: "Transport", Value: "smtp"},
 				{Label: "Setting", Value: "auth.smtp_password_env"},
 			},
 			Hints: []string{
@@ -112,7 +114,6 @@ func loadSMTPPassword(cfg model.AuthConfig) (string, error) {
 			Title:   "SMTP CONFIG ERROR",
 			Message: fmt.Sprintf("I cannot start this app because the environment variable %s is missing or empty.", envName),
 			Details: []startupDetail{
-				{Label: "Transport", Value: "smtp"},
 				{Label: "Host", Value: cfg.SMTPHost},
 				{Label: "Port", Value: strconv.Itoa(cfg.SMTPPort)},
 				{Label: "Env var", Value: envName},
@@ -124,6 +125,35 @@ func loadSMTPPassword(cfg model.AuthConfig) (string, error) {
 		}
 	}
 	return value, nil
+}
+
+func validateRequiredSMTPConfig(cfg model.AuthConfig) error {
+	if strings.TrimSpace(cfg.SMTPHost) == "" {
+		return &startupFriendlyError{
+			Title:   "SMTP CONFIG ERROR",
+			Message: "I cannot start this app because auth.smtp_host is not configured.",
+			Details: []startupDetail{
+				{Label: "Setting", Value: "auth.smtp_host"},
+			},
+			Hints: []string{
+				`Set auth.smtp_host to your SMTP server host.`,
+			},
+		}
+	}
+	if strings.TrimSpace(cfg.SMTPUsername) == "" {
+		return &startupFriendlyError{
+			Title:   "SMTP CONFIG ERROR",
+			Message: "I cannot start this app because auth.smtp_username is not configured.",
+			Details: []startupDetail{
+				{Label: "Host", Value: cfg.SMTPHost},
+				{Label: "Setting", Value: "auth.smtp_username"},
+			},
+			Hints: []string{
+				`Set auth.smtp_username to the SMTP username for your provider.`,
+			},
+		}
+	}
+	return nil
 }
 
 func wrapSMTPStartupError(cfg model.AuthConfig, err error) error {

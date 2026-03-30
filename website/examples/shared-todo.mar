@@ -1,7 +1,6 @@
 app SharedTodo
 
 auth {
-  email_transport smtp
   email_from "no-reply@yourdomain.com"
   email_subject "Your Shared Todo login code"
   smtp_host "smtp.resend.com"
@@ -9,7 +8,7 @@ auth {
   smtp_password_env "RESEND_API_KEY"
 }
 
-entity SharedTodo {
+entity Todo {
   title: String
   done: Bool
 

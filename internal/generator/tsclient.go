@@ -227,7 +227,6 @@ func GenerateTSClient(app *model.App) (*TSClientOutput, error) {
 		writeTSLine(buf, "    userEntity: "+strconv.Quote(app.Auth.UserEntity)+",")
 		writeTSLine(buf, "    emailField: "+strconv.Quote(app.Auth.EmailField)+",")
 		writeTSLine(buf, "    roleField: "+strconv.Quote(app.Auth.RoleField)+",")
-		writeTSLine(buf, "    emailTransport: "+strconv.Quote(app.Auth.EmailTransport)+",")
 		writeTSLine(buf, "  },")
 	} else {
 		writeTSLine(buf, "  auth: null,")

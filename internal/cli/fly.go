@@ -253,13 +253,13 @@ func validateFlyInitPrereqs(app *model.App) error {
 		return nil
 	}
 
-	if err := validateFlyAuthForDeploy(app, "Fly init blocked"); err != nil {
-		return err
-	}
-
 	emailFrom := strings.TrimSpace(app.Auth.EmailFrom)
 	if looksLikePlaceholderEmail(emailFrom) {
 		return placeholderEmailFlyInitError(emailFrom)
+	}
+
+	if err := validateFlyAuthForDeploy(app, "Fly init blocked"); err != nil {
+		return err
 	}
 
 	return nil
@@ -1210,7 +1210,6 @@ func placeholderEmailFlyInitError(email string) error {
 	fmt.Fprintf(&b, "\n")
 	fmt.Fprintf(&b, "  Example:\n")
 	fmt.Fprintf(&b, "    %s {\n", authKeyword)
-	fmt.Fprintf(&b, "      email_transport %s\n", exampleValues("smtp"))
 	fmt.Fprintf(&b, "      email_from %s\n", exampleValues("\"no-reply@yourdomain.com\""))
 	fmt.Fprintf(&b, "      smtp_host %s\n", exampleValues("\"smtp.resend.com\""))
 	fmt.Fprintf(&b, "      smtp_username %s\n", exampleValues("\"resend\""))
@@ -1228,17 +1227,17 @@ func validateFlyAuthForDeploy(app *model.App, title string) error {
 		return nil
 	}
 
-	transport := strings.ToLower(strings.TrimSpace(app.Auth.EmailTransport))
-	if transport != "console" {
+	if strings.TrimSpace(app.Auth.SMTPHost) != "" &&
+		strings.TrimSpace(app.Auth.SMTPUsername) != "" &&
+		strings.TrimSpace(app.Auth.SMTPPasswordEnv) != "" {
 		return nil
 	}
-	return consoleEmailFlyDeployError(title)
+
+	return missingSMTPFlyDeployError(title)
 }
 
-func consoleEmailFlyDeployError(title string) error {
+func missingSMTPFlyDeployError(title string) error {
 	useColor := cliSupportsANSIStream(os.Stderr)
-	fieldName := colorizeCLI(useColor, "\033[1m", "auth.email_transport")
-	fieldValue := colorizeCLI(useColor, "\033[36m", "console")
 	url := colorizeCLI(useColor, "\033[34m", "https://mar-lang.dev/#advanced/deploy")
 	authKeyword := colorizeCLI(useColor, "\033[1m", "auth")
 	exampleValues := func(value string) string {
@@ -1247,17 +1246,15 @@ func consoleEmailFlyDeployError(title string) error {
 
 	var b strings.Builder
 	fmt.Fprintf(&b, "%s\n", colorizeCLI(useColor, "\033[1;31m", title))
-	fmt.Fprintf(&b, "  %s is set to %s\n", fieldName, fieldValue)
 	fmt.Fprintf(&b, "\n")
 	fmt.Fprintf(&b, "  Fly.io deploys require SMTP so login codes can be delivered to real users.\n")
-	fmt.Fprintf(&b, "  The console transport is only intended for local development.\n")
+	fmt.Fprintf(&b, "  This app is missing part of the SMTP configuration required outside mar dev.\n")
 	fmt.Fprintf(&b, "\n%s\n", colorizeCLI(useColor, "\033[1;33m", "Hint:"))
 	fmt.Fprintf(&b, "  Configure SMTP with a real email provider before provisioning or deploying.\n")
 	fmt.Fprintf(&b, "  We currently recommend Resend for the simplest setup.\n")
 	fmt.Fprintf(&b, "\n")
 	fmt.Fprintf(&b, "  Example:\n")
 	fmt.Fprintf(&b, "    %s {\n", authKeyword)
-	fmt.Fprintf(&b, "      email_transport %s\n", exampleValues("smtp"))
 	fmt.Fprintf(&b, "      email_from %s\n", exampleValues("\"no-reply@yourdomain.com\""))
 	fmt.Fprintf(&b, "      smtp_host %s\n", exampleValues("\"smtp.resend.com\""))
 	fmt.Fprintf(&b, "      smtp_username %s\n", exampleValues("\"resend\""))

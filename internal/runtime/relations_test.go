@@ -109,7 +109,6 @@ func TestReadAuthorizationFiltersListAndProtectsGet(t *testing.T) {
 app TodoReadFilter
 
 auth {
-  email_transport console
 }
 
 entity Todo {
@@ -191,7 +190,6 @@ func TestEntityCRUDSupportsBelongsToCurrentUser(t *testing.T) {
 app PersonalTodo
 
 auth {
-  email_transport console
 }
 
 entity Todo {
@@ -253,7 +251,6 @@ func TestEntityCRUDRejectsManualPayloadForBelongsToCurrentUser(t *testing.T) {
 app PersonalTodo
 
 auth {
-  email_transport console
 }
 
 entity Todo {
@@ -299,7 +296,6 @@ func TestEntityCRUDSupportsNamedBelongsToCurrentUser(t *testing.T) {
 app BookReviews
 
 auth {
-  email_transport console
 }
 
 entity Review {

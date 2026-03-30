@@ -24,16 +24,11 @@ func (r *Runtime) authConfig() model.AuthConfig {
 			RoleField:       "role",
 			CodeTTLMinutes:  10,
 			SessionTTLHours: 24,
-			EmailTransport:  "console",
 			EmailFrom:       "no-reply@mar.local",
 			EmailSubject:    "Your Mar login code",
 			SMTPPort:        587,
 			SMTPStartTLS:    true,
 		}
-	}
-
-	if isMarDevMode() && strings.EqualFold(strings.TrimSpace(cfg.EmailTransport), "smtp") {
-		cfg.EmailTransport = "console"
 	}
 
 	return cfg
@@ -275,8 +270,8 @@ func (r *Runtime) issueAuthCode(w http.ResponseWriter, requestID, email string, 
 	}
 
 	responseMessage := message
-	if isMarDevMode() && strings.EqualFold(strings.TrimSpace(cfg.EmailTransport), "console") {
-		responseMessage = "Login code generated. You are running in dev mode with email transport set to console, so check there."
+	if isMarDevMode() {
+		responseMessage = "Login code generated. You are running in dev mode, so check the console output."
 	}
 
 	r.writeJSON(w, http.StatusOK, map[string]any{"ok": true, "message": responseMessage})
@@ -680,8 +675,7 @@ func (r *Runtime) handleAuthLogout(w http.ResponseWriter, req *http.Request, req
 func (r *Runtime) deliverEmailCode(toEmail, code string) error {
 	cfg := r.authConfig()
 
-	switch cfg.EmailTransport {
-	case "console":
+	if isMarDevMode() {
 		body := buildAuthEmailBody(code, cfg.CodeTTLMinutes)
 		r.printAuthLogHeader()
 		r.printAuthLogSection("Login code delivery")
@@ -691,19 +685,17 @@ func (r *Runtime) deliverEmailCode(toEmail, code string) error {
 		r.printAuthLogSection("Email body")
 		r.printAuthLogMultiline(body)
 		return nil
-	case "smtp":
-		if err := sendWithSMTP(cfg, toEmail, code); err != nil {
-			return err
-		}
-		r.printAuthLogHeader()
-		r.printAuthLogSection("Login code delivery")
-		r.printAuthLogFieldCommand("Status", "sent")
-		r.printAuthLogField("Transport", "smtp")
-		r.printAuthLogField("To", toEmail)
-		return nil
-	default:
-		return fmt.Errorf("unsupported email transport %q", cfg.EmailTransport)
 	}
+
+	if err := sendWithSMTP(cfg, toEmail, code); err != nil {
+		return err
+	}
+	r.printAuthLogHeader()
+	r.printAuthLogSection("Login code delivery")
+	r.printAuthLogFieldCommand("Status", "sent")
+	r.printAuthLogField("Transport", "smtp")
+	r.printAuthLogField("To", toEmail)
+	return nil
 }
 
 func (r *Runtime) printAuthLogHeader() {

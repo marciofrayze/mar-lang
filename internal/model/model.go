@@ -44,7 +44,6 @@ type AuthConfig struct {
 	SecurityFramePolicy      *string `json:"securityFramePolicy,omitempty"`
 	SecurityReferrerPolicy   *string `json:"securityReferrerPolicy,omitempty"`
 	SecurityContentNoSniff   *bool   `json:"securityContentTypeNosniff,omitempty"`
-	EmailTransport           string  `json:"emailTransport"`
 	EmailFrom                string  `json:"emailFrom"`
 	EmailSubject             string  `json:"emailSubject"`
 	SMTPHost                 string  `json:"smtpHost"`

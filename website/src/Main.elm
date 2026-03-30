@@ -855,7 +855,7 @@ docSearchSectionText maybeSectionId =
                     "Validation and authorization reference. rule, expect, when, authorize, all, read, create, update, delete."
 
                 "auth-config-reference" ->
-                    "Auth config reference. User, code_ttl_minutes, session_ttl_hours, auth_request_code_rate_limit_per_minute, auth_login_rate_limit_per_minute, admin_ui_session_ttl_hours, security_frame_policy, security_referrer_policy, security_content_type_nosniff, email_transport, email_from, email_subject, smtp_host, smtp_port, smtp_username, smtp_password_env, smtp_starttls."
+                    "Auth config reference. User, code_ttl_minutes, session_ttl_hours, auth_request_code_rate_limit_per_minute, auth_login_rate_limit_per_minute, admin_ui_session_ttl_hours, security_frame_policy, security_referrer_policy, security_content_type_nosniff, email_from, email_subject, smtp_host, smtp_port, smtp_username, smtp_password_env, smtp_starttls."
 
                 "system-config-reference" ->
                     "System config reference. request_logs_buffer, http_max_request_body_mb, sqlite_journal_mode, sqlite_synchronous, sqlite_foreign_keys, sqlite_busy_timeout_ms, sqlite_wal_autocheckpoint, sqlite_journal_size_limit_mb, sqlite_mmap_size_mb, sqlite_cache_size_kb."
@@ -1020,7 +1020,7 @@ docSearchEntries =
       , route = AdvancedLanguageReference
       , sectionId = Just "auth-config-reference"
       , summary = "Reference for User, code/session TTL, auth rate limits, admin UI session lifetime, security headers, and SMTP email configuration."
-      , keywords = [ "user", "code_ttl_minutes", "session_ttl_hours", "auth_request_code_rate_limit_per_minute", "auth_login_rate_limit_per_minute", "admin_ui_session_ttl_hours", "security_frame_policy", "security_referrer_policy", "security_content_type_nosniff", "email_transport", "smtp_host", "smtp_port", "smtp_username", "smtp_password_env", "smtp_starttls" ]
+      , keywords = [ "user", "code_ttl_minutes", "session_ttl_hours", "auth_request_code_rate_limit_per_minute", "auth_login_rate_limit_per_minute", "admin_ui_session_ttl_hours", "security_frame_policy", "security_referrer_policy", "security_content_type_nosniff", "smtp_host", "smtp_port", "smtp_username", "smtp_password_env", "smtp_starttls" ]
       }
     , { title = "System config reference"
       , route = AdvancedLanguageReference
@@ -1475,7 +1475,7 @@ advancedLanguageReferencePage =
                     , languageReferenceItem "session_ttl_hours" "Sets the default session lifetime in hours. Range `1..8760` (up to 365 days)."
                     , languageReferenceItem "auth_request_code_rate_limit_per_minute, auth_login_rate_limit_per_minute, admin_ui_session_ttl_hours" "Configure auth rate limits and the admin session lifetime in hours. `admin_ui_session_ttl_hours` also uses range `1..8760` (up to 365 days)."
                     , languageReferenceItem "security_frame_policy, security_referrer_policy, security_content_type_nosniff" "Configure auth-related security response headers."
-                    , languageReferenceItem "email_transport, email_from, email_subject, smtp_host, smtp_port, smtp_username, smtp_password_env, smtp_starttls" "Configure how login codes are delivered."
+                    , languageReferenceItem "email_from, email_subject, smtp_host, smtp_port, smtp_username, smtp_password_env, smtp_starttls" "Configure how login codes are delivered. In `mar dev`, login codes are printed to the console. In other runtime modes, Mar uses SMTP."
                     ]
                 ]
             , anchoredSection "system-config-reference"
@@ -3706,7 +3706,6 @@ marKeywordWords =
     , "spa_fallback"
     , "code_ttl_minutes"
     , "session_ttl_hours"
-    , "email_transport"
     , "email_from"
     , "email_subject"
     , "smtp_host"
@@ -3997,7 +3996,6 @@ authConfigSource =
 auth {
   code_ttl_minutes 10
   session_ttl_hours 24
-  email_transport smtp
   email_from "no-reply@store.example"
   email_subject "Your StoreApi login code"
   smtp_host "smtp.example.com"
@@ -4031,7 +4029,6 @@ smtpDeploySource : String
 smtpDeploySource =
     """-- In your app.mar file
 auth {
-  email_transport smtp
   email_from "no-reply@yourdomain.com"
   email_subject "Your login code"
   smtp_host "smtp.resend.com"
@@ -4066,9 +4063,11 @@ database "bookstore.db"
 auth {
   code_ttl_minutes 10
   session_ttl_hours 24
-  email_transport console
   email_from "no-reply@bookstore.local"
   email_subject "Your BookStore login code"
+  smtp_host "smtp.resend.com"
+  smtp_username "resend"
+  smtp_password_env "RESEND_API_KEY"
 }
 
 entity User {

@@ -27,7 +27,7 @@ func TestRequestCodeMessageIncludesDevConsoleHintInDevMode(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
 		t.Fatalf("decode request-code response failed: %v body=%s", err, rec.Body.String())
 	}
-	if !strings.Contains(response.Message, "You are running in dev mode with email transport set to console, so check there.") {
+	if !strings.Contains(response.Message, "You are running in dev mode, so check the console output.") {
 		t.Fatalf("expected dev-mode console hint in message, got %q", response.Message)
 	}
 }
@@ -35,8 +35,11 @@ func TestRequestCodeMessageIncludesDevConsoleHintInDevMode(t *testing.T) {
 func TestRequestCodeMessageStaysGenericOutsideDevMode(t *testing.T) {
 	requireSQLite3(t)
 	t.Setenv("MAR_DEV_MODE", "")
+	t.Setenv("TEST_SMTP_PASSWORD", "secret")
+	restore := stubSMTPDial(t)
+	defer restore()
 
-	r := mustNewRuntimeWithoutExplicitAuth(t, filepath.Join(t.TempDir(), "request-code-generic-message.db"))
+	r := mustNewRuntimeForSMTPAuth(t, filepath.Join(t.TempDir(), "request-code-generic-message.db"))
 
 	rec := doRuntimeRequest(r, http.MethodPost, "/auth/request-code", `{"email":"generic@example.com"}`, "")
 	if rec.Code != http.StatusOK {
@@ -60,6 +63,38 @@ func mustNewRuntimeWithoutExplicitAuth(t *testing.T, dbPath string) *Runtime {
 
 	app, err := parser.Parse(strings.TrimSpace(`
 app TodoApi
+
+entity Todo {
+  id: Int primary auto
+  title: String
+}
+`) + "\n")
+	if err != nil {
+		t.Fatalf("failed to parse app: %v", err)
+	}
+	app.Database = dbPath
+
+	r, err := New(app)
+	if err != nil {
+		t.Fatalf("runtime.New failed: %v", err)
+	}
+	return r
+}
+
+func mustNewRuntimeForSMTPAuth(t *testing.T, dbPath string) *Runtime {
+	t.Helper()
+
+	app, err := parser.Parse(strings.TrimSpace(`
+app TodoApi
+
+auth {
+  email_from "no-reply@example.com"
+  smtp_host "127.0.0.1"
+  smtp_port 587
+  smtp_username "resend"
+  smtp_password_env "TEST_SMTP_PASSWORD"
+  smtp_starttls false
+}
 
 entity Todo {
   id: Int primary auto

@@ -36,7 +36,7 @@ var (
 	systemMBRe                  = regexp.MustCompile(`^(sqlite_mmap_size_mb|http_max_request_body_mb)\s+([0-9]{1,5})$`)
 	systemKBRe                  = regexp.MustCompile(`^(sqlite_cache_size_kb)\s+([0-9]{1,7})$`)
 	publicQuoteRe               = regexp.MustCompile(`^(dir|mount|spa_fallback)\s+"([^"]+)"$`)
-	authStmtRe                  = regexp.MustCompile(`^(code_ttl_minutes|session_ttl_hours|auth_request_code_rate_limit_per_minute|auth_login_rate_limit_per_minute|admin_ui_session_ttl_hours|email_transport|smtp_port|smtp_starttls|security_content_type_nosniff|security_frame_policy|security_referrer_policy)\s+(.+)$`)
+	authStmtRe                  = regexp.MustCompile(`^(code_ttl_minutes|session_ttl_hours|auth_request_code_rate_limit_per_minute|auth_login_rate_limit_per_minute|admin_ui_session_ttl_hours|smtp_port|smtp_starttls|security_content_type_nosniff|security_frame_policy|security_referrer_policy)\s+(.+)$`)
 	authQuoteRe                 = regexp.MustCompile(`^(email_from|email_subject|smtp_host|smtp_username|smtp_password_env)\s+"([^"]+)"$`)
 
 	aliasFieldRe        = regexp.MustCompile(`^([a-z][A-Za-z0-9_]*)\s*:\s*(Int|String|Bool|Float|DateTime|Date)\s*$`)

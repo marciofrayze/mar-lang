@@ -117,6 +117,7 @@ func TestAuthRateLimitCanBeOverriddenFromAuth(t *testing.T) {
 
 func mustNewAuthRateLimitRuntime(t *testing.T, dbPath, authBlock string) *Runtime {
 	t.Helper()
+	t.Setenv("MAR_DEV_MODE", "1")
 
 	source := strings.TrimSpace(`
 app AuthRateApi
@@ -133,7 +134,6 @@ entity Todo {
 }
 
 auth {
-  email_transport console
 `+authBlock+`
 }
 `) + "\n"

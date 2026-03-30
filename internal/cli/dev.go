@@ -71,16 +71,13 @@ func runDev(binaryName, inputPath, outputPath string) error {
 			return
 		}
 		printAppWarnings(app)
-		if app.Auth != nil && strings.EqualFold(strings.TrimSpace(app.Auth.EmailTransport), "smtp") {
-			fmt.Printf(
-				"  %s %s %s %s %s\n",
-				colorizeCLI(useColor, "\033[1;36m", "Login emails"),
-				"use",
-				colorizeCLI(useColor, "\033[1;33m", "console"),
-				"in dev. Production still uses the configured",
-				colorizeCLI(useColor, "\033[1;33m", "smtp."),
-			)
-		}
+		fmt.Printf(
+			"  %s %s %s %s\n",
+			colorizeCLI(useColor, "\033[1;36m", "Login emails"),
+			"use",
+			colorizeCLI(useColor, "\033[1;33m", "console"),
+			"in dev. Other runtime modes use SMTP.",
+		)
 		if buildErr := buildExecutableWithOptions(app, absOutput, buildOptions{
 			PrintSummary: false,
 			SourcePath:   absInput,

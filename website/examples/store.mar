@@ -9,9 +9,11 @@ database "bookstore.db"
 auth {
   code_ttl_minutes 10
   session_ttl_hours 24
-  email_transport console
   email_from "no-reply@bookstore.local"
   email_subject "Your BookStore login code"
+  smtp_host "smtp.resend.com"
+  smtp_username "resend"
+  smtp_password_env "RESEND_API_KEY"
 }
 
 -- =========================================

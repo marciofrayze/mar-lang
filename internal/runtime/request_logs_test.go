@@ -182,7 +182,6 @@ func TestRequestLogsShowReadAuthorizationFilterPushedIntoListQuery(t *testing.T)
 app TodoReadFilter
 
 auth {
-  email_transport console
 }
 
 entity Todo {
@@ -274,7 +273,6 @@ func TestRequestLogsOmitWhereForAdminListWhenReadRuleIsAlwaysTrue(t *testing.T) 
 app TodoReadFilter
 
 auth {
-  email_transport console
 }
 
 entity Todo {
@@ -455,6 +453,7 @@ func TestRequestLogsSkipHealthAndDoNotExposeNilRoleForUnauthenticatedRequests(t 
 
 func requestCodeAndUseKnownCode(t *testing.T, r *Runtime, email string) string {
 	t.Helper()
+	t.Setenv("MAR_DEV_MODE", "1")
 	body := `{"email":"` + email + `"}`
 	rec := doRuntimeRequest(r, http.MethodPost, "/auth/request-code", body, "")
 	if rec.Code != http.StatusOK {

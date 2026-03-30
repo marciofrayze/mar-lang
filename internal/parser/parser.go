@@ -42,7 +42,6 @@ var (
 		"security_frame_policy",
 		"security_referrer_policy",
 		"security_content_type_nosniff",
-		"email_transport",
 		"email_from",
 		"email_subject",
 		"smtp_host",
@@ -282,7 +281,6 @@ func defaultAuthConfig() *model.AuthConfig {
 		RoleField:       "role",
 		CodeTTLMinutes:  10,
 		SessionTTLHours: 24,
-		EmailTransport:  "console",
 		EmailFrom:       "no-reply@mar.local",
 		EmailSubject:    "Your Mar login code",
 		SMTPPort:        587,
@@ -409,12 +407,6 @@ func parseAuthBlock(lines []line, idx *int) (*model.AuthConfig, error) {
 				"line %d: auth.security_content_type_nosniff must be true or false",
 				ln.number,
 			)
-		}
-		if m := match(`^email_transport\s+(console|smtp)$`, trimmed); m != nil {
-			auth.EmailTransport = m[1]
-			matched = true
-		} else if m := match(`^email_transport\s+(.+)$`, trimmed); m != nil {
-			return nil, parserErrorf("line %d: auth.email_transport must be one of: console, smtp.", ln.number)
 		}
 		if m := match(`^email_from\s+"([^"]+)"$`, trimmed); m != nil {
 			auth.EmailFrom = m[1]
@@ -1513,41 +1505,28 @@ func validateAuthConfig(app *model.App) error {
 		}
 	}
 
-	switch app.Auth.EmailTransport {
-	case "console":
-		if strings.TrimSpace(app.Auth.SMTPHost) != "" {
-			return parserErrorf("auth.smtp_host can only be used when email_transport smtp is selected")
-		}
-		if strings.TrimSpace(app.Auth.SMTPUsername) != "" {
-			return parserErrorf("auth.smtp_username can only be used when email_transport smtp is selected")
-		}
-		if strings.TrimSpace(app.Auth.SMTPPasswordEnv) != "" {
-			return parserErrorf("auth.smtp_password_env can only be used when email_transport smtp is selected")
-		}
-		if app.Auth.SMTPPort != 587 {
-			return parserErrorf("auth.smtp_port can only be used when email_transport smtp is selected")
-		}
-		if !app.Auth.SMTPStartTLS {
-			return parserErrorf("auth.smtp_starttls can only be used when email_transport smtp is selected")
-		}
-	case "smtp":
-		if strings.TrimSpace(app.Auth.SMTPHost) == "" {
-			return parserErrorf("auth.smtp_host is required when email_transport smtp is selected")
-		}
-		if app.Auth.SMTPPort < 1 || app.Auth.SMTPPort > 65535 {
-			return parserErrorf("auth.smtp_port must be between 1 and 65535 when email_transport smtp is selected")
-		}
-		if strings.TrimSpace(app.Auth.SMTPUsername) == "" {
-			return parserErrorf("auth.smtp_username is required when email_transport smtp is selected")
-		}
-		if strings.TrimSpace(app.Auth.SMTPPasswordEnv) == "" {
-			return parserErrorf("auth.smtp_password_env is required when email_transport smtp is selected")
-		}
-		if !envVarNameRe.MatchString(strings.TrimSpace(app.Auth.SMTPPasswordEnv)) {
-			return parserErrorf("auth.smtp_password_env %q must be a valid environment variable name", app.Auth.SMTPPasswordEnv)
-		}
-	default:
-		return parserErrorf("auth.email_transport %q is not supported", app.Auth.EmailTransport)
+	if strings.TrimSpace(app.Auth.SMTPHost) == "" &&
+		strings.TrimSpace(app.Auth.SMTPUsername) == "" &&
+		strings.TrimSpace(app.Auth.SMTPPasswordEnv) == "" &&
+		app.Auth.SMTPPort == 587 &&
+		app.Auth.SMTPStartTLS {
+		return nil
+	}
+
+	if strings.TrimSpace(app.Auth.SMTPHost) == "" {
+		return parserErrorf("auth.smtp_host is required when SMTP is configured")
+	}
+	if app.Auth.SMTPPort < 1 || app.Auth.SMTPPort > 65535 {
+		return parserErrorf("auth.smtp_port must be between 1 and 65535 when SMTP is configured")
+	}
+	if strings.TrimSpace(app.Auth.SMTPUsername) == "" {
+		return parserErrorf("auth.smtp_username is required when SMTP is configured")
+	}
+	if strings.TrimSpace(app.Auth.SMTPPasswordEnv) == "" {
+		return parserErrorf("auth.smtp_password_env is required when SMTP is configured")
+	}
+	if !envVarNameRe.MatchString(strings.TrimSpace(app.Auth.SMTPPasswordEnv)) {
+		return parserErrorf("auth.smtp_password_env %q must be a valid environment variable name", app.Auth.SMTPPasswordEnv)
 	}
 
 	return nil

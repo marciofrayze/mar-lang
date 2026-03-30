@@ -77,7 +77,6 @@ func (r *Runtime) schemaPayload(requestID string) map[string]any {
 		"userEntity":     "User",
 		"emailField":     cfg.EmailField,
 		"roleField":      cfg.RoleField,
-		"emailTransport": cfg.EmailTransport,
 		"needsBootstrap": needsBootstrap,
 	}
 	return payload

@@ -13,7 +13,6 @@ func TestListReadAuthorizationWhereTranslatesSimpleOwnedReadRule(t *testing.T) {
 app TodoReadFilter
 
 auth {
-  email_transport console
 }
 
 entity Todo {
@@ -67,7 +66,6 @@ func TestListReadAuthorizationWhereFallsBackForFunctionCalls(t *testing.T) {
 app TodoReadFilter
 
 auth {
-  email_transport console
 }
 
 entity Todo {
@@ -94,7 +92,6 @@ func TestListReadAuthorizationWhereOmitsWhereForAlwaysTrueAdminRule(t *testing.T
 app TodoReadFilter
 
 auth {
-  email_transport console
 }
 
 entity Todo {

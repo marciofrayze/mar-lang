@@ -165,7 +165,6 @@ func TestValidateFlyInitPrereqsBlocksPlaceholderEmailBeforePrompts(t *testing.T)
 	err := validateFlyInitPrereqs(&model.App{
 		Auth: &model.AuthConfig{
 			EmailFrom: "no-reply@mar.local",
-			EmailTransport: "smtp",
 		},
 	})
 	if err == nil {
@@ -179,32 +178,31 @@ func TestValidateFlyInitPrereqsBlocksPlaceholderEmailBeforePrompts(t *testing.T)
 	}
 }
 
-func TestValidateFlyInitPrereqsBlocksConsoleEmailTransport(t *testing.T) {
+func TestValidateFlyInitPrereqsBlocksMissingSMTPConfig(t *testing.T) {
 	err := validateFlyInitPrereqs(&model.App{
 		Auth: &model.AuthConfig{
-			EmailTransport: "console",
-			EmailFrom:      "no-reply@segunda.tech",
+			EmailFrom: "no-reply@segunda.tech",
 		},
 	})
 	if err == nil {
-		t.Fatal("expected console email transport to block fly init")
+		t.Fatal("expected missing SMTP config to block fly init")
 	}
 	if !strings.Contains(err.Error(), "Fly init blocked") {
 		t.Fatalf("expected fly init blocked message, got %q", err.Error())
 	}
-	if !strings.Contains(err.Error(), "auth.email_transport is set to console") {
-		t.Fatalf("expected console transport explanation, got %q", err.Error())
+	if !strings.Contains(err.Error(), "missing part of the SMTP configuration required outside mar dev") {
+		t.Fatalf("expected missing SMTP explanation, got %q", err.Error())
 	}
 }
 
-func TestValidateFlyAuthForDeployBlocksConsoleTransport(t *testing.T) {
+func TestValidateFlyAuthForDeployBlocksMissingSMTPConfig(t *testing.T) {
 	err := validateFlyAuthForDeploy(&model.App{
 		Auth: &model.AuthConfig{
-			EmailTransport: "console",
+			EmailFrom: "no-reply@segunda.tech",
 		},
 	}, "Fly deploy blocked")
 	if err == nil {
-		t.Fatal("expected console email transport to block fly deploy")
+		t.Fatal("expected missing SMTP config to block fly deploy")
 	}
 	if !strings.Contains(err.Error(), "Fly deploy blocked") {
 		t.Fatalf("expected fly deploy blocked title, got %q", err.Error())

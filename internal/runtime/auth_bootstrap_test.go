@@ -113,7 +113,6 @@ entity User {
 }
 
 auth {
-  email_transport console
 }
 `)
 
@@ -156,7 +155,6 @@ entity User {
 }
 
 auth {
-  email_transport console
 }
 `)
 
@@ -200,7 +198,6 @@ entity User {
 }
 
 auth {
-  email_transport console
 }
 `)
 
@@ -262,6 +259,7 @@ func TestRequestCodeCreatesAdminWhenNoUsersExist(t *testing.T) {
 
 func mustNewAuthRuntime(t *testing.T, dbPath string) *Runtime {
 	t.Helper()
+	t.Setenv("MAR_DEV_MODE", "1")
 	app, err := parser.Parse(strings.TrimSpace(`
 app AuthBootstrapApi
 
@@ -282,7 +280,6 @@ entity Todo {
 }
 
 auth {
-  email_transport console
 }
 `) + "\n")
 	if err != nil {
@@ -299,6 +296,7 @@ auth {
 
 func mustNewAuthRuntimeFromSource(t *testing.T, dbPath string, source string) *Runtime {
 	t.Helper()
+	t.Setenv("MAR_DEV_MODE", "1")
 	app, err := parser.Parse(strings.TrimSpace(source) + "\n")
 	if err != nil {
 		t.Fatalf("failed to parse app: %v", err)

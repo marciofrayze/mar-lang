@@ -26,7 +26,6 @@ entity Todo {
 }
 
 auth {
-  email_transport console
 }
 `
 

@@ -306,7 +306,7 @@
         },
         {
           "name": "keyword.other.auth.mar",
-          "match": "\\b(code_ttl_minutes|session_ttl_hours|auth_request_code_rate_limit_per_minute|auth_login_rate_limit_per_minute|admin_ui_session_ttl_hours|security_frame_policy|security_referrer_policy|security_content_type_nosniff|email_transport|email_from|email_subject|smtp_host|smtp_port|smtp_username|smtp_password_env|smtp_starttls)\\b"
+          "match": "\\b(code_ttl_minutes|session_ttl_hours|auth_request_code_rate_limit_per_minute|auth_login_rate_limit_per_minute|admin_ui_session_ttl_hours|security_frame_policy|security_referrer_policy|security_content_type_nosniff|email_from|email_subject|smtp_host|smtp_port|smtp_username|smtp_password_env|smtp_starttls)\\b"
         },
         {
           "name": "keyword.other.public.mar",

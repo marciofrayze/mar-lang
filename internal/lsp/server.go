@@ -439,7 +439,6 @@ func keywordCompletionItems() []map[string]any {
 		"security_frame_policy",
 		"security_referrer_policy",
 		"security_content_type_nosniff",
-		"email_transport",
 		"email_from",
 		"email_subject",
 		"smtp_host",

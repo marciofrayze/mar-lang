@@ -14,7 +14,6 @@ func TestLegacyBackupAliasIsNotServed(t *testing.T) {
 app TodoApi
 
 auth {
-  email_transport console
   email_from "no-reply@example.com"
   email_subject "Your login code"
 }
