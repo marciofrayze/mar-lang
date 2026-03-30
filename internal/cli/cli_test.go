@@ -113,8 +113,8 @@ func TestHighlightParseCLIMessageColorsUnknownInputFieldInRed(t *testing.T) {
 	if !strings.Contains(msg, "\033[1;31m\"unitPrico\"\033[0m") {
 		t.Fatalf("expected unknown input field token to be red, got %q", msg)
 	}
-	if !strings.Contains(msg, "\033[1;32m\"unitPrice\"\033[0m") {
-		t.Fatalf("expected suggested token to remain green, got %q", msg)
+	if !strings.Contains(msg, "\033[1;36m\"unitPrice\"\033[0m") {
+		t.Fatalf("expected suggested token to be cyan, got %q", msg)
 	}
 }
 

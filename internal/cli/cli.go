@@ -351,7 +351,7 @@ func highlightParseCLIMessage(useColor bool, message string) string {
 		return "field " + colorizeCLI(true, "\033[1;36m", parts[1])
 	})
 	message = parseErrorQuotedTokenRe.ReplaceAllStringFunc(message, func(match string) string {
-		return colorizeCLI(true, "\033[1;32m", match)
+		return colorizeCLI(true, "\033[1;36m", match)
 	})
 	if unknownInputToken != "" {
 		message = strings.Replace(message, unknownInputPlaceholder, colorizeCLI(true, "\033[1;31m", unknownInputToken), 1)
