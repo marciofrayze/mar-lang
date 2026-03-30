@@ -289,9 +289,6 @@ app FrontApi
 database "./front.db"
 system {
 request_logs_buffer    500
-security_frame_policy deny
-security_referrer_policy no-referrer
-security_content_type_nosniff false
 sqlite_journal_mode   wal
 sqlite_synchronous normal
 sqlite_foreign_keys   true
@@ -301,6 +298,11 @@ sqlite_journal_size_limit_mb 64
 sqlite_mmap_size_mb  128
 sqlite_cache_size_kb 2000
 http_max_request_body_mb 1
+}
+auth {
+security_frame_policy deny
+security_referrer_policy no-referrer
+security_content_type_nosniff false
 }
 entity Todo{
 title:String
@@ -317,9 +319,6 @@ title:String
 		"database \"./front.db\"\n" +
 		"system {\n" +
 		"  request_logs_buffer 500\n" +
-		"  security_frame_policy deny\n" +
-		"  security_referrer_policy no-referrer\n" +
-		"  security_content_type_nosniff false\n" +
 		"  sqlite_journal_mode wal\n" +
 		"  sqlite_synchronous normal\n" +
 		"  sqlite_foreign_keys true\n" +
@@ -329,6 +328,11 @@ title:String
 		"  sqlite_mmap_size_mb 128\n" +
 		"  sqlite_cache_size_kb 2000\n" +
 		"  http_max_request_body_mb 1\n" +
+		"}\n" +
+		"auth {\n" +
+		"  security_frame_policy deny\n" +
+		"  security_referrer_policy no-referrer\n" +
+		"  security_content_type_nosniff false\n" +
 		"}\n" +
 		"entity Todo {\n" +
 		"  title: String\n" +

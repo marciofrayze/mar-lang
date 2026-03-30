@@ -695,10 +695,10 @@ func setSecurityHeaders(w http.ResponseWriter, app *model.App) {
 }
 
 func framePolicyForApp(app *model.App) string {
-	if app == nil || app.System == nil || app.System.SecurityFramePolicy == nil {
+	if app == nil || app.Auth == nil || app.Auth.SecurityFramePolicy == nil {
 		return defaultSecurityFramePolicy
 	}
-	value := strings.ToLower(strings.TrimSpace(*app.System.SecurityFramePolicy))
+	value := strings.ToLower(strings.TrimSpace(*app.Auth.SecurityFramePolicy))
 	if value == securityFramePolicyDeny || value == securityFramePolicySameOrigin {
 		return value
 	}
@@ -713,10 +713,10 @@ func securityFrameHeaderValue(policy string) string {
 }
 
 func referrerPolicyForApp(app *model.App) string {
-	if app == nil || app.System == nil || app.System.SecurityReferrerPolicy == nil {
+	if app == nil || app.Auth == nil || app.Auth.SecurityReferrerPolicy == nil {
 		return defaultSecurityReferrerPolicy
 	}
-	value := strings.TrimSpace(*app.System.SecurityReferrerPolicy)
+	value := strings.TrimSpace(*app.Auth.SecurityReferrerPolicy)
 	if value == "strict-origin-when-cross-origin" || value == "no-referrer" {
 		return value
 	}
@@ -724,10 +724,10 @@ func referrerPolicyForApp(app *model.App) string {
 }
 
 func contentNoSniffForApp(app *model.App) bool {
-	if app == nil || app.System == nil || app.System.SecurityContentNoSniff == nil {
+	if app == nil || app.Auth == nil || app.Auth.SecurityContentNoSniff == nil {
 		return defaultSecurityContentNoSniff
 	}
-	return *app.System.SecurityContentNoSniff
+	return *app.Auth.SecurityContentNoSniff
 }
 
 type statusRecorder struct {

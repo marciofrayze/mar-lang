@@ -45,14 +45,14 @@ func TestSystemSecurityHeadersOverride(t *testing.T) {
 	app := mustParseApp(t, `
 app SecurityHeadersApi
 
-system {
+entity Todo {
+  title: String
+}
+
+auth {
   security_frame_policy deny
   security_referrer_policy no-referrer
   security_content_type_nosniff false
-}
-
-entity Todo {
-  title: String
 }
 `)
 	app.Database = filepath.Join(t.TempDir(), "security-overrides.db")

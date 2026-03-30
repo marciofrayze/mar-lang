@@ -22,12 +22,6 @@ type PublicConfig struct {
 type SystemConfig struct {
 	RequestLogsBuffer        int     `json:"requestLogsBuffer"`
 	HTTPMaxRequestBodyMB     *int    `json:"httpMaxRequestBodyMb,omitempty"`
-	AuthRequestCodeRateLimit *int    `json:"authRequestCodeRateLimitPerMinute,omitempty"`
-	AuthLoginRateLimit       *int    `json:"authLoginRateLimitPerMinute,omitempty"`
-	AdminUISessionTTLHours   *int    `json:"adminUiSessionTtlHours,omitempty"`
-	SecurityFramePolicy      *string `json:"securityFramePolicy,omitempty"`
-	SecurityReferrerPolicy   *string `json:"securityReferrerPolicy,omitempty"`
-	SecurityContentNoSniff   *bool   `json:"securityContentTypeNosniff,omitempty"`
 	SQLiteJournalMode        *string `json:"sqliteJournalMode,omitempty"`
 	SQLiteSynchronous        *string `json:"sqliteSynchronous,omitempty"`
 	SQLiteForeignKeys        *bool   `json:"sqliteForeignKeys,omitempty"`
@@ -39,19 +33,25 @@ type SystemConfig struct {
 }
 
 type AuthConfig struct {
-	UserEntity      string `json:"userEntity"`
-	EmailField      string `json:"emailField"`
-	RoleField       string `json:"roleField"`
-	CodeTTLMinutes  int    `json:"codeTtlMinutes"`
-	SessionTTLHours int    `json:"sessionTtlHours"`
-	EmailTransport  string `json:"emailTransport"`
-	EmailFrom       string `json:"emailFrom"`
-	EmailSubject    string `json:"emailSubject"`
-	SMTPHost        string `json:"smtpHost"`
-	SMTPPort        int    `json:"smtpPort"`
-	SMTPUsername    string `json:"smtpUsername"`
-	SMTPPasswordEnv string `json:"smtpPasswordEnv"`
-	SMTPStartTLS    bool   `json:"smtpStartTls"`
+	UserEntity               string  `json:"userEntity"`
+	EmailField               string  `json:"emailField"`
+	RoleField                string  `json:"roleField"`
+	CodeTTLMinutes           int     `json:"codeTtlMinutes"`
+	SessionTTLHours          int     `json:"sessionTtlHours"`
+	AuthRequestCodeRateLimit *int    `json:"authRequestCodeRateLimitPerMinute,omitempty"`
+	AuthLoginRateLimit       *int    `json:"authLoginRateLimitPerMinute,omitempty"`
+	AdminUISessionTTLHours   *int    `json:"adminUiSessionTtlHours,omitempty"`
+	SecurityFramePolicy      *string `json:"securityFramePolicy,omitempty"`
+	SecurityReferrerPolicy   *string `json:"securityReferrerPolicy,omitempty"`
+	SecurityContentNoSniff   *bool   `json:"securityContentTypeNosniff,omitempty"`
+	EmailTransport           string  `json:"emailTransport"`
+	EmailFrom                string  `json:"emailFrom"`
+	EmailSubject             string  `json:"emailSubject"`
+	SMTPHost                 string  `json:"smtpHost"`
+	SMTPPort                 int     `json:"smtpPort"`
+	SMTPUsername             string  `json:"smtpUsername"`
+	SMTPPasswordEnv          string  `json:"smtpPasswordEnv"`
+	SMTPStartTLS             bool    `json:"smtpStartTls"`
 }
 
 type Entity struct {

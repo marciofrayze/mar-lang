@@ -786,6 +786,31 @@ auth {
 	}
 }
 
+func TestParseMisplacedAuthStatementInSystemShowsHint(t *testing.T) {
+	src := `
+app Demo
+
+system {
+  admin_ui_session_ttl_hours 2
+}
+
+entity Todo {
+  title: String
+}
+`
+
+	_, err := Parse(src)
+	if err == nil {
+		t.Fatal("expected parse error for misplaced auth statement")
+	}
+	if !strings.Contains(err.Error(), `unknown system statement "admin_ui_session_ttl_hours 2"`) {
+		t.Fatalf("unexpected error message: %v", err)
+	}
+	if !strings.Contains(err.Error(), "Hint:\n  \"admin_ui_session_ttl_hours\" looks like an auth setting. Try moving it into auth { ... }.") {
+		t.Fatalf("expected misplaced auth hint, got: %v", err)
+	}
+}
+
 func TestParseAuthSMTPConfig(t *testing.T) {
 	src := `
 app AuthApi
@@ -1113,13 +1138,9 @@ entity Todo {
 	}
 }
 
-func TestParseSystemAdminUISessionTTL(t *testing.T) {
+func TestParseMisplacedSystemStatementInAuthShowsHint(t *testing.T) {
 	src := `
 app AuthApi
-
-system {
-  admin_ui_session_ttl_hours 6
-}
 
 entity User {
   email: String
@@ -1127,6 +1148,33 @@ entity User {
 }
 
 auth {
+  request_logs_buffer 500
+}
+`
+
+	_, err := Parse(src)
+	if err == nil {
+		t.Fatal("expected parse error for misplaced system statement")
+	}
+	if !strings.Contains(err.Error(), `unknown auth statement "request_logs_buffer 500"`) {
+		t.Fatalf("unexpected error message: %v", err)
+	}
+	if !strings.Contains(err.Error(), "Hint:\n  \"request_logs_buffer\" looks like a system setting. Try moving it into system { ... }.") {
+		t.Fatalf("expected misplaced system hint, got: %v", err)
+	}
+}
+
+func TestParseAuthAdminUISessionTTL(t *testing.T) {
+	src := `
+app AuthApi
+
+entity User {
+  email: String
+  role: String
+}
+
+auth {
+  admin_ui_session_ttl_hours 6
 }
 `
 
@@ -1134,24 +1182,20 @@ auth {
 	if err != nil {
 		t.Fatalf("Parse returned error: %v", err)
 	}
-	if app.System == nil {
-		t.Fatal("expected system block to be parsed")
+	if app.Auth == nil {
+		t.Fatal("expected auth block to be parsed")
 	}
-	if app.System.AdminUISessionTTLHours == nil {
+	if app.Auth.AdminUISessionTTLHours == nil {
 		t.Fatal("expected admin_ui_session_ttl_hours to be parsed")
 	}
-	if *app.System.AdminUISessionTTLHours != 6 {
-		t.Fatalf("unexpected admin_ui_session_ttl_hours: %d", *app.System.AdminUISessionTTLHours)
+	if *app.Auth.AdminUISessionTTLHours != 6 {
+		t.Fatalf("unexpected admin_ui_session_ttl_hours: %d", *app.Auth.AdminUISessionTTLHours)
 	}
 }
 
-func TestParseSystemAdminUISessionTTLRejectsOutOfRange(t *testing.T) {
+func TestParseAuthAdminUISessionTTLRejectsOutOfRange(t *testing.T) {
 	src := `
 app AuthApi
-
-system {
-  admin_ui_session_ttl_hours 0
-}
 
 entity User {
   email: String
@@ -1159,14 +1203,15 @@ entity User {
 }
 
 auth {
+  admin_ui_session_ttl_hours 0
 }
 `
 
 	_, err := Parse(src)
 	if err == nil {
-		t.Fatal("expected parse error for out-of-range system.admin_ui_session_ttl_hours")
+		t.Fatal("expected parse error for out-of-range auth.admin_ui_session_ttl_hours")
 	}
-	if !strings.Contains(err.Error(), "system.admin_ui_session_ttl_hours must be between") {
+	if !strings.Contains(err.Error(), "auth.admin_ui_session_ttl_hours must be between") {
 		t.Fatalf("unexpected error message: %v", err)
 	}
 }
@@ -1557,26 +1602,29 @@ entity Todo {
 	}
 }
 
-func TestParseSystemSQLiteSettings(t *testing.T) {
+func TestParseSystemAndAuthSettings(t *testing.T) {
 	src := `
 app FrontApi
 database "./front.db"
 
 system {
-  security_frame_policy sameorigin
-  security_referrer_policy strict-origin-when-cross-origin
-  security_content_type_nosniff true
   sqlite_journal_mode wal
   sqlite_synchronous normal
   sqlite_foreign_keys true
-  auth_request_code_rate_limit_per_minute 5
-  auth_login_rate_limit_per_minute 10
   sqlite_busy_timeout_ms 5000
   sqlite_wal_autocheckpoint 1000
   sqlite_journal_size_limit_mb 64
   sqlite_mmap_size_mb 128
   sqlite_cache_size_kb 2000
   http_max_request_body_mb 1
+}
+
+auth {
+  auth_request_code_rate_limit_per_minute 5
+  auth_login_rate_limit_per_minute 10
+  security_frame_policy sameorigin
+  security_referrer_policy strict-origin-when-cross-origin
+  security_content_type_nosniff true
 }
 
 entity Todo {
@@ -1600,20 +1648,20 @@ entity Todo {
 	if app.System.SQLiteForeignKeys == nil || !*app.System.SQLiteForeignKeys {
 		t.Fatalf("unexpected sqlite_foreign_keys: %+v", app.System.SQLiteForeignKeys)
 	}
-	if app.System.SecurityFramePolicy == nil || *app.System.SecurityFramePolicy != "sameorigin" {
-		t.Fatalf("unexpected security_frame_policy: %+v", app.System.SecurityFramePolicy)
+	if app.Auth.SecurityFramePolicy == nil || *app.Auth.SecurityFramePolicy != "sameorigin" {
+		t.Fatalf("unexpected security_frame_policy: %+v", app.Auth.SecurityFramePolicy)
 	}
-	if app.System.SecurityReferrerPolicy == nil || *app.System.SecurityReferrerPolicy != "strict-origin-when-cross-origin" {
-		t.Fatalf("unexpected security_referrer_policy: %+v", app.System.SecurityReferrerPolicy)
+	if app.Auth.SecurityReferrerPolicy == nil || *app.Auth.SecurityReferrerPolicy != "strict-origin-when-cross-origin" {
+		t.Fatalf("unexpected security_referrer_policy: %+v", app.Auth.SecurityReferrerPolicy)
 	}
-	if app.System.SecurityContentNoSniff == nil || !*app.System.SecurityContentNoSniff {
-		t.Fatalf("unexpected security_content_type_nosniff: %+v", app.System.SecurityContentNoSniff)
+	if app.Auth.SecurityContentNoSniff == nil || !*app.Auth.SecurityContentNoSniff {
+		t.Fatalf("unexpected security_content_type_nosniff: %+v", app.Auth.SecurityContentNoSniff)
 	}
-	if app.System.AuthRequestCodeRateLimit == nil || *app.System.AuthRequestCodeRateLimit != 5 {
-		t.Fatalf("unexpected auth_request_code_rate_limit_per_minute: %+v", app.System.AuthRequestCodeRateLimit)
+	if app.Auth == nil || app.Auth.AuthRequestCodeRateLimit == nil || *app.Auth.AuthRequestCodeRateLimit != 5 {
+		t.Fatalf("unexpected auth_request_code_rate_limit_per_minute: %+v", app.Auth)
 	}
-	if app.System.AuthLoginRateLimit == nil || *app.System.AuthLoginRateLimit != 10 {
-		t.Fatalf("unexpected auth_login_rate_limit_per_minute: %+v", app.System.AuthLoginRateLimit)
+	if app.Auth.AuthLoginRateLimit == nil || *app.Auth.AuthLoginRateLimit != 10 {
+		t.Fatalf("unexpected auth_login_rate_limit_per_minute: %+v", app.Auth.AuthLoginRateLimit)
 	}
 	if app.System.SQLiteBusyTimeoutMs == nil || *app.System.SQLiteBusyTimeoutMs != 5000 {
 		t.Fatalf("unexpected sqlite_busy_timeout_ms: %+v", app.System.SQLiteBusyTimeoutMs)
@@ -1704,12 +1752,12 @@ entity Todo {
 	}
 }
 
-func TestParseSystemAuthRequestCodeRateLimitRejectsOutOfRange(t *testing.T) {
+func TestParseAuthRequestCodeRateLimitRejectsOutOfRange(t *testing.T) {
 	src := `
 app FrontApi
 database "./front.db"
 
-system {
+auth {
   auth_request_code_rate_limit_per_minute 0
 }
 
@@ -1722,17 +1770,17 @@ entity Todo {
 	if err == nil {
 		t.Fatal("expected parse error for out-of-range auth_request_code_rate_limit_per_minute")
 	}
-	if !strings.Contains(err.Error(), "system.auth_request_code_rate_limit_per_minute must be between") {
+	if !strings.Contains(err.Error(), "auth.auth_request_code_rate_limit_per_minute must be between") {
 		t.Fatalf("unexpected error message: %v", err)
 	}
 }
 
-func TestParseSystemAuthLoginRateLimitRejectsOutOfRange(t *testing.T) {
+func TestParseAuthLoginRateLimitRejectsOutOfRange(t *testing.T) {
 	src := `
 app FrontApi
 database "./front.db"
 
-system {
+auth {
   auth_login_rate_limit_per_minute 0
 }
 
@@ -1745,17 +1793,17 @@ entity Todo {
 	if err == nil {
 		t.Fatal("expected parse error for out-of-range auth_login_rate_limit_per_minute")
 	}
-	if !strings.Contains(err.Error(), "system.auth_login_rate_limit_per_minute must be between") {
+	if !strings.Contains(err.Error(), "auth.auth_login_rate_limit_per_minute must be between") {
 		t.Fatalf("unexpected error message: %v", err)
 	}
 }
 
-func TestParseSystemSecurityFramePolicyRejectsInvalidValue(t *testing.T) {
+func TestParseAuthSecurityFramePolicyRejectsInvalidValue(t *testing.T) {
 	src := `
 app FrontApi
 database "./front.db"
 
-system {
+auth {
   security_frame_policy allow
 }
 
@@ -1768,17 +1816,17 @@ entity Todo {
 	if err == nil {
 		t.Fatal("expected parse error for invalid security_frame_policy")
 	}
-	if !strings.Contains(err.Error(), "system.security_frame_policy must be one of") {
+	if !strings.Contains(err.Error(), "auth.security_frame_policy must be one of") {
 		t.Fatalf("unexpected error message: %v", err)
 	}
 }
 
-func TestParseSystemSecurityReferrerPolicyRejectsInvalidValue(t *testing.T) {
+func TestParseAuthSecurityReferrerPolicyRejectsInvalidValue(t *testing.T) {
 	src := `
 app FrontApi
 database "./front.db"
 
-system {
+auth {
   security_referrer_policy unsafe-url
 }
 
@@ -1791,17 +1839,17 @@ entity Todo {
 	if err == nil {
 		t.Fatal("expected parse error for invalid security_referrer_policy")
 	}
-	if !strings.Contains(err.Error(), "system.security_referrer_policy must be one of") {
+	if !strings.Contains(err.Error(), "auth.security_referrer_policy must be one of") {
 		t.Fatalf("unexpected error message: %v", err)
 	}
 }
 
-func TestParseSystemSecurityContentTypeNoSniffRejectsInvalidValue(t *testing.T) {
+func TestParseAuthSecurityContentTypeNoSniffRejectsInvalidValue(t *testing.T) {
 	src := `
 app FrontApi
 database "./front.db"
 
-system {
+auth {
   security_content_type_nosniff maybe
 }
 
@@ -1814,7 +1862,7 @@ entity Todo {
 	if err == nil {
 		t.Fatal("expected parse error for invalid security_content_type_nosniff")
 	}
-	if !strings.Contains(err.Error(), "system.security_content_type_nosniff must be true or false") {
+	if !strings.Contains(err.Error(), "auth.security_content_type_nosniff must be true or false") {
 		t.Fatalf("unexpected error message: %v", err)
 	}
 }

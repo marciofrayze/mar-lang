@@ -27,7 +27,7 @@ func TestClampAuthRateLimitBoundaries(t *testing.T) {
 func TestAuthRequestCodeRateLimitUsesDefaultPerMinute(t *testing.T) {
 	requireSQLite3(t)
 
-	r := mustNewAuthRuntimeWithSystem(t, filepath.Join(t.TempDir(), "auth-rate-default-request-code.db"), "")
+	r := mustNewAuthRateLimitRuntime(t, filepath.Join(t.TempDir(), "auth-rate-default-request-code.db"), "")
 
 	email := "rate-default@example.com"
 	body := `{"email":"` + email + `"}`
@@ -53,7 +53,7 @@ func TestAuthRequestCodeRateLimitUsesDefaultPerMinute(t *testing.T) {
 func TestAuthLoginRateLimitUsesDefaultPerMinute(t *testing.T) {
 	requireSQLite3(t)
 
-	r := mustNewAuthRuntimeWithSystem(t, filepath.Join(t.TempDir(), "auth-rate-default-login.db"), "")
+	r := mustNewAuthRateLimitRuntime(t, filepath.Join(t.TempDir(), "auth-rate-default-login.db"), "")
 	email := "rate-login@example.com"
 	loginCode := requestCodeAndUseKnownCode(t, r, email)
 	if strings.TrimSpace(loginCode) == "" {
@@ -79,14 +79,12 @@ func TestAuthLoginRateLimitUsesDefaultPerMinute(t *testing.T) {
 	}
 }
 
-func TestAuthRateLimitCanBeOverriddenFromSystem(t *testing.T) {
+func TestAuthRateLimitCanBeOverriddenFromAuth(t *testing.T) {
 	requireSQLite3(t)
 
-	r := mustNewAuthRuntimeWithSystem(t, filepath.Join(t.TempDir(), "auth-rate-custom.db"), `
-system {
+	r := mustNewAuthRateLimitRuntime(t, filepath.Join(t.TempDir(), "auth-rate-custom.db"), `
   auth_request_code_rate_limit_per_minute 2
   auth_login_rate_limit_per_minute 3
-}
 `)
 
 	email := "rate-custom@example.com"
@@ -117,12 +115,11 @@ system {
 	}
 }
 
-func mustNewAuthRuntimeWithSystem(t *testing.T, dbPath, systemBlock string) *Runtime {
+func mustNewAuthRateLimitRuntime(t *testing.T, dbPath, authBlock string) *Runtime {
 	t.Helper()
 
 	source := strings.TrimSpace(`
 app AuthRateApi
-`+systemBlock+`
 
 entity User {
   id: Int primary auto
@@ -137,6 +134,7 @@ entity Todo {
 
 auth {
   email_transport console
+`+authBlock+`
 }
 `) + "\n"
 

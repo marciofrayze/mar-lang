@@ -36,6 +36,12 @@ var (
 	authStatementCandidates = []string{
 		"code_ttl_minutes",
 		"session_ttl_hours",
+		"auth_request_code_rate_limit_per_minute",
+		"auth_login_rate_limit_per_minute",
+		"admin_ui_session_ttl_hours",
+		"security_frame_policy",
+		"security_referrer_policy",
+		"security_content_type_nosniff",
 		"email_transport",
 		"email_from",
 		"email_subject",
@@ -53,12 +59,6 @@ var (
 	systemStatementCandidates = []string{
 		"request_logs_buffer",
 		"http_max_request_body_mb",
-		"auth_request_code_rate_limit_per_minute",
-		"auth_login_rate_limit_per_minute",
-		"admin_ui_session_ttl_hours",
-		"security_frame_policy",
-		"security_referrer_policy",
-		"security_content_type_nosniff",
 		"sqlite_journal_mode",
 		"sqlite_synchronous",
 		"sqlite_foreign_keys",
@@ -333,6 +333,72 @@ func parseAuthBlock(lines []line, idx *int) (*model.AuthConfig, error) {
 			}
 			auth.SessionTTLHours = value
 			matched = true
+		}
+		if m := match(`^auth_request_code_rate_limit_per_minute\s+([0-9]{1,5})$`, trimmed); m != nil {
+			value := mustInt(m[1])
+			if value < minAuthRateLimitPerMinute || value > maxAuthRateLimitPerMinute {
+				return nil, fmt.Errorf(
+					"line %d: auth.auth_request_code_rate_limit_per_minute must be between %d and %d",
+					ln.number,
+					minAuthRateLimitPerMinute,
+					maxAuthRateLimitPerMinute,
+				)
+			}
+			auth.AuthRequestCodeRateLimit = intPtr(value)
+			matched = true
+		}
+		if m := match(`^auth_login_rate_limit_per_minute\s+([0-9]{1,5})$`, trimmed); m != nil {
+			value := mustInt(m[1])
+			if value < minAuthRateLimitPerMinute || value > maxAuthRateLimitPerMinute {
+				return nil, fmt.Errorf(
+					"line %d: auth.auth_login_rate_limit_per_minute must be between %d and %d",
+					ln.number,
+					minAuthRateLimitPerMinute,
+					maxAuthRateLimitPerMinute,
+				)
+			}
+			auth.AuthLoginRateLimit = intPtr(value)
+			matched = true
+		}
+		if m := match(`^admin_ui_session_ttl_hours\s+([0-9]{1,4})$`, trimmed); m != nil {
+			value := mustInt(m[1])
+			if value < minSessionTTLHours || value > maxSessionTTLHours {
+				return nil, fmt.Errorf(
+					"line %d: auth.admin_ui_session_ttl_hours must be between %d and %d",
+					ln.number,
+					minSessionTTLHours,
+					maxSessionTTLHours,
+				)
+			}
+			auth.AdminUISessionTTLHours = intPtr(value)
+			matched = true
+		}
+		if m := match(`^security_frame_policy\s+(deny|sameorigin)$`, trimmed); m != nil {
+			auth.SecurityFramePolicy = stringPtr(m[1])
+			matched = true
+		} else if m := match(`^security_frame_policy\s+(.+)$`, trimmed); m != nil {
+			return nil, fmt.Errorf(
+				"line %d: auth.security_frame_policy must be one of: deny, sameorigin",
+				ln.number,
+			)
+		}
+		if m := match(`^security_referrer_policy\s+(strict-origin-when-cross-origin|no-referrer)$`, trimmed); m != nil {
+			auth.SecurityReferrerPolicy = stringPtr(m[1])
+			matched = true
+		} else if m := match(`^security_referrer_policy\s+(.+)$`, trimmed); m != nil {
+			return nil, fmt.Errorf(
+				"line %d: auth.security_referrer_policy must be one of: strict-origin-when-cross-origin, no-referrer",
+				ln.number,
+			)
+		}
+		if m := match(`^security_content_type_nosniff\s+(true|false)$`, trimmed); m != nil {
+			auth.SecurityContentNoSniff = boolPtr(m[1] == "true")
+			matched = true
+		} else if m := match(`^security_content_type_nosniff\s+(.+)$`, trimmed); m != nil {
+			return nil, fmt.Errorf(
+				"line %d: auth.security_content_type_nosniff must be true or false",
+				ln.number,
+			)
 		}
 		if m := match(`^email_transport\s+(console|smtp)$`, trimmed); m != nil {
 			auth.EmailTransport = m[1]
@@ -614,81 +680,6 @@ func parseSystemBlock(lines []line, idx *int) (*model.SystemConfig, error) {
 			(*idx)++
 			continue
 		}
-		if m := match(`^auth_request_code_rate_limit_per_minute\s+([0-9]{1,5})$`, trimmed); m != nil {
-			value := mustInt(m[1])
-			if value < minAuthRateLimitPerMinute || value > maxAuthRateLimitPerMinute {
-				return nil, fmt.Errorf(
-					"line %d: system.auth_request_code_rate_limit_per_minute must be between %d and %d",
-					ln.number,
-					minAuthRateLimitPerMinute,
-					maxAuthRateLimitPerMinute,
-				)
-			}
-			cfg.AuthRequestCodeRateLimit = intPtr(value)
-			(*idx)++
-			continue
-		}
-		if m := match(`^auth_login_rate_limit_per_minute\s+([0-9]{1,5})$`, trimmed); m != nil {
-			value := mustInt(m[1])
-			if value < minAuthRateLimitPerMinute || value > maxAuthRateLimitPerMinute {
-				return nil, fmt.Errorf(
-					"line %d: system.auth_login_rate_limit_per_minute must be between %d and %d",
-					ln.number,
-					minAuthRateLimitPerMinute,
-					maxAuthRateLimitPerMinute,
-				)
-			}
-			cfg.AuthLoginRateLimit = intPtr(value)
-			(*idx)++
-			continue
-		}
-		if m := match(`^admin_ui_session_ttl_hours\s+([0-9]{1,4})$`, trimmed); m != nil {
-			value := mustInt(m[1])
-			if value < minSessionTTLHours || value > maxSessionTTLHours {
-				return nil, fmt.Errorf(
-					"line %d: system.admin_ui_session_ttl_hours must be between %d and %d",
-					ln.number,
-					minSessionTTLHours,
-					maxSessionTTLHours,
-				)
-			}
-			cfg.AdminUISessionTTLHours = intPtr(value)
-			(*idx)++
-			continue
-		}
-		if m := match(`^security_frame_policy\s+(deny|sameorigin)$`, trimmed); m != nil {
-			cfg.SecurityFramePolicy = stringPtr(m[1])
-			(*idx)++
-			continue
-		}
-		if m := match(`^security_frame_policy\s+(.+)$`, trimmed); m != nil {
-			return nil, fmt.Errorf(
-				"line %d: system.security_frame_policy must be one of: deny, sameorigin",
-				ln.number,
-			)
-		}
-		if m := match(`^security_referrer_policy\s+(strict-origin-when-cross-origin|no-referrer)$`, trimmed); m != nil {
-			cfg.SecurityReferrerPolicy = stringPtr(m[1])
-			(*idx)++
-			continue
-		}
-		if m := match(`^security_referrer_policy\s+(.+)$`, trimmed); m != nil {
-			return nil, fmt.Errorf(
-				"line %d: system.security_referrer_policy must be one of: strict-origin-when-cross-origin, no-referrer",
-				ln.number,
-			)
-		}
-		if m := match(`^security_content_type_nosniff\s+(true|false)$`, trimmed); m != nil {
-			cfg.SecurityContentNoSniff = boolPtr(m[1] == "true")
-			(*idx)++
-			continue
-		}
-		if m := match(`^security_content_type_nosniff\s+(.+)$`, trimmed); m != nil {
-			return nil, fmt.Errorf(
-				"line %d: system.security_content_type_nosniff must be true or false",
-				ln.number,
-			)
-		}
 		if m := match(`^sqlite_journal_mode\s+(wal|delete|truncate|persist|memory|off)$`, trimmed); m != nil {
 			cfg.SQLiteJournalMode = stringPtr(m[1])
 			(*idx)++
@@ -798,7 +789,53 @@ func unknownStatementError(lineNumber int, scope, trimmed string, candidates []s
 	if strings.TrimSpace(scope) != "" {
 		label = "unknown " + strings.TrimSpace(scope) + " statement"
 	}
-	return fmt.Errorf("line %d: %s %q%s", lineNumber, label, trimmed, suggest.DidYouMeanSuffix(statementSuggestionKey(trimmed), candidates))
+	key := statementSuggestionKey(trimmed)
+	base := fmt.Sprintf("line %d: %s %q%s", lineNumber, label, trimmed, suggest.DidYouMeanSuffix(key, candidates))
+	if hint := misplacedStatementHint(scope, key); hint != "" {
+		base += "\n\nHint:\n  " + hint
+	}
+	return fmt.Errorf("%s", base)
+}
+
+func misplacedStatementHint(scope, key string) string {
+	current := strings.TrimSpace(scope)
+	if current == "" || key == "" {
+		return ""
+	}
+
+	targetScope := ""
+	switch {
+	case candidateContains(authStatementCandidates, key):
+		targetScope = "auth"
+	case candidateContains(systemStatementCandidates, key):
+		targetScope = "system"
+	case candidateContains(publicStatementCandidates, key):
+		targetScope = "public"
+	}
+
+	if targetScope == "" || targetScope == current {
+		return ""
+	}
+
+	switch targetScope {
+	case "auth":
+		return fmt.Sprintf("%q looks like an auth setting. Try moving it into auth { ... }.", key)
+	case "system":
+		return fmt.Sprintf("%q looks like a system setting. Try moving it into system { ... }.", key)
+	case "public":
+		return fmt.Sprintf("%q looks like a public setting. Try moving it into public { ... }.", key)
+	default:
+		return ""
+	}
+}
+
+func candidateContains(candidates []string, key string) bool {
+	for _, candidate := range candidates {
+		if candidate == key {
+			return true
+		}
+	}
+	return false
 }
 
 func hasLinePrefixedError(err error) bool {

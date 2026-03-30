@@ -158,8 +158,8 @@ func (r *Runtime) requestedAdminUISessionTTLHours(req *http.Request) int {
 	if req == nil || !strings.EqualFold(strings.TrimSpace(req.Header.Get(adminUISessionHeader)), "true") {
 		return defaultHours
 	}
-	if r.App != nil && r.App.System != nil && r.App.System.AdminUISessionTTLHours != nil {
-		return *r.App.System.AdminUISessionTTLHours
+	if r.App != nil && r.App.Auth != nil && r.App.Auth.AdminUISessionTTLHours != nil {
+		return *r.App.Auth.AdminUISessionTTLHours
 	}
 	return defaultHours
 }

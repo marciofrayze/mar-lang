@@ -66,10 +66,6 @@ func TestAuthLoginUsesAdminUICookieTTLWhenRequested(t *testing.T) {
 app TodoApi
 database "` + filepath.Join(t.TempDir(), "auth-cookie-admin-ttl.db") + `"
 
-system {
-  admin_ui_session_ttl_hours 2
-}
-
 entity User {
   email: String
   role: String
@@ -77,6 +73,7 @@ entity User {
 
 auth {
   session_ttl_hours 24
+  admin_ui_session_ttl_hours 2
 }
 `
 

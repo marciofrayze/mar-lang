@@ -123,17 +123,17 @@ func clientHost(remoteAddr string) string {
 }
 
 func authRequestCodeRateLimitPerMinute(app *model.App) int {
-	if app == nil || app.System == nil || app.System.AuthRequestCodeRateLimit == nil {
+	if app == nil || app.Auth == nil || app.Auth.AuthRequestCodeRateLimit == nil {
 		return defaultAuthRequestCodeRateLimitPerMinute
 	}
-	return clampAuthRateLimit(*app.System.AuthRequestCodeRateLimit, defaultAuthRequestCodeRateLimitPerMinute)
+	return clampAuthRateLimit(*app.Auth.AuthRequestCodeRateLimit, defaultAuthRequestCodeRateLimitPerMinute)
 }
 
 func authLoginRateLimitPerMinute(app *model.App) int {
-	if app == nil || app.System == nil || app.System.AuthLoginRateLimit == nil {
+	if app == nil || app.Auth == nil || app.Auth.AuthLoginRateLimit == nil {
 		return defaultAuthLoginRateLimitPerMinute
 	}
-	return clampAuthRateLimit(*app.System.AuthLoginRateLimit, defaultAuthLoginRateLimitPerMinute)
+	return clampAuthRateLimit(*app.Auth.AuthLoginRateLimit, defaultAuthLoginRateLimitPerMinute)
 }
 
 func clampAuthRateLimit(value, fallback int) int {
