@@ -146,7 +146,7 @@ entity Todo {
 	}
 }
 
-func TestRootRedirectsToAdminWhenNoPublicAppIsConfigured(t *testing.T) {
+func TestRootRedirectsToAppUIWhenNoPublicAppIsConfigured(t *testing.T) {
 	requireSQLite3(t)
 
 	app := mustParseApp(t, `
@@ -163,7 +163,7 @@ entity Todo {
 	if err != nil {
 		t.Fatalf("runtime.New failed: %v", err)
 	}
-	r.SetAdminFiles(fstest.MapFS{
+	r.SetAppUIFiles(fstest.MapFS{
 		"index.html": &fstest.MapFile{Data: []byte("<html><body>admin</body></html>")},
 	})
 
@@ -173,12 +173,12 @@ entity Todo {
 	if rec.Code != http.StatusFound {
 		t.Fatalf("expected 302 for / without public app, got %d body=%s", rec.Code, rec.Body.String())
 	}
-	if location := rec.Header().Get("Location"); location != "/_mar/admin" {
-		t.Fatalf("expected redirect to /_mar/admin, got %q", location)
+	if location := rec.Header().Get("Location"); location != "/_mar" {
+		t.Fatalf("expected redirect to /_mar, got %q", location)
 	}
 }
 
-func TestAdminPanelServedUnderMarPrefix(t *testing.T) {
+func TestAppUIServedUnderMarPrefix(t *testing.T) {
 	requireSQLite3(t)
 
 	app := mustParseApp(t, `
@@ -195,7 +195,7 @@ entity Todo {
   title: String
 }
 `)
-	app.Database = filepath.Join(t.TempDir(), "admin-prefix.db")
+	app.Database = filepath.Join(t.TempDir(), "app-ui-prefix.db")
 
 	r, err := New(app)
 	if err != nil {
@@ -204,30 +204,30 @@ entity Todo {
 	r.SetPublicFiles(fstest.MapFS{
 		"index.html": &fstest.MapFile{Data: []byte("<html><body>public</body></html>")},
 	})
-	r.SetAdminFiles(fstest.MapFS{
+	r.SetAppUIFiles(fstest.MapFS{
 		"index.html":   &fstest.MapFile{Data: []byte("<html><body>admin</body></html>")},
 		"dist/app.js":  &fstest.MapFile{Data: []byte("console.log('admin')")},
 		"dist/app.css": &fstest.MapFile{Data: []byte("body{}")},
 	})
 
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/_mar/admin", nil)
+	req := httptest.NewRequest(http.MethodGet, "/_mar", nil)
 	r.handleHTTP(rec, req)
 	if rec.Code != http.StatusOK {
-		t.Fatalf("expected 200 for /_mar/admin, got %d body=%s", rec.Code, rec.Body.String())
+		t.Fatalf("expected 200 for /_mar, got %d body=%s", rec.Code, rec.Body.String())
 	}
 	if !strings.Contains(rec.Body.String(), "admin") {
-		t.Fatalf("expected admin html body, got %q", rec.Body.String())
+		t.Fatalf("expected app UI html body, got %q", rec.Body.String())
 	}
 
 	rec = httptest.NewRecorder()
-	req = httptest.NewRequest(http.MethodGet, "/_mar/admin/dist/app.js", nil)
+	req = httptest.NewRequest(http.MethodGet, "/_mar/dist/app.js", nil)
 	r.handleHTTP(rec, req)
 	if rec.Code != http.StatusOK {
-		t.Fatalf("expected 200 for /_mar/admin/dist/app.js, got %d body=%s", rec.Code, rec.Body.String())
+		t.Fatalf("expected 200 for /_mar/dist/app.js, got %d body=%s", rec.Code, rec.Body.String())
 	}
 	if !strings.Contains(rec.Body.String(), "admin") {
-		t.Fatalf("expected admin js body, got %q", rec.Body.String())
+		t.Fatalf("expected app UI js body, got %q", rec.Body.String())
 	}
 
 	rec = httptest.NewRecorder()
@@ -238,5 +238,40 @@ entity Todo {
 	}
 	if !strings.Contains(rec.Body.String(), "public") {
 		t.Fatalf("expected public html body, got %q", rec.Body.String())
+	}
+}
+
+func TestSchemaEndpointStillWorksUnderMarPrefix(t *testing.T) {
+	requireSQLite3(t)
+
+	app := mustParseApp(t, `
+app FrontApi
+database "./front.db"
+
+entity Todo {
+  title: String
+}
+`)
+	app.Database = filepath.Join(t.TempDir(), "mar-schema-endpoint.db")
+
+	r, err := New(app)
+	if err != nil {
+		t.Fatalf("runtime.New failed: %v", err)
+	}
+	r.SetAppUIFiles(fstest.MapFS{
+		"index.html":   &fstest.MapFile{Data: []byte("<html><body>app-ui</body></html>")},
+		"schema":       &fstest.MapFile{Data: []byte("not-json")},
+		"dist/app.js":  &fstest.MapFile{Data: []byte("console.log('app-ui')")},
+		"dist/app.css": &fstest.MapFile{Data: []byte("body{}")},
+	})
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/_mar/schema", nil)
+	r.handleHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for /_mar/schema, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"appName":"FrontApi"`) {
+		t.Fatalf("expected schema JSON body, got %q", rec.Body.String())
 	}
 }

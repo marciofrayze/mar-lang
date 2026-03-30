@@ -45,7 +45,7 @@ type Runtime struct {
 	startupReady    bool
 	startupErr      error
 	publicFS        fs.FS
-	adminFS         fs.FS
+	appUIFS         fs.FS
 	versionInfo     VersionInfo
 }
 
@@ -345,7 +345,7 @@ func (r *Runtime) route(w http.ResponseWriter, req *http.Request, requestID stri
 	method := req.Method
 
 	if method == http.MethodGet && path == "/" && (r.App == nil || r.App.Public == nil) {
-		http.Redirect(w, req, "/_mar/admin", http.StatusFound)
+		http.Redirect(w, req, "/_mar", http.StatusFound)
 		return nil
 	}
 
@@ -372,9 +372,6 @@ func (r *Runtime) route(w http.ResponseWriter, req *http.Request, requestID stri
 			return newAPIError(http.StatusServiceUnavailable, "startup_check_failed", "Startup checks failed. Check the application logs.")
 		}
 		return newAPIError(http.StatusServiceUnavailable, "app_starting", "App is still starting. Try again shortly.")
-	}
-	if served, err := r.serveAdminAsset(w, req, path); served {
-		return err
 	}
 	if method == http.MethodGet && path == "/_mar/schema" {
 		r.writeJSON(w, http.StatusOK, r.schemaPayload(requestID))
@@ -421,7 +418,7 @@ func (r *Runtime) route(w http.ResponseWriter, req *http.Request, requestID stri
 		if !isAdminRole(auth.Role) {
 			return newAPIError(http.StatusForbidden, "admin_role_required", "Admin role required")
 		}
-		r.writeJSON(w, http.StatusOK, r.adminVersionPayload())
+		r.writeJSON(w, http.StatusOK, r.protectedVersionPayload())
 		return nil
 	}
 
@@ -626,6 +623,10 @@ func (r *Runtime) route(w http.ResponseWriter, req *http.Request, requestID stri
 		}
 	}
 
+	if served, err := r.serveAppUIAsset(w, req, path); served {
+		return err
+	}
+
 	if served, err := r.servePublicAsset(w, req, path); served {
 		return err
 	}
@@ -766,8 +767,8 @@ func (r *Runtime) metricsRouteLabel(req *http.Request) string {
 	case "/_mar/request-logs":
 		return path
 	}
-	if path == "/_mar/admin" || strings.HasPrefix(path, "/_mar/admin/") {
-		return "/_mar/admin"
+	if path == "/_mar" || strings.HasPrefix(path, "/_mar/") {
+		return "/_mar"
 	}
 
 	switch path {

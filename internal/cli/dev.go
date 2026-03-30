@@ -100,7 +100,7 @@ func runDev(binaryName, inputPath, outputPath string) error {
 			return
 		}
 		process = nextProcess
-		adminURL := fmt.Sprintf("http://127.0.0.1:%d/_mar/admin", app.Port)
+		adminURL := fmt.Sprintf("http://127.0.0.1:%d/_mar", app.Port)
 		healthURL := fmt.Sprintf("http://127.0.0.1:%d/health", app.Port)
 		schemaURL := fmt.Sprintf("http://127.0.0.1:%d/_mar/schema", app.Port)
 		ready, exited, processErr := waitForDevServer([]string{healthURL, schemaURL}, 8*time.Second, process.done)

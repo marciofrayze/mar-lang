@@ -36,7 +36,7 @@ type Metadata struct {
 type BuildInput struct {
 	ManifestJSON []byte
 	Metadata     Metadata
-	AdminFiles   map[string][]byte
+	AppUIFiles   map[string][]byte
 	PublicDir    string
 }
 
@@ -46,14 +46,14 @@ type Bundle struct {
 	Archive  *zip.Reader
 }
 
-// BuildPayload packages the manifest, metadata, admin assets, and optional public
+// BuildPayload packages the manifest, metadata, App UI assets, and optional public
 // files into the ZIP payload appended to a Mar executable.
 func BuildPayload(input BuildInput) ([]byte, error) {
 	if len(input.ManifestJSON) == 0 {
 		return nil, errors.New("manifest payload is empty")
 	}
-	if len(input.AdminFiles) == 0 {
-		return nil, errors.New("admin assets are required")
+	if len(input.AppUIFiles) == 0 {
+		return nil, errors.New("app UI assets are required")
 	}
 
 	metadataJSON, err := json.Marshal(input.Metadata)
@@ -70,8 +70,8 @@ func BuildPayload(input BuildInput) ([]byte, error) {
 	if err := addZipFile(writer, metadataFile, metadataJSON); err != nil {
 		return nil, err
 	}
-	for name, data := range input.AdminFiles {
-		if err := addZipFile(writer, filepath.ToSlash(filepath.Join("admin", name)), data); err != nil {
+	for name, data := range input.AppUIFiles {
+		if err := addZipFile(writer, filepath.ToSlash(filepath.Join("ui", name)), data); err != nil {
 			return nil, err
 		}
 	}

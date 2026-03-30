@@ -25,7 +25,7 @@ func TestBuildAndLoadExecutableRoundTrip(t *testing.T) {
 			AppBuildTime: "2026-03-07T01:00:00Z",
 			ManifestHash: "sha256:deadbeef",
 		},
-		AdminFiles: map[string][]byte{
+		AppUIFiles: map[string][]byte{
 			"index.html":  []byte("<html></html>"),
 			"favicon.svg": []byte("<svg/>"),
 			"dist/app.js": []byte("console.log('ok')"),
@@ -53,15 +53,15 @@ func TestBuildAndLoadExecutableRoundTrip(t *testing.T) {
 		t.Fatalf("unexpected manifest hash: %q", bundle.Metadata.ManifestHash)
 	}
 
-	adminFS, err := fs.Sub(bundle.Archive, "admin")
+	appUIFS, err := fs.Sub(bundle.Archive, "ui")
 	if err != nil {
-		t.Fatalf("sub admin fs failed: %v", err)
+		t.Fatalf("sub app ui fs failed: %v", err)
 	}
-	indexHTML, err := fs.ReadFile(adminFS, "index.html")
+	indexHTML, err := fs.ReadFile(appUIFS, "index.html")
 	if err != nil {
-		t.Fatalf("read admin index failed: %v", err)
+		t.Fatalf("read app ui index failed: %v", err)
 	}
 	if string(indexHTML) != "<html></html>" {
-		t.Fatalf("unexpected admin index: %q", string(indexHTML))
+		t.Fatalf("unexpected app ui index: %q", string(indexHTML))
 	}
 }

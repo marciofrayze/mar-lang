@@ -115,7 +115,7 @@ func buildAppPayload(app *model.App, options buildOptions) ([]byte, error) {
 	manifestDigest := sha256.Sum256(manifestJSON)
 	compilerInfo := readVersionInfo("mar")
 
-	adminFiles, err := embeddedAdminFiles()
+	appUIFiles, err := embeddedAppUIFiles()
 	if err != nil {
 		return nil, err
 	}
@@ -140,12 +140,12 @@ func buildAppPayload(app *model.App, options buildOptions) ([]byte, error) {
 			AppBuildTime: time.Now().UTC().Format(time.RFC3339),
 			ManifestHash: "sha256:" + hex.EncodeToString(manifestDigest[:]),
 		},
-		AdminFiles: adminFiles,
+		AppUIFiles: appUIFiles,
 		PublicDir:  publicDir,
 	})
 }
 
-func embeddedAdminFiles() (map[string][]byte, error) {
+func embeddedAppUIFiles() (map[string][]byte, error) {
 	files := []string{
 		"compiler_assets/admin/index.html",
 		"compiler_assets/admin/favicon.svg",
@@ -155,7 +155,7 @@ func embeddedAdminFiles() (map[string][]byte, error) {
 	for _, path := range files {
 		data, err := compilerAssets.ReadFile(path)
 		if err != nil {
-			return nil, fmt.Errorf("read embedded admin asset %s: %w", path, err)
+			return nil, fmt.Errorf("read embedded App UI asset %s: %w", path, err)
 		}
 		rel := strings.TrimPrefix(path, "compiler_assets/admin/")
 		result[rel] = data
@@ -286,7 +286,7 @@ func printCompileSummary(result compileBuildResult) {
 		hostPath := targetOutputPath(result.BaseDir, result.BinaryName, host)
 		hostBinary := targetBinaryName(result.BinaryName, host)
 		fmt.Printf("\n  %s\n", colorizeCLI(useColor, "\033[1;33m", "Hint:"))
-		fmt.Printf("    %s\n", "To run the host executable and open Mar Admin:")
+		fmt.Printf("    %s\n", "To run the host executable and open the Mar App UI:")
 		fmt.Printf("    %s\n", colorizeCLI(useColor, "\033[1;32m", "cd "+filepath.Dir(hostPath)))
 		fmt.Printf("    %s\n", colorizeCLI(useColor, "\033[1;32m", "./"+hostBinary+" serve"))
 	}

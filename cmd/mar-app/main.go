@@ -55,10 +55,10 @@ func printAppUsage(binaryName string) {
 	useColor := appSupportsANSI(os.Stdout)
 	fmt.Println()
 	fmt.Printf("%s\n", appColorize(useColor, "\033[1m", "Available commands"))
-	fmt.Printf("  %s  %s\n", appColorize(useColor, "\033[1;32m", binaryName+" serve "), "Start the API server and show the Mar Admin URL.")
+	fmt.Printf("  %s  %s\n", appColorize(useColor, "\033[1;32m", binaryName+" serve "), "Start the API server and show the Mar App UI URL.")
 	fmt.Printf("  %s  %s\n", appColorize(useColor, "\033[1;32m", binaryName+" backup"), "Create a SQLite backup in ./backups.")
 	fmt.Printf(
-		"\n%s Use %s to start the API server and show the Mar Admin URL.\n",
+		"\n%s Use %s to start the API server and show the Mar App UI URL.\n",
 		appColorize(useColor, "\033[1;33m", "Hint:"),
 		appColorize(useColor, "\033[1;32m", binaryName+" serve"),
 	)
@@ -78,7 +78,7 @@ func printAppUnknownCommand(binaryName string, args []string) {
 	fmt.Fprintf(os.Stderr, "  %s\n", binaryName+" backup")
 	fmt.Fprintf(
 		os.Stderr,
-		"\n%s Use %s to start the API server and show the Mar Admin URL.\n",
+		"\n%s Use %s to start the API server and show the Mar App UI URL.\n",
 		appColorize(useColor, "\033[1;33m", "Hint:"),
 		appColorize(useColor, "\033[1;32m", binaryName+" serve"),
 	)
@@ -108,9 +108,9 @@ func appColorize(enabled bool, colorCode, value string) string {
 }
 
 func runServe(app *model.App, bundle *appbundle.Bundle) error {
-	adminFS, err := fs.Sub(bundle.Archive, "admin")
+	appUIFS, err := fs.Sub(bundle.Archive, "ui")
 	if err != nil {
-		return errors.New("admin panel is not embedded in this executable")
+		return errors.New("app UI is not embedded in this executable")
 	}
 
 	r, err := marruntime.New(app)
@@ -118,7 +118,7 @@ func runServe(app *model.App, bundle *appbundle.Bundle) error {
 		return err
 	}
 	defer r.Close()
-	r.SetAdminFiles(adminFS)
+	r.SetAppUIFiles(appUIFS)
 	if app.Public != nil {
 		publicFS, err := fs.Sub(bundle.Archive, "public")
 		if err != nil {
@@ -135,10 +135,10 @@ func runServe(app *model.App, bundle *appbundle.Bundle) error {
 	})
 
 	useColor := appSupportsANSI(os.Stdout)
-	adminURL := fmt.Sprintf("http://127.0.0.1:%d/_mar/admin", app.Port)
+	adminURL := fmt.Sprintf("http://127.0.0.1:%d/_mar", app.Port)
 	fmt.Printf(
 		"\n%s %s\n",
-		appColorize(useColor, "\033[1;36m", "Admin panel:"),
+		appColorize(useColor, "\033[1;36m", "App UI:"),
 		appColorize(useColor, "\033[1;34m", adminURL),
 	)
 	return r.Serve(context.Background())

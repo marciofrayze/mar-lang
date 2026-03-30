@@ -186,7 +186,7 @@ check-macos-release-config:
 		fi'
 
 admin: check-elm check-npx
-	$(call print_title,Admin UI)
+	$(call print_title,App UI)
 	$(call print_info,Building admin/dist/app.js with Elm $(ELM_REQUIRED_VERSION))
 	$(call print_info,Minifying admin/dist/app.js with esbuild)
 	@cd admin && sh -c '\

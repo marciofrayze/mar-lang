@@ -73,7 +73,7 @@ func (r *Runtime) printStartupBanner() {
 
 	fmt.Printf("\n%s\n", colorize(useColor, ansiSection, "System"))
 	fmt.Printf("  %s %s\n", "GET ", "/health")
-	fmt.Printf("  %s %s\n", "GET ", "/_mar/admin")
+	fmt.Printf("  %s %s\n", "GET ", "/_mar")
 	fmt.Printf("  %s %s\n", "GET ", "/_mar/schema")
 	fmt.Printf("  %s %s\n", "GET ", "/_mar/version")
 	if r.authEnabled() {
@@ -85,7 +85,7 @@ func (r *Runtime) printStartupBanner() {
 	}
 
 	if shouldShowAdminHint() {
-		fmt.Printf("\n%s run %s to open Mar Admin\n", colorize(useColor, ansiHint, "Hint:"), colorize(useColor, ansiCommand, os.Args[0]+" serve"))
+		fmt.Printf("\n%s run %s to open the Mar App UI\n", colorize(useColor, ansiHint, "Hint:"), colorize(useColor, ansiCommand, os.Args[0]+" serve"))
 	}
 }
 

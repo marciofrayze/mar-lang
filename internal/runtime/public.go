@@ -13,23 +13,23 @@ func (r *Runtime) SetPublicFiles(publicFS fs.FS) {
 	r.publicFS = publicFS
 }
 
-// SetAdminFiles attaches embedded admin static files to the runtime.
-func (r *Runtime) SetAdminFiles(adminFS fs.FS) {
-	r.adminFS = adminFS
+// SetAppUIFiles attaches embedded App UI static files to the runtime.
+func (r *Runtime) SetAppUIFiles(appUIFS fs.FS) {
+	r.appUIFS = appUIFS
 }
 
-func (r *Runtime) serveAdminAsset(w http.ResponseWriter, req *http.Request, requestPath string) (bool, error) {
-	if r.adminFS == nil {
+func (r *Runtime) serveAppUIAsset(w http.ResponseWriter, req *http.Request, requestPath string) (bool, error) {
+	if r.appUIFS == nil {
 		return false, nil
 	}
 	if req.Method != http.MethodGet && req.Method != http.MethodHead {
 		return false, nil
 	}
-	assetPath, ok := publicAssetPathForRequest(requestPath, "/_mar/admin")
+	assetPath, ok := publicAssetPathForRequest(requestPath, "/_mar")
 	if !ok {
 		return false, nil
 	}
-	return servePublicFile(w, req, r.adminFS, assetPath)
+	return servePublicFile(w, req, r.appUIFS, assetPath)
 }
 
 func (r *Runtime) servePublicAsset(w http.ResponseWriter, req *http.Request, requestPath string) (bool, error) {

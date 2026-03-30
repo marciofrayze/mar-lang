@@ -19,7 +19,7 @@ Mar has two built-in temporal field types:
 - `Date` for calendar-day values such as birthdays
 - `DateTime` for timestamp values that include date and time
 
-These types are semantic conveniences in the language and Admin UI. Internally,
+These types are semantic conveniences in the language and App UI. Internally,
 both are stored as POSIX Unix milliseconds, and JSON responses also return both
 as POSIX Unix milliseconds.
 

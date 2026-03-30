@@ -10,8 +10,8 @@ type VersionInfo struct {
 	MarVersion   string
 	MarCommit    string
 	MarBuildTime string
-	AppBuildTime  string
-	ManifestHash  string
+	AppBuildTime string
+	ManifestHash string
 }
 
 // SetVersionInfo updates runtime metadata exposed by version endpoints.
@@ -32,7 +32,7 @@ func (r *Runtime) publicVersionPayload() map[string]any {
 	}
 }
 
-func (r *Runtime) adminVersionPayload() map[string]any {
+func (r *Runtime) protectedVersionPayload() map[string]any {
 	return map[string]any{
 		"app": map[string]any{
 			"name":         r.App.AppName,

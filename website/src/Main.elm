@@ -784,7 +784,7 @@ docSearchSectionText maybeSectionId =
         Just sectionId ->
             case sectionId of
                 "home-hero" ->
-                    "Home hero. A simple declarative backend language. Mar compiles declarative source into a self-contained server executable with a REST API, database, authentication, authorization, admin panel, monitoring, schema migrations, and backups. All in a single binary. Inspired by Elm, PocketBase, and Rails. Get Started. Advanced Guide."
+                    "Home hero. A simple declarative backend language. Mar compiles declarative source into a self-contained server executable with a REST API, database, authentication, authorization, built-in app UI, monitoring, schema migrations, and backups. All in a single binary. Inspired by Elm, PocketBase, and Rails. Get Started. Advanced Guide."
 
                 "why-mar" ->
                     "Why Mar. Less glue code. More backend. Declarative at its core. You describe the system at a higher level. Opinionated on purpose. Mar chooses a coherent runtime instead of exposing endless assembly decisions. Everything bundled. Authentication, authorization, admin tools, logs, monitoring, schema migrations, and built-in database backups are included from the start."
@@ -799,7 +799,7 @@ docSearchSectionText maybeSectionId =
                     "Install. Download Mar from the GitHub releases page. Add mar to your PATH. Check mar version. Choose an editor. Try mar edit in the terminal for quick experiments. It is extremely experimental. For a fuller editing experience, use the VSCode extension or the Sublime Text package. The editor plugins require mar on your PATH to work correctly."
 
                 "quick-start" ->
-                    "Quick Start. Create todo.mar. Develop. Runs the app locally with hot reload and opens the Admin UI while you edit todo.mar. Compile. Run mar compile to package self-contained executables for all supported platforms and generate frontend clients. Serve. Choose the target folder for your platform, start that executable, and open the printed Admin URL. Mar compile produces a single self-contained executable per target platform. Each one already includes API, auth, embedded Admin UI, monitoring dashboards, request logs, and SQLite backup tools. Ready for the next step. Next: Advanced Guide."
+                    "Quick Start. Create todo.mar. Develop. Runs the app locally with hot reload and opens the App UI while you edit todo.mar. Compile. Run mar compile to package self-contained executables for all supported platforms and generate frontend clients. Serve. Choose the target folder for your platform, start that executable, and open the printed App UI URL. Mar compile produces a single self-contained executable per target platform. Each one already includes API, auth, embedded App UI, monitoring dashboards, request logs, and SQLite backup tools. Ready for the next step. Next: Advanced Guide."
 
                 "advanced-fundamentals" ->
                     "Advanced Guide. Core concepts of the language. Mar is a declarative DSL (domain-specific language) for backends, inspired by Elm, PocketBase, and Rails, implemented in Elm and Go with focus on readability, maintainability, and simple deployment."
@@ -836,7 +836,7 @@ docSearchSectionText maybeSectionId =
                     "Public static frontend. Mar can embed static frontend files into the final executable and optionally serve an SPA fallback."
 
                 "generated-endpoints" ->
-                    "Generated endpoints. CRUD, actions, auth, health, schema, version, and admin-related endpoints are generated automatically. Each entity gets REST CRUD endpoints. Typed actions are exposed as POST /actions/<name>. System endpoints include /health, /_mar/admin, /_mar/schema, and /_mar/version. Admin-only system endpoints include /_mar/version/admin, /_mar/perf, /_mar/request-logs, and /_mar/backups."
+                    "Generated endpoints. CRUD, actions, auth, health, schema, version, and App UI related endpoints are generated automatically. Each entity gets REST CRUD endpoints. Typed actions are exposed as POST /actions/<name>. System endpoints include /health, /_mar, /_mar/schema, and /_mar/version. Admin-only system endpoints include /_mar/version/admin, /_mar/perf, /_mar/request-logs, and /_mar/backups."
 
                 "migrations" ->
                     "Database Schema Migrations. Automatic migrations run on startup. Safe changes such as new optional columns and new required columns with literal defaults are applied. Unsafe changes are blocked with clear errors."
@@ -919,8 +919,8 @@ docSearchEntries =
     , { title = "Getting Started"
       , route = GettingStarted
       , sectionId = Just "getting-started-intro"
-      , summary = "Install Mar, create your first app with mar init, and open the Admin UI while developing."
-      , keywords = [ "install", "quick start", "admin ui", "mar init", "mar dev", "starter app" ]
+      , summary = "Install Mar, create your first app with mar init, and open the App UI while developing."
+      , keywords = [ "install", "quick start", "app ui", "mar init", "mar dev", "starter app" ]
       }
     , { title = "Install"
       , route = GettingStarted
@@ -932,7 +932,7 @@ docSearchEntries =
       , route = GettingStarted
       , sectionId = Just "quick-start"
       , summary = "Create a starter app with mar init, then develop, compile, and run it."
-      , keywords = [ "quick start", "mar init", "starter app", "admin", "admin ui", "_mar/admin", "browser", "dev", "serve" ]
+      , keywords = [ "quick start", "mar init", "starter app", "app ui", "_mar", "browser", "dev", "serve" ]
       }
     , { title = "Choose an editor"
       , route = GettingStarted
@@ -1499,11 +1499,11 @@ advancedRuntimePage model =
                 ]
             , anchoredSection "generated-endpoints"
                 [ docSubsectionTitle "Generated Endpoints"
-                , bodyText "Mar turns the declarative app definition into a concrete HTTP surface. CRUD, actions, auth, health, version, and admin-related endpoints are generated automatically from the source file."
+                , bodyText "Mar turns the declarative app definition into a concrete HTTP surface. CRUD, actions, auth, health, version, and App UI related endpoints are generated automatically from the source file."
                 , docList
                     [ "Each entity gets REST CRUD endpoints."
                     , "Typed actions are exposed as POST /actions/<name>."
-                    , "System endpoints include /health, /_mar/admin, /_mar/schema, and /_mar/version."
+                    , "System endpoints include /health, /_mar, /_mar/schema, and /_mar/version."
                     , "Admin-only system endpoints include /_mar/version/admin, /_mar/perf, /_mar/request-logs, and /_mar/backups."
                     ]
                 ]
@@ -1789,7 +1789,7 @@ hero =
             [ paragraph [ Font.size 38, Font.bold, Font.color (rgb255 16 44 79), width (fill |> maximum 900) ]
                 [ text "A simple declarative backend language." ]
             , paragraph [ Font.size 18, Font.color (rgb255 72 95 123), width fill ]
-                [ text "Mar compiles declarative source into a self-contained server executable with a REST API, database, authentication, authorization, admin panel, monitoring, schema migrations, and backups. All in a single binary." ]
+                [ text "Mar compiles declarative source into a self-contained server executable with a REST API, database, authentication, authorization, built-in App UI, monitoring, schema migrations, and backups. All in a single binary." ]
             , paragraph [ Font.size 16, Font.color (rgb255 96 116 140), width (fill |> maximum 880) ]
                 [ text "Inspired by "
                 , newTabLink
@@ -1869,11 +1869,11 @@ quickStart model =
         [ anchoredSection "quick-start"
             [ sectionTitle "Quick Start"
             , commandRow model "1" "Init" "Creates a new Todo starter app in a new folder with todo.mar, .gitignore, and README." "mar init todo"
-            , commandRow model "2" "Develop" "Enter the project folder, run the app locally with hot reload, and open the Admin UI." """cd todo
+            , commandRow model "2" "Develop" "Enter the project folder, run the app locally with hot reload, and open the App UI." """cd todo
 mar dev todo.mar"""
             , commandRow model "3" "Compile" "Package self-contained executables for all supported platforms and generate frontend clients." """cd todo
 mar compile todo.mar"""
-            , commandRow model "4" "Serve" "Choose the target folder for your platform, start that executable, and open the printed Admin URL." """cd todo/dist/todo/darwin-arm64
+            , commandRow model "4" "Serve" "Choose the target folder for your platform, start that executable, and open the printed App UI URL." """cd todo/dist/todo/darwin-arm64
 ./todo serve"""
             ]
         ]
