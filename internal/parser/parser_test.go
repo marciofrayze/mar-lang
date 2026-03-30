@@ -758,7 +758,7 @@ auth {
 	if err == nil {
 		t.Fatal("expected parse error for out-of-range auth.session_ttl_hours")
 	}
-	if !strings.Contains(err.Error(), "auth.session_ttl_hours must be between") {
+	if !strings.Contains(err.Error(), "auth.session_ttl_hours must be an integer number of hours between") {
 		t.Fatalf("unexpected error message: %v", err)
 	}
 }
@@ -1211,7 +1211,7 @@ auth {
 	if err == nil {
 		t.Fatal("expected parse error for out-of-range auth.admin_ui_session_ttl_hours")
 	}
-	if !strings.Contains(err.Error(), "auth.admin_ui_session_ttl_hours must be between") {
+	if !strings.Contains(err.Error(), "auth.admin_ui_session_ttl_hours must be an integer number of hours between") {
 		t.Fatalf("unexpected error message: %v", err)
 	}
 }
@@ -1234,7 +1234,7 @@ auth {
 	if err == nil {
 		t.Fatal("expected parse error for non-integer auth.admin_ui_session_ttl_hours")
 	}
-	if !strings.Contains(err.Error(), "auth.admin_ui_session_ttl_hours must be an integer between") {
+	if !strings.Contains(err.Error(), "auth.admin_ui_session_ttl_hours must be an integer number of hours between") {
 		t.Fatalf("unexpected error message: %v", err)
 	}
 }

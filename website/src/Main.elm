@@ -1435,8 +1435,8 @@ advancedLanguageReferencePage =
                 [ languageReferenceGroup "Auth config"
                     [ languageReferenceItem "User" "Built-in user entity present in every Mar app. You may extend it with extra fields and authorization rules. Admin always has read-only access to it."
                     , languageReferenceItem "code_ttl_minutes" "Sets how long login codes remain valid."
-                    , languageReferenceItem "session_ttl_hours" "Sets the default session lifetime."
-                    , languageReferenceItem "auth_request_code_rate_limit_per_minute, auth_login_rate_limit_per_minute, admin_ui_session_ttl_hours" "Configure auth rate limits and the admin UI session lifetime."
+                    , languageReferenceItem "session_ttl_hours" "Sets the default session lifetime in hours. Range `1..8760` (up to 365 days)."
+                    , languageReferenceItem "auth_request_code_rate_limit_per_minute, auth_login_rate_limit_per_minute, admin_ui_session_ttl_hours" "Configure auth rate limits and the admin session lifetime in hours. `admin_ui_session_ttl_hours` also uses range `1..8760` (up to 365 days)."
                     , languageReferenceItem "security_frame_policy, security_referrer_policy, security_content_type_nosniff" "Configure auth-related security response headers."
                     , languageReferenceItem "email_transport, email_from, email_subject, smtp_host, smtp_port, smtp_username, smtp_password_env, smtp_starttls" "Configure how login codes are delivered."
                     ]

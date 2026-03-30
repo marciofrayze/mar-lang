@@ -327,7 +327,7 @@ func parseAuthBlock(lines []line, idx *int) (*model.AuthConfig, error) {
 			value := mustInt(m[1])
 			if value < minSessionTTLHours || value > maxSessionTTLHours {
 				return nil, parserErrorf(
-					"line %d: auth.session_ttl_hours must be between %d and %d",
+					"line %d: auth.session_ttl_hours must be an integer number of hours between %d and %d (up to 365 days)",
 					ln.number,
 					minSessionTTLHours,
 					maxSessionTTLHours,
@@ -336,7 +336,7 @@ func parseAuthBlock(lines []line, idx *int) (*model.AuthConfig, error) {
 			auth.SessionTTLHours = value
 			matched = true
 		} else if m := match(`^session_ttl_hours\s+(.+)$`, trimmed); m != nil {
-			return nil, parserErrorf("line %d: auth.session_ttl_hours must be an integer between %d and %d.", ln.number, minSessionTTLHours, maxSessionTTLHours)
+			return nil, parserErrorf("line %d: auth.session_ttl_hours must be an integer number of hours between %d and %d (up to 365 days).", ln.number, minSessionTTLHours, maxSessionTTLHours)
 		}
 		if m := match(`^auth_request_code_rate_limit_per_minute\s+([0-9]{1,5})$`, trimmed); m != nil {
 			value := mustInt(m[1])
@@ -372,7 +372,7 @@ func parseAuthBlock(lines []line, idx *int) (*model.AuthConfig, error) {
 			value := mustInt(m[1])
 			if value < minSessionTTLHours || value > maxSessionTTLHours {
 				return nil, parserErrorf(
-					"line %d: auth.admin_ui_session_ttl_hours must be between %d and %d",
+					"line %d: auth.admin_ui_session_ttl_hours must be an integer number of hours between %d and %d (up to 365 days)",
 					ln.number,
 					minSessionTTLHours,
 					maxSessionTTLHours,
@@ -381,7 +381,7 @@ func parseAuthBlock(lines []line, idx *int) (*model.AuthConfig, error) {
 			auth.AdminUISessionTTLHours = intPtr(value)
 			matched = true
 		} else if m := match(`^admin_ui_session_ttl_hours\s+(.+)$`, trimmed); m != nil {
-			return nil, parserErrorf("line %d: auth.admin_ui_session_ttl_hours must be an integer between %d and %d.", ln.number, minSessionTTLHours, maxSessionTTLHours)
+			return nil, parserErrorf("line %d: auth.admin_ui_session_ttl_hours must be an integer number of hours between %d and %d (up to 365 days).", ln.number, minSessionTTLHours, maxSessionTTLHours)
 		}
 		if m := match(`^security_frame_policy\s+(deny|sameorigin)$`, trimmed); m != nil {
 			auth.SecurityFramePolicy = stringPtr(m[1])
