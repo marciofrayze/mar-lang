@@ -105,6 +105,51 @@ func TestRequireFlyDeployFilesReturnsStyledErrorWhenMissing(t *testing.T) {
 	}
 }
 
+func TestRunFlyLogsRequiresFlyConfigFile(t *testing.T) {
+	t.Setenv("NO_COLOR", "1")
+
+	tempDir := t.TempDir()
+	inputPath := filepath.Join(tempDir, "todo.mar")
+	source := strings.Join([]string{
+		"app Todo",
+		"",
+		"entity Todo {",
+		"  title: String",
+		"}",
+		"",
+	}, "\n")
+	if err := os.WriteFile(inputPath, []byte(source), 0o644); err != nil {
+		t.Fatalf("write .mar file: %v", err)
+	}
+
+	oldWD, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	if err := os.Chdir(tempDir); err != nil {
+		t.Fatalf("chdir: %v", err)
+	}
+	defer func() {
+		_ = os.Chdir(oldWD)
+	}()
+
+	err = runFlyLogs(inputPath)
+	if err == nil {
+		t.Fatal("expected missing fly config to fail")
+	}
+
+	msg := err.Error()
+	if !strings.Contains(msg, "Fly deploy config is missing") {
+		t.Fatalf("expected missing config title, got %q", msg)
+	}
+	if !strings.Contains(msg, filepath.Join("deploy", "fly", "fly.toml")) {
+		t.Fatalf("expected fly.toml path in error, got %q", msg)
+	}
+	if !strings.Contains(msg, "Run: mar fly init <app.mar>") {
+		t.Fatalf("expected init hint, got %q", msg)
+	}
+}
+
 func TestFormatFlyInitNoteHighlightsSMTPPasswordEnv(t *testing.T) {
 	note := "SMTP password will be read from the RESEND_API_KEY environment variable at runtime."
 	result := flyInitResult{SMTPPasswordEnv: "RESEND_API_KEY"}

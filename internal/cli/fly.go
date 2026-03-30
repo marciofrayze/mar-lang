@@ -101,6 +101,11 @@ func runFly(binaryName string, args []string) error {
 			return flyUsageError(binaryName)
 		}
 		return runFlyDestroy(binaryName, args[1])
+	case "logs":
+		if len(args) != 2 || !looksLikeMarFile(args[1]) {
+			return flyUsageError(binaryName)
+		}
+		return runFlyLogs(args[1])
 	default:
 		return flyUsageError(binaryName)
 	}
@@ -114,11 +119,13 @@ func flyUsageError(binaryName string) error {
 	fmt.Fprintf(&b, "  %s\n", fmt.Sprintf("%s fly provision <app.mar>", binaryName))
 	fmt.Fprintf(&b, "  %s\n", fmt.Sprintf("%s fly deploy <app.mar> [--yes]", binaryName))
 	fmt.Fprintf(&b, "  %s\n", fmt.Sprintf("%s fly destroy <app.mar>", binaryName))
+	fmt.Fprintf(&b, "  %s\n", fmt.Sprintf("%s fly logs <app.mar>", binaryName))
 	fmt.Fprintf(&b, "\n%s\n", colorizeCLI(useColor, "\033[1;33m", "Hint:"))
 	fmt.Fprintf(&b, "  Prepare Fly.io deployment files with: %s\n", colorizeCLI(useColor, "\033[1;32m", fmt.Sprintf("%s fly init <app.mar>", binaryName)))
 	fmt.Fprintf(&b, "  Create the Fly app, volume, and secrets with: %s\n", colorizeCLI(useColor, "\033[1;32m", fmt.Sprintf("%s fly provision <app.mar>", binaryName)))
 	fmt.Fprintf(&b, "  Deploy the current app with: %s\n", colorizeCLI(useColor, "\033[1;32m", fmt.Sprintf("%s fly deploy <app.mar> [--yes]", binaryName)))
 	fmt.Fprintf(&b, "  Permanently destroy the Fly.io app with: %s\n", colorizeCLI(useColor, "\033[1;32m", fmt.Sprintf("%s fly destroy <app.mar>", binaryName)))
+	fmt.Fprintf(&b, "  Read recent Fly.io app logs with: %s\n", colorizeCLI(useColor, "\033[1;32m", fmt.Sprintf("%s fly logs <app.mar>", binaryName)))
 	return styledCLIError(strings.TrimRight(b.String(), "\n") + "\n")
 }
 
@@ -758,6 +765,47 @@ func runFlyDestroy(binaryName, inputPath string) error {
 	fmt.Println()
 	fmt.Printf("%s\n\n", colorizeCLI(useColor, "\033[1;32m", "Fly destroy finished."))
 	return nil
+}
+
+func runFlyLogs(inputPath string) error {
+	if _, err := parseMarFile(inputPath); err != nil {
+		return err
+	}
+
+	useColor := cliSupportsANSIStream(os.Stdout)
+	flyDir := filepath.Join("deploy", "fly")
+	flyTomlPath := filepath.Join(flyDir, "fly.toml")
+
+	if err := requireFlyConfigFile(flyTomlPath); err != nil {
+		return err
+	}
+
+	flyAppName, err := readFlyAppName(flyTomlPath)
+	if err != nil {
+		return err
+	}
+	flyCmd, err := findFlyCommand()
+	if err != nil {
+		return err
+	}
+
+	fmt.Println()
+	fmt.Printf("%s\n", colorizeCLI(useColor, "\033[1m", "Fly logs"))
+	fmt.Printf("  %s %s\n", colorizeCLI(useColor, "\033[1;36m", "App source:"), inputPath)
+	fmt.Printf("  %s %s\n", colorizeCLI(useColor, "\033[1;36m", "Config:"), flyTomlPath)
+	fmt.Printf("  %s %s\n", colorizeCLI(useColor, "\033[1;36m", "Fly app:"), flyAppName)
+	fmt.Println()
+	fmt.Printf("  %s\n", "Checking Fly.io authentication.")
+	if err := ensureFlyAuth(flyCmd); err != nil {
+		return err
+	}
+	fmt.Printf("  %s\n", "Checking whether the Fly.io app exists.")
+	if err := ensureFlyAppExists(flyCmd, flyAppName); err != nil {
+		return err
+	}
+
+	fmt.Println()
+	return runFlyCLICommand(useColor, inputPath, "Recent logs", flyCmd, "logs", "-a", flyAppName, "--no-tail")
 }
 
 func requireFlyDeployFiles(dockerfilePath, flyTomlPath string) error {

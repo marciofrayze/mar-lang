@@ -200,6 +200,9 @@ func TestFlyUsageErrorUsesStyledCLIFormat(t *testing.T) {
 	if !strings.Contains(msg, "mar fly destroy <app.mar>") {
 		t.Fatalf("expected fly destroy usage command, got %q", msg)
 	}
+	if !strings.Contains(msg, "mar fly logs <app.mar>") {
+		t.Fatalf("expected fly logs usage command, got %q", msg)
+	}
 	if !strings.Contains(msg, "Hint:\n  Prepare Fly.io deployment files with: mar fly init <app.mar>") {
 		t.Fatalf("expected fly usage hint, got %q", msg)
 	}
@@ -211,6 +214,9 @@ func TestFlyUsageErrorUsesStyledCLIFormat(t *testing.T) {
 	}
 	if !strings.Contains(msg, "Permanently destroy the Fly.io app with: mar fly destroy <app.mar>") {
 		t.Fatalf("expected fly destroy hint, got %q", msg)
+	}
+	if !strings.Contains(msg, "Read recent Fly.io app logs with: mar fly logs <app.mar>") {
+		t.Fatalf("expected fly logs hint, got %q", msg)
 	}
 	if !strings.HasSuffix(msg, "\n") {
 		t.Fatalf("expected fly usage message to end with newline, got %q", msg)
@@ -236,6 +242,9 @@ func TestRenderCompletionScriptSupportsZsh(t *testing.T) {
 	}
 	if !strings.Contains(script, "destroy:Permanently destroy the Fly.io app configured for this project") {
 		t.Fatalf("expected zsh completion to include fly destroy, got %q", script)
+	}
+	if !strings.Contains(script, "logs:Fetch the most recent Fly.io app logs without tailing") {
+		t.Fatalf("expected zsh completion to include fly logs, got %q", script)
 	}
 	if !strings.Contains(script, "shells=(") || !strings.Contains(script, "_describe 'shell' shells") {
 		t.Fatalf("expected zsh completion to describe shells via a named array, got %q", script)
