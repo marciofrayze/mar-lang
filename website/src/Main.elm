@@ -799,7 +799,7 @@ docSearchSectionText maybeSectionId =
                     "Install. Download Mar from the GitHub releases page. Add mar to your PATH. Check mar version. Choose an editor. Try mar edit in the terminal for quick experiments. It is extremely experimental. For a fuller editing experience, use the VSCode extension or the Sublime Text package. The editor plugins require mar on your PATH to work correctly."
 
                 "quick-start" ->
-                    "Quick Start. Create todo.mar. Develop. Runs the app locally with hot reload and opens the App UI while you edit todo.mar. Compile. Run mar compile to package self-contained executables for all supported platforms and generate frontend clients. Serve. Choose the target folder for your platform, start that executable, and open the printed App UI URL. Mar compile produces a single self-contained executable per target platform. Each one already includes API, auth, embedded App UI, monitoring dashboards, request logs, and SQLite backup tools. Ready for the next step. Next: Advanced Guide."
+                    "Quick Start. Create todo.mar. Develop. Runs the app locally with hot reload and opens the App UI while you edit todo.mar. Compile. Run mar compile to package self-contained executables for all supported platforms and generate frontend clients. Serve. Choose the target folder for your platform, start that executable, and open the App UI URL shown in the terminal. Mar compile produces a single self-contained executable per target platform. Each one already includes API, auth, embedded App UI, monitoring dashboards, request logs, and SQLite backup tools. Ready for the next step. Next: Examples."
 
                 "advanced-fundamentals" ->
                     "Advanced Guide. Core concepts of the language. Mar is a declarative DSL (domain-specific language) for backends, inspired by Elm, PocketBase, and Rails, implemented in Elm and Go with focus on readability, maintainability, and simple deployment."
@@ -1208,12 +1208,12 @@ gettingStartedPage model =
             ]
         , install model
         , quickStart model
-        , gettingStartedAdvancedCta
+        , gettingStartedExamplesCta
         ]
 
 
-gettingStartedAdvancedCta : Element Msg
-gettingStartedAdvancedCta =
+gettingStartedExamplesCta : Element Msg
+gettingStartedExamplesCta =
     panel
         [ column
             [ width fill
@@ -1224,12 +1224,12 @@ gettingStartedAdvancedCta =
                 , Font.bold
                 , Font.color (rgb255 20 53 89)
                 ]
-                [ text "Ready for the next step?" ]
+                [ text "Explore more examples" ]
             , paragraph
                 [ Font.size 16
                 , Font.color (rgb255 72 95 123)
                 ]
-                [ text "Continue to the Advanced Guide to understand the language, runtime, and compiler in more depth." ]
+                [ text "Continue to Examples to explore complete Mar apps before diving deeper into the language and runtime." ]
             , row [ width fill ]
                 [ el [ width fill ] none
                 , link
@@ -1237,8 +1237,8 @@ gettingStartedAdvancedCta =
                         (rgb255 45 126 210)
                         (rgb255 245 250 255)
                     )
-                    { url = routeHref AdvancedGuide
-                    , label = text "Next: Advanced Guide"
+                    { url = routeHref Examples
+                    , label = text "Next: Examples"
                     }
                 ]
             ]
@@ -1310,7 +1310,7 @@ advancedLanguagePage model =
                 , docSubsectionTitle "Fundamentals"
                 , bodyText "Mar reads top-to-bottom as a declarative app definition. A Mar app is centered around entities, relationships, rules, authorization, auth configuration, and typed actions. Built-in field types are Int, String, Bool, Float, Date, and DateTime."
                 , docSubsectionTitle "Quick Examples"
-                , codeFromString model "shared-todo.mar" 320 sharedTodoExampleSource
+                , codeFromString model "shared-todo.mar" 0 sharedTodoExampleSource
                 , codeFromString model "personal-todo.mar" 300 relationshipExampleSource
                 , codeFromString model "action.mar" 575 actionExampleSource
                 ]
@@ -1759,7 +1759,7 @@ examplesPage model =
                     , paragraph [ Font.size 15, Font.color (rgb255 95 114 138) ] [ text "Minimal CRUD example" ]
                     ]
                 ]
-            , codeFromString model "shared-todo.mar" 360 sharedTodoExampleSource
+            , codeFromString model "shared-todo.mar" 0 sharedTodoExampleSource
             ]
         , panelWithAttributes [ htmlAttribute (HtmlAttr.id "personal-todo-api-example") ]
             [ row [ width fill, spacing 12 ]
@@ -1778,6 +1778,40 @@ examplesPage model =
                     ]
                 ]
             , codeFromString model "store.mar" 360 storeExampleSource
+            ]
+        , examplesAdvancedCta
+        ]
+
+
+examplesAdvancedCta : Element Msg
+examplesAdvancedCta =
+    panel
+        [ column
+            [ width fill
+            , spacing 12
+            ]
+            [ paragraph
+                [ Font.size 24
+                , Font.bold
+                , Font.color (rgb255 20 53 89)
+                ]
+                [ text "Ready for the next step?" ]
+            , paragraph
+                [ Font.size 16
+                , Font.color (rgb255 72 95 123)
+                ]
+                [ text "Continue to the Advanced Guide to understand the language, runtime, and compiler in more depth." ]
+            , row [ width fill ]
+                [ el [ width fill ] none
+                , link
+                    (buttonAttributes
+                        (rgb255 45 126 210)
+                        (rgb255 245 250 255)
+                    )
+                    { url = routeHref AdvancedGuide
+                    , label = text "Next: Advanced Guide"
+                    }
+                ]
             ]
         ]
 
@@ -1873,7 +1907,7 @@ quickStart model =
 mar dev todo.mar"""
             , commandRow model "3" "Compile" "Package self-contained executables for all supported platforms and generate frontend clients." """cd todo
 mar compile todo.mar"""
-            , commandRow model "4" "Serve" "Choose the target folder for your platform, start that executable, and open the printed App UI URL." """cd todo/dist/todo/darwin-arm64
+            , commandRow model "4" "Serve" "Choose the target folder for your platform, start that executable, and open the App UI URL shown in the terminal." """cd todo/dist/todo/darwin-arm64
 ./todo serve"""
             ]
         ]
@@ -1922,7 +1956,11 @@ downloadInstallRow =
                 { url = "https://github.com/marciofrayze/mar-lang/releases"
                 , label = text "GitHub Releases"
                 }
-            , text ", then extract the .zip file into a folder on your machine."
+            , text ". Linux and Windows releases come as "
+            , inlineCommand ".zip"
+            , text " archives. On macOS, download the "
+            , inlineCommand ".pkg"
+            , text " installer. Extract the archive if needed."
             ]
         ]
 
@@ -1942,11 +1980,6 @@ pathInstallRow model =
             [ stepBadge "2"
             , el [ Font.bold, Font.size 18, Font.color (rgb255 28 66 108) ] (text "Add to your PATH")
             ]
-        , paragraph [ Font.size 16, Font.color (rgb255 70 93 121), width fill ]
-            [ text "Move "
-            , inlineCommand "mar"
-            , text " to a directory in your PATH."
-            ]
         , column
             [ width fill
             , spacing 8
@@ -1962,11 +1995,9 @@ pathInstallRow model =
                 ]
                 [ el [ Font.size 13, Font.semiBold, Font.color (rgb255 70 93 121) ] (text "macOS")
                 , paragraph [ Font.size 15, Font.color (rgb255 72 95 123), width fill ]
-                    [ text "If you installed Mar using the macOS "
-                    , inlineCommand ".pkg"
-                    , text ", "
+                    [ text "The "
                     , inlineCommand "mar"
-                    , text " should already be on your PATH, with no manual setup required."
+                    , text " binary should already be available in your PATH, with no manual setup required."
                     ]
                 ]
             , installSubitem model "Linux" """mv mar /usr/local/bin/mar
@@ -2022,7 +2053,7 @@ pluginInstallRow model =
                     [ width fill
                     , spacing 10
                     ]
-                    [ editOptionCard model "Recommended" "VSCode" [ text "Use the VSCode extension for the fuller editing experience. Install ", newTabLink [ Font.semiBold, Font.color (rgb255 28 66 108), Font.underline ] { url = "https://marketplace.visualstudio.com/items?itemName=mar-lang.mar-language-support", label = text "Mar Developer Tools" }, text " from Visual Studio Marketplace. Make sure ", inlineCommand "mar", text " is on your PATH so the extension works correctly." ] "code todo.mar" False ]
+                    [ editOptionCardWithTitle model "Recommended" (newTabLink [ Font.bold, Font.size 16, Font.color (rgb255 28 66 108), Font.underline ] { url = "https://code.visualstudio.com/", label = text "VSCode" }) [ text "Use the VSCode extension for the fuller editing experience. Install ", newTabLink [ Font.semiBold, Font.color (rgb255 28 66 108), Font.underline ] { url = "https://marketplace.visualstudio.com/items?itemName=mar-lang.mar-language-support", label = text "Mar Developer Tools" }, text " from Visual Studio Marketplace. Make sure ", inlineCommand "mar", text " is on your PATH so the extension works correctly." ] "code todo.mar" False ]
                 )
             , el
                 [ width fill ]
@@ -2044,7 +2075,7 @@ pluginInstallRow model =
                             , spacing 8
                             ]
                             [ editBadge "Supported" False
-                            , el [ Font.bold, Font.size 16, Font.color (rgb255 28 66 108) ] (text "Sublime Text")
+                            , newTabLink [ Font.bold, Font.size 16, Font.color (rgb255 28 66 108), Font.underline ] { url = "https://www.sublimetext.com/download", label = text "Sublime Text" }
                             ]
                         , wrappedRow
                             [ width fill
@@ -2510,6 +2541,11 @@ editCommandRow model number =
 
 editOptionCard : Model -> String -> String -> List (Element Msg) -> String -> Bool -> Element Msg
 editOptionCard model badge label description command isExperimental =
+    editOptionCardWithTitle model badge (el [ Font.bold, Font.size 16, Font.color (rgb255 28 66 108) ] (text label)) description command isExperimental
+
+
+editOptionCardWithTitle : Model -> String -> Element Msg -> List (Element Msg) -> String -> Bool -> Element Msg
+editOptionCardWithTitle model badge titleElement description command isExperimental =
     column
         [ width fill
         , spacing 8
@@ -2550,7 +2586,7 @@ editOptionCard model badge label description command isExperimental =
                 , paddingEach { top = 4, right = 8, bottom = 4, left = 8 }
                 ]
                 (text badge)
-            , el [ Font.bold, Font.size 16, Font.color (rgb255 28 66 108) ] (text label)
+            , titleElement
             ]
         , wrappedRow
             [ width fill
@@ -3683,7 +3719,7 @@ commentToken value =
 
 codeBlock : Model -> Element Msg
 codeBlock model =
-    codeFromString model "shared-todo.mar" 340 sharedTodoExampleSource
+    codeFromString model "shared-todo.mar" 0 sharedTodoExampleSource
 
 
 token : String -> String -> Html.Html msg
@@ -3693,19 +3729,12 @@ token color value =
 
 sharedTodoExampleSource : String
 sharedTodoExampleSource =
-    """-- A minimal CRUD application.
--- This example shows the basic Mar structure:
--- app, entity, rule, and authorization.
-
--- Application
-app SharedTodo
-
--- Entity
-entity SharedTodo {
+    """app SharedTodo
+entity Todo {
   title: String
   done: Bool
-
   rule "Title must have at least 3 chars" expect length title >= 3
+
   authorize all when user_authenticated
 }
 """
@@ -3713,9 +3742,9 @@ entity SharedTodo {
 
 personalTodoExampleSource : String
 personalTodoExampleSource =
-    """-- A personal todo application.
--- Each user sees their own todos.
--- Admin can read and manage every todo.
+    """-- A personal todo app.
+-- Each user can manage their own todos.
+-- Admins can read and manage every todo.
 
 app PersonalTodo
 
@@ -3724,9 +3753,10 @@ entity PersonalTodo {
   done: Bool
 
   -- This automatically assigns each todo to the authenticated user.
-  -- The authorize rules below use the generated `user` field so users only see their own todos.
   belongs_to current_user
 
+  -- Users can only interact with their own todos.
+  -- Admins can read and manage all todos.
   authorize read when user_authenticated and (user == user_id or user_role == "admin")
   authorize create when user_authenticated
   authorize update when user_authenticated and (user == user_id or user_role == "admin")
