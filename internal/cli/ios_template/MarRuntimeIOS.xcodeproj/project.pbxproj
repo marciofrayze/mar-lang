@@ -15,24 +15,12 @@
 		560B2C0A5BA411E800000004 /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 560B2C0A5BA411E800000014 /* SessionStore.swift */; };
 		7E9B7C8E5AA4897BC2083A25 /* Views.swift in Sources */ = {isa = PBXBuildFile; fileRef = 936FF1D9B8A0D3B3F1DA2D06 /* Views.swift */; };
 		AB4FDA629113DA1A25BAF86B /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB34E92DC160D7671C51FA4B /* APIClient.swift */; };
-		CE1D0ABA180FCE121C043557 /* MarRuntimeIOSTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2809CBA0E2140FF564B4FCEC /* MarRuntimeIOSTests.swift */; };
 		F3173B5D3E8E37DFE65D01ED /* MarRuntimeIOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C2D7FF40416498F5A13EDC5 /* MarRuntimeIOSApp.swift */; };
 /* End PBXBuildFile section */
-
-/* Begin PBXContainerItemProxy section */
-		F34B84C928EA50F8BEAA087E /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 85AE3DC8E977984944C00244 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = C5C49F9112D755FF0EF97FBF;
-			remoteInfo = MarRuntimeIOS;
-		};
-/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		005A7E9F81C5C27775E6BE2C /* AppViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppViewModel.swift; sourceTree = "<group>"; };
 		1C2D7FF40416498F5A13EDC5 /* MarRuntimeIOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarRuntimeIOSApp.swift; sourceTree = "<group>"; };
-		2809CBA0E2140FF564B4FCEC /* MarRuntimeIOSTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarRuntimeIOSTests.swift; sourceTree = "<group>"; };
 		560B2C0A5BA411E800000011 /* MarDateCodec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarDateCodec.swift; sourceTree = "<group>"; };
 		560B2C0A5BA411E800000012 /* PayloadEncoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PayloadEncoder.swift; sourceTree = "<group>"; };
 		560B2C0A5BA411E800000013 /* RowPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RowPresentation.swift; sourceTree = "<group>"; };
@@ -41,7 +29,6 @@
 		A88D9537727A5BAA1EB3A172 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		BB34E92DC160D7671C51FA4B /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
 		E1ED1C48C88D9CA6E68A1C0B /* MarRuntimeIOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MarRuntimeIOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		EC2729D1FE38DA8009F1641E /* MarRuntimeIOSTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = MarRuntimeIOSTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -49,7 +36,6 @@
 			isa = PBXGroup;
 			children = (
 				CC6258EE3A3D84A2FA6C0F8D /* Sources */,
-				E0C339A1F00AA95476E9B39C /* Tests */,
 				CDCF95B42D8591312293EBE7 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -74,17 +60,8 @@
 			isa = PBXGroup;
 			children = (
 				E1ED1C48C88D9CA6E68A1C0B /* MarRuntimeIOS.app */,
-				EC2729D1FE38DA8009F1641E /* MarRuntimeIOSTests.xctest */,
 			);
 			name = Products;
-			sourceTree = "<group>";
-		};
-		E0C339A1F00AA95476E9B39C /* Tests */ = {
-			isa = PBXGroup;
-			children = (
-				2809CBA0E2140FF564B4FCEC /* MarRuntimeIOSTests.swift */,
-			);
-			path = Tests;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -107,24 +84,6 @@
 			productReference = E1ED1C48C88D9CA6E68A1C0B /* MarRuntimeIOS.app */;
 			productType = "com.apple.product-type.application";
 		};
-		DACDD94AB42A0A008C98D691 /* MarRuntimeIOSTests */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 31A46AAB4AB1D2ABB17C3FFB /* Build configuration list for PBXNativeTarget "MarRuntimeIOSTests" */;
-			buildPhases = (
-				17094F9240CC8809010DF894 /* Sources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				EC23417F2E0EFE2F3C76E107 /* PBXTargetDependency */,
-			);
-			name = MarRuntimeIOSTests;
-			packageProductDependencies = (
-			);
-			productName = MarRuntimeIOSTests;
-			productReference = EC2729D1FE38DA8009F1641E /* MarRuntimeIOSTests.xctest */;
-			productType = "com.apple.product-type.bundle.unit-test";
-		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -135,10 +94,6 @@
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					C5C49F9112D755FF0EF97FBF = {
-						ProvisioningStyle = Automatic;
-					};
-					DACDD94AB42A0A008C98D691 = {
-						DevelopmentTeam = "";
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -158,20 +113,11 @@
 			projectRoot = "";
 			targets = (
 				C5C49F9112D755FF0EF97FBF /* MarRuntimeIOS */,
-				DACDD94AB42A0A008C98D691 /* MarRuntimeIOSTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXSourcesBuildPhase section */
-		17094F9240CC8809010DF894 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				CE1D0ABA180FCE121C043557 /* MarRuntimeIOSTests.swift in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		3F9A9734AA56302F955D9F55 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -189,14 +135,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
-
-/* Begin PBXTargetDependency section */
-		EC23417F2E0EFE2F3C76E107 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = C5C49F9112D755FF0EF97FBF /* MarRuntimeIOS */;
-			targetProxy = F34B84C928EA50F8BEAA087E /* PBXContainerItemProxy */;
-		};
-/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		05F141B9AD29C9D919905668 /* Debug */ = {
@@ -340,38 +278,6 @@
 			};
 			name = Release;
 		};
-		1BCCF401A647D0A7BC091D5F /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUNDLE_LOADER = "$(TEST_HOST)";
-				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-					"@loader_path/Frameworks",
-				);
-				SDKROOT = iphoneos;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/MarRuntimeIOS.app/MarRuntimeIOS";
-			};
-			name = Release;
-		};
-		5B8A669BFDD351D2C29D0A21 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUNDLE_LOADER = "$(TEST_HOST)";
-				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-					"@loader_path/Frameworks",
-				);
-				SDKROOT = iphoneos;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/MarRuntimeIOS.app/MarRuntimeIOS";
-			};
-			name = Debug;
-		};
 		A5B61CC7A170A87D5F48BD0A /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -414,15 +320,6 @@
 			buildConfigurations = (
 				05F141B9AD29C9D919905668 /* Debug */,
 				0A7F67ACB5A211251B64ADF8 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Debug;
-		};
-		31A46AAB4AB1D2ABB17C3FFB /* Build configuration list for PBXNativeTarget "MarRuntimeIOSTests" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				5B8A669BFDD351D2C29D0A21 /* Debug */,
-				1BCCF401A647D0A7BC091D5F /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
