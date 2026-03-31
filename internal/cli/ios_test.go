@@ -78,12 +78,21 @@ entity Todo {
 	if !strings.Contains(string(modelsBytes), "var summaryFields: [Field]") {
 		t.Fatalf("expected summaryFields helper in generated models, got:\n%s", string(modelsBytes))
 	}
-	utilitiesBytes, err := os.ReadFile(filepath.Join(outputDir, "Sources", "Utilities.swift"))
+	rowPresentationBytes, err := os.ReadFile(filepath.Join(outputDir, "Sources", "RowPresentation.swift"))
 	if err != nil {
-		t.Fatalf("read utilities failed: %v", err)
+		t.Fatalf("read row presentation failed: %v", err)
 	}
-	if !strings.Contains(string(utilitiesBytes), "return entity.displayName") {
-		t.Fatalf("expected friendly row title fallback in generated utilities, got:\n%s", string(utilitiesBytes))
+	if !strings.Contains(string(rowPresentationBytes), "return entity.displayName") {
+		t.Fatalf("expected friendly row title fallback in generated row presentation helpers, got:\n%s", string(rowPresentationBytes))
+	}
+	if _, err := os.Stat(filepath.Join(outputDir, "Sources", "MarDateCodec.swift")); err != nil {
+		t.Fatalf("expected generated MarDateCodec source file: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(outputDir, "Sources", "PayloadEncoder.swift")); err != nil {
+		t.Fatalf("expected generated PayloadEncoder source file: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(outputDir, "Sources", "SessionStore.swift")); err != nil {
+		t.Fatalf("expected generated SessionStore source file: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(outputDir, "README.generated.md")); err != nil {
 		t.Fatalf("expected generated readme: %v", err)
