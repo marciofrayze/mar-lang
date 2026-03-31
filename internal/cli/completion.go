@@ -51,6 +51,7 @@ func renderZshCompletion(binaryName string) string {
 	return fmt.Sprintf(`_%s() {
   local -a commands
   local -a fly_commands
+  local -a ios_commands
   local -a shells
   local -a format_flags
   local -a format_check_flags
@@ -59,6 +60,7 @@ func renderZshCompletion(binaryName string) string {
     'edit:Edit a Mar file directly in the terminal'
     'dev:Run development mode with hot reload'
     'compile:Compile a .mar app into executables for all supported platforms'
+    'ios:Generate a fresh iOS Xcode project from a .mar app'
     'fly:Prepare, provision, deploy, inspect logs for, and destroy a Fly.io app'
     'completion:Generate shell completion scripts'
     'format:Format Mar source files'
@@ -71,6 +73,9 @@ func renderZshCompletion(binaryName string) string {
     'deploy:Rebuild the Linux executable for Fly.io and run fly deploy'
     'destroy:Permanently destroy the Fly.io app configured for this project'
     'logs:Fetch the most recent Fly.io app logs without tailing'
+  )
+  ios_commands=(
+    'generate:Generate a fresh iOS Xcode project'
   )
   shells=(
     'zsh:zsh shell'
@@ -102,6 +107,21 @@ func renderZshCompletion(binaryName string) string {
       elif (( CURRENT == 4 )); then
         _message 'output name'
       fi
+      ;;
+    ios)
+      if (( CURRENT == 3 )); then
+        _describe 'ios command' ios_commands
+        return
+      fi
+      case "${words[3]}" in
+        generate)
+          if (( CURRENT == 4 )); then
+            _files -g '*.mar'
+          elif (( CURRENT == 5 )); then
+            _message 'output directory'
+          fi
+          ;;
+      esac
       ;;
     fly)
       if (( CURRENT == 3 )); then
@@ -156,7 +176,7 @@ func renderBashCompletion(binaryName string) string {
   prev2="${COMP_WORDS[COMP_CWORD-2]}"
 
   if [[ ${COMP_CWORD} -eq 1 ]]; then
-    COMPREPLY=( $(compgen -W "init edit dev compile fly completion format lsp version" -- "${cur}") )
+    COMPREPLY=( $(compgen -W "init edit dev compile ios fly completion format lsp version" -- "${cur}") )
     return 0
   fi
 
@@ -170,6 +190,17 @@ func renderBashCompletion(binaryName string) string {
       if [[ ${COMP_CWORD} -eq 2 ]]; then
         COMPREPLY=( $(compgen -f -X '!*.mar' -- "${cur}") )
       fi
+      ;;
+    ios)
+      if [[ ${COMP_CWORD} -eq 2 ]]; then
+        COMPREPLY=( $(compgen -W "generate" -- "${cur}") )
+        return 0
+      fi
+      case "${prev}" in
+        generate)
+          COMPREPLY=( $(compgen -f -X '!*.mar' -- "${cur}") )
+          ;;
+      esac
       ;;
     fly)
       if [[ ${COMP_CWORD} -eq 2 ]]; then
@@ -226,12 +257,14 @@ complete -c %s -n '__fish_use_subcommand' -a init -d 'Create a new Mar project w
 complete -c %s -n '__fish_use_subcommand' -a edit -d 'Edit a Mar file directly in the terminal'
 complete -c %s -n '__fish_use_subcommand' -a dev -d 'Run development mode with hot reload'
 complete -c %s -n '__fish_use_subcommand' -a compile -d 'Compile a .mar app into executables for all supported platforms'
+complete -c %s -n '__fish_use_subcommand' -a ios -d 'Generate a fresh iOS Xcode project from a .mar app'
 complete -c %s -n '__fish_use_subcommand' -a fly -d 'Prepare, provision, deploy, inspect logs for, and destroy a Fly.io app'
 complete -c %s -n '__fish_use_subcommand' -a completion -d 'Generate shell completion scripts'
 complete -c %s -n '__fish_use_subcommand' -a format -d 'Format Mar source files'
 complete -c %s -n '__fish_use_subcommand' -a lsp -d 'Start the Mar Language Server'
 complete -c %s -n '__fish_use_subcommand' -a version -d 'Show version and build information'
 
+complete -c %s -n '__fish_seen_subcommand_from ios; and not __fish_seen_subcommand_from generate' -a generate -d 'Generate a fresh iOS Xcode project'
 complete -c %s -n '__fish_seen_subcommand_from fly; and not __fish_seen_subcommand_from init provision deploy destroy logs' -a init -d 'Prepare Fly.io deployment files for your app'
 complete -c %s -n '__fish_seen_subcommand_from fly; and not __fish_seen_subcommand_from init provision deploy destroy logs' -a provision -d 'Create the Fly app, volume, and secrets from the generated config'
 complete -c %s -n '__fish_seen_subcommand_from fly; and not __fish_seen_subcommand_from init provision deploy destroy logs' -a deploy -d 'Rebuild the Linux executable for Fly.io and run fly deploy'
@@ -240,11 +273,12 @@ complete -c %s -n '__fish_seen_subcommand_from fly; and not __fish_seen_subcomma
 
 complete -c %s -n '__fish_seen_subcommand_from edit; and test (count (commandline -opc)) -eq 2' -a '(__fish_complete_suffix .mar)'
 complete -c %s -n '__fish_seen_subcommand_from dev compile; and test (count (commandline -opc)) -eq 2' -a '(__fish_complete_suffix .mar)'
+complete -c %s -n '__fish_seen_subcommand_from ios generate; and test (count (commandline -opc)) -eq 3' -a '(__fish_complete_suffix .mar)'
 complete -c %s -n '__fish_seen_subcommand_from fly; and __fish_seen_subcommand_from init provision deploy destroy logs' -a '(__fish_complete_suffix .mar)'
 complete -c %s -n '__fish_seen_subcommand_from format; and not __fish_seen_subcommand_from --stdin' -l check -d 'Check formatting without writing files'
 complete -c %s -n '__fish_seen_subcommand_from format; and not __fish_seen_subcommand_from --stdin' -l stdin -d 'Read Mar source from stdin'
 complete -c %s -n '__fish_seen_subcommand_from format; and not __fish_seen_subcommand_from --stdin' -a '(__fish_complete_suffix .mar)'
 complete -c %s -n '__fish_seen_subcommand_from format; and __fish_seen_subcommand_from --stdin' -l check -d 'Check formatting without writing files'
 complete -c %s -n '__fish_seen_subcommand_from completion' -a 'zsh bash fish'
-`, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName)
+`, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName, binaryName)
 }

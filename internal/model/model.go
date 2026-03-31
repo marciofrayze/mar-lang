@@ -4,6 +4,7 @@ type App struct {
 	AppName      string        `json:"appName"`
 	Port         int           `json:"port"`
 	Database     string        `json:"database"`
+	IOS          *IOSConfig    `json:"ios,omitempty"`
 	Public       *PublicConfig `json:"public,omitempty"`
 	System       *SystemConfig `json:"system,omitempty"`
 	Entities     []Entity      `json:"entities"`
@@ -11,6 +12,12 @@ type App struct {
 	InputAliases []TypeAlias   `json:"inputAliases,omitempty"`
 	Actions      []Action      `json:"actions,omitempty"`
 	Warnings     []string      `json:"warnings,omitempty"`
+}
+
+type IOSConfig struct {
+	BundleIdentifier string `json:"bundleIdentifier"`
+	DisplayName      string `json:"displayName,omitempty"`
+	ServerURL        string `json:"serverUrl"`
 }
 
 type PublicConfig struct {

@@ -108,6 +108,17 @@
       "}"
     ]
   },
+  "Mar iOS Block": {
+    "prefix": "ios",
+    "description": "Create an iOS project generation block",
+    "body": [
+      "ios {",
+      "  bundle_identifier \"${1:com.example.app}\"",
+      "  display_name \"${2:My App}\"",
+      "  server_url \"${3:https://example.com}\"",
+      "}"
+    ]
+  },
   "Mar System Block": {
     "prefix": "system",
     "description": "Create a system runtime configuration block",

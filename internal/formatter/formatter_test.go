@@ -137,6 +137,40 @@ entity Todo {
 	}
 }
 
+func TestFormatIOSBlockCanonicalOutput(t *testing.T) {
+	src := `
+app TodoApi
+ios {
+bundle_identifier   "com.example.todo"
+display_name "Todo App"
+server_url "https://school.example.com"
+}
+entity Todo{
+title:String
+}
+`
+
+	formatted, err := Format(src)
+	if err != nil {
+		t.Fatalf("format failed: %v", err)
+	}
+
+	expected := "" +
+		"app TodoApi\n" +
+		"ios {\n" +
+		"  bundle_identifier \"com.example.todo\"\n" +
+		"  display_name \"Todo App\"\n" +
+		"  server_url \"https://school.example.com\"\n" +
+		"}\n" +
+		"entity Todo {\n" +
+		"  title: String\n" +
+		"}\n"
+
+	if formatted != expected {
+		t.Fatalf("unexpected formatted output\n--- expected ---\n%s\n--- got ---\n%s", expected, formatted)
+	}
+}
+
 func TestFormatActionBlockCanonicalOutput(t *testing.T) {
 	src := `
 app Demo

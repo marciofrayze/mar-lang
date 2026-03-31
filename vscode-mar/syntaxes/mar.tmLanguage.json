@@ -298,7 +298,7 @@
       "patterns": [
         {
           "name": "keyword.control.declaration.mar",
-          "match": "\\b(app|port|database|system|public|entity|auth|type|alias|belongs_to)\\b"
+          "match": "\\b(app|port|database|ios|system|public|entity|auth|type|alias|belongs_to)\\b"
         },
         {
           "name": "keyword.control.rule.mar",

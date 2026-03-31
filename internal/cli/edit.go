@@ -72,8 +72,14 @@ type editorSnapshot struct {
 
 var (
 	marEditorKeywords = map[string]struct{}{
-		"app": {}, "port": {}, "database": {}, "public": {}, "system": {}, "auth": {}, "entity": {}, "action": {}, "type": {}, "alias": {},
+		"app": {}, "port": {}, "database": {}, "ios": {}, "public": {}, "system": {}, "auth": {}, "entity": {}, "action": {}, "type": {}, "alias": {},
 		"rule": {}, "expect": {}, "authorize": {}, "when": {}, "all": {}, "read": {}, "load": {}, "create": {}, "update": {}, "delete": {}, "belongs_to": {}, "current_user": {},
+		"bundle_identifier": {}, "display_name": {}, "server_url": {},
+		"code_ttl_minutes": {}, "session_ttl_hours": {}, "email_from": {}, "email_subject": {}, "smtp_host": {}, "smtp_port": {}, "smtp_username": {}, "smtp_password_env": {}, "smtp_starttls": {},
+		"dir": {}, "mount": {}, "spa_fallback": {},
+		"request_logs_buffer": {}, "http_max_request_body_mb": {}, "auth_request_code_rate_limit_per_minute": {}, "auth_login_rate_limit_per_minute": {}, "admin_ui_session_ttl_hours": {},
+		"security_frame_policy": {}, "security_referrer_policy": {}, "security_content_type_nosniff": {}, "sqlite_journal_mode": {}, "sqlite_synchronous": {}, "sqlite_foreign_keys": {},
+		"sqlite_busy_timeout_ms": {}, "sqlite_wal_autocheckpoint": {}, "sqlite_journal_size_limit_mb": {}, "sqlite_mmap_size_mb": {}, "sqlite_cache_size_kb": {},
 	}
 	marEditorFunctions = map[string]struct{}{
 		"length": {}, "contains": {}, "starts_with": {}, "ends_with": {}, "matches": {},

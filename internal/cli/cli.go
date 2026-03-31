@@ -26,8 +26,9 @@ var (
 	parseErrorUnknownInputRe = regexp.MustCompile(`unknown input field ("[^"\n]*")`)
 	parseErrorActionRe       = regexp.MustCompile(`\baction\s+([A-Za-z_][A-Za-z0-9_]*)`)
 	parseErrorFieldRe        = regexp.MustCompile(`\bfield\s+([A-Za-z_][A-Za-z0-9_.]*)`)
-	parseErrorDeclWordRe     = regexp.MustCompile(`\b(app|auth|public|system)\s+declaration\b`)
-	parseErrorConfigPathRe   = regexp.MustCompile(`\b(auth|system|public)\.([A-Za-z_][A-Za-z0-9_.]*)\b`)
+	parseErrorDeclWordRe     = regexp.MustCompile(`\b(app|auth|ios|public|system)\s+declaration\b`)
+	parseErrorConfigPathRe   = regexp.MustCompile(`\b(auth|ios|system|public)\.([A-Za-z_][A-Za-z0-9_.]*)\b`)
+	parseErrorBlockLineRe    = regexp.MustCompile(`(?m)^(\s*)(app|auth|ios|public|system)\b`)
 	appWarningFieldRe        = regexp.MustCompile("`[^`\\n]+`")
 )
 
@@ -84,6 +85,8 @@ func Run(binaryName string, args []string) error {
 		return runDev(binaryName, args[1], outputPath)
 	case "fly":
 		return runFly(binaryName, args[1:])
+	case "ios":
+		return runIOS(binaryName, args[1:])
 	case "completion":
 		return runCompletion(binaryName, args[1:])
 	case "format":
@@ -286,6 +289,13 @@ func parseCLIHintForMessage(message string) string {
 }
 
 func splitSuggestionHint(message string) (string, string) {
+	const explicitHintMarker = "\n\nHint:\n  "
+	if idx := strings.LastIndex(message, explicitHintMarker); idx >= 0 {
+		base := strings.TrimSpace(message[:idx])
+		hint := strings.TrimSpace(message[idx+len("\n\nHint:\n"):])
+		return base, hint
+	}
+
 	marker := ". Did you mean "
 	idx := strings.LastIndex(message, marker)
 	if idx < 0 {
@@ -330,11 +340,19 @@ func highlightParseCLIMessage(useColor bool, message string) string {
 		return colorizeCLI(true, "\033[1;36m", match)
 	})
 	message = strings.ReplaceAll(message, "an app declaration", "an "+colorizeCLI(true, "\033[1m", "app")+" declaration")
+	message = strings.ReplaceAll(message, "an ios block", "an "+colorizeCLI(true, "\033[1m", "ios")+" block")
 	message = strings.ReplaceAll(
 		message,
 		"app Todo",
 		colorizeCLI(true, "\033[1m", "app")+" "+colorizeCLI(true, "\033[1;36m", "Todo"),
 	)
+	message = parseErrorBlockLineRe.ReplaceAllStringFunc(message, func(match string) string {
+		parts := parseErrorBlockLineRe.FindStringSubmatch(match)
+		if len(parts) != 3 {
+			return match
+		}
+		return parts[1] + colorizeCLI(true, "\033[1m", parts[2])
+	})
 	message = parseErrorFieldRe.ReplaceAllStringFunc(message, func(match string) string {
 		parts := parseErrorFieldRe.FindStringSubmatch(match)
 		if len(parts) != 2 {
@@ -400,6 +418,7 @@ func printUsage(binaryName string) {
 	fmt.Printf("  %-45s %s\n", fmt.Sprintf("%s edit <app.mar>", binaryName), "Edit a Mar file directly in the terminal.")
 	fmt.Printf("  %-45s %s\n", fmt.Sprintf("%s dev <app.mar> [output-name]", binaryName), "Run development mode with hot reload.")
 	fmt.Printf("  %-45s %s\n", fmt.Sprintf("%s compile <app.mar> [output-name]", binaryName), "Compile a .mar app into executables for all supported platforms and generate its frontend clients.")
+	fmt.Printf("  %-45s %s\n", fmt.Sprintf("%s ios generate <app.mar> [output-dir]", binaryName), "Generate a fresh iOS Xcode project from a .mar app.")
 	fmt.Printf("  %-45s %s\n", fmt.Sprintf("%s fly init <app.mar>", binaryName), "Prepares Fly.io deployment files for your app.")
 	fmt.Printf("  %-45s %s\n", fmt.Sprintf("%s fly provision <app.mar>", binaryName), "Create the Fly app, volume, and secrets from the generated config.")
 	fmt.Printf("  %-45s %s\n", fmt.Sprintf("%s fly deploy <app.mar>", binaryName), "Rebuild the Linux executable for Fly.io and run fly deploy.")

@@ -77,6 +77,26 @@ func TestFormatParseCLIErrorAddsHintForMissingAppDeclaration(t *testing.T) {
 	}
 }
 
+func TestFormatParseCLIErrorSeparatesExplicitParserHintBlock(t *testing.T) {
+	t.Setenv("NO_COLOR", "1")
+
+	err := formatParseCLIError(errors.New("line 46: ios.server_url is required.\n\nHint:\n  Add an ios block like:\n  ios {\n    bundle_identifier \"com.example.school\"\n    server_url \"https://school.example.com\"\n  }"))
+	if err == nil {
+		t.Fatal("expected formatted parse error")
+	}
+
+	msg := err.Error()
+	if !strings.Contains(msg, "Parse error") {
+		t.Fatalf("expected parse error title, got %q", msg)
+	}
+	if !strings.Contains(msg, "line 46: ios.server_url is required.") {
+		t.Fatalf("expected base parse message, got %q", msg)
+	}
+	if !strings.Contains(msg, "Hint:\n  Add an ios block like:\n  ios {\n    bundle_identifier \"com.example.school\"\n    server_url \"https://school.example.com\"\n  }") {
+		t.Fatalf("expected explicit parser hint block, got %q", msg)
+	}
+}
+
 func TestHighlightAppWarningRemovesBackticksWithoutColor(t *testing.T) {
 	msg := highlightAppWarning(false, "Missing required field: `name`")
 
@@ -176,6 +196,12 @@ func TestRenderCompletionScriptSupportsZsh(t *testing.T) {
 	}
 	if !strings.Contains(script, "provision:Create the Fly app, volume, and secrets from the generated config") {
 		t.Fatalf("expected zsh completion to include fly provision, got %q", script)
+	}
+	if !strings.Contains(script, "ios:Generate a fresh iOS Xcode project from a .mar app") {
+		t.Fatalf("expected zsh completion to include ios command, got %q", script)
+	}
+	if !strings.Contains(script, "ios_commands=(") || !strings.Contains(script, "_describe 'ios command' ios_commands") {
+		t.Fatalf("expected zsh completion to describe ios subcommands via a named array, got %q", script)
 	}
 	if !strings.Contains(script, "destroy:Permanently destroy the Fly.io app configured for this project") {
 		t.Fatalf("expected zsh completion to include fly destroy, got %q", script)

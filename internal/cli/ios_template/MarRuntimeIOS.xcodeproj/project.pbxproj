@@ -1,0 +1,430 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		1FD57D8A32FE387509ED47A1 /* AppViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 005A7E9F81C5C27775E6BE2C /* AppViewModel.swift */; };
+		48AADA0650E4B724377C7C5A /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = A88D9537727A5BAA1EB3A172 /* Models.swift */; };
+		6E294115FD804899243528D1 /* Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = C37CE95209A4A9A2F984A60A /* Utilities.swift */; };
+		7E9B7C8E5AA4897BC2083A25 /* Views.swift in Sources */ = {isa = PBXBuildFile; fileRef = 936FF1D9B8A0D3B3F1DA2D06 /* Views.swift */; };
+		AB4FDA629113DA1A25BAF86B /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB34E92DC160D7671C51FA4B /* APIClient.swift */; };
+		CE1D0ABA180FCE121C043557 /* MarRuntimeIOSTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2809CBA0E2140FF564B4FCEC /* MarRuntimeIOSTests.swift */; };
+		F3173B5D3E8E37DFE65D01ED /* MarRuntimeIOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C2D7FF40416498F5A13EDC5 /* MarRuntimeIOSApp.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		F34B84C928EA50F8BEAA087E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 85AE3DC8E977984944C00244 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C5C49F9112D755FF0EF97FBF;
+			remoteInfo = MarRuntimeIOS;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		005A7E9F81C5C27775E6BE2C /* AppViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppViewModel.swift; sourceTree = "<group>"; };
+		1C2D7FF40416498F5A13EDC5 /* MarRuntimeIOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarRuntimeIOSApp.swift; sourceTree = "<group>"; };
+		2809CBA0E2140FF564B4FCEC /* MarRuntimeIOSTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarRuntimeIOSTests.swift; sourceTree = "<group>"; };
+		936FF1D9B8A0D3B3F1DA2D06 /* Views.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views.swift; sourceTree = "<group>"; };
+		A88D9537727A5BAA1EB3A172 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		BB34E92DC160D7671C51FA4B /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
+		C37CE95209A4A9A2F984A60A /* Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Utilities.swift; sourceTree = "<group>"; };
+		E1ED1C48C88D9CA6E68A1C0B /* MarRuntimeIOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MarRuntimeIOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		EC2729D1FE38DA8009F1641E /* MarRuntimeIOSTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = MarRuntimeIOSTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		9CFF8A863EC31F67585EFEEA = {
+			isa = PBXGroup;
+			children = (
+				CC6258EE3A3D84A2FA6C0F8D /* Sources */,
+				E0C339A1F00AA95476E9B39C /* Tests */,
+				CDCF95B42D8591312293EBE7 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		CC6258EE3A3D84A2FA6C0F8D /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				BB34E92DC160D7671C51FA4B /* APIClient.swift */,
+				005A7E9F81C5C27775E6BE2C /* AppViewModel.swift */,
+				1C2D7FF40416498F5A13EDC5 /* MarRuntimeIOSApp.swift */,
+				A88D9537727A5BAA1EB3A172 /* Models.swift */,
+				C37CE95209A4A9A2F984A60A /* Utilities.swift */,
+				936FF1D9B8A0D3B3F1DA2D06 /* Views.swift */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		CDCF95B42D8591312293EBE7 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				E1ED1C48C88D9CA6E68A1C0B /* MarRuntimeIOS.app */,
+				EC2729D1FE38DA8009F1641E /* MarRuntimeIOSTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		E0C339A1F00AA95476E9B39C /* Tests */ = {
+			isa = PBXGroup;
+			children = (
+				2809CBA0E2140FF564B4FCEC /* MarRuntimeIOSTests.swift */,
+			);
+			path = Tests;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		C5C49F9112D755FF0EF97FBF /* MarRuntimeIOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4DADB2AD756E25A4D15E9C94 /* Build configuration list for PBXNativeTarget "MarRuntimeIOS" */;
+			buildPhases = (
+				3F9A9734AA56302F955D9F55 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = MarRuntimeIOS;
+			packageProductDependencies = (
+			);
+			productName = MarRuntimeIOS;
+			productReference = E1ED1C48C88D9CA6E68A1C0B /* MarRuntimeIOS.app */;
+			productType = "com.apple.product-type.application";
+		};
+		DACDD94AB42A0A008C98D691 /* MarRuntimeIOSTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 31A46AAB4AB1D2ABB17C3FFB /* Build configuration list for PBXNativeTarget "MarRuntimeIOSTests" */;
+			buildPhases = (
+				17094F9240CC8809010DF894 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				EC23417F2E0EFE2F3C76E107 /* PBXTargetDependency */,
+			);
+			name = MarRuntimeIOSTests;
+			packageProductDependencies = (
+			);
+			productName = MarRuntimeIOSTests;
+			productReference = EC2729D1FE38DA8009F1641E /* MarRuntimeIOSTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		85AE3DC8E977984944C00244 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					C5C49F9112D755FF0EF97FBF = {
+						ProvisioningStyle = Automatic;
+					};
+					DACDD94AB42A0A008C98D691 = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 1BF15C89391D1A780EB7EB20 /* Build configuration list for PBXProject "MarRuntimeIOS" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 9CFF8A863EC31F67585EFEEA;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = CDCF95B42D8591312293EBE7 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				C5C49F9112D755FF0EF97FBF /* MarRuntimeIOS */,
+				DACDD94AB42A0A008C98D691 /* MarRuntimeIOSTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		17094F9240CC8809010DF894 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CE1D0ABA180FCE121C043557 /* MarRuntimeIOSTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3F9A9734AA56302F955D9F55 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AB4FDA629113DA1A25BAF86B /* APIClient.swift in Sources */,
+				1FD57D8A32FE387509ED47A1 /* AppViewModel.swift in Sources */,
+				F3173B5D3E8E37DFE65D01ED /* MarRuntimeIOSApp.swift in Sources */,
+				48AADA0650E4B724377C7C5A /* Models.swift in Sources */,
+				6E294115FD804899243528D1 /* Utilities.swift in Sources */,
+				7E9B7C8E5AA4897BC2083A25 /* Views.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		EC23417F2E0EFE2F3C76E107 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C5C49F9112D755FF0EF97FBF /* MarRuntimeIOS */;
+			targetProxy = F34B84C928EA50F8BEAA087E /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		05F141B9AD29C9D919905668 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "__MAR_IOS_DISPLAY_NAME__";
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "__MAR_IOS_BUNDLE_IDENTIFIER__";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		0A7F67ACB5A211251B64ADF8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "__MAR_IOS_DISPLAY_NAME__";
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "__MAR_IOS_BUNDLE_IDENTIFIER__";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		1BCCF401A647D0A7BC091D5F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/MarRuntimeIOS.app/MarRuntimeIOS";
+			};
+			name = Release;
+		};
+		5B8A669BFDD351D2C29D0A21 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/MarRuntimeIOS.app/MarRuntimeIOS";
+			};
+			name = Debug;
+		};
+		A5B61CC7A170A87D5F48BD0A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = AY4AVVPNPC;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_NAME = MarRuntimeIOS;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		B24F8A817B660039AAFF3E5E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = AY4AVVPNPC;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_NAME = MarRuntimeIOS;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		1BF15C89391D1A780EB7EB20 /* Build configuration list for PBXProject "MarRuntimeIOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				05F141B9AD29C9D919905668 /* Debug */,
+				0A7F67ACB5A211251B64ADF8 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		31A46AAB4AB1D2ABB17C3FFB /* Build configuration list for PBXNativeTarget "MarRuntimeIOSTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5B8A669BFDD351D2C29D0A21 /* Debug */,
+				1BCCF401A647D0A7BC091D5F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		4DADB2AD756E25A4D15E9C94 /* Build configuration list for PBXNativeTarget "MarRuntimeIOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A5B61CC7A170A87D5F48BD0A /* Debug */,
+				B24F8A817B660039AAFF3E5E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 85AE3DC8E977984944C00244 /* Project object */;
+}

@@ -220,6 +220,136 @@ entity Todo {
 	}
 }
 
+func TestParseSupportsIOSConfig(t *testing.T) {
+	src := `
+app TodoApi
+
+ios {
+  bundle_identifier "com.example.todo"
+  display_name "Todo App"
+  server_url "https://school.example.com"
+}
+
+entity Todo {
+  title: String
+}
+`
+
+	app, err := Parse(src)
+	if err != nil {
+		t.Fatalf("Parse returned error: %v", err)
+	}
+	if app.IOS == nil {
+		t.Fatal("expected ios config to be parsed")
+	}
+	if app.IOS.BundleIdentifier != "com.example.todo" {
+		t.Fatalf("unexpected bundle identifier: %q", app.IOS.BundleIdentifier)
+	}
+	if app.IOS.DisplayName != "Todo App" {
+		t.Fatalf("unexpected display name: %q", app.IOS.DisplayName)
+	}
+	if app.IOS.ServerURL != "https://school.example.com" {
+		t.Fatalf("unexpected server url: %q", app.IOS.ServerURL)
+	}
+}
+
+func TestParseRequiresIOSBundleIdentifier(t *testing.T) {
+	src := `
+app TodoApi
+
+ios {
+  display_name "Todo App"
+  server_url "https://school.example.com"
+}
+
+entity Todo {
+  title: String
+}
+`
+
+	_, err := Parse(src)
+	if err == nil {
+		t.Fatal("expected ios bundle identifier error")
+	}
+	if !strings.Contains(err.Error(), "ios.bundle_identifier is required") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestParseRequiresIOSServerURL(t *testing.T) {
+	src := `
+app TodoApi
+
+ios {
+  bundle_identifier "com.example.todo"
+}
+
+entity Todo {
+  title: String
+}
+`
+
+	_, err := Parse(src)
+	if err == nil {
+		t.Fatal("expected ios server url error")
+	}
+	if !strings.Contains(err.Error(), "ios.server_url is required") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(err.Error(), "Hint:\n  Add an ios block like:\n  ios {\n    bundle_identifier \"com.example.school\"\n    server_url \"https://school.example.com\"\n  }") {
+		t.Fatalf("expected ios config hint, got: %v", err)
+	}
+	if strings.Contains(err.Error(), "\n  }.") {
+		t.Fatalf("expected ios config hint without trailing period, got: %v", err)
+	}
+}
+
+func TestParseRejectsInvalidIOSBundleIdentifier(t *testing.T) {
+	src := `
+app TodoApi
+
+ios {
+  bundle_identifier "todo app"
+  server_url "https://school.example.com"
+}
+
+entity Todo {
+  title: String
+}
+`
+
+	_, err := Parse(src)
+	if err == nil {
+		t.Fatal("expected invalid ios bundle identifier error")
+	}
+	if !strings.Contains(err.Error(), "ios.bundle_identifier must be a reverse-DNS identifier") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestParseRejectsInvalidIOSServerURL(t *testing.T) {
+	src := `
+app TodoApi
+
+ios {
+  bundle_identifier "com.example.todo"
+  server_url "school.example.com"
+}
+
+entity Todo {
+  title: String
+}
+`
+
+	_, err := Parse(src)
+	if err == nil {
+		t.Fatal("expected invalid ios server url error")
+	}
+	if !strings.Contains(err.Error(), "ios.server_url must be a valid http or https URL") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestParseKeepsExplicitDatabaseWhenProvided(t *testing.T) {
 	src := `
 app TodoApi

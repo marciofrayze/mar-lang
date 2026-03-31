@@ -2,6 +2,7 @@ package parser
 
 import (
 	"fmt"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -26,12 +27,18 @@ var (
 		"app",
 		"port",
 		"database",
+		"ios",
 		"system",
 		"public",
 		"auth",
 		"entity",
 		"type alias",
 		"action",
+	}
+	iosStatementCandidates = []string{
+		"bundle_identifier",
+		"display_name",
+		"server_url",
 	}
 	authStatementCandidates = []string{
 		"code_ttl_minutes",
@@ -178,6 +185,18 @@ func Parse(source string) (*model.App, error) {
 			continue
 		}
 
+		if trimmed == "ios {" {
+			if app.IOS != nil {
+				return nil, parserErrorf("line %d: ios block already declared", cur.number)
+			}
+			iosCfg, err := parseIOSBlock(lines, &idx)
+			if err != nil {
+				return nil, err
+			}
+			app.IOS = iosCfg
+			continue
+		}
+
 		if trimmed == "public {" {
 			if app.Public != nil {
 				return nil, parserErrorf("line %d: public block already declared", cur.number)
@@ -286,6 +305,101 @@ func defaultAuthConfig() *model.AuthConfig {
 		SMTPPort:        587,
 		SMTPStartTLS:    true,
 	}
+}
+
+func parseIOSBlock(lines []line, idx *int) (*model.IOSConfig, error) {
+	cfg := &model.IOSConfig{}
+
+	(*idx)++
+	for *idx < len(lines) {
+		ln := lines[*idx]
+		trimmed := strings.TrimSpace(ln.text)
+		if isCommentOrBlank(trimmed) {
+			(*idx)++
+			continue
+		}
+		if trimmed == "}" {
+			(*idx)++
+			if cfg.BundleIdentifier == "" {
+				return nil, parserErrorf("line %d: ios.bundle_identifier is required\n\nHint:\n  %s", ln.number, iosConfigHint())
+			}
+			if cfg.ServerURL == "" {
+				return nil, parserErrorf("line %d: ios.server_url is required\n\nHint:\n  %s", ln.number, iosConfigHint())
+			}
+			return cfg, nil
+		}
+
+		var matched bool
+		if m := match(`^bundle_identifier\s+"([^"]*)"$`, trimmed); m != nil {
+			value := strings.TrimSpace(m[1])
+			if !isValidIOSBundleIdentifier(value) {
+				return nil, parserErrorf("line %d: ios.bundle_identifier must be a reverse-DNS identifier like \"com.example.app\"", ln.number)
+			}
+			cfg.BundleIdentifier = value
+			matched = true
+		}
+		if m := match(`^display_name\s+"([^"]*)"$`, trimmed); m != nil {
+			value := strings.TrimSpace(m[1])
+			if value == "" {
+				return nil, parserErrorf("line %d: ios.display_name must not be empty", ln.number)
+			}
+			cfg.DisplayName = value
+			matched = true
+		}
+		if m := match(`^server_url\s+"([^"]*)"$`, trimmed); m != nil {
+			value := strings.TrimSpace(m[1])
+			if !isValidIOSServerURL(value) {
+				return nil, parserErrorf("line %d: ios.server_url must be a valid http or https URL", ln.number)
+			}
+			cfg.ServerURL = value
+			matched = true
+		}
+
+		if !matched {
+			return nil, unknownStatementError(ln.number, "ios", trimmed, iosStatementCandidates)
+		}
+		(*idx)++
+	}
+
+	return nil, parserErrorf("ios block is missing closing }")
+}
+
+func iosConfigHint() string {
+	return "Add an ios block like:\n  ios {\n    bundle_identifier \"com.example.school\"\n    server_url \"https://school.example.com\"\n  }"
+}
+
+func isValidIOSBundleIdentifier(value string) bool {
+	if value == "" || strings.HasPrefix(value, ".") || strings.HasSuffix(value, ".") || !strings.Contains(value, ".") {
+		return false
+	}
+	for _, part := range strings.Split(value, ".") {
+		if part == "" {
+			return false
+		}
+		for _, r := range part {
+			if !(unicode.IsLetter(r) || unicode.IsDigit(r) || r == '-') {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func isValidIOSServerURL(value string) bool {
+	parsed, err := url.Parse(strings.TrimSpace(value))
+	if err != nil || parsed == nil {
+		return false
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return false
+	}
+	if strings.TrimSpace(parsed.Host) == "" {
+		return false
+	}
+	if parsed.RawQuery != "" || parsed.Fragment != "" {
+		return false
+	}
+	return true
 }
 
 // parseAuthBlock parses the auth configuration block and applies defaults.
@@ -838,6 +952,11 @@ func parserErrorf(format string, args ...any) error {
 }
 
 func finalizeParserErrorMessage(message string) string {
+	if idx := strings.LastIndex(message, "\n\nHint:\n"); idx >= 0 {
+		base := finalizeParserErrorMessage(message[:idx])
+		return base + message[idx:]
+	}
+
 	trimmed := strings.TrimSpace(message)
 	if trimmed == "" {
 		return message
@@ -872,6 +991,8 @@ func misplacedStatementHint(scope, key string) string {
 	switch {
 	case candidateContains(authStatementCandidates, key):
 		targetScope = "auth"
+	case candidateContains(iosStatementCandidates, key):
+		targetScope = "ios"
 	case candidateContains(systemStatementCandidates, key):
 		targetScope = "system"
 	case candidateContains(publicStatementCandidates, key):
@@ -885,6 +1006,8 @@ func misplacedStatementHint(scope, key string) string {
 	switch targetScope {
 	case "auth":
 		return fmt.Sprintf("%q looks like an auth setting. Try moving it into auth { ... }.", key)
+	case "ios":
+		return fmt.Sprintf("%q looks like an iOS setting. Try moving it into ios { ... }.", key)
 	case "system":
 		return fmt.Sprintf("%q looks like a system setting. Try moving it into system { ... }.", key)
 	case "public":

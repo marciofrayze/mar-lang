@@ -13,6 +13,7 @@ var (
 	appRe         = regexp.MustCompile(`^app\s+([A-Za-z][A-Za-z0-9_]*)$`)
 	portRe        = regexp.MustCompile(`^port\s+([0-9]{1,5})$`)
 	dbRe          = regexp.MustCompile(`^database\s+"([^"]+)"$`)
+	iosStartRe    = regexp.MustCompile(`^ios\s*\{$`)
 	systemStartRe = regexp.MustCompile(`^system\s*\{$`)
 	publicStartRe = regexp.MustCompile(`^public\s*\{$`)
 	authStartRe   = regexp.MustCompile(`^auth\s*\{$`)
@@ -35,6 +36,7 @@ var (
 	systemLimitRe               = regexp.MustCompile(`^(sqlite_journal_size_limit_mb)\s+(-?[0-9]{1,4})$`)
 	systemMBRe                  = regexp.MustCompile(`^(sqlite_mmap_size_mb|http_max_request_body_mb)\s+([0-9]{1,5})$`)
 	systemKBRe                  = regexp.MustCompile(`^(sqlite_cache_size_kb)\s+([0-9]{1,7})$`)
+	iosQuoteRe                  = regexp.MustCompile(`^(bundle_identifier|display_name|server_url)\s+"([^"]+)"$`)
 	publicQuoteRe               = regexp.MustCompile(`^(dir|mount|spa_fallback)\s+"([^"]+)"$`)
 	authStmtRe                  = regexp.MustCompile(`^(code_ttl_minutes|session_ttl_hours|auth_request_code_rate_limit_per_minute|auth_login_rate_limit_per_minute|admin_ui_session_ttl_hours|smtp_port|smtp_starttls|security_content_type_nosniff|security_frame_policy|security_referrer_policy)\s+(.+)$`)
 	authQuoteRe                 = regexp.MustCompile(`^(email_from|email_subject|smtp_host|smtp_username|smtp_password_env)\s+"([^"]+)"$`)
@@ -101,6 +103,7 @@ func Format(source string) (string, error) {
 
 type formatState struct {
 	inEntity     bool
+	inIOS        bool
 	inSystem     bool
 	inPublic     bool
 	inAuth       bool
@@ -115,6 +118,8 @@ func (s *formatState) update(line string) {
 	switch {
 	case entityStartRe.MatchString(line):
 		s.inEntity = true
+	case iosStartRe.MatchString(line):
+		s.inIOS = true
 	case authStartRe.MatchString(line):
 		s.inAuth = true
 	case systemStartRe.MatchString(line):
@@ -142,6 +147,8 @@ func (s *formatState) update(line string) {
 			s.inActionStep = false
 		case s.inEntity:
 			s.inEntity = false
+		case s.inIOS:
+			s.inIOS = false
 		case s.inSystem:
 			s.inSystem = false
 		case s.inPublic:
@@ -165,6 +172,9 @@ func normalizeLine(trimmed string, state *formatState) string {
 	}
 	if m := dbRe.FindStringSubmatch(trimmed); m != nil {
 		return `database "` + m[1] + `"`
+	}
+	if iosStartRe.MatchString(trimmed) {
+		return "ios {"
 	}
 	if systemStartRe.MatchString(trimmed) {
 		return "system {"
@@ -211,6 +221,12 @@ func normalizeLine(trimmed string, state *formatState) string {
 		}
 		if m := systemKBRe.FindStringSubmatch(trimmed); m != nil {
 			return m[1] + " " + m[2]
+		}
+	}
+
+	if state.inIOS {
+		if m := iosQuoteRe.FindStringSubmatch(trimmed); m != nil {
+			return m[1] + ` "` + m[2] + `"`
 		}
 	}
 

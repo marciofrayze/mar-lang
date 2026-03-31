@@ -640,7 +640,7 @@ func runFlyDeploy(inputPath string, assumeYes bool) error {
 		confirmed, err := confirmFlyAction(
 			"Fly deploy",
 			[]string{
-				"This step publishes the current version of your app to Fly.io.",
+				"This step publishes the current version of your app to Fly.io and updates the Mar version used by it.",
 				"Fly app: " + colorizeCLI(useColor, "\033[1;36m", flyAppName),
 				"Region: " + colorizeCLI(useColor, "\033[1;36m", regionCode),
 				"App size: " + colorizeCLI(useColor, "\033[1;36m", vmSize),
