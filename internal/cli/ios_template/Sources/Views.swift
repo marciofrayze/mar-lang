@@ -469,12 +469,24 @@ struct EntityRowsView: View {
             }
         }
         .overlay {
-            if model.isLoading {
+            if model.isLoading && model.rows.isEmpty {
                 ProgressView()
             }
         }
-        .navigationTitle(entity.displayName)
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            ToolbarItem(placement: .principal) {
+                HStack(spacing: 8) {
+                    Text(entity.displayName)
+                        .font(.headline)
+
+                    if model.isLoading && !model.rows.isEmpty {
+                        ProgressView()
+                            .controlSize(.small)
+                    }
+                }
+            }
+
             ToolbarItemGroup(placement: .topBarTrailing) {
                 Button {
                     showingCreate = true
