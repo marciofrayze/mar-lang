@@ -379,14 +379,14 @@ page model =
                 0
 
             else
-                20
+                14
 
         contentSpacing =
             if isAdvanced then
                 0
 
             else
-                12
+                14
 
         pageContent =
             if isAdvanced then
@@ -424,15 +424,15 @@ topBar model =
           else
             Border.rounded 12
         ]
-        [ row [ width fill, spacing 10, alignTop ]
+        [ row [ width fill, spacing 8, alignTop ]
             [ websiteLogoBlock
-            , column [ width fill, spacing 8 ]
-                [ wrappedRow [ width fill, spacing 12 ]
+            , column [ width fill, spacing 6 ]
+                [ wrappedRow [ width fill, spacing 10 ]
                     [ el [ Font.size 28, Font.bold, Font.color (rgb255 22 57 96) ] (text "Mar")
                     , el [ width fill ] none
                     , topSearchArea model
                     ]
-                , wrappedRow [ width fill, spacing 8 ]
+                , wrappedRow [ width fill, spacing 6 ]
                     [ navItem model.route Home "Home"
                     , navItem model.route GettingStarted "Getting Started"
                     , navItem model.route Examples "Examples"
@@ -585,14 +585,14 @@ warningBanner =
     column
         [ width (fill |> maximum 1040)
         , centerX
-        , spacing 8
-        , padding 16
+        , spacing 6
+        , padding 14
         , Background.color (rgb255 255 247 224)
         , Border.width 1
         , Border.color (rgb255 244 210 133)
         , Border.rounded 12
         ]
-        [ column [ spacing 8, width fill ]
+        [ column [ spacing 6, width fill ]
             [ paragraph [ Font.size 22, Font.bold, Font.color (rgb255 121 66 0) ]
                 [ text "Warning" ]
             , paragraph [ Font.size 16, Font.color (rgb255 107 62 0), width fill ]
@@ -1149,7 +1149,7 @@ footer : Element Msg
 footer =
     el
         [ width fill
-        , moveDown 3
+        , moveDown 2.25
         , paddingEach { top = 0, right = 0, bottom = 0, left = 0 }
         ]
         (row
@@ -1182,7 +1182,7 @@ homePage : Model -> Element Msg
 homePage model =
     column
         [ width fill
-        , spacing 20
+        , spacing 14
         ]
         [ hero
         , codeExample model
@@ -1232,7 +1232,7 @@ gettingStartedPage : Model -> Element Msg
 gettingStartedPage model =
     column
         [ width fill
-        , spacing 20
+        , spacing 14
         ]
         [ panel
             [ anchoredSection "getting-started-intro"
@@ -1284,7 +1284,7 @@ advancedLanguagePage : Model -> Element Msg
 advancedLanguagePage model =
     column
         [ width fill
-        , spacing 20
+        , spacing 14
         ]
         [ advancedSubmenu model.route
         , warningBanner
@@ -1416,7 +1416,7 @@ advancedLanguageReferencePage : Element Msg
 advancedLanguageReferencePage =
     column
         [ width fill
-        , spacing 20
+        , spacing 14
         ]
         [ advancedSubmenu AdvancedLanguageReference
         , warningBanner
@@ -1505,7 +1505,7 @@ advancedRuntimePage : Model -> Element Msg
 advancedRuntimePage model =
     column
         [ width fill
-        , spacing 20
+        , spacing 14
         ]
         [ advancedSubmenu model.route
         , warningBanner
@@ -1564,7 +1564,7 @@ advancedToolingPage : Model -> Element Msg
 advancedToolingPage model =
     column
         [ width fill
-        , spacing 20
+        , spacing 14
         ]
         [ advancedSubmenu model.route
         , warningBanner
@@ -1677,7 +1677,7 @@ advancedDeployPage : Model -> Element Msg
 advancedDeployPage model =
     column
         [ width fill
-        , spacing 20
+        , spacing 14
         ]
         [ advancedSubmenu AdvancedDeploy
         , warningBanner
@@ -1770,7 +1770,7 @@ advancedCompilerPage : Element Msg
 advancedCompilerPage =
     column
         [ width fill
-        , spacing 20
+        , spacing 14
         ]
         [ advancedSubmenu AdvancedCompiler
         , warningBanner
@@ -1791,7 +1791,7 @@ examplesPage : Model -> Element Msg
 examplesPage model =
     column
         [ width fill
-        , spacing 20
+        , spacing 14
         ]
         [ panelWithAttributes [ htmlAttribute (HtmlAttr.id "examples"), htmlAttribute (HtmlAttr.id "shared-todo-api-example") ]
             [ row [ width fill, spacing 12 ]
@@ -2222,8 +2222,8 @@ panelWithAttributes extraAttrs children =
     column
         ([ width (fill |> maximum 1040)
          , centerX
-         , spacing 12
-         , padding 16
+         , spacing 8
+         , padding 12
          , Background.color (rgb255 255 255 255)
          , Border.width 1
          , Border.color (rgb255 209 222 239)
