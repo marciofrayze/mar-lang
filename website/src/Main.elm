@@ -2136,18 +2136,16 @@ pluginInstallRow model =
                             ]
                             [ text "Install "
                             , inlineCommand "Mar"
-                            , text " via Package Control for syntax and completions."
+                            , text " via Package Control for syntax and completions (coming soon)."
                             ]
                         , paragraph
                             [ Font.size 14
                             , Font.color (rgb255 72 95 123)
                             , width fill
                             ]
-                            [ text "For LSP features, install "
+                            [ text "Install "
                             , inlineCommand "LSP-mar"
-                            , text " and the Sublime "
-                            , inlineCommand "LSP"
-                            , text " package, and make sure "
+                            , text " via Package Control for LSP features (coming soon), and make sure "
                             , inlineCommand "mar"
                             , text " is on your PATH."
                             ]
