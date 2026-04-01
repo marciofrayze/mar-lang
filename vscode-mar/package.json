@@ -2,7 +2,7 @@
   "name": "mar-language-support",
   "displayName": "Mar Developer Tools",
   "description": "Syntax highlighting, snippets, and LSP support for the Mar programming language.",
-  "version": "0.0.4",
+  "version": "0.0.5-SNAPSHOT",
   "publisher": "mar-lang",
   "repository": {
     "type": "git",
@@ -15,7 +15,7 @@
   "icon": "media/icon.png",
   "main": "./dist/extension.js",
   "scripts": {
-    "bundle": "esbuild extension.js --bundle --platform=node --format=cjs --target=node18 --outfile=dist/extension.js --external:vscode",
+    "bundle": "esbuild extension.js --bundle --minify --platform=node --format=cjs --target=node18 --outfile=dist/extension.js --external:vscode",
     "vscode:prepublish": "npm run bundle"
   },
   "categories": [
