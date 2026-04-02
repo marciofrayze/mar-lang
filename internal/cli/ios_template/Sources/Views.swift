@@ -709,9 +709,9 @@ struct DynamicFieldView: View {
             case .bool:
             boolPicker
             case .date:
-            dateDisclosure(label: RowPresentation.fieldLabel(field.name), includesTime: false)
+            dateNavigationLink(label: RowPresentation.fieldLabel(field.name), includesTime: false)
             case .dateTime:
-            dateDisclosure(label: "\(RowPresentation.fieldLabel(field.name)) (UTC)", includesTime: true)
+            dateNavigationLink(label: "\(RowPresentation.fieldLabel(field.name)) (UTC)", includesTime: true)
             case .int:
             TextField(RowPresentation.fieldLabel(field.name), text: $value)
                 .keyboardType(.numberPad)
@@ -777,55 +777,17 @@ struct DynamicFieldView: View {
     }
 
     @ViewBuilder
-    private func dateDisclosure(label: String, includesTime: Bool) -> some View {
-        let currentDate = bindingDate(includesTime: includesTime)
-        DisclosureGroup {
-            if let currentDate {
-                DatePicker(
-                    "",
-                    selection: currentDate,
-                    displayedComponents: includesTime ? [.date, .hourAndMinute] : [.date]
-                )
-                .labelsHidden()
-                .environment(\.timeZone, MarDateCodec.utcTimeZone)
-
-                HStack {
-                    if field.optional {
-                        Button("Clear", role: .destructive) {
-                            value = ""
-                        }
-                    }
-                    Spacer()
-                }
-            } else {
-                Button(includesTime ? "Select date and time" : "Select date") {
-                    let now = Date()
-                    value = includesTime
-                        ? MarDateCodec.formatDateTimeInput(milliseconds: now.timeIntervalSince1970 * 1000)
-                        : MarDateCodec.formatDateInput(milliseconds: now.timeIntervalSince1970 * 1000)
-                }
-            }
+    private func dateNavigationLink(label: String, includesTime: Bool) -> some View {
+        NavigationLink {
+            DateFieldEditorView(
+                title: label,
+                includesTime: includesTime,
+                isOptional: field.optional,
+                value: $value
+            )
         } label: {
             LabeledContent(label, value: displayDateText(includesTime: includesTime))
         }
-    }
-
-    private func bindingDate(includesTime: Bool) -> Binding<Date>? {
-        let parsed: Double? = includesTime
-            ? MarDateCodec.parseDateTimeInput(value)
-            : MarDateCodec.parseDateInput(value)
-
-        guard let parsed else { return nil }
-
-        return Binding<Date>(
-            get: { Date(timeIntervalSince1970: parsed / 1000) },
-            set: { newDate in
-                let millis = newDate.timeIntervalSince1970 * 1000
-                value = includesTime
-                    ? MarDateCodec.formatDateTimeInput(milliseconds: millis)
-                    : MarDateCodec.formatDateInput(milliseconds: millis)
-            }
-        )
     }
 
     private func displayDateText(includesTime: Bool) -> String {
@@ -837,6 +799,64 @@ struct DynamicFieldView: View {
             return MarDateCodec.formatDateDisplay(milliseconds: parsed)
         }
         return value
+    }
+}
+
+struct DateFieldEditorView: View {
+    let title: String
+    let includesTime: Bool
+    let isOptional: Bool
+    @Binding var value: String
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var selectedDate: Date
+
+    init(title: String, includesTime: Bool, isOptional: Bool, value: Binding<String>) {
+        self.title = title
+        self.includesTime = includesTime
+        self.isOptional = isOptional
+        _value = value
+
+        let parsed: Double? = includesTime
+            ? MarDateCodec.parseDateTimeInput(value.wrappedValue)
+            : MarDateCodec.parseDateInput(value.wrappedValue)
+        let initialDate = parsed.map { Date(timeIntervalSince1970: $0 / 1000) } ?? Date()
+        _selectedDate = State(initialValue: initialDate)
+    }
+
+    var body: some View {
+        Form {
+            Section {
+                DatePicker(
+                    "",
+                    selection: $selectedDate,
+                    displayedComponents: includesTime ? [.date, .hourAndMinute] : [.date]
+                )
+                .labelsHidden()
+                .environment(\.timeZone, MarDateCodec.utcTimeZone)
+            }
+
+            if isOptional {
+                Section {
+                    Button("Clear", role: .destructive) {
+                        value = ""
+                        dismiss()
+                    }
+                }
+            }
+        }
+        .navigationTitle(title)
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                Button("Done") {
+                    let millis = selectedDate.timeIntervalSince1970 * 1000
+                    value = includesTime
+                        ? MarDateCodec.formatDateTimeInput(milliseconds: millis)
+                        : MarDateCodec.formatDateInput(milliseconds: millis)
+                    dismiss()
+                }
+            }
+        }
     }
 }
 
@@ -1025,9 +1045,6 @@ struct ProfileView: View {
                 }
                 if let role = model.authenticatedRole {
                     LabeledContent("Role", value: role)
-                }
-                if let appName = model.schema?.appName {
-                    LabeledContent("App", value: appName)
                 }
             }
 
