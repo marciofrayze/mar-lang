@@ -727,8 +727,10 @@ struct DynamicFieldView: View {
 
     private var relationPicker: some View {
         Picker(RowPresentation.fieldLabel(field.name), selection: $value) {
-            Text(field.optional ? "No selection" : "Select \(RowPresentation.humanizeIdentifier(field.relationEntity ?? ""))")
-                .tag("")
+            if field.optional {
+                Text("No selection")
+                    .tag("")
+            }
 
             ForEach(relationRows.indices, id: \.self) { index in
                 let row = relationRows[index]
@@ -742,20 +744,29 @@ struct DynamicFieldView: View {
     }
 
     private var boolPicker: some View {
-        Picker(RowPresentation.fieldLabel(field.name), selection: $value) {
-            if field.optional {
-                Text("No selection").tag("")
+        VStack(alignment: .leading, spacing: 10) {
+            Text(RowPresentation.fieldLabel(field.name))
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
+            Picker("", selection: $value) {
+                if field.optional {
+                    Text("No selection").tag("")
+                }
+                Text("No").tag("false")
+                Text("Yes").tag("true")
             }
-            Text("False").tag("false")
-            Text("True").tag("true")
+            .labelsHidden()
+            .pickerStyle(.segmented)
         }
-        .pickerStyle(.segmented)
     }
 
     private var enumPicker: some View {
         Picker(RowPresentation.fieldLabel(field.name), selection: $value) {
-            Text(field.optional ? "No selection" : "Select \(RowPresentation.fieldLabel(field.name))")
-                .tag("")
+            if field.optional {
+                Text("No selection")
+                    .tag("")
+            }
 
             ForEach(field.enumValues, id: \.self) { enumValue in
                 Text(RowPresentation.humanizeIdentifier(enumValue))
@@ -929,6 +940,19 @@ struct ActionFormView: View {
                 }
             }
             .pickerStyle(.navigationLink)
+        } else if field.fieldType == "Bool" {
+            VStack(alignment: .leading, spacing: 10) {
+                Text(RowPresentation.fieldLabel(field.name))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+
+                Picker("", selection: binding(for: field.name)) {
+                    Text("No").tag("false")
+                    Text("Yes").tag("true")
+                }
+                .labelsHidden()
+                .pickerStyle(.segmented)
+            }
         } else {
             TextField(RowPresentation.fieldLabel(field.name), text: binding(for: field.name))
                 .keyboardType(field.fieldType == "Int" ? .numberPad : (field.fieldType == "Float" ? .decimalPad : .default))
