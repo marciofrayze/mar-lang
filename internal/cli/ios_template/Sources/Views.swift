@@ -250,53 +250,61 @@ struct ShellView: View {
     let client: MarAPIClient
 
     var body: some View {
-        TabView(selection: $model.selectedTab) {
-            ForEach(primaryTabSpecs) { spec in
-                Tab(spec.title, systemImage: spec.systemImage, value: spec.tab) {
-                    NavigationStack {
+        NavigationStack {
+            List {
+                ForEach(primarySpecs) { spec in
+                    NavigationLink {
                         ShellTabDestinationView(spec: spec, schema: schema, client: client, model: model)
+                    } label: {
+                        Text(spec.title)
+                    }
+                }
+
+                if !adminSpecs.isEmpty {
+                    Section("Admin") {
+                        ForEach(adminSpecs) { spec in
+                            NavigationLink {
+                                ShellTabDestinationView(spec: spec, schema: schema, client: client, model: model)
+                            } label: {
+                                Text(spec.title)
+                            }
+                        }
                     }
                 }
             }
-
-            if !overflowTabSpecs.isEmpty {
-                Tab("More", systemImage: "ellipsis.circle", value: AppViewModel.Tab.more) {
-                    NavigationStack {
-                        MoreMenuView(model: model, schema: schema, client: client, specs: overflowTabSpecs)
+            .listStyle(.insetGrouped)
+            .contentMargins(.top, 18, for: .scrollContent)
+            .listSectionSpacing(.custom(24))
+            .navigationTitle(schema.appName)
+            .toolbar {
+                if model.authEnabled {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        NavigationLink {
+                            ProfileView(model: model)
+                        } label: {
+                            Image(systemName: "person.crop.circle")
+                        }
+                        .accessibilityLabel("Profile")
                     }
                 }
             }
         }
-        .tabViewStyle(.sidebarAdaptable)
-        .tint(.blue)
     }
 
-    private var primaryTabSpecs: [ShellTabSpec] {
-        let specs = orderedTabSpecs
-        if specs.count > 4 {
-            return Array(specs.prefix(4))
-        }
-        return specs
-    }
-
-    private var overflowTabSpecs: [ShellTabSpec] {
-        let specs = orderedTabSpecs
-        guard specs.count > 4 else { return [] }
-        return Array(specs.dropFirst(4))
-    }
-
-    private var orderedTabSpecs: [ShellTabSpec] {
+    private var primarySpecs: [ShellTabSpec] {
         var specs = businessEntitySpecs
         if !schema.actions.isEmpty {
             specs.append(ShellTabSpec(tab: .actions, title: "Actions", systemImage: "bolt"))
         }
+        return specs
+    }
+
+    private var adminSpecs: [ShellTabSpec] {
+        var specs: [ShellTabSpec] = []
+        specs.append(contentsOf: userEntitySpecs)
         if model.isAdmin {
             specs.append(ShellTabSpec(tab: .admin, title: "Admin", systemImage: "gauge"))
         }
-        if model.authEnabled {
-            specs.append(ShellTabSpec(tab: .profile, title: "Profile", systemImage: "person.crop.circle"))
-        }
-        specs.append(contentsOf: userEntitySpecs)
         return specs
     }
 
@@ -365,8 +373,6 @@ private struct ShellTabSpec: Identifiable {
             return "admin"
         case .profile:
             return "profile"
-        case .more:
-            return "more"
         }
     }
 }
@@ -391,27 +397,7 @@ private struct ShellTabDestinationView: View {
             AdminHomeView(client: client)
         case .profile:
             ProfileView(model: model)
-        case .more:
-            EmptyView()
         }
-    }
-}
-
-private struct MoreMenuView: View {
-    let model: AppViewModel
-    let schema: Schema
-    let client: MarAPIClient
-    let specs: [ShellTabSpec]
-
-    var body: some View {
-        List(specs) { spec in
-            NavigationLink {
-                ShellTabDestinationView(spec: spec, schema: schema, client: client, model: model)
-            } label: {
-                Label(spec.title, systemImage: spec.systemImage)
-            }
-        }
-        .navigationTitle("More")
     }
 }
 

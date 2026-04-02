@@ -28,14 +28,12 @@ final class AppViewModel: ObservableObject {
         case actions
         case admin
         case profile
-        case more
     }
 
     @Published var phase: Phase = .connecting
     @Published var authEmail: String = ""
     @Published var authCode: String = ""
     @Published var loginStep: LoginStep = .email
-    @Published var selectedTab: Tab = .profile
     @Published var schema: Schema?
     @Published var authenticatedEmail: String?
     @Published var authenticatedRole: String?
@@ -63,26 +61,6 @@ final class AppViewModel: ObservableObject {
 
     var authEnabled: Bool {
         schema?.auth?.enabled == true
-    }
-
-    var availableTabs: [Tab] {
-        var tabs = businessEntityTabs
-        if !(schema?.actions.isEmpty ?? true) {
-            tabs.append(.actions)
-        }
-        if isAdmin {
-            tabs.append(.admin)
-        }
-        if authEnabled {
-            tabs.append(.profile)
-        }
-        if shouldShowUserEntityTabs {
-            tabs.append(contentsOf: userEntityTabs)
-        }
-        if tabs.count > 4 {
-            return Array(tabs.prefix(4)) + [.more]
-        }
-        return tabs
     }
 
     func start() async {
@@ -118,7 +96,6 @@ final class AppViewModel: ObservableObject {
                         authenticatedEmail = me.email
                         authenticatedRole = me.role
                         saveSession(baseURL: normalizedURL.absoluteString, token: stored.token, email: me.email, role: me.role)
-                        ensureValidSelectedTab()
                         phase = .ready
                     } catch {
                         authenticatedEmail = nil
@@ -138,7 +115,6 @@ final class AppViewModel: ObservableObject {
             } else {
                 authenticatedEmail = nil
                 authenticatedRole = nil
-                ensureValidSelectedTab()
                 phase = .ready
             }
         } catch {
@@ -199,7 +175,6 @@ final class AppViewModel: ObservableObject {
             authenticatedEmail = me.email
             authenticatedRole = me.role
             saveSession(baseURL: configuredBaseURL?.absoluteString ?? generatedServerURL, token: response.token, email: me.email, role: me.role)
-            ensureValidSelectedTab()
             phase = .ready
             authCode = ""
             loginStep = .email
@@ -230,7 +205,6 @@ final class AppViewModel: ObservableObject {
         errorDetails = nil
         do {
             schema = try await client.fetchSchema()
-            ensureValidSelectedTab()
         } catch {
             setError(error)
         }
@@ -259,16 +233,6 @@ final class AppViewModel: ObservableObject {
 
     private func saveSession(baseURL: String, token: String, email: String?, role: String?) {
         sessionStore.save(SessionSnapshot(baseURL: baseURL, token: token, email: email, role: role))
-    }
-
-    private func ensureValidSelectedTab() {
-        guard let first = availableTabs.first else {
-            selectedTab = .profile
-            return
-        }
-        if !availableTabs.contains(selectedTab) {
-            selectedTab = first
-        }
     }
 
     private func setStartupError(_ error: Error) {
@@ -316,22 +280,6 @@ final class AppViewModel: ObservableObject {
         }
 
         loginAlert = LoginAlertState(title: "Could Not Sign In", message: "Please try again.")
-    }
-
-    private var businessEntityTabs: [Tab] {
-        (schema?.entities ?? [])
-            .filter { $0.name.caseInsensitiveCompare("User") != .orderedSame }
-            .map { Tab.entity($0.name) }
-    }
-
-    private var userEntityTabs: [Tab] {
-        (schema?.entities ?? [])
-            .filter { $0.name.caseInsensitiveCompare("User") == .orderedSame }
-            .map { Tab.entity($0.name) }
-    }
-
-    private var shouldShowUserEntityTabs: Bool {
-        isAdmin
     }
 }
 
