@@ -102,18 +102,65 @@ enum JSONValue: Codable, Hashable, Sendable {
     }
 }
 
-enum FieldType: String, Codable, Hashable, CaseIterable {
-    case int = "Int"
-    case string = "String"
-    case bool = "Bool"
-    case float = "Float"
-    case date = "Date"
-    case dateTime = "DateTime"
+enum FieldType: Codable, Hashable {
+    case int
+    case string
+    case bool
+    case float
+    case date
+    case dateTime
+    case custom(String)
+
+    var rawValue: String {
+        switch self {
+        case .int:
+            return "Int"
+        case .string:
+            return "String"
+        case .bool:
+            return "Bool"
+        case .float:
+            return "Float"
+        case .date:
+            return "Date"
+        case .dateTime:
+            return "DateTime"
+        case .custom(let value):
+            return value
+        }
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let raw = try container.decode(String.self)
+        switch raw {
+        case "Int":
+            self = .int
+        case "String":
+            self = .string
+        case "Bool":
+            self = .bool
+        case "Float":
+            self = .float
+        case "Date":
+            self = .date
+        case "DateTime":
+            self = .dateTime
+        default:
+            self = .custom(raw)
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 struct Field: Codable, Hashable, Identifiable {
     let name: String
     let fieldType: FieldType
+    let enumValues: [String]
     let relationEntity: String?
     let currentUser: Bool
     let primary: Bool
@@ -127,6 +174,7 @@ struct Field: Codable, Hashable, Identifiable {
     enum CodingKeys: String, CodingKey {
         case name
         case fieldType = "type"
+        case enumValues
         case relationEntity
         case currentUser
         case primary
@@ -138,6 +186,7 @@ struct Field: Codable, Hashable, Identifiable {
     init(
         name: String,
         fieldType: FieldType,
+        enumValues: [String],
         relationEntity: String?,
         currentUser: Bool,
         primary: Bool,
@@ -147,6 +196,7 @@ struct Field: Codable, Hashable, Identifiable {
     ) {
         self.name = name
         self.fieldType = fieldType
+        self.enumValues = enumValues
         self.relationEntity = relationEntity
         self.currentUser = currentUser
         self.primary = primary
@@ -159,6 +209,7 @@ struct Field: Codable, Hashable, Identifiable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         name = try container.decode(String.self, forKey: .name)
         fieldType = try container.decode(FieldType.self, forKey: .fieldType)
+        enumValues = try container.decodeIfPresent([String].self, forKey: .enumValues) ?? []
         relationEntity = try container.decodeIfPresent(String.self, forKey: .relationEntity)
         currentUser = try container.decodeIfPresent(Bool.self, forKey: .currentUser) ?? false
         primary = try container.decode(Bool.self, forKey: .primary)
@@ -278,12 +329,14 @@ struct InputAliasInfo: Codable, Hashable, Identifiable {
 struct InputAliasField: Codable, Hashable, Identifiable {
     let name: String
     let fieldType: String
+    let enumValues: [String]
 
     var id: String { name }
 
     enum CodingKeys: String, CodingKey {
         case name
         case fieldType = "type"
+        case enumValues
     }
 }
 

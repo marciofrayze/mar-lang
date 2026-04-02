@@ -94,7 +94,19 @@ func normalizeInputValue(field *model.Field, value any) (dbValue any, apiValue a
 		}
 		return int64(0), false, nil
 	default:
-		return nil, nil, fmt.Errorf("unsupported field type %s", field.Type)
+		if len(field.EnumValues) == 0 {
+			return nil, nil, fmt.Errorf("unsupported field type %s", field.Type)
+		}
+		s, ok := value.(string)
+		if !ok {
+			return nil, nil, fmt.Errorf("field %s must be %s", field.Name, field.Type)
+		}
+		for _, enumValue := range field.EnumValues {
+			if s == enumValue {
+				return s, s, nil
+			}
+		}
+		return nil, nil, fmt.Errorf("field %s must be one of: %s", field.Name, strings.Join(field.EnumValues, ", "))
 	}
 }
 
@@ -128,6 +140,10 @@ func decodeDBValue(field *model.Field, value any) any {
 		s, _ := value.(string)
 		return s
 	default:
+		if len(field.EnumValues) > 0 {
+			s, _ := value.(string)
+			return s
+		}
 		return value
 	}
 }

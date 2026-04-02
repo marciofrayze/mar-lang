@@ -389,7 +389,7 @@ func marTypeToTSType(typ string) string {
 	case "Bool":
 		return "boolean"
 	default:
-		return "unknown"
+		return "string"
 	}
 }
 

@@ -57,6 +57,8 @@ enum PayloadEncoder {
         switch field.fieldType {
         case .string:
             return .string(raw)
+        case .custom(_):
+            return .string(raw)
         case .int:
             guard let value = Int(raw) else { throw PayloadEncodingError.invalidInt(field.name) }
             return .number(Double(value))

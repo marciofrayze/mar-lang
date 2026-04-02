@@ -700,25 +700,30 @@ struct DynamicFieldView: View {
     let relationRows: [Row]
     let relationEntity: Entity?
 
+    @ViewBuilder
     var body: some View {
-        switch (field.relationEntity, field.fieldType) {
-        case (.some, _):
+        if field.relationEntity != nil {
             relationPicker
-        case (_, .bool):
+        } else if !field.enumValues.isEmpty {
+            enumPicker
+        } else {
+            switch field.fieldType {
+            case .bool:
             boolPicker
-        case (_, .date):
+            case .date:
             dateDisclosure(label: RowPresentation.fieldLabel(field.name), includesTime: false)
-        case (_, .dateTime):
+            case .dateTime:
             dateDisclosure(label: "\(RowPresentation.fieldLabel(field.name)) (UTC)", includesTime: true)
-        case (_, .int):
+            case .int:
             TextField(RowPresentation.fieldLabel(field.name), text: $value)
                 .keyboardType(.numberPad)
-        case (_, .float):
+            case .float:
             TextField(RowPresentation.fieldLabel(field.name), text: $value)
                 .keyboardType(.decimalPad)
-        default:
-            TextField(RowPresentation.fieldLabel(field.name), text: $value)
-                .textInputAutocapitalization(.sentences)
+            default:
+                TextField(RowPresentation.fieldLabel(field.name), text: $value)
+                    .textInputAutocapitalization(.sentences)
+            }
         }
     }
 
@@ -747,6 +752,19 @@ struct DynamicFieldView: View {
             Text("True").tag("true")
         }
         .pickerStyle(.segmented)
+    }
+
+    private var enumPicker: some View {
+        Picker(RowPresentation.fieldLabel(field.name), selection: $value) {
+            Text(field.optional ? "No selection" : "Select \(RowPresentation.fieldLabel(field.name))")
+                .tag("")
+
+            ForEach(field.enumValues, id: \.self) { enumValue in
+                Text(RowPresentation.humanizeIdentifier(enumValue))
+                    .tag(enumValue)
+            }
+        }
+        .pickerStyle(.navigationLink)
     }
 
     @ViewBuilder
@@ -851,8 +869,7 @@ struct ActionFormView: View {
             if let alias {
                 Section("Input") {
                     ForEach(alias.fields) { field in
-                        TextField(RowPresentation.fieldLabel(field.name), text: binding(for: field.name))
-                            .keyboardType(field.fieldType == "Int" ? .numberPad : (field.fieldType == "Float" ? .decimalPad : .default))
+                        actionFieldView(field)
                     }
                 }
             } else {
@@ -899,6 +916,25 @@ struct ActionFormView: View {
             get: { values[fieldName, default: ""] },
             set: { values[fieldName] = $0 }
         )
+    }
+
+    @ViewBuilder
+    private func actionFieldView(_ field: InputAliasField) -> some View {
+        if !field.enumValues.isEmpty {
+            Picker(RowPresentation.fieldLabel(field.name), selection: binding(for: field.name)) {
+                Text("Select \(RowPresentation.fieldLabel(field.name))")
+                    .tag("")
+
+                ForEach(field.enumValues, id: \.self) { enumValue in
+                    Text(RowPresentation.humanizeIdentifier(enumValue))
+                        .tag(enumValue)
+                }
+            }
+            .pickerStyle(.navigationLink)
+        } else {
+            TextField(RowPresentation.fieldLabel(field.name), text: binding(for: field.name))
+                .keyboardType(field.fieldType == "Int" ? .numberPad : (field.fieldType == "Float" ? .decimalPad : .default))
+        }
     }
 
     private func run() async {

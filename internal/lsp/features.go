@@ -76,7 +76,7 @@ var (
 		"read":                                    "Used in authorize clauses to control single-record reads and which rows appear in list responses.",
 		"belongs_to":                              "Declares a singular relationship to another entity. Example: `belongs_to User`, `belongs_to customer: User optional`, `belongs_to current_user`, or `belongs_to reviewer: current_user`.",
 		"current_user":                            "Used in `belongs_to current_user` or `belongs_to reviewer: current_user` to create a required relationship to the authenticated built-in `User` automatically.",
-		"type":                                    "Used with `type alias` to define an action input record.",
+		"type":                                    "Declares either a closed set of named values like `type UserRole { Admin Member }` or, together with `alias`, an action input record.",
 		"alias":                                   "Used with `type alias` to define an action input record.",
 		"action":                                  "Declares an action endpoint with `input` and one or more `load`, `create`, `update`, or `delete` steps. Steps may bind aliases like `todo = load Todo { ... }`.",
 		"load":                                    "Loads one row inside an action block. `load` must bind to an alias and must select by primary key.",

@@ -22,31 +22,33 @@ import (
 
 // Runtime hosts the compiled Mar app state and serves its HTTP API on top of SQLite.
 type Runtime struct {
-	App             *model.App
-	DB              *sqlitecli.DB
-	entitiesByRes   map[string]*model.Entity
-	entitiesByName  map[string]*model.Entity
-	aliasesByName   map[string]*model.TypeAlias
-	actionsByName   map[string]*model.Action
-	rules           map[string][]compiledRule
-	authorizers     map[string]map[string]expr.Expr
-	authUser        *model.Entity
-	metrics         *metricsCollector
-	requestLogs     *requestLogStore
-	dbQueries       *dbQueryCollector
-	requestAuthMu   sync.Mutex
-	requestAuthByID map[string]authSession
-	authRateLimit   *authRateLimiter
-	authLogOnce     sync.Once
-	requestTraceID  uint64
-	startupValid    bool
-	startupMu       sync.RWMutex
-	startupEnforced bool
-	startupReady    bool
-	startupErr      error
-	publicFS        fs.FS
-	appUIFS         fs.FS
-	versionInfo     VersionInfo
+	App               *model.App
+	DB                *sqlitecli.DB
+	entitiesByRes     map[string]*model.Entity
+	entitiesByName    map[string]*model.Entity
+	typesByName       map[string]*model.EnumType
+	aliasesByName     map[string]*model.TypeAlias
+	actionsByName     map[string]*model.Action
+	enumLiteralValues map[string]any
+	rules             map[string][]compiledRule
+	authorizers       map[string]map[string]expr.Expr
+	authUser          *model.Entity
+	metrics           *metricsCollector
+	requestLogs       *requestLogStore
+	dbQueries         *dbQueryCollector
+	requestAuthMu     sync.Mutex
+	requestAuthByID   map[string]authSession
+	authRateLimit     *authRateLimiter
+	authLogOnce       sync.Once
+	requestTraceID    uint64
+	startupValid      bool
+	startupMu         sync.RWMutex
+	startupEnforced   bool
+	startupReady      bool
+	startupErr        error
+	publicFS          fs.FS
+	appUIFS           fs.FS
+	versionInfo       VersionInfo
 }
 
 type compiledRule struct {
@@ -129,19 +131,21 @@ func New(app *model.App) (*Runtime, error) {
 	db := sqlitecli.OpenWithConfig(app.Database, SQLiteConfigForApp(app))
 
 	r := &Runtime{
-		App:             app,
-		DB:              db,
-		entitiesByRes:   map[string]*model.Entity{},
-		entitiesByName:  map[string]*model.Entity{},
-		aliasesByName:   map[string]*model.TypeAlias{},
-		actionsByName:   map[string]*model.Action{},
-		rules:           map[string][]compiledRule{},
-		authorizers:     map[string]map[string]expr.Expr{},
-		metrics:         newMetricsCollector(),
-		requestLogs:     newRequestLogStore(requestLogsBufferSize(app)),
-		dbQueries:       newDBQueryCollector(requestLogsBufferSize(app)),
-		requestAuthByID: map[string]authSession{},
-		authRateLimit:   newAuthRateLimiter(authRequestCodeRateLimitPerMinute(app), authLoginRateLimitPerMinute(app)),
+		App:               app,
+		DB:                db,
+		entitiesByRes:     map[string]*model.Entity{},
+		entitiesByName:    map[string]*model.Entity{},
+		typesByName:       map[string]*model.EnumType{},
+		aliasesByName:     map[string]*model.TypeAlias{},
+		actionsByName:     map[string]*model.Action{},
+		enumLiteralValues: map[string]any{},
+		rules:             map[string][]compiledRule{},
+		authorizers:       map[string]map[string]expr.Expr{},
+		metrics:           newMetricsCollector(),
+		requestLogs:       newRequestLogStore(requestLogsBufferSize(app)),
+		dbQueries:         newDBQueryCollector(requestLogsBufferSize(app)),
+		requestAuthByID:   map[string]authSession{},
+		authRateLimit:     newAuthRateLimiter(authRequestCodeRateLimitPerMinute(app), authLoginRateLimitPerMinute(app)),
 	}
 	db.SetQueryHook(func(event sqlitecli.QueryEvent) {
 		r.dbQueries.record(event)
@@ -151,6 +155,13 @@ func New(app *model.App) (*Runtime, error) {
 		ent := &app.Entities[i]
 		r.entitiesByRes[ent.Resource] = ent
 		r.entitiesByName[ent.Name] = ent
+	}
+	for i := range app.Types {
+		enumType := &app.Types[i]
+		r.typesByName[enumType.Name] = enumType
+		for _, value := range enumType.Values {
+			r.enumLiteralValues[value] = value
+		}
 	}
 	for i := range app.InputAliases {
 		alias := &app.InputAliases[i]

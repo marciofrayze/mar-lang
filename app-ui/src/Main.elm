@@ -1977,6 +1977,9 @@ encodeBootstrapFieldValue field rawValue =
         StringType ->
             Ok (Encode.string rawValue)
 
+        CustomType _ ->
+            Ok (Encode.string rawValue)
+
         IntType ->
             case String.toInt rawValue of
                 Just value ->
@@ -2783,6 +2786,9 @@ fieldDefaultText field =
 
                     else
                         "false"
+
+                CustomType _ ->
+                    ""
 
                 _ ->
                     ""
@@ -4725,6 +4731,14 @@ viewAuthEmailStage model firstAdminMode actionLabel submitMsg isLoading =
                         (Dict.get field.name model.bootstrapFormValues |> Maybe.withDefault "")
                         (SetBootstrapField field.name)
 
+                CustomType _ ->
+                    enumSelectField
+                        (fieldLabel field.name)
+                        field.optional
+                        (Dict.get field.name model.bootstrapFormValues |> Maybe.withDefault "")
+                        field.enumValues
+                        (SetBootstrapField field.name)
+
                 _ ->
                     Input.text cupertinoTextInputAttrs
                         { onChange = SetBootstrapField field.name
@@ -5222,7 +5236,46 @@ relationSelectField model field relationEntityName currentValue relatedRows =
 
         allOptions =
             ( "", promptLabel ) :: missingCurrentOption ++ availableOptions
+    in
+    selectFieldElement
+        (fieldLabel field.name)
+        currentValue
+        ""
+        allOptions
+        (SetFormField field.name)
 
+
+enumSelectField : String -> Bool -> String -> List String -> (String -> Msg) -> Element Msg
+enumSelectField labelText isOptional currentValue enumValues onChangeMsg =
+    let
+        options =
+            List.map (\enumValue -> ( enumValue, humanizeIdentifier enumValue )) enumValues
+
+        allOptions =
+            if isOptional then
+                ( "", "No selection" ) :: options
+
+            else
+                options
+
+        selectedValue =
+            let
+                trimmed =
+                    String.trim currentValue
+            in
+            if List.any (\( optionValue, _ ) -> optionValue == trimmed) allOptions then
+                trimmed
+
+            else
+                ""
+
+    in
+    selectFieldElement labelText selectedValue selectedValue allOptions onChangeMsg
+
+
+selectFieldElement : String -> String -> String -> List ( String, String ) -> (String -> Msg) -> Element Msg
+selectFieldElement labelText currentValue fallbackValue allOptions onChangeMsg =
+    let
         normalizeSelectedValue rawValue =
             let
                 trimmed =
@@ -5232,11 +5285,11 @@ relationSelectField model field relationEntityName currentValue relatedRows =
                 trimmed
 
             else
-                ""
+                fallbackValue
     in
     column
         [ width fill, spacing 0 ]
-        [ formFieldLabelElement (fieldLabel field.name)
+        [ formFieldLabelElement labelText
         , Element.html <|
             Html.div
                 [ HtmlAttr.style "position" "relative"
@@ -5244,7 +5297,8 @@ relationSelectField model field relationEntityName currentValue relatedRows =
                 ]
                 [ Html.select
                     [ HtmlAttr.style "width" "100%"
-                    , HtmlEvents.on "change" (Decode.map (\rawValue -> SetFormField field.name (normalizeSelectedValue rawValue)) HtmlEvents.targetValue)
+                    , HtmlAttr.value currentValue
+                    , HtmlEvents.on "change" (Decode.map (normalizeSelectedValue >> onChangeMsg) HtmlEvents.targetValue)
                     , HtmlAttr.style "padding" "12px 42px 12px 12px"
                     , HtmlAttr.style "border-radius" "12px"
                     , HtmlAttr.style "border" "1px solid rgb(222,230,241)"
@@ -5262,9 +5316,7 @@ relationSelectField model field relationEntityName currentValue relatedRows =
                     (List.map
                         (\( optionValue, optionLabel ) ->
                             Html.option
-                                [ HtmlAttr.value optionValue
-                                , HtmlAttr.selected (optionValue == currentValue)
-                                ]
+                                [ HtmlAttr.value optionValue ]
                                 [ Html.text optionLabel ]
                         )
                         allOptions
@@ -5281,7 +5333,6 @@ relationSelectField model field relationEntityName currentValue relatedRows =
                     [ Html.text "▼" ]
                 ]
         ]
-
 
 formTextField : String -> String -> String -> (String -> Msg) -> Element Msg
 formTextField labelText currentValue placeholderText onChangeMsg =
@@ -6234,6 +6285,14 @@ viewActionPanel model actionInfo =
                         dateTimeField
                             (fieldLabel field.name ++ " (UTC)")
                             (Dict.get field.name model.actionFormValues |> Maybe.withDefault "")
+                            (SetActionField field.name)
+
+                    else if not (List.isEmpty field.enumValues) then
+                        enumSelectField
+                            (fieldLabel field.name)
+                            False
+                            (Dict.get field.name model.actionFormValues |> Maybe.withDefault "")
+                            field.enumValues
                             (SetActionField field.name)
 
                     else
@@ -8042,6 +8101,14 @@ formCard model entity titleText =
                             dateTimeField
                                 (fieldLabel field.name ++ " (UTC)")
                                 (Dict.get field.name model.formValues |> Maybe.withDefault "")
+                                (SetFormField field.name)
+
+                        CustomType _ ->
+                            enumSelectField
+                                (fieldLabel field.name)
+                                field.optional
+                                (Dict.get field.name model.formValues |> Maybe.withDefault "")
+                                field.enumValues
                                 (SetFormField field.name)
 
                         _ ->

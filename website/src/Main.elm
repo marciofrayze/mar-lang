@@ -839,11 +839,11 @@ docSearchSectionText maybeSectionId =
                     "Advanced Guide. Core concepts of the language. Mar is a declarative DSL (domain-specific language) for backends, inspired by Elm, PocketBase, and Rails, implemented in Elm and Go with focus on readability, maintainability, and simple deployment."
 
                 "syntax-model" ->
-                    "Syntax model. Top-level statements: app, port, database, public, system, auth, entity, type alias, action. Fields use the form fieldName: Type with modifiers such as primary, auto, optional, and default. Built-in field types include Int, String, Bool, Float, Date, and DateTime. Date and DateTime are both stored internally as POSIX Unix milliseconds and also returned in JSON as POSIX Unix milliseconds. Comments use Elm-style line comments."
+                    "Syntax model. Top-level statements: app, port, database, public, system, auth, entity, type, type alias, action. Fields use the form fieldName: Type with modifiers such as primary, auto, optional, and default. Built-in field types include Int, String, Bool, Float, Date, and DateTime. You can also declare custom closed types such as type UserRole { Admin Member }. Date and DateTime are both stored internally as POSIX Unix milliseconds and also returned in JSON as POSIX Unix milliseconds. Comments use Elm-style line comments."
                     ++ " Singular relationships use belongs_to."
 
                 "authentication-and-authorization" ->
-                    "Authentication and authorization. Mar includes a built-in email-code login flow and per-operation authorization rules. Authentication endpoints are always available. Every Mar app includes a built-in User entity that you may extend. Entity access is deny-by-default unless you declare authorize rules. Admin always has read-only access to the built-in User entity, even without explicit authorize rules. Authorize clauses accept one or more CRUD operations separated by commas. read also controls which rows appear in list responses. System features use the same session and require role equals admin."
+                    "Authentication and authorization. Mar includes a built-in email-code login flow and per-operation authorization rules. Authentication endpoints are always available. Every Mar app includes a built-in User entity that you may extend. Entity access is deny-by-default unless you declare authorize rules. Admin always has read-only access to the built-in User entity, even without explicit authorize rules. Authorize clauses accept one or more CRUD operations separated by commas. read also controls which rows appear in list responses. System features use the same session and require the Admin role."
 
                 "rules-and-typed-actions" ->
                     "Rules and typed actions. Rules are for validation close to the entity definition. Actions are for multi-step reads and writes that must succeed or fail together. Action steps can load, create, update, and delete rows inside the same transaction. Steps may bind aliases such as order = create Order or todo = load Todo, and later steps may reference alias fields like order.id. rule validates entity data and returns HTTP 422 when validation fails. Actions run in a single atomic transaction. Mar checks input types and assigned entity fields at compile time. Current limitations. Single .mar entry file per app. No multi-file projects or imports."
@@ -984,7 +984,7 @@ docSearchEntries =
       , route = AdvancedFundamentals
       , sectionId = Just "syntax-model"
       , summary = "Top-level statements, fields, belongs_to relationships, comments, and the basic shape of a Mar app."
-      , keywords = [ "app", "port", "database", "public", "system", "auth", "entity", "belongs_to", "type alias", "action", "comments", "Date", "DateTime", "Int", "String", "Bool", "Float", "default" ]
+      , keywords = [ "app", "port", "database", "public", "system", "auth", "entity", "type", "type alias", "belongs_to", "action", "comments", "Date", "DateTime", "Int", "String", "Bool", "Float", "default" ]
       }
     , { title = "Relationships"
       , route = AdvancedFundamentals
@@ -1353,8 +1353,9 @@ advancedLanguagePage model =
             , anchoredSection "syntax-model"
                 [ docSubsectionTitle "Syntax Model"
                 , docList
-                    [ "Top-level statements: app, port, database, public, system, auth, entity, type alias, action."
+                    [ "Top-level statements: app, port, database, public, system, auth, entity, type, type alias, action."
                     , "Fields use the form fieldName: Type with optional modifiers such as primary, auto, optional, and default."
+                    , "`type UserRole { Admin Member }` declares a closed set of named values that can be used like any other field type."
                     , "Singular relationships use `belongs_to`, for example `belongs_to User`, `belongs_to current_user`, `belongs_to reviewer: current_user`, or `belongs_to customer: User optional`."
                     , "Built-in field types are Int, String, Bool, Float, Date, and DateTime. `Date` is semantic day-only data, while `DateTime` represents a timestamp. Internally both are stored as POSIX Unix milliseconds, and JSON responses also return POSIX Unix milliseconds."
                     , "Comments use Elm-style line comments: -- this is a comment."
@@ -1385,7 +1386,7 @@ advancedLanguagePage model =
                     , "`authorize read, create, update, delete when ...` applies the same rule to multiple CRUD operations in one clause."
                     , "For public access, use `anonymous or user_authenticated`."
                     , "`read` applies both to single-record reads and to which rows appear in list responses."
-                    , "System features use the same session and require role == \"admin\"."
+                    , "System features use the same session and require the Admin role."
                     ]
                 ]
             , anchoredSection "rules-and-typed-actions"
@@ -1434,6 +1435,7 @@ advancedLanguageReferencePage =
                     , languageReferenceItem "system" "Declares runtime and security settings."
                     , languageReferenceItem "auth" "Declares email-code authentication settings."
                     , languageReferenceItem "entity" "Declares an entity and its generated CRUD surface."
+                    , languageReferenceItem "type" "Declares a closed set of named values, such as `type UserRole { Admin Member }`."
                     , languageReferenceItem "type alias" "Declares a record type, typically for action input."
                     , languageReferenceItem "action" "Declares a custom action endpoint."
                     ]
@@ -4041,14 +4043,20 @@ auth {
 
 authorizeExampleSource : String
 authorizeExampleSource =
-    """-- Per-operation authorization inside the built-in User entity
+    """type UserRole {
+  Admin
+  Member
+}
+
+-- Per-operation authorization inside the built-in User entity
 entity User {
   displayName: String optional
+  role: UserRole
 
   -- Admin always has read-only access to User, even without explicit rules.
   -- These rules are still useful when non-admin user access should be allowed.
-  authorize create, delete when user_role == "admin"
-  authorize read when user_authenticated and (id == user_id or user_role == "admin")
+  authorize create, delete when user_role == Admin
+  authorize read when user_authenticated and (id == user_id or user_role == Admin)
 }
 """
 
@@ -4056,6 +4064,11 @@ entity User {
 storeExampleSource : String
 storeExampleSource =
     """app BookStoreApi
+
+type UserRole {
+  Admin
+  Member
+}
 
 -- You can customize the SQLite file name, but this is optional.
 database "book-store.db"
@@ -4076,10 +4089,11 @@ auth {
 -- Here we extend it with an optional profile field and customize access rules.
 entity User {
   displayName: String optional
+  role: UserRole
 
-  authorize read when user_authenticated and (id == user_id or user_role == "admin")
-  authorize update when user_authenticated and ((id == user_id and role == user_role) or user_role == "admin")
-  authorize create, delete when user_role == "admin"
+  authorize read when user_authenticated and (id == user_id or user_role == Admin)
+  authorize update when user_authenticated and ((id == user_id and role == user_role) or user_role == Admin)
+  authorize create, delete when user_role == Admin
 }
 
 entity Book {
@@ -4094,7 +4108,7 @@ entity Book {
 
   authorize read when anonymous or user_authenticated
   authorize create when user_authenticated
-  authorize update, delete when user_role == "admin"
+  authorize update, delete when user_role == Admin
 }
 
 type alias PlaceBookOrderInput =

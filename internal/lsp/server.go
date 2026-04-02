@@ -420,6 +420,7 @@ func keywordCompletionItems() []map[string]any {
 		"public",
 		"entity",
 		"auth",
+		"type",
 		"type alias",
 		"rule",
 		"expect",

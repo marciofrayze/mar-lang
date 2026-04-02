@@ -7,11 +7,17 @@ type App struct {
 	IOS          *IOSConfig    `json:"ios,omitempty"`
 	Public       *PublicConfig `json:"public,omitempty"`
 	System       *SystemConfig `json:"system,omitempty"`
+	Types        []EnumType    `json:"types,omitempty"`
 	Entities     []Entity      `json:"entities"`
 	Auth         *AuthConfig   `json:"auth,omitempty"`
 	InputAliases []TypeAlias   `json:"inputAliases,omitempty"`
 	Actions      []Action      `json:"actions,omitempty"`
 	Warnings     []string      `json:"warnings,omitempty"`
+}
+
+type EnumType struct {
+	Name   string   `json:"name"`
+	Values []string `json:"values"`
 }
 
 type IOSConfig struct {
@@ -71,14 +77,15 @@ type Entity struct {
 }
 
 type Field struct {
-	Name           string `json:"name"`
-	Type           string `json:"type"`
-	RelationEntity string `json:"relationEntity,omitempty"`
-	CurrentUser    bool   `json:"currentUser,omitempty"`
-	Primary        bool   `json:"primary"`
-	Auto           bool   `json:"auto"`
-	Optional       bool   `json:"optional"`
-	Default        any    `json:"default,omitempty"`
+	Name           string   `json:"name"`
+	Type           string   `json:"type"`
+	EnumValues     []string `json:"enumValues,omitempty"`
+	RelationEntity string   `json:"relationEntity,omitempty"`
+	CurrentUser    bool     `json:"currentUser,omitempty"`
+	Primary        bool     `json:"primary"`
+	Auto           bool     `json:"auto"`
+	Optional       bool     `json:"optional"`
+	Default        any      `json:"default,omitempty"`
 }
 
 func FieldStorageName(field *Field) string {
@@ -121,8 +128,9 @@ type TypeAlias struct {
 }
 
 type AliasField struct {
-	Name string `json:"name"`
-	Type string `json:"type"`
+	Name       string   `json:"name"`
+	Type       string   `json:"type"`
+	EnumValues []string `json:"enumValues,omitempty"`
 }
 
 type Action struct {

@@ -17,6 +17,22 @@
 
 app GymClasses
 
+type UserRole {
+  Admin
+  Owner
+  Member
+}
+
+type MembershipStatus {
+  Active
+  Inactive
+}
+
+type EnrollmentStatus {
+  Confirmed
+  Canceled
+}
+
 auth {
   email_from "no-reply@gym-classes.local"
   email_subject "Your GymClasses login code"
@@ -27,40 +43,37 @@ auth {
 
 entity User {
   displayName: String optional
+  role: UserRole
 
-  rule "Role must be admin, owner, or member" expect role == "admin" or role == "owner" or role == "member"
-
-  authorize create, delete when user_role == "admin"
-  authorize read when user_authenticated and (id == user_id or user_role == "admin")
-  authorize update when user_authenticated and ((id == user_id and role == user_role) or user_role == "admin")
+  authorize create, delete when user_role == Admin
+  authorize read when user_authenticated and (id == user_id or user_role == Admin)
+  authorize update when user_authenticated and ((id == user_id and role == user_role) or user_role == Admin)
 }
 
 entity Gym {
   name: String
 
-  belongs_to owner: User
+  belongs_to owner: current_user
 
   rule "Gym name cannot be empty" expect name != ""
 
   -- Gyms are readable to signed-in users.
   -- A future Mar with relationship queries could restrict this to gym members only.
   authorize read when user_authenticated
-  authorize create when user_authenticated and owner == user_id and (user_role == "owner" or user_role == "admin")
-  authorize update, delete when user_authenticated and (owner == user_id or user_role == "admin")
+  authorize create when user_authenticated and owner == user_id and (user_role == Owner or user_role == Admin)
+  authorize update, delete when user_authenticated and (owner == user_id or user_role == Admin)
 }
 
 entity GymMember {
-  status: String
+  status: MembershipStatus
 
   belongs_to gym: Gym
   belongs_to member: User
-  belongs_to addedBy: User
+  belongs_to addedBy: current_user
 
-  rule "Membership status must be active or inactive" expect status == "active" or status == "inactive"
-
-  authorize read when user_authenticated and (member == user_id or addedBy == user_id or user_role == "admin")
-  authorize create when user_authenticated and addedBy == user_id and (user_role == "owner" or user_role == "admin")
-  authorize update, delete when user_authenticated and (addedBy == user_id or user_role == "admin")
+  authorize read when user_authenticated and (member == user_id or addedBy == user_id or user_role == Admin)
+  authorize create when user_authenticated and addedBy == user_id and (user_role == Owner or user_role == Admin)
+  authorize update, delete when user_authenticated and (addedBy == user_id or user_role == Admin)
 }
 
 entity WorkoutClass {
@@ -82,31 +95,29 @@ entity WorkoutClass {
   -- Classes are readable to signed-in users.
   -- A future Mar with relationship queries could restrict this to gym members only.
   authorize read when user_authenticated
-  authorize create when user_authenticated and owner == user_id and (user_role == "owner" or user_role == "admin")
-  authorize update, delete when user_authenticated and (owner == user_id or user_role == "admin")
+  authorize create when user_authenticated and owner == user_id and (user_role == Owner or user_role == Admin)
+  authorize update, delete when user_authenticated and (owner == user_id or user_role == Admin)
 }
 
 entity ClassEnrollment {
-  status: String
+  status: EnrollmentStatus
 
   belongs_to gym: Gym
   belongs_to workoutClass: WorkoutClass
   belongs_to attendee: User
 
-  rule "Enrollment status must be confirmed or canceled" expect status == "confirmed" or status == "canceled"
-
   -- Users can view and manage their own enrollments.
   -- The action below is the recommended way to create enrollments because it
   -- also validates gym membership and remaining spots before writing anything.
-  authorize read when user_authenticated and (attendee == user_id or user_role == "admin")
+  authorize read when user_authenticated and (attendee == user_id or user_role == Admin)
   authorize create when user_authenticated and attendee == user_id
-  authorize update, delete when user_authenticated and (attendee == user_id or user_role == "admin")
+  authorize update, delete when user_authenticated and (attendee == user_id or user_role == Admin)
 }
 
 type alias EnrollInClassInput =
   { gymMemberId : Int
   , workoutClassId : Int
-  }
+}
 
 action enrollInClass {
   input: EnrollInClassInput
@@ -120,7 +131,7 @@ action enrollInClass {
   }
 
   rule "You can only enroll yourself" expect gymMember.member == user_id
-  rule "Gym membership must be active" expect gymMember.status == "active"
+  rule "Gym membership must be active" expect gymMember.status == Active
   rule "The class must belong to your gym" expect gymMember.gym == workoutClass.gym
   rule "The class is already full" expect workoutClass.remainingSpots > 0
 
@@ -128,7 +139,7 @@ action enrollInClass {
     gym: workoutClass.gym
     workoutClass: workoutClass.id
     attendee: gymMember.member
-    status: "confirmed"
+    status: Confirmed
   }
 
   update WorkoutClass {

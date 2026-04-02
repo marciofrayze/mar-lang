@@ -170,7 +170,14 @@ enum RowPresentation {
             }
         }
 
-        if let stringField = candidates.first(where: { $0.fieldType == .string }) {
+        if let stringField = candidates.first(where: { field in
+            switch field.fieldType {
+            case .string, .custom(_):
+                return true
+            default:
+                return false
+            }
+        }) {
             return stringField
         }
 

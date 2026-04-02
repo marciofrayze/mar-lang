@@ -37,7 +37,7 @@ func (r *Runtime) handleAction(w http.ResponseWriter, requestID, actionName stri
 
 		for _, step := range action.Steps {
 			if step.Kind == "rule" {
-				if err := validateActionRule(step, auth, contextValues); err != nil {
+				if err := r.validateActionRule(step, auth, contextValues); err != nil {
 					return err
 				}
 				continue
@@ -82,8 +82,8 @@ func (r *Runtime) handleAction(w http.ResponseWriter, requestID, actionName stri
 	return nil
 }
 
-func validateActionRule(step model.ActionStep, auth authSession, contextValues map[string]any) error {
-	value, err := evalActionExpression(step.Expression, actionExpressionContext(auth, contextValues))
+func (r *Runtime) validateActionRule(step model.ActionStep, auth authSession, contextValues map[string]any) error {
+	value, err := evalActionExpression(step.Expression, r.actionExpressionContext(auth, contextValues))
 	if err != nil {
 		return &apiError{
 			Status:  http.StatusUnprocessableEntity,
@@ -103,7 +103,7 @@ func validateActionRule(step model.ActionStep, auth authSession, contextValues m
 	return nil
 }
 
-func actionExpressionContext(auth authSession, contextValues map[string]any) map[string]any {
+func (r *Runtime) actionExpressionContext(auth authSession, contextValues map[string]any) map[string]any {
 	out := make(map[string]any, len(contextValues)+5)
 	for key, value := range contextValues {
 		out[key] = value
@@ -113,11 +113,14 @@ func actionExpressionContext(auth authSession, contextValues map[string]any) map
 	out["user_email"] = auth.Email
 	out["user_id"] = auth.UserID
 	out["user_role"] = auth.Role
+	for name, value := range r.enumLiteralValues {
+		out[name] = value
+	}
 	return out
 }
 
 func (r *Runtime) executeActionStep(tx *sqlitecli.ImmediateTx, action *model.Action, entity *model.Entity, step model.ActionStep, auth authSession, contextValues map[string]any) (map[string]any, error) {
-	stepPayload, err := resolveActionStepValues(step, contextValues)
+	stepPayload, err := resolveActionStepValues(step, contextValues, r.enumLiteralValues)
 	if err != nil {
 		return nil, newAPIError(http.StatusBadRequest, "invalid_action_input", fmt.Sprintf("Action %s step %s %s: %s", action.Name, step.Kind, entity.Name, err.Error()))
 	}
@@ -260,7 +263,7 @@ func normalizeActionInput(alias *model.TypeAlias, payload map[string]any) (map[s
 		if !ok {
 			return nil, fmt.Errorf("missing required input field %q for %s", field.Name, alias.Name)
 		}
-		value, err := normalizeActionInputValue(field.Name, field.Type, raw)
+		value, err := normalizeActionInputValue(field, raw)
 		if err != nil {
 			return nil, err
 		}
@@ -286,53 +289,72 @@ func aliasFieldNames(alias *model.TypeAlias) []string {
 	return out
 }
 
-func normalizeActionInputValue(name, typ string, raw any) (any, error) {
-	switch typ {
+func normalizeActionInputValue(field model.AliasField, raw any) (any, error) {
+	switch field.Type {
 	case "Int":
 		n, ok := toInt64(raw)
 		if !ok {
-			return nil, fmt.Errorf("input.%s must be Int", name)
+			return nil, fmt.Errorf("input.%s must be Int", field.Name)
 		}
 		return n, nil
 	case "Date":
 		n, ok := toInt64(raw)
 		if !ok {
-			return nil, fmt.Errorf("input.%s must be Date (Unix milliseconds)", name)
+			return nil, fmt.Errorf("input.%s must be Date (Unix milliseconds)", field.Name)
 		}
 		return normalizeDateMillis(n), nil
 	case "DateTime":
 		n, ok := toInt64(raw)
 		if !ok {
-			return nil, fmt.Errorf("input.%s must be DateTime (Unix milliseconds)", name)
+			return nil, fmt.Errorf("input.%s must be DateTime (Unix milliseconds)", field.Name)
 		}
 		return n, nil
 	case "Float":
 		f, ok := toFloat64(raw)
 		if !ok {
-			return nil, fmt.Errorf("input.%s must be Float", name)
+			return nil, fmt.Errorf("input.%s must be Float", field.Name)
 		}
 		return f, nil
 	case "String":
 		s, ok := raw.(string)
 		if !ok {
-			return nil, fmt.Errorf("input.%s must be String", name)
+			return nil, fmt.Errorf("input.%s must be String", field.Name)
 		}
 		return s, nil
 	case "Bool":
 		b, ok := raw.(bool)
 		if !ok {
-			return nil, fmt.Errorf("input.%s must be Bool", name)
+			return nil, fmt.Errorf("input.%s must be Bool", field.Name)
 		}
 		return b, nil
 	default:
-		return nil, fmt.Errorf("unsupported input type %s for input.%s", typ, name)
+		if len(field.EnumValues) == 0 {
+			return nil, fmt.Errorf("unsupported input type %s for input.%s", field.Type, field.Name)
+		}
+		s, ok := raw.(string)
+		if !ok {
+			return nil, fmt.Errorf("input.%s must be %s", field.Name, field.Type)
+		}
+		for _, enumValue := range field.EnumValues {
+			if s == enumValue {
+				return s, nil
+			}
+		}
+		return nil, fmt.Errorf("input.%s must be one of: %s", field.Name, strings.Join(field.EnumValues, ", "))
 	}
 }
 
-func resolveActionStepValues(step model.ActionStep, contextValues map[string]any) (map[string]any, error) {
+func resolveActionStepValues(step model.ActionStep, contextValues map[string]any, enumLiteralValues map[string]any) (map[string]any, error) {
 	payload := map[string]any{}
+	values := make(map[string]any, len(contextValues)+len(enumLiteralValues))
+	for key, value := range contextValues {
+		values[key] = value
+	}
+	for key, value := range enumLiteralValues {
+		values[key] = value
+	}
 	for _, item := range step.Values {
-		value, err := evalActionExpression(item.Expression, contextValues)
+		value, err := evalActionExpression(item.Expression, values)
 		if err != nil {
 			return nil, fmt.Errorf("field %s: %w", item.Field, err)
 		}

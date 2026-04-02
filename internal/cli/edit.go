@@ -1385,6 +1385,8 @@ func editorHighlightLine(line string, useColor bool, selectFrom, selectTo int, h
 				style = "\033[38;5;110m"
 			case tokenInSet(token, marEditorTypes):
 				style = "\033[38;5;141m"
+			case len(token) > 0 && unicode.IsUpper(rune(token[0])):
+				style = "\033[38;5;141m"
 			case tokenInSet(token, marEditorFieldModifiers):
 				style = "\033[38;5;110m"
 			case tokenInSet(token, marEditorLiterals):

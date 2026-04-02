@@ -13,6 +13,9 @@ func (r *Runtime) schemaPayload(requestID string) map[string]any {
 				"auto":     field.Auto,
 				"optional": field.Optional,
 			}
+			if len(field.EnumValues) > 0 {
+				fieldPayload["enumValues"] = field.EnumValues
+			}
 			if field.RelationEntity != "" {
 				fieldPayload["relationEntity"] = field.RelationEntity
 			}
@@ -44,10 +47,14 @@ func (r *Runtime) schemaPayload(requestID string) map[string]any {
 		for _, alias := range r.App.InputAliases {
 			fields := make([]map[string]any, 0, len(alias.Fields))
 			for _, field := range alias.Fields {
-				fields = append(fields, map[string]any{
+				fieldPayload := map[string]any{
 					"name": field.Name,
 					"type": field.Type,
-				})
+				}
+				if len(field.EnumValues) > 0 {
+					fieldPayload["enumValues"] = field.EnumValues
+				}
+				fields = append(fields, fieldPayload)
 			}
 			aliases = append(aliases, map[string]any{
 				"name":   alias.Name,

@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
@@ -2112,4 +2113,104 @@ entity Todo {
 	if !strings.Contains(err.Error(), "auth.security_content_type_nosniff must be true or false") {
 		t.Fatalf("unexpected error message: %v", err)
 	}
+}
+
+func TestParseEnumTypesAndEnumLiterals(t *testing.T) {
+	src := `
+app GymClasses
+
+type UserRole {
+  Admin
+  Owner
+  Member
+}
+
+type EnrollmentStatus {
+  Confirmed
+  Canceled
+}
+
+entity User {
+  role: UserRole
+
+  authorize read when user_authenticated and (id == user_id or user_role == Admin)
+}
+
+entity ClassEnrollment {
+  status: EnrollmentStatus default Confirmed
+
+  authorize read, create when user_authenticated
+}
+
+type alias CreateEnrollmentInput =
+  { status : EnrollmentStatus
+  }
+
+action createEnrollment {
+  input: CreateEnrollmentInput
+
+  rule "Only members can create enrollments" expect user_role == Member or user_role == Admin
+
+  create ClassEnrollment {
+    status: input.status
+  }
+}
+`
+
+	app, err := Parse(src)
+	if err != nil {
+		t.Fatalf("Parse returned error: %v", err)
+	}
+
+	if got := len(app.Types); got != 2 {
+		t.Fatalf("expected 2 types, got %d", got)
+	}
+
+	user := findEntity(app, "User")
+	if user == nil {
+		t.Fatal("expected built-in User entity")
+	}
+	role := findFieldByName(user, "role")
+	if role == nil {
+		t.Fatal("expected role field on User")
+	}
+	if role.Type != "UserRole" {
+		t.Fatalf("expected role type UserRole, got %s", role.Type)
+	}
+	if !reflect.DeepEqual(role.EnumValues, []string{"Admin", "Owner", "Member"}) {
+		t.Fatalf("unexpected role enum values: %#v", role.EnumValues)
+	}
+
+	enrollment := findEntity(app, "ClassEnrollment")
+	if enrollment == nil {
+		t.Fatal("expected ClassEnrollment entity")
+	}
+	status := findFieldByName(enrollment, "status")
+	if status == nil {
+		t.Fatal("expected status field")
+	}
+	if got, ok := status.Default.(string); !ok || got != "Confirmed" {
+		t.Fatalf("expected enum default Confirmed, got %#v", status.Default)
+	}
+}
+
+func findEntity(app *model.App, name string) *model.Entity {
+	for i := range app.Entities {
+		if app.Entities[i].Name == name {
+			return &app.Entities[i]
+		}
+	}
+	return nil
+}
+
+func findFieldByName(entity *model.Entity, name string) *model.Field {
+	if entity == nil {
+		return nil
+	}
+	for i := range entity.Fields {
+		if entity.Fields[i].Name == name {
+			return &entity.Fields[i]
+		}
+	}
+	return nil
 }

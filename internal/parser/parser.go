@@ -20,7 +20,7 @@ var (
 	envVarNameRe = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 )
 
-const marTypePattern = `Int|String|Bool|Float|DateTime|Date`
+const marTypeRefPattern = `[A-Za-z][A-Za-z0-9_]*`
 
 var (
 	topLevelStatementCandidates = []string{
@@ -32,6 +32,7 @@ var (
 		"public",
 		"auth",
 		"entity",
+		"type",
 		"type alias",
 		"action",
 	}
@@ -255,6 +256,15 @@ func Parse(source string) (*model.App, error) {
 			continue
 		}
 
+		if match(`^type\s+([A-Za-z][A-Za-z0-9_]*)\s*\{.*$`, trimmed) != nil {
+			enumType, err := parseEnumType(lines, &idx)
+			if err != nil {
+				return nil, err
+			}
+			app.Types = append(app.Types, *enumType)
+			continue
+		}
+
 		if m := match(`^action\s+([a-z][A-Za-z0-9_]*)\s*\{$`, trimmed); m != nil {
 			action, err := parseActionBlock(lines, &idx, m[1])
 			if err != nil {
@@ -274,6 +284,9 @@ func Parse(source string) (*model.App, error) {
 		app.Auth = defaultAuthConfig()
 	}
 	if err := injectImplicitUserEntity(app, userExtension); err != nil {
+		return nil, err
+	}
+	if err := validateDeclaredTypes(app); err != nil {
 		return nil, err
 	}
 	if err := resolveEntityRelations(app); err != nil {
@@ -606,7 +619,7 @@ func parseUserExtensionBlock(lines []line, idx *int) (*model.Entity, error) {
 			continue
 		}
 
-		if m := match(`^([a-z][A-Za-z0-9_]*)\s*:\s*(`+marTypePattern+`)(?:\s+(.*))?$`, trimmed); m != nil {
+		if m := match(`^([a-z][A-Za-z0-9_]*)\s*:\s*(`+marTypeRefPattern+`)(?:\s+(.*))?$`, trimmed); m != nil {
 			fieldName := m[1]
 			field := model.Field{Name: fieldName, Type: m[2]}
 			if err := parseFieldAttributes(&field, strings.TrimSpace(m[3]), ln.number); err != nil {
@@ -616,8 +629,6 @@ func parseUserExtensionBlock(lines []line, idx *int) (*model.Entity, error) {
 				if !matchesBuiltInUserField(field) {
 					return nil, parserErrorf("line %d: entity User cannot redefine built-in field %q", ln.number, fieldName)
 				}
-				(*idx)++
-				continue
 			}
 			ent.Fields = append(ent.Fields, field)
 			(*idx)++
@@ -665,7 +676,20 @@ func parseAuthorizeClause(trimmed string, lineNo int) ([]model.Authorization, bo
 	return out, true, nil
 }
 
-func isLiteralTrueExpr(node expr.Expr) bool {
+func containsLiteralTrueExpr(node expr.Expr) bool {
+	switch n := node.(type) {
+	case expr.Unary:
+		return containsLiteralTrueExpr(n.Right)
+	case expr.Binary:
+		return containsLiteralTrueExpr(n.Left) || containsLiteralTrueExpr(n.Right)
+	case expr.Call:
+		for _, arg := range n.Args {
+			if containsLiteralTrueExpr(arg) {
+				return true
+			}
+		}
+		return false
+	}
 	lit, ok := node.(expr.Literal)
 	if !ok {
 		return false
@@ -716,7 +740,7 @@ func matchesBuiltInUserField(field model.Field) bool {
 	case "email":
 		return field.Type == "String" && !field.Primary && !field.Auto && !field.Optional && field.Default == nil
 	case "role":
-		return field.Type == "String" && !field.Primary && !field.Auto && !field.Optional && field.Default == nil
+		return !field.Primary && !field.Auto && !field.Optional && field.Default == nil && field.RelationEntity == "" && !field.CurrentUser
 	default:
 		return false
 	}
@@ -735,7 +759,19 @@ func injectImplicitUserEntity(app *model.App, extension *model.Entity) error {
 	rawRules := []model.Rule{}
 	rawAuthz := []model.Authorization{}
 	if extension != nil {
-		user.Fields = append(user.Fields, extension.Fields...)
+		for _, field := range extension.Fields {
+			replaced := false
+			for i := range user.Fields {
+				if user.Fields[i].Name == field.Name {
+					user.Fields[i] = field
+					replaced = true
+					break
+				}
+			}
+			if !replaced {
+				user.Fields = append(user.Fields, field)
+			}
+		}
 		rawRules = append(rawRules, extension.Rules...)
 		rawAuthz = append(rawAuthz, extension.Authorizations...)
 	}
@@ -1157,7 +1193,7 @@ func parseEntityBlock(lines []line, idx *int, name string) (*model.Entity, error
 			continue
 		}
 
-		if m := match(`^([a-z][A-Za-z0-9_]*)\s*:\s*(`+marTypePattern+`)(?:\s+(.*))?$`, trimmed); m != nil {
+		if m := match(`^([a-z][A-Za-z0-9_]*)\s*:\s*(`+marTypeRefPattern+`)(?:\s+(.*))?$`, trimmed); m != nil {
 			field := model.Field{Name: m[1], Type: m[2]}
 			if err := parseFieldAttributes(&field, strings.TrimSpace(m[3]), ln.number); err != nil {
 				return nil, err
@@ -1254,7 +1290,8 @@ func finalizeEntity(ent *model.Entity, rawRules []model.Rule, rawAuthz []model.A
 			}
 			return parserErrorf("rule expression cannot be empty")
 		}
-		if _, err := expr.Parse(rule.Expression, expr.ParserOptions{AllowedVariables: allowedVars}); err != nil {
+		ruleAllowedVars := allowedVariablesForRawExpression(rule.Expression, allowedVars, false)
+		if _, err := expr.Parse(rule.Expression, expr.ParserOptions{AllowedVariables: ruleAllowedVars}); err != nil {
 			if rule.LineNo > 0 {
 				return parserErrorf("line %d: invalid rule expression %q (%w)", rule.LineNo, rule.Expression, err)
 			}
@@ -1263,7 +1300,6 @@ func finalizeEntity(ent *model.Entity, rawRules []model.Rule, rawAuthz []model.A
 		ent.Rules = append(ent.Rules, rule)
 	}
 
-	exprVars := expr.AllowedVariablesWithBuiltins(allowedVars)
 	seenAction := map[string]bool{}
 	for _, authz := range rawAuthz {
 		if seenAction[authz.Action] {
@@ -1273,14 +1309,15 @@ func finalizeEntity(ent *model.Entity, rawRules []model.Rule, rawAuthz []model.A
 			return parserErrorf("duplicate authorize rule for %q", authz.Action)
 		}
 		seenAction[authz.Action] = true
-		parsed, err := expr.Parse(authz.Expression, expr.ParserOptions{AllowedVariables: exprVars})
+		authAllowedVars := allowedVariablesForRawExpression(authz.Expression, allowedVars, true)
+		parsed, err := expr.Parse(authz.Expression, expr.ParserOptions{AllowedVariables: authAllowedVars})
 		if err != nil {
 			if authz.LineNo > 0 {
 				return parserErrorf("line %d: invalid authorization expression %q (%w)", authz.LineNo, authz.Expression, err)
 			}
 			return parserErrorf("invalid authorization expression %q (%w)", authz.Expression, err)
 		}
-		if isLiteralTrueExpr(parsed) {
+		if containsLiteralTrueExpr(parsed) {
 			if authz.LineNo > 0 {
 				return parserErrorf("line %d: authorization expressions cannot use true. Use anonymous or user_authenticated instead", authz.LineNo)
 			}
@@ -1296,6 +1333,7 @@ func validateEntityPredicates(app *model.App) error {
 	if app == nil {
 		return nil
 	}
+	enumLiteralTypes := appEnumLiteralTypes(app)
 	for i := range app.Entities {
 		ent := &app.Entities[i]
 		variableTypes := make(map[string]string, len(ent.Fields))
@@ -1303,7 +1341,7 @@ func validateEntityPredicates(app *model.App) error {
 			variableTypes[field.Name] = field.Type
 		}
 		for _, rule := range ent.Rules {
-			if err := validateBooleanExpr(rule.Expression, variableTypes, false); err != nil {
+			if err := validateBooleanExpr(rule.Expression, variableTypes, nil, false, enumLiteralTypes); err != nil {
 				if rule.LineNo > 0 {
 					return parserErrorf("line %d: invalid rule expression %q (%w)", rule.LineNo, rule.Expression, err)
 				}
@@ -1311,7 +1349,8 @@ func validateEntityPredicates(app *model.App) error {
 			}
 		}
 		for _, authz := range ent.Authorizations {
-			if err := validateBooleanExpr(authz.Expression, variableTypes, true); err != nil {
+			authBuiltins := authBuiltinTypes(app)
+			if err := validateBooleanExpr(authz.Expression, variableTypes, authBuiltins, true, enumLiteralTypes); err != nil {
 				if authz.LineNo > 0 {
 					return parserErrorf("line %d: invalid authorization expression %q (%w)", authz.LineNo, authz.Expression, err)
 				}
@@ -1320,6 +1359,106 @@ func validateEntityPredicates(app *model.App) error {
 		}
 	}
 	return nil
+}
+
+func validateDeclaredTypes(app *model.App) error {
+	if app == nil {
+		return nil
+	}
+
+	typesByName := map[string]*model.EnumType{}
+	literalOwners := map[string]string{}
+	for i := range app.Types {
+		enumType := &app.Types[i]
+		if _, exists := typesByName[enumType.Name]; exists {
+			return parserErrorf("duplicate type %q", enumType.Name)
+		}
+		typesByName[enumType.Name] = enumType
+		for _, value := range enumType.Values {
+			if owner, exists := literalOwners[value]; exists {
+				return parserErrorf("type value %q is declared in both %s and %s. Enum values must be globally unique", value, owner, enumType.Name)
+			}
+			literalOwners[value] = enumType.Name
+		}
+	}
+
+	for i := range app.Entities {
+		for j := range app.Entities[i].Fields {
+			field := &app.Entities[i].Fields[j]
+			if field.RelationEntity != "" {
+				continue
+			}
+			enumValues, ok := enumValuesForType(field.Type, typesByName)
+			if !ok {
+				return parserErrorf("entity %s field %s uses unknown type %s", app.Entities[i].Name, field.Name, field.Type)
+			}
+			field.EnumValues = append([]string{}, enumValues...)
+			if err := validateFieldDefault(field, app.Entities[i].Name, typesByName); err != nil {
+				return err
+			}
+		}
+	}
+
+	for i := range app.InputAliases {
+		for j := range app.InputAliases[i].Fields {
+			field := &app.InputAliases[i].Fields[j]
+			enumValues, ok := enumValuesForType(field.Type, typesByName)
+			if !ok {
+				return parserErrorf("type alias %s field %s uses unknown type %s", app.InputAliases[i].Name, field.Name, field.Type)
+			}
+			field.EnumValues = append([]string{}, enumValues...)
+		}
+	}
+
+	return nil
+}
+
+func validateFieldDefault(field *model.Field, entityName string, typesByName map[string]*model.EnumType) error {
+	if field == nil || field.Default == nil {
+		return nil
+	}
+	if isPrimitiveFieldType(field.Type) {
+		return nil
+	}
+	enumType := typesByName[field.Type]
+	if enumType == nil {
+		return parserErrorf("entity %s field %s uses unknown type %s", entityName, field.Name, field.Type)
+	}
+	defaultValue, ok := field.Default.(string)
+	if !ok {
+		return parserErrorf("entity %s field %s default must be a value from type %s", entityName, field.Name, field.Type)
+	}
+	for _, value := range enumType.Values {
+		if value == defaultValue {
+			return nil
+		}
+	}
+	return parserErrorf("entity %s field %s default %q is not a value of type %s", entityName, field.Name, defaultValue, field.Type)
+}
+
+func enumValuesForType(typeName string, typesByName map[string]*model.EnumType) ([]string, bool) {
+	if isPrimitiveFieldType(typeName) {
+		return nil, true
+	}
+	enumType := typesByName[typeName]
+	if enumType == nil {
+		return nil, false
+	}
+	return enumType.Values, true
+}
+
+func allowedVariablesForRawExpression(raw string, base map[string]struct{}, includeBuiltins bool) map[string]struct{} {
+	out := make(map[string]struct{}, len(base)+8)
+	for name := range base {
+		out[name] = struct{}{}
+	}
+	if includeBuiltins {
+		out = expr.AllowedVariablesWithBuiltins(out)
+	}
+	for _, token := range regexp.MustCompile(`\b[A-Z][A-Za-z0-9_]*\b`).FindAllString(raw, -1) {
+		out[token] = struct{}{}
+	}
+	return out
 }
 
 func resolveEntityRelations(app *model.App) error {
@@ -1431,15 +1570,81 @@ func parseTypeAlias(lines []line, idx *int) (*model.TypeAlias, error) {
 	}
 }
 
+func parseEnumType(lines []line, idx *int) (*model.EnumType, error) {
+	start := lines[*idx]
+	trimmed := strings.TrimSpace(start.text)
+	m := match(`^type\s+([A-Za-z][A-Za-z0-9_]*)\s*\{(.*)$`, trimmed)
+	if m == nil {
+		return nil, parserErrorf("line %d: invalid type declaration", start.number)
+	}
+
+	enumType := &model.EnumType{Name: m[1], Values: []string{}}
+	seen := map[string]bool{}
+	rest := strings.TrimSpace(m[2])
+	curLine := start.number
+
+	for {
+		if rest == "" {
+			(*idx)++
+			if *idx >= len(lines) {
+				return nil, parserErrorf("type %s is missing closing }", enumType.Name)
+			}
+			curLine = lines[*idx].number
+			rest = strings.TrimSpace(lines[*idx].text)
+			if isCommentOrBlank(rest) {
+				continue
+			}
+		}
+
+		if strings.Contains(rest, "}") {
+			before, after, _ := strings.Cut(rest, "}")
+			if err := parseEnumValueTokens(enumType, seen, before, curLine); err != nil {
+				return nil, err
+			}
+			if strings.TrimSpace(after) != "" {
+				return nil, parserErrorf("line %d: unexpected tokens after type %s declaration", curLine, enumType.Name)
+			}
+			(*idx)++
+			if len(enumType.Values) == 0 {
+				return nil, parserErrorf("line %d: type %s must declare at least one value", start.number, enumType.Name)
+			}
+			return enumType, nil
+		}
+
+		if err := parseEnumValueTokens(enumType, seen, rest, curLine); err != nil {
+			return nil, err
+		}
+		rest = ""
+	}
+}
+
+func parseEnumValueTokens(enumType *model.EnumType, seen map[string]bool, raw string, lineNo int) error {
+	normalized := strings.TrimSpace(strings.ReplaceAll(raw, ",", " "))
+	if normalized == "" {
+		return nil
+	}
+	for _, value := range strings.Fields(normalized) {
+		if !upperNameRe.MatchString(value) || len(value) == 0 || !unicode.IsUpper(rune(value[0])) {
+			return parserErrorf("line %d: invalid value %q in type %s. Values must use PascalCase like Admin", lineNo, value, enumType.Name)
+		}
+		if seen[value] {
+			return parserErrorf("line %d: duplicate value %q in type %s", lineNo, value, enumType.Name)
+		}
+		seen[value] = true
+		enumType.Values = append(enumType.Values, value)
+	}
+	return nil
+}
+
 func parseAliasFieldToken(alias *model.TypeAlias, seen map[string]bool, token string, lineNo int) error {
 	token = strings.TrimSpace(strings.TrimPrefix(token, ","))
 	token = strings.TrimSpace(strings.TrimSuffix(token, ","))
 	if token == "" {
 		return nil
 	}
-	m := match(`^([a-z][A-Za-z0-9_]*)\s*:\s*(`+marTypePattern+`)$`, token)
+	m := match(`^([a-z][A-Za-z0-9_]*)\s*:\s*(`+marTypeRefPattern+`)$`, token)
 	if m == nil {
-		return parserErrorf("line %d: invalid field in type alias %s. Expected `name : Type` with Int/String/Bool/Float/Date/DateTime", lineNo, alias.Name)
+		return parserErrorf("line %d: invalid field in type alias %s. Expected `name : Type`", lineNo, alias.Name)
 	}
 	name := m[1]
 	if seen[name] {
@@ -1681,8 +1886,12 @@ func validateAuthConfig(app *model.App) error {
 	}
 
 	if app.Auth.RoleField != "" {
-		if hasFieldName(userEntity, app.Auth.RoleField) && !hasField(userEntity, app.Auth.RoleField, "String") {
-			return parserErrorf("auth.role_field %q must be String when present in entity %s", app.Auth.RoleField, userEntity.Name)
+		roleField := findEntityField(userEntity, app.Auth.RoleField)
+		if roleField != nil && roleField.RelationEntity != "" {
+			return parserErrorf("auth.role_field %q cannot be a relation field in entity %s", app.Auth.RoleField, userEntity.Name)
+		}
+		if roleField != nil && !isPrimitiveFieldType(roleField.Type) && len(roleField.EnumValues) == 0 {
+			return parserErrorf("auth.role_field %q must be String or a declared type when present in entity %s", app.Auth.RoleField, userEntity.Name)
 		}
 	}
 
@@ -1714,6 +1923,7 @@ func validateAuthConfig(app *model.App) error {
 }
 
 func validateActions(app *model.App) error {
+	enumLiteralTypes := appEnumLiteralTypes(app)
 	aliasByName := map[string]*model.TypeAlias{}
 	for i := range app.InputAliases {
 		alias := &app.InputAliases[i]
@@ -1763,7 +1973,7 @@ func validateActions(app *model.App) error {
 				if strings.TrimSpace(step.Expression) == "" {
 					return parserErrorf("action %s rule %q has an empty expression", action.Name, step.Message)
 				}
-				if err := validateBooleanExpr(step.Expression, availableVariables, true); err != nil {
+				if err := validateBooleanExpr(step.Expression, availableVariables, authBuiltinTypes(app), true, enumLiteralTypes); err != nil {
 					return parserErrorf("action %s rule %q: %w", action.Name, step.Message, err)
 				}
 				continue
@@ -1802,7 +2012,7 @@ func validateActions(app *model.App) error {
 				}
 				assignments[item.Field] = item
 
-				sourceType, err := resolveActionExprType(item.Expression, availableVariables, aliasFieldNames)
+				sourceType, err := resolveActionExprType(item.Expression, availableVariables, nil, aliasFieldNames, enumLiteralTypes)
 				if err != nil {
 					return parserErrorf("action %s field %s.%s: %w", action.Name, entity.Name, item.Field, err)
 				}
@@ -1941,12 +2151,12 @@ func authBootstrapWarnings(app *model.App) []string {
 	}
 }
 
-func resolveActionExprType(raw string, variableTypes map[string]string, aliasFieldNames []string) (string, error) {
-	parsed, err := parseTypedExpr(raw, variableTypes, false, aliasFieldNames)
+func resolveActionExprType(raw string, variableTypes map[string]string, builtinTypes map[string]string, aliasFieldNames []string, enumLiteralTypes map[string]string) (string, error) {
+	parsed, err := parseTypedExpr(raw, variableTypes, builtinTypes, false, aliasFieldNames, enumLiteralTypes)
 	if err != nil {
 		return "", err
 	}
-	return inferActionExprType(parsed, variableTypes)
+	return inferActionExprType(parsed, typedExprVariables(variableTypes, builtinTypes, false, enumLiteralTypes))
 }
 
 func allowedExprVariables(variableTypes map[string]string) map[string]struct{} {
@@ -1957,12 +2167,12 @@ func allowedExprVariables(variableTypes map[string]string) map[string]struct{} {
 	return out
 }
 
-func validateBooleanExpr(raw string, variableTypes map[string]string, includeBuiltins bool) error {
-	parsed, err := parseTypedExpr(raw, variableTypes, includeBuiltins, nil)
+func validateBooleanExpr(raw string, variableTypes map[string]string, builtinTypes map[string]string, includeBuiltins bool, enumLiteralTypes map[string]string) error {
+	parsed, err := parseTypedExpr(raw, variableTypes, builtinTypes, includeBuiltins, nil, enumLiteralTypes)
 	if err != nil {
 		return err
 	}
-	typ, err := inferActionExprType(parsed, typedExprVariables(variableTypes, includeBuiltins))
+	typ, err := inferActionExprType(parsed, typedExprVariables(variableTypes, builtinTypes, includeBuiltins, enumLiteralTypes))
 	if err != nil {
 		return err
 	}
@@ -1972,34 +2182,80 @@ func validateBooleanExpr(raw string, variableTypes map[string]string, includeBui
 	return nil
 }
 
-func parseTypedExpr(raw string, variableTypes map[string]string, includeBuiltins bool, aliasFieldNames []string) (expr.Expr, error) {
+func parseTypedExpr(raw string, variableTypes map[string]string, builtinTypes map[string]string, includeBuiltins bool, aliasFieldNames []string, enumLiteralTypes map[string]string) (expr.Expr, error) {
 	allowed := allowedExprVariables(variableTypes)
 	if includeBuiltins {
 		allowed = expr.AllowedVariablesWithBuiltins(allowed)
+	}
+	for name := range enumLiteralTypes {
+		allowed[name] = struct{}{}
+	}
+	if includeBuiltins {
+		for name := range builtinTypes {
+			allowed[name] = struct{}{}
+		}
 	}
 	parsed, err := expr.Parse(raw, expr.ParserOptions{AllowedVariables: allowed})
 	if err != nil {
 		msg := err.Error()
 		if strings.Contains(msg, "unknown identifier") {
 			name := strings.Trim(strings.TrimPrefix(msg, "unknown identifier "), `"`)
-			return nil, parserErrorf("references unknown value %q%s", name, suggest.DidYouMeanSuffix(name, actionVariableNames(typedExprVariables(variableTypes, includeBuiltins), aliasFieldNames)))
+			return nil, parserErrorf("references unknown value %q%s", name, suggest.DidYouMeanSuffix(name, actionVariableNames(typedExprVariables(variableTypes, builtinTypes, includeBuiltins, enumLiteralTypes), aliasFieldNames)))
 		}
 		return nil, err
 	}
 	return parsed, nil
 }
 
-func typedExprVariables(variableTypes map[string]string, includeBuiltins bool) map[string]string {
-	out := make(map[string]string, len(variableTypes)+5)
+func typedExprVariables(variableTypes map[string]string, builtinTypes map[string]string, includeBuiltins bool, enumLiteralTypes map[string]string) map[string]string {
+	out := make(map[string]string, len(variableTypes)+len(enumLiteralTypes)+len(builtinTypes))
 	for name, typ := range variableTypes {
 		out[name] = typ
 	}
 	if includeBuiltins {
-		out["anonymous"] = "Bool"
-		out["user_authenticated"] = "Bool"
-		out["user_email"] = "String"
-		out["user_id"] = "Int"
-		out["user_role"] = "String"
+		for name, typ := range builtinTypes {
+			out[name] = typ
+		}
+	}
+	for name, typ := range enumLiteralTypes {
+		out[name] = typ
+	}
+	return out
+}
+
+func appEnumLiteralTypes(app *model.App) map[string]string {
+	out := map[string]string{}
+	if app == nil {
+		return out
+	}
+	for _, enumType := range app.Types {
+		for _, value := range enumType.Values {
+			out[value] = enumType.Name
+		}
+	}
+	return out
+}
+
+func authBuiltinTypes(app *model.App) map[string]string {
+	out := map[string]string{
+		"anonymous":          "Bool",
+		"user_authenticated": "Bool",
+		"user_email":         "String",
+		"user_id":            "Int",
+		"user_role":          "String",
+	}
+	if app == nil || app.Auth == nil {
+		return out
+	}
+	for i := range app.Entities {
+		entity := &app.Entities[i]
+		if entity.Name != app.Auth.UserEntity {
+			continue
+		}
+		if field := findEntityField(entity, app.Auth.RoleField); field != nil {
+			out["user_role"] = field.Type
+		}
+		break
 	}
 	return out
 }
@@ -2249,15 +2505,6 @@ func hasField(ent *model.Entity, name, typ string) bool {
 	return false
 }
 
-func hasFieldName(ent *model.Entity, name string) bool {
-	for _, f := range ent.Fields {
-		if f.Name == name {
-			return true
-		}
-	}
-	return false
-}
-
 func isCommentOrBlank(s string) bool {
 	return s == "" || strings.HasPrefix(s, "--")
 }
@@ -2402,7 +2649,10 @@ func parseFieldDefaultLiteral(fieldType string, raw string, lineNo int) (any, er
 		}
 		return f, nil
 	default:
-		return nil, parserErrorf("line %d: unsupported field type %s", lineNo, fieldType)
+		if upperNameRe.MatchString(raw) && unicode.IsUpper(rune(raw[0])) {
+			return raw, nil
+		}
+		return nil, parserErrorf("line %d: field default for %s must be a declared value like %sValue", lineNo, fieldType, fieldType)
 	}
 }
 

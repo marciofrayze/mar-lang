@@ -362,10 +362,11 @@ func (r *Runtime) createBootstrapAdminUser(requestID, email string, payload map[
 			}
 
 		case cfg.RoleField != "" && field.Name == cfg.RoleField:
-			if field.Type != "String" {
-				return nil, newAPIError(http.StatusUnprocessableEntity, "bootstrap_user_creation_failed", fmt.Sprintf("Field %s must be String for auth role management", field.Name))
+			roleValue, roleErr := resolveManagedAuthRoleValue(&field, "user")
+			if roleErr != nil {
+				return nil, newAPIError(http.StatusUnprocessableEntity, "bootstrap_user_creation_failed", roleErr.Error())
 			}
-			if err := addValue(field, "user"); err != nil {
+			if err := addValue(field, roleValue); err != nil {
 				return nil, err
 			}
 
@@ -486,13 +487,14 @@ func (r *Runtime) tryAutoCreateAuthUserWithRole(requestID, email, roleValue stri
 			ctx[field.Name] = email
 			hasEmailField = true
 		case cfg.RoleField != "" && field.Name == cfg.RoleField:
-			if field.Type != "String" {
+			resolvedRoleValue, roleErr := resolveManagedAuthRoleValue(&field, roleValue)
+			if roleErr != nil {
 				return nil, false, nil
 			}
 			columns = append(columns, quoted)
 			placeholders = append(placeholders, "?")
-			values = append(values, roleValue)
-			ctx[field.Name] = roleValue
+			values = append(values, resolvedRoleValue)
+			ctx[field.Name] = resolvedRoleValue
 		case field.Default != nil:
 			dbValue, apiValue, normalizeErr := normalizeInputValue(&field, field.Default)
 			if normalizeErr != nil {
@@ -645,7 +647,11 @@ func (r *Runtime) promoteAuthUserToAdmin(requestID string, user map[string]any) 
 		return user, nil
 	}
 
-	if _, err := r.DB.ExecTagged(requestID, fmt.Sprintf("UPDATE %s SET %s = ? WHERE %s = ?", table, roleField, pk), "admin", userID); err != nil {
+	roleValue, err := resolveManagedAuthRoleValue(findField(r.authUser, cfg.RoleField), "admin")
+	if err != nil {
+		return nil, err
+	}
+	if _, err := r.DB.ExecTagged(requestID, fmt.Sprintf("UPDATE %s SET %s = ? WHERE %s = ?", table, roleField, pk), roleValue, userID); err != nil {
 		return nil, err
 	}
 	updated, found, err := r.loadAuthUserByID(requestID, userID)
@@ -656,6 +662,52 @@ func (r *Runtime) promoteAuthUserToAdmin(requestID string, user map[string]any) 
 		return user, nil
 	}
 	return updated, nil
+}
+
+func resolveManagedAuthRoleValue(field *model.Field, requestedRole string) (string, error) {
+	if field == nil {
+		return "", fmt.Errorf("auth role field is not available")
+	}
+	if len(field.EnumValues) == 0 {
+		return requestedRole, nil
+	}
+
+	findVariant := func(candidates ...string) string {
+		for _, candidate := range candidates {
+			for _, value := range field.EnumValues {
+				if strings.EqualFold(strings.TrimSpace(value), strings.TrimSpace(candidate)) {
+					return value
+				}
+			}
+		}
+		return ""
+	}
+
+	switch strings.ToLower(strings.TrimSpace(requestedRole)) {
+	case "admin":
+		if value := findVariant("admin"); value != "" {
+			return value, nil
+		}
+		return "", fmt.Errorf("auth role field %s must include an Admin value", field.Name)
+	case "user":
+		if value := findVariant("user", "member"); value != "" {
+			return value, nil
+		}
+		for _, value := range field.EnumValues {
+			if !strings.EqualFold(value, "admin") {
+				return value, nil
+			}
+		}
+		if len(field.EnumValues) > 0 {
+			return field.EnumValues[0], nil
+		}
+		return "", fmt.Errorf("auth role field %s must declare at least one value", field.Name)
+	default:
+		if value := findVariant(requestedRole); value != "" {
+			return value, nil
+		}
+		return "", fmt.Errorf("auth role field %s does not support role %q", field.Name, requestedRole)
+	}
 }
 
 // handleAuthLogout revokes the caller session token.

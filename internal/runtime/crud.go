@@ -218,8 +218,15 @@ func entityNullContext(entity *model.Entity) map[string]any {
 
 // validateEntityRules evaluates compiled entity rules against a request context.
 func (r *Runtime) validateEntityRules(entity *model.Entity, context map[string]any) error {
+	ctx := map[string]any{}
+	for key, value := range context {
+		ctx[key] = value
+	}
+	for name, value := range r.enumLiteralValues {
+		ctx[name] = value
+	}
 	for _, rule := range r.rules[entity.Name] {
-		v, err := rule.Expr.Eval(context)
+		v, err := rule.Expr.Eval(ctx)
 		if err != nil {
 			return &apiError{Status: http.StatusUnprocessableEntity, Code: "entity_rule_failed", Message: rule.Message, Details: map[string]any{"entity": entity.Name, "rule": rule.Expression}}
 		}
@@ -284,6 +291,9 @@ func (r *Runtime) isAuthorized(entity *model.Entity, action string, auth authSes
 	ctx["user_email"] = auth.Email
 	ctx["user_id"] = auth.UserID
 	ctx["user_role"] = auth.Role
+	for name, value := range r.enumLiteralValues {
+		ctx[name] = value
+	}
 
 	v, err := rule.Eval(ctx)
 	if err != nil {

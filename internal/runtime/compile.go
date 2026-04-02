@@ -14,6 +14,9 @@ func (r *Runtime) compileExpressions() error {
 		for _, field := range entity.Fields {
 			fieldVars[field.Name] = struct{}{}
 		}
+		for name := range r.enumLiteralValues {
+			fieldVars[name] = struct{}{}
+		}
 
 		compiledRules := make([]compiledRule, 0, len(entity.Rules))
 		for _, rule := range entity.Rules {

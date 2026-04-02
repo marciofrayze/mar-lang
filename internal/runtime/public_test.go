@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -273,5 +274,121 @@ entity Todo {
 	}
 	if !strings.Contains(rec.Body.String(), `"appName":"FrontApi"`) {
 		t.Fatalf("expected schema JSON body, got %q", rec.Body.String())
+	}
+}
+
+func TestSchemaEndpointIncludesEnumValues(t *testing.T) {
+	requireSQLite3(t)
+
+	app := mustParseApp(t, `
+app EnumApi
+database "./enum.db"
+
+type MembershipStatus {
+  Active
+  Inactive
+}
+
+entity GymMember {
+  status: MembershipStatus
+}
+
+type alias CreateGymMemberInput =
+  { status : MembershipStatus
+  }
+
+action createGymMember {
+  input: CreateGymMemberInput
+
+  create GymMember {
+    status: input.status
+  }
+}
+`)
+	app.Database = filepath.Join(t.TempDir(), "mar-schema-enum-values.db")
+
+	r, err := New(app)
+	if err != nil {
+		t.Fatalf("runtime.New failed: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/_mar/schema", nil)
+	r.handleHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for /_mar/schema, got %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("failed to decode schema response: %v", err)
+	}
+
+	entities, ok := payload["entities"].([]any)
+	if !ok {
+		t.Fatalf("expected entities array, got %#v", payload["entities"])
+	}
+
+	var foundEntityField bool
+	for _, rawEntity := range entities {
+		entityMap, ok := rawEntity.(map[string]any)
+		if !ok || entityMap["name"] != "GymMember" {
+			continue
+		}
+		fields, ok := entityMap["fields"].([]any)
+		if !ok {
+			t.Fatalf("expected fields array, got %#v", entityMap["fields"])
+		}
+		for _, rawField := range fields {
+			fieldMap, ok := rawField.(map[string]any)
+			if !ok || fieldMap["name"] != "status" {
+				continue
+			}
+			enumValues, ok := fieldMap["enumValues"].([]any)
+			if !ok {
+				t.Fatalf("expected enumValues for GymMember.status, got %#v", fieldMap["enumValues"])
+			}
+			if len(enumValues) != 2 || enumValues[0] != "Active" || enumValues[1] != "Inactive" {
+				t.Fatalf("unexpected enumValues for GymMember.status: %#v", enumValues)
+			}
+			foundEntityField = true
+		}
+	}
+	if !foundEntityField {
+		t.Fatal("expected GymMember.status to appear in schema payload")
+	}
+
+	inputAliases, ok := payload["inputAliases"].([]any)
+	if !ok {
+		t.Fatalf("expected inputAliases array, got %#v", payload["inputAliases"])
+	}
+
+	var foundAliasField bool
+	for _, rawAlias := range inputAliases {
+		aliasMap, ok := rawAlias.(map[string]any)
+		if !ok || aliasMap["name"] != "CreateGymMemberInput" {
+			continue
+		}
+		fields, ok := aliasMap["fields"].([]any)
+		if !ok {
+			t.Fatalf("expected alias fields array, got %#v", aliasMap["fields"])
+		}
+		for _, rawField := range fields {
+			fieldMap, ok := rawField.(map[string]any)
+			if !ok || fieldMap["name"] != "status" {
+				continue
+			}
+			enumValues, ok := fieldMap["enumValues"].([]any)
+			if !ok {
+				t.Fatalf("expected enumValues for CreateGymMemberInput.status, got %#v", fieldMap["enumValues"])
+			}
+			if len(enumValues) != 2 || enumValues[0] != "Active" || enumValues[1] != "Inactive" {
+				t.Fatalf("unexpected enumValues for CreateGymMemberInput.status: %#v", enumValues)
+			}
+			foundAliasField = true
+		}
+	}
+	if !foundAliasField {
+		t.Fatal("expected CreateGymMemberInput.status to appear in schema payload")
 	}
 }

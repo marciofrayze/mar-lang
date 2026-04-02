@@ -74,6 +74,9 @@ func (r *Runtime) compileReadAuthPredicateSQL(entity *model.Entity, auth authSes
 			}
 			return readAuthPredicateExprFromValue(value)
 		}
+		if value, ok := r.enumLiteralValues[n.Name]; ok {
+			return readAuthPredicateExprFromValue(value)
+		}
 		return readAuthSQLExpr{}, false
 	case expr.Unary:
 		if n.Op != "not" {
@@ -162,6 +165,9 @@ func (r *Runtime) compileReadAuthScalarSQL(entity *model.Entity, auth authSessio
 			if !ok {
 				return readAuthSQLExpr{}, false
 			}
+			return readAuthScalarExprFromValue(value)
+		}
+		if value, ok := r.enumLiteralValues[n.Name]; ok {
 			return readAuthScalarExprFromValue(value)
 		}
 		return readAuthSQLExpr{}, false
