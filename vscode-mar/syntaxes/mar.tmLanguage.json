@@ -255,7 +255,7 @@
         },
         {
           "name": "meta.authorize.action.mar",
-          "match": "\\b(authorize)\\s+(all|read|create|update|delete)\\b",
+          "match": "\\b(authorize)\\s+((?:read|create|update|delete)(?:\\s*,\\s*(?:read|create|update|delete))*)\\b",
           "captures": {
             "1": {
               "name": "keyword.control.authorization.mar"
@@ -334,7 +334,7 @@
         },
         {
           "name": "variable.language.mar",
-          "match": "\\b(input|user_authenticated|user_email|user_id|user_role)\\b"
+          "match": "\\b(input|anonymous|user_authenticated|user_email|user_id|user_role)\\b"
         },
         {
           "name": "support.constant.action.mar",

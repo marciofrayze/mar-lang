@@ -3,7 +3,7 @@ app OrderWorkflow
 entity Inventory {
   stock: Int
 
-  authorize all when true
+  authorize read, create, update, delete when anonymous or user_authenticated
 }
 
 entity Order {
@@ -11,20 +11,20 @@ entity Order {
   total: Float
   status: String
 
-  authorize all when true
+  authorize read, create, update, delete when anonymous or user_authenticated
 }
 
 entity Cart {
   checkedOut: Bool
 
-  authorize all when true
+  authorize read, create, update, delete when anonymous or user_authenticated
 }
 
 entity AuditLog {
   userId: Int
   event: String
 
-  authorize all when true
+  authorize read, create, update, delete when anonymous or user_authenticated
 }
 
 type alias PlaceOrderInput =
@@ -35,6 +35,7 @@ type alias PlaceOrderInput =
   }
 
 action placeOrder {
+  -- All steps run inside a single transaction.
   input: PlaceOrderInput
 
   inventory = load Inventory {

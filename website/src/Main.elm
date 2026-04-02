@@ -843,7 +843,7 @@ docSearchSectionText maybeSectionId =
                     ++ " Singular relationships use belongs_to."
 
                 "authentication-and-authorization" ->
-                    "Authentication and authorization. Mar includes a built-in email-code login flow and per-operation authorization rules. Authentication endpoints are always available. Every Mar app includes a built-in User entity that you may extend. Entity access is deny-by-default unless you declare authorize rules. Admin always has read-only access to the built-in User entity, even without explicit authorize rules. authorize all when sets a default rule for read, create, update, and delete, and specific operations can still override it. read also controls which rows appear in list responses. System features use the same session and require role equals admin."
+                    "Authentication and authorization. Mar includes a built-in email-code login flow and per-operation authorization rules. Authentication endpoints are always available. Every Mar app includes a built-in User entity that you may extend. Entity access is deny-by-default unless you declare authorize rules. Admin always has read-only access to the built-in User entity, even without explicit authorize rules. Authorize clauses accept one or more CRUD operations separated by commas. read also controls which rows appear in list responses. System features use the same session and require role equals admin."
 
                 "rules-and-typed-actions" ->
                     "Rules and typed actions. Rules are for validation close to the entity definition. Actions are for multi-step reads and writes that must succeed or fail together. Action steps can load, create, update, and delete rows inside the same transaction. Steps may bind aliases such as order = create Order or todo = load Todo, and later steps may reference alias fields like order.id. rule validates entity data and returns HTTP 422 when validation fails. Actions run in a single atomic transaction. Mar checks input types and assigned entity fields at compile time. Current limitations. Single .mar entry file per app. No multi-file projects or imports."
@@ -852,7 +852,7 @@ docSearchSectionText maybeSectionId =
                     "Language Reference. Browse the current keywords, built-in names, functions, primitive types, relationship syntax, and configuration options. Built-in primitive types include Int, String, Bool, Float, Date, and DateTime. Date and DateTime are stored internally as POSIX Unix milliseconds and returned in JSON as POSIX Unix milliseconds."
 
                 "validation-and-authorization-reference" ->
-                    "Validation and authorization reference. rule, expect, when, authorize, all, read, create, update, delete."
+                    "Validation and authorization reference. rule, expect, when, authorize, read, create, update, delete."
 
                 "auth-config-reference" ->
                     "Auth config reference. User, code_ttl_minutes, session_ttl_hours, auth_request_code_rate_limit_per_minute, auth_login_rate_limit_per_minute, admin_ui_session_ttl_hours, security_frame_policy, security_referrer_policy, security_content_type_nosniff, email_from, email_subject, smtp_host, smtp_port, smtp_username, smtp_password_env, smtp_starttls."
@@ -996,7 +996,7 @@ docSearchEntries =
       , route = AdvancedFundamentals
       , sectionId = Just "authentication-and-authorization"
       , summary = "Built-in User entity, email-code login, deny-by-default access, and authorize rules."
-      , keywords = [ "authentication", "authorization", "auth", "user", "authorize", "all", "read", "create", "update", "delete" ]
+      , keywords = [ "authentication", "authorization", "auth", "user", "authorize", "read", "create", "update", "delete" ]
       }
     , { title = "Rules and typed actions"
       , route = AdvancedFundamentals
@@ -1014,7 +1014,7 @@ docSearchEntries =
       , route = AdvancedLanguageReference
       , sectionId = Just "validation-and-authorization-reference"
       , summary = "Reference for rule, expect, when, authorize, and CRUD operations."
-      , keywords = [ "rule", "expect", "when", "authorize", "all", "read", "create", "update", "delete" ]
+      , keywords = [ "rule", "expect", "when", "authorize", "read", "create", "update", "delete" ]
       }
     , { title = "Auth config reference"
       , route = AdvancedLanguageReference
@@ -1382,7 +1382,8 @@ advancedLanguagePage model =
                     , "Every Mar app includes a built-in User entity that you may extend."
                     , "Entity access is deny-by-default unless you declare authorize rules."
                     , "Admin always has read-only access to the built-in User entity, even without explicit authorize rules."
-                    , "`authorize all when ...` sets a default rule for read, create, update, and delete, and specific operations can still override it."
+                    , "`authorize read, create, update, delete when ...` applies the same rule to multiple CRUD operations in one clause."
+                    , "For public access, use `anonymous or user_authenticated`."
                     , "`read` applies both to single-record reads and to which rows appear in list responses."
                     , "System features use the same session and require role == \"admin\"."
                     ]
@@ -1458,7 +1459,7 @@ advancedLanguageReferencePage =
                     , languageReferenceItem "expect" "Introduces the boolean expression enforced by a rule."
                     , languageReferenceItem "when" "Introduces the boolean expression used by an authorization clause."
                     , languageReferenceItem "authorize" "Declares per-operation authorization rules."
-                    , languageReferenceItem "all, read, create, update, delete" "The supported operations for authorize clauses. `all` sets a default rule for every CRUD operation. `read` controls both single-record reads and row visibility in list responses."
+                    , languageReferenceItem "read, create, update, delete" "The supported operations for authorize clauses. Separate multiple operations with commas. `read` controls both single-record reads and row visibility in list responses."
                     ]
                 , languageReferenceGroup "Actions"
                     [ languageReferenceItem "input" "Declares the action input type and is also used in expressions such as input.userId."
@@ -1492,8 +1493,8 @@ advancedLanguageReferencePage =
                     ]
                 , languageReferenceGroup "Built-in functions and values"
                     [ languageReferenceItem "length, contains, starts_with, ends_with, matches" "Built-in helpers available inside rule and authorize expressions, using Elm-like application syntax such as `contains \"@\" email`."
-                    , languageReferenceItem "user_authenticated, user_email, user_id, user_role" "Built-in authentication values available in expressions. For example: `user_role == \"admin\"`."
-                    , languageReferenceItem "true, false, null" "Built-in literals."
+                    , languageReferenceItem "anonymous, user_authenticated, user_email, user_id, user_role" "Built-in authentication values available in expressions. For example: `anonymous or user_authenticated` or `user_role == \"admin\"`."
+                    , languageReferenceItem "true, false, null" "Built-in literals. `true` is valid in expressions generally, but not in authorize clauses."
                     ]
                 ]
             ]
@@ -3677,7 +3678,7 @@ isPunctuationChar char =
 
 marCrudOperationWords : List String
 marCrudOperationWords =
-    [ "all", "read", "load", "create", "update", "delete" ]
+    [ "read", "load", "create", "update", "delete" ]
 
 
 marKeywordWords : List String
@@ -3747,7 +3748,7 @@ marHelperFunctionWords =
 
 marBuiltinValueWords : List String
 marBuiltinValueWords =
-    [ "user_authenticated", "user_email", "user_id", "user_role", "true", "false", "null" ]
+    [ "anonymous", "user_authenticated", "user_email", "user_id", "user_role", "true", "false", "null" ]
 
 
 wordToken : String -> Html.Html msg
@@ -3815,7 +3816,7 @@ entity Todo {
 
   rule "Title must have at least 3 chars" expect length title >= 3
 
-  authorize all when user_authenticated
+  authorize read, create, update, delete when user_authenticated
 }
 """
 
@@ -3828,7 +3829,7 @@ personalTodoExampleSource =
 
 app PersonalTodo
 
-entity PersonalTodo {
+entity Todo {
   title: String
   done: Bool
 
@@ -3837,10 +3838,7 @@ entity PersonalTodo {
 
   -- Users can only interact with their own todos.
   -- Admins can read and manage all todos.
-  authorize read when user_authenticated and (user == user_id or user_role == "admin")
-  authorize create when user_authenticated
-  authorize update when user_authenticated and (user == user_id or user_role == "admin")
-  authorize delete when user_authenticated and (user == user_id or user_role == "admin")
+  authorize read, create, update, delete when user_authenticated and (user == user_id or user_role == "admin")
 }
 """
 
@@ -3849,15 +3847,15 @@ relationshipExampleSource : String
 relationshipExampleSource =
     """app PersonalTodo
 
-entity PersonalTodo {
+entity Todo {
   title: String
   done: Bool
 
   -- This automatically assigns each todo to the authenticated user.
-  -- The authorize rules below use the generated `user` field so users only see their own todos.
   belongs_to current_user
 
-  authorize all when user_authenticated and (user == user_id or user_role == "admin")
+  -- The authorize rules below use the generated `user` field so users only see their own todos.
+  authorize read, create, update, delete when user_authenticated and (user == user_id or user_role == "admin")
 }
 """
 
@@ -3889,7 +3887,7 @@ app OrderWorkflow
 entity Inventory {
   stock: Int
 
-  authorize all when true
+  authorize read when anonymous or user_authenticated
 }
 
 entity Order {
@@ -3897,20 +3895,20 @@ entity Order {
   total: Float
   status: String
 
-  authorize all when true
+  authorize read, create, update, delete when anonymous or user_authenticated
 }
 
 entity Cart {
   checkedOut: Bool
 
-  authorize all when true
+  authorize read, create, update, delete when anonymous or user_authenticated
 }
 
 entity AuditLog {
   userId: Int
   event: String
 
-  authorize all when true
+  authorize read, create, update, delete when anonymous or user_authenticated
 }
 
 type alias PlaceOrderInput =
@@ -3921,6 +3919,7 @@ type alias PlaceOrderInput =
   }
 
 action placeOrder {
+  -- All steps run inside a single transaction.
   input: PlaceOrderInput
 
   inventory = load Inventory {
@@ -4046,9 +4045,8 @@ entity User {
 
   -- Admin always has read-only access to User, even without explicit rules.
   -- These rules are still useful when non-admin user access should be allowed.
-  authorize all when user_role == "admin"
+  authorize create, delete when user_role == "admin"
   authorize read when user_authenticated and (id == user_id or user_role == "admin")
-  authorize delete when user_role == "admin"
 }
 """
 
@@ -4056,9 +4054,13 @@ entity User {
 storeExampleSource : String
 storeExampleSource =
     """app BookStoreApi
-database "bookstore.db"
+
+-- You can customize the SQLite file name, but this is optional.
+database "book-store.db"
 
 auth {
+  -- These settings are optional.
+  -- Mar also supports other optional auth settings when you need to customize the login flow further.
   code_ttl_minutes 10
   session_ttl_hours 24
   email_from "no-reply@bookstore.local"
@@ -4068,13 +4070,14 @@ auth {
   smtp_password_env "RESEND_API_KEY"
 }
 
+-- Every Mar app includes a built-in User entity.
+-- Here we extend it with an optional profile field and customize access rules.
 entity User {
   displayName: String optional
 
-  authorize all when user_role == "admin"
   authorize read when user_authenticated and (id == user_id or user_role == "admin")
   authorize update when user_authenticated and ((id == user_id and role == user_role) or user_role == "admin")
-  authorize delete when user_role == "admin"
+  authorize create, delete when user_role == "admin"
 }
 
 entity Book {
@@ -4087,10 +4090,9 @@ entity Book {
   rule "Book title cannot be empty" expect title != ""
   rule "Price must be greater than zero" expect price > 0
 
-  authorize all when true
+  authorize read when anonymous or user_authenticated
   authorize create when user_authenticated
-  authorize update when user_role == "admin"
-  authorize delete when user_role == "admin"
+  authorize update, delete when user_role == "admin"
 }
 
 type alias PlaceBookOrderInput =

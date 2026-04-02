@@ -3,13 +3,13 @@ app EnrollmentApi
 entity Student {
   name: String
 
-  authorize all when true
+  authorize read, create, update, delete when anonymous or user_authenticated
 }
 
 entity Course {
   title: String
 
-  authorize all when true
+  authorize read, create, update, delete when anonymous or user_authenticated
 }
 
 entity Enrollment {
@@ -17,5 +17,5 @@ entity Enrollment {
   belongs_to Course
   enrolled_at: DateTime
 
-  authorize all when true
+  authorize read, create, update, delete when anonymous or user_authenticated
 }

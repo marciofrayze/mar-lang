@@ -12,7 +12,7 @@
       "  ${4:displayName}: String optional",
       "  ${5:rule \\\"Email must be valid\\\" expect matches \\\"^[^@\\\\s]+@[^@\\\\s]+\\\\.[^@\\\\s]+$\\\" email}",
       "  rule \"Role must be admin or user\" expect role == \"admin\" or role == \"user\"",
-      "  authorize all when user_role == \"admin\"",
+      "  authorize create, update when user_role == \"admin\"",
       "  authorize read when user_authenticated and (id == user_id or user_role == \"admin\")",
       "  authorize update when user_authenticated and (id == user_id or user_role == \"admin\")",
       "  authorize delete when user_role == \"admin\"",
@@ -28,7 +28,7 @@
       "entity ${6:Todo} {",
       "  id: Int primary auto",
       "  ${7:title}: String",
-      "  authorize all when user_authenticated",
+      "  authorize read, create, update, delete when user_authenticated",
       "}",
       "",
       "type alias ${8:RegisterUserInput} =",
@@ -53,7 +53,7 @@
       "  id: Int primary auto",
       "  ${2:name}: ${3:String}",
       "  ${4:rule \\\"Validation message\\\" expect true}",
-      "  authorize all when ${5:user_authenticated}",
+      "  authorize read, create, update, delete when ${5:user_authenticated}",
       "}"
     ]
   },
@@ -95,7 +95,7 @@
   "Mar Authorize": {
     "prefix": "authorize",
     "description": "Create one authorize rule",
-    "body": "authorize ${1|all,read,create,update,delete|} when ${2:user_authenticated}"
+    "body": "authorize ${1:read}, ${2:create}, ${3:update}, ${4:delete} when ${5:user_authenticated}"
   },
   "Mar Public Block": {
     "prefix": "public",
@@ -164,7 +164,7 @@
     "prefix": "authzcrud",
     "description": "Create full CRUD authorization rules",
     "body": [
-      "authorize all when ${1:user_authenticated}",
+      "authorize read, create, update, delete when ${1:user_authenticated}",
       "authorize read when ${2:user_authenticated and (id == user_id or user_role == \"admin\")}",
       "authorize delete when ${5:user_role == \"admin\"}" 
     ]
