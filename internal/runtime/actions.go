@@ -36,6 +36,13 @@ func (r *Runtime) handleAction(w http.ResponseWriter, requestID, actionName stri
 		}
 
 		for _, step := range action.Steps {
+			if step.Kind == "rule" {
+				if err := validateActionRule(step, auth, contextValues); err != nil {
+					return err
+				}
+				continue
+			}
+
 			entity := r.entitiesByName[step.Entity]
 			if entity == nil {
 				return newAPIError(http.StatusInternalServerError, "action_misconfigured", fmt.Sprintf("Action %s references unknown entity %s", action.Name, step.Entity))
@@ -73,6 +80,40 @@ func (r *Runtime) handleAction(w http.ResponseWriter, requestID, actionName stri
 		"steps":  len(action.Steps),
 	})
 	return nil
+}
+
+func validateActionRule(step model.ActionStep, auth authSession, contextValues map[string]any) error {
+	value, err := evalActionExpression(step.Expression, actionExpressionContext(auth, contextValues))
+	if err != nil {
+		return &apiError{
+			Status:  http.StatusUnprocessableEntity,
+			Code:    "action_rule_failed",
+			Message: step.Message,
+			Details: map[string]any{"rule": step.Expression},
+		}
+	}
+	if !expr.ToBool(value) {
+		return &apiError{
+			Status:  http.StatusUnprocessableEntity,
+			Code:    "action_rule_failed",
+			Message: step.Message,
+			Details: map[string]any{"rule": step.Expression},
+		}
+	}
+	return nil
+}
+
+func actionExpressionContext(auth authSession, contextValues map[string]any) map[string]any {
+	out := make(map[string]any, len(contextValues)+5)
+	for key, value := range contextValues {
+		out[key] = value
+	}
+	out["anonymous"] = !auth.Authenticated
+	out["user_authenticated"] = auth.Authenticated
+	out["user_email"] = auth.Email
+	out["user_id"] = auth.UserID
+	out["user_role"] = auth.Role
+	return out
 }
 
 func (r *Runtime) executeActionStep(tx *sqlitecli.ImmediateTx, action *model.Action, entity *model.Entity, step model.ActionStep, auth authSession, contextValues map[string]any) (map[string]any, error) {

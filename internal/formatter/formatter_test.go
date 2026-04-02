@@ -281,6 +281,58 @@ id:input.id
 	}
 }
 
+func TestFormatActionRulesCanonicalOutput(t *testing.T) {
+	valid := `
+app Demo
+entity Todo{
+title:String
+done:Bool default false
+}
+type alias CompleteTodoInput=
+{id:Int}
+action completeTodo{
+input:CompleteTodoInput
+todo=load Todo{
+id:input.id
+}
+rule "Todo must still be open" expect not todo.done
+update Todo{
+id:todo.id
+done:true
+}
+}
+`
+
+	formatted, err := Format(valid)
+	if err != nil {
+		t.Fatalf("format failed: %v", err)
+	}
+
+	expected := "" +
+		"app Demo\n" +
+		"entity Todo {\n" +
+		"  title: String\n" +
+		"  done: Bool default false\n" +
+		"}\n" +
+		"type alias CompleteTodoInput =\n" +
+		"  {id:Int}\n" +
+		"action completeTodo {\n" +
+		"  input: CompleteTodoInput\n" +
+		"  todo = load Todo {\n" +
+		"    id: input.id\n" +
+		"  }\n" +
+		"  rule \"Todo must still be open\" expect not todo.done\n" +
+		"  update Todo {\n" +
+		"    id: todo.id\n" +
+		"    done: true\n" +
+		"  }\n" +
+		"}\n"
+
+	if formatted != expected {
+		t.Fatalf("unexpected formatted output\n--- expected ---\n%s\n--- got ---\n%s", expected, formatted)
+	}
+}
+
 func TestFormatPublicBlockCanonicalOutput(t *testing.T) {
 	src := `
 app FrontApi

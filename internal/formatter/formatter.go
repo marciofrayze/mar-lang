@@ -305,6 +305,9 @@ func normalizeLine(trimmed string, state *formatState) string {
 		if m := actionInputRe.FindStringSubmatch(trimmed); m != nil {
 			return "input: " + m[1]
 		}
+		if m := ruleRe.FindStringSubmatch(trimmed); m != nil {
+			return `rule "` + m[1] + `" expect ` + strings.TrimSpace(m[2])
+		}
 		if m := actionStepRe.FindStringSubmatch(trimmed); m != nil {
 			if m[1] != "" {
 				return m[1] + " = " + m[2] + " " + m[3] + " {"

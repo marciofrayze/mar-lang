@@ -1522,6 +1522,87 @@ action renameTodo {
 	}
 }
 
+func TestParseActionSupportsRulesAfterLoad(t *testing.T) {
+	src := `
+app Demo
+
+entity Todo {
+  title: String
+  done: Bool default false
+}
+
+type alias CompleteTodoInput =
+  { id: Int
+  }
+
+action completeTodo {
+  input: CompleteTodoInput
+
+  todo = load Todo {
+    id: input.id
+  }
+
+  rule "Todo must still be open" expect not todo.done
+
+  update Todo {
+    id: todo.id
+    done: true
+  }
+}
+`
+
+	app, err := Parse(src)
+	if err != nil {
+		t.Fatalf("Parse returned error: %v", err)
+	}
+	if len(app.Actions) != 1 {
+		t.Fatalf("expected 1 action, got %d", len(app.Actions))
+	}
+	if got := app.Actions[0].Steps[1].Kind; got != "rule" {
+		t.Fatalf("expected second step kind rule, got %q", got)
+	}
+	if got := app.Actions[0].Steps[1].Message; got != "Todo must still be open" {
+		t.Fatalf("unexpected rule message %q", got)
+	}
+}
+
+func TestParseActionRuleRejectsUnknownFutureAlias(t *testing.T) {
+	src := `
+app Demo
+
+entity Todo {
+  title: String
+}
+
+type alias CompleteTodoInput =
+  { id: Int
+  }
+
+action completeTodo {
+  input: CompleteTodoInput
+
+  rule "Todo must exist" expect todo.id == input.id
+
+  todo = load Todo {
+    id: input.id
+  }
+
+  update Todo {
+    id: todo.id
+    title: todo.title
+  }
+}
+`
+
+	_, err := Parse(src)
+	if err == nil {
+		t.Fatal("expected parse error for action rule referencing future alias")
+	}
+	if !strings.Contains(err.Error(), `references unknown value "todo.id"`) {
+		t.Fatalf("unexpected error message: %v", err)
+	}
+}
+
 func TestParseActionLoadRequiresAlias(t *testing.T) {
 	src := `
 app Demo

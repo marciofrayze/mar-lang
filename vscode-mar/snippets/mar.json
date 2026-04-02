@@ -186,10 +186,23 @@
       "action ${1:placeOrder} {",
       "  input: ${2:PlaceOrderInput}",
       "",
-      "  ${3:order} = create ${4:Order} {",
-      "    ${5:userId}: input.${6:userId}",
+      "  ${3:item} = load ${4:Inventory} {",
+      "    ${5:id}: input.${6:itemId}",
+      "  }",
+      "",
+      "  rule \"${7:Item must be available}\" expect ${8:item.stock > 0}",
+      "",
+      "  ${9:order} = create ${10:Order} {",
+      "    ${11:userId}: input.${12:userId}",
       "  }",
       "}"
+    ]
+  },
+  "Mar Action Rule": {
+    "prefix": "actionrule",
+    "description": "Create a validation rule inside an action",
+    "body": [
+      "rule \"${1:Business rule failed}\" expect ${2:condition}"
     ]
   },
   "Mar Load Step": {

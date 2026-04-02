@@ -132,10 +132,12 @@ type Action struct {
 }
 
 type ActionStep struct {
-	Alias  string            `json:"alias,omitempty"`
-	Kind   string            `json:"kind"`
-	Entity string            `json:"entity"`
-	Values []ActionFieldExpr `json:"values"`
+	Alias      string            `json:"alias,omitempty"`
+	Kind       string            `json:"kind"`
+	Entity     string            `json:"entity,omitempty"`
+	Values     []ActionFieldExpr `json:"values,omitempty"`
+	Message    string            `json:"message,omitempty"`
+	Expression string            `json:"expression,omitempty"`
 }
 
 type ActionFieldExpr struct {

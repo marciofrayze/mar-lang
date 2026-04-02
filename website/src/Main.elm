@@ -3926,6 +3926,8 @@ action placeOrder {
     id: input.inventoryId
   }
 
+  rule "Item is out of stock" expect inventory.stock > 0
+
   order = create Order {
     userId: input.userId
     total: input.total

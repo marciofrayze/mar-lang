@@ -1573,6 +1573,16 @@ func parseActionBlock(lines []line, idx *int, name string) (*model.Action, error
 			continue
 		}
 
+		if m := match(`^rule\s+"([^"]+)"\s+expect\s+(.+)$`, trimmed); m != nil {
+			action.Steps = append(action.Steps, model.ActionStep{
+				Kind:       "rule",
+				Message:    m[1],
+				Expression: strings.TrimSpace(m[2]),
+			})
+			(*idx)++
+			continue
+		}
+
 		if m := match(`^([a-z][A-Za-z0-9_]*)\s*=\s*(load|create|update|delete)\s+([A-Za-z][A-Za-z0-9_]*)\s*\{$`, trimmed); m != nil {
 			step, err := parseActionStepBlock(lines, idx, name, m[2], m[3], m[1])
 			if err != nil {
@@ -1746,6 +1756,19 @@ func validateActions(app *model.App) error {
 			return parserErrorf("action %s must have at least one write step", action.Name)
 		}
 		for _, step := range action.Steps {
+			if step.Kind == "rule" {
+				if strings.TrimSpace(step.Message) == "" {
+					return parserErrorf("action %s has a rule with an empty message", action.Name)
+				}
+				if strings.TrimSpace(step.Expression) == "" {
+					return parserErrorf("action %s rule %q has an empty expression", action.Name, step.Message)
+				}
+				if err := validateBooleanExpr(step.Expression, availableVariables, true); err != nil {
+					return parserErrorf("action %s rule %q: %w", action.Name, step.Message, err)
+				}
+				continue
+			}
+
 			entity := entityByName[step.Entity]
 			if entity == nil {
 				return parserErrorf("action %s references unknown entity %q", action.Name, step.Entity)

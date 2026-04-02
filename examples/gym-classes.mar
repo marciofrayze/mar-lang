@@ -5,7 +5,8 @@
 -- - owners can create and manage their own gyms
 -- - owners can publish classes for those gyms
 -- - users can be added as gym members
--- - users can enroll themselves in classes
+-- - users can enroll themselves in classes through an action that validates
+--   membership, gym ownership, and remaining spots inside one transaction
 --
 -- It also shows two current limits of the language:
 -- - read access cannot yet be filtered by "user belongs to this gym" through
@@ -95,10 +96,43 @@ entity ClassEnrollment {
   rule "Enrollment status must be confirmed or canceled" expect status == "confirmed" or status == "canceled"
 
   -- Users can view and manage their own enrollments.
-  -- A future Mar with richer cross-entity rules could also enforce:
-  -- - attendee already belongs to the gym
-  -- - workoutClass still has available spots
+  -- The action below is the recommended way to create enrollments because it
+  -- also validates gym membership and remaining spots before writing anything.
   authorize read when user_authenticated and (attendee == user_id or user_role == "admin")
   authorize create when user_authenticated and attendee == user_id
   authorize update, delete when user_authenticated and (attendee == user_id or user_role == "admin")
+}
+
+type alias EnrollInClassInput =
+  { gymMemberId : Int
+  , workoutClassId : Int
+  }
+
+action enrollInClass {
+  input: EnrollInClassInput
+
+  gymMember = load GymMember {
+    id: input.gymMemberId
+  }
+
+  workoutClass = load WorkoutClass {
+    id: input.workoutClassId
+  }
+
+  rule "You can only enroll yourself" expect gymMember.member == user_id
+  rule "Gym membership must be active" expect gymMember.status == "active"
+  rule "The class must belong to your gym" expect gymMember.gym == workoutClass.gym
+  rule "The class is already full" expect workoutClass.remainingSpots > 0
+
+  create ClassEnrollment {
+    gym: workoutClass.gym
+    workoutClass: workoutClass.id
+    attendee: gymMember.member
+    status: "confirmed"
+  }
+
+  update WorkoutClass {
+    id: workoutClass.id
+    remainingSpots: workoutClass.remainingSpots - 1
+  }
 }

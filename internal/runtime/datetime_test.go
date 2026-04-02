@@ -285,3 +285,62 @@ action completeTodo {
 		t.Fatalf("expected aliased create to use updated title, got %#v", auditRows[0]["message"])
 	}
 }
+
+func TestActionsSupportRulesAfterLoad(t *testing.T) {
+	requireSQLite3(t)
+
+	r := mustNewRuntimeFromSource(t, filepath.Join(t.TempDir(), "action-rules.db"), `
+app TodoApi
+
+entity Todo {
+  title: String
+  done: Bool default false
+  authorize read, create, update, delete when anonymous or user_authenticated
+}
+
+type alias CompleteTodoInput =
+  { id: Int
+  }
+
+action completeTodo {
+  input: CompleteTodoInput
+
+  todo = load Todo {
+    id: input.id
+  }
+
+  rule "Todo is already completed" expect not todo.done
+
+  update Todo {
+    id: todo.id
+    done: true
+  }
+}
+`)
+
+	createRec := doRuntimeRequest(r, http.MethodPost, "/todos", `{"title":"Before"}`, "")
+	if createRec.Code != http.StatusCreated {
+		t.Fatalf("expected 201 create, got %d body=%s", createRec.Code, createRec.Body.String())
+	}
+
+	firstActionRec := doRuntimeRequest(r, http.MethodPost, "/actions/completeTodo", `{"id":1}`, "")
+	if firstActionRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 action, got %d body=%s", firstActionRec.Code, firstActionRec.Body.String())
+	}
+
+	secondActionRec := doRuntimeRequest(r, http.MethodPost, "/actions/completeTodo", `{"id":1}`, "")
+	if secondActionRec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("expected 422 action rule failure, got %d body=%s", secondActionRec.Code, secondActionRec.Body.String())
+	}
+
+	var failure map[string]any
+	if err := json.Unmarshal(secondActionRec.Body.Bytes(), &failure); err != nil {
+		t.Fatalf("decode failure response failed: %v body=%s", err, secondActionRec.Body.String())
+	}
+	if failure["errorCode"] != "action_rule_failed" {
+		t.Fatalf("expected action_rule_failed, got %#v", failure["errorCode"])
+	}
+	if failure["message"] != "Todo is already completed" {
+		t.Fatalf("unexpected action rule message %#v", failure["message"])
+	}
+}
