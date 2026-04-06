@@ -54,6 +54,9 @@ func (r *Runtime) schemaPayload(requestID string) map[string]any {
 				if len(field.EnumValues) > 0 {
 					fieldPayload["enumValues"] = field.EnumValues
 				}
+				if field.RelationEntity != "" {
+					fieldPayload["relationEntity"] = field.RelationEntity
+				}
 				fields = append(fields, fieldPayload)
 			}
 			aliases = append(aliases, map[string]any{

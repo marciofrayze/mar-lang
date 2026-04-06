@@ -330,6 +330,7 @@ struct InputAliasField: Codable, Hashable, Identifiable {
     let name: String
     let fieldType: String
     let enumValues: [String]
+    let relationEntity: String?
 
     var id: String { name }
 
@@ -337,6 +338,7 @@ struct InputAliasField: Codable, Hashable, Identifiable {
         case name
         case fieldType = "type"
         case enumValues
+        case relationEntity
     }
 }
 

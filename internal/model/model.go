@@ -128,9 +128,10 @@ type TypeAlias struct {
 }
 
 type AliasField struct {
-	Name       string   `json:"name"`
-	Type       string   `json:"type"`
-	EnumValues []string `json:"enumValues,omitempty"`
+	Name           string   `json:"name"`
+	Type           string   `json:"type"`
+	EnumValues     []string `json:"enumValues,omitempty"`
+	RelationEntity string   `json:"relationEntity,omitempty"`
 }
 
 type Action struct {

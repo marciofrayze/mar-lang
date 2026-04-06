@@ -680,13 +680,19 @@ applyActionRoute actionName model =
             let
                 baseModel =
                     resetForRoute model
+
+                nextModel =
+                    { baseModel
+                        | selectedAction = Just actionInfo
+                        , actionFormValues = actionFormDefaults model actionInfo
+                    }
             in
-            ( { baseModel
-                | selectedAction = Just actionInfo
-                , actionFormValues = actionFormDefaults model actionInfo
-              }
-            , Cmd.none
-            )
+            case findInputAlias actionInfo.inputAlias model of
+                Just aliasInfo ->
+                    ( nextModel, ensureRelationRowsForInputAlias nextModel aliasInfo )
+
+                Nothing ->
+                    ( nextModel, Cmd.none )
 
 
 applySystemRoute : Route -> Model -> ( Model, Cmd Msg )
@@ -1747,7 +1753,7 @@ update msg model =
             case result of
                 Ok response ->
                     withObservedSchemaVersion response.schemaVersion
-                        ( { model | actionResult = Just response.value, flash = Just "Action executed successfully" }, Cmd.none )
+                        ( { model | actionResult = Just response.value, flash = Nothing }, Cmd.none )
 
                 Err httpError ->
                     case handleUnauthorizedSessionExpiry model httpError of
@@ -1826,6 +1832,27 @@ loadRows model =
 ensureRelationRowsForEntity : Model -> Entity -> Cmd Msg
 ensureRelationRowsForEntity model entity =
     entity.fields
+        |> List.filterMap .relationEntity
+        |> uniqueStrings
+        |> List.filter
+            (\entityName ->
+                case Dict.get entityName model.relationRows of
+                    Just Loading ->
+                        False
+
+                    Just (Loaded _) ->
+                        False
+
+                    _ ->
+                        True
+            )
+        |> List.map (loadRelationRows model)
+        |> Cmd.batch
+
+
+ensureRelationRowsForInputAlias : Model -> InputAliasInfo -> Cmd Msg
+ensureRelationRowsForInputAlias model aliasInfo =
+    aliasInfo.fields
         |> List.filterMap .relationEntity
         |> uniqueStrings
         |> List.filter
@@ -4218,7 +4245,7 @@ viewSidebar model =
                 )
                 { onPress = Just (SelectAction actionInfo.name)
                 , label =
-                    sidebarItemLabel actionInfo.name (Just ("/actions/" ++ actionInfo.name))
+                    sidebarItemLabel (humanizeIdentifier actionInfo.name) (Just ("/actions/" ++ actionInfo.name))
                 }
 
         performanceButton : Element Msg
@@ -5404,6 +5431,81 @@ relationSelectField model field relationEntityName currentValue relatedRows =
         (SetFormField field.name)
 
 
+actionRelationFormField : Model -> InputAliasField -> String -> Element Msg
+actionRelationFormField model field relationEntityName =
+    let
+        currentValue =
+            Dict.get field.name model.actionFormValues |> Maybe.withDefault ""
+    in
+    case Dict.get relationEntityName model.relationRows of
+        Just (Loaded relatedRows) ->
+            actionRelationSelectField model field relationEntityName currentValue relatedRows
+
+        Just Loading ->
+            actionRelationStateField
+                field
+                "Loading options..."
+                ("Loading " ++ humanizeIdentifier relationEntityName ++ " options...")
+
+        Just (Failed _) ->
+            actionRelationStateField
+                field
+                "Options unavailable"
+                ("Could not load " ++ humanizeIdentifier relationEntityName ++ " options.")
+
+        _ ->
+            actionRelationStateField
+                field
+                "Loading options..."
+                ("Loading " ++ humanizeIdentifier relationEntityName ++ " options...")
+
+
+actionRelationSelectField : Model -> InputAliasField -> String -> String -> List Row -> Element Msg
+actionRelationSelectField model field relationEntityName currentValue relatedRows =
+    let
+        availableOptions =
+            relationOptions (findEntity relationEntityName model) relationEntityName relatedRows
+
+        optionExists =
+            List.any (\( optionValue, _ ) -> optionValue == currentValue) availableOptions
+
+        missingCurrentOption =
+            if String.trim currentValue /= "" && not optionExists then
+                [ ( currentValue, fallbackRelationLabel relationEntityName currentValue ++ " (unavailable)" ) ]
+
+            else
+                []
+
+        allOptions =
+            ( "", "Select " ++ humanizeIdentifier relationEntityName ) :: missingCurrentOption ++ availableOptions
+    in
+    selectFieldElement
+        (fieldLabel field.name)
+        currentValue
+        ""
+        allOptions
+        (SetActionField field.name)
+
+
+actionRelationStateField : InputAliasField -> String -> String -> Element Msg
+actionRelationStateField field valueText helperText =
+    column
+        [ width fill, spacing 6 ]
+        [ formFieldLabelElement (fieldLabel field.name)
+        , el
+            [ width fill
+            , paddingEach { top = 12, right = 12, bottom = 12, left = 12 }
+            , Border.rounded 12
+            , Border.width 1
+            , Border.color (rgb255 222 230 241)
+            , Background.color (rgb255 248 250 254)
+            , Font.color (rgb255 108 119 133)
+            ]
+            (text valueText)
+        , el [ Font.size 12, Font.color (rgb255 108 119 133) ] (text helperText)
+        ]
+
+
 enumSelectField : String -> Bool -> String -> List String -> (String -> Msg) -> Element Msg
 enumSelectField labelText isOptional currentValue enumValues onChangeMsg =
     let
@@ -6442,7 +6544,7 @@ viewActionPanel model actionInfo =
         Nothing ->
             column
                 ((height fill) :: cupertinoPanelAttrs 12 16)
-                [ viewPanelHeader (isCompactLayout model) ("Action: " ++ actionInfo.name) [] []
+                [ viewPanelHeader (isCompactLayout model) ("Action: " ++ humanizeIdentifier actionInfo.name) [] []
                 , paragraph [ Font.color (rgb255 176 60 46) ] [ text ("Input alias not found: " ++ actionInfo.inputAlias) ]
                 ]
 
@@ -6451,56 +6553,78 @@ viewActionPanel model actionInfo =
                 workspace =
                     currentWorkspace model
 
+                canRunAction =
+                    aliasInfo.fields
+                        |> List.all
+                            (\field ->
+                                case field.relationEntity of
+                                    Nothing ->
+                                        True
+
+                                    Just relationEntityName ->
+                                        case Dict.get relationEntityName model.relationRows of
+                                            Just (Loaded _) ->
+                                                True
+
+                                            _ ->
+                                                False
+                            )
+
                 fieldInput : InputAliasField -> Element Msg
                 fieldInput field =
-                    if field.fieldType == "Bool" then
-                        formBooleanField
-                            (fieldLabel field.name)
-                            False
-                            (Dict.get field.name model.actionFormValues |> Maybe.withDefault "false")
-                            (SetActionField field.name)
+                    case field.relationEntity of
+                        Just relationEntityName ->
+                            actionRelationFormField model field relationEntityName
 
-                    else if field.fieldType == "Date" then
-                        dateField
-                            (fieldLabel field.name)
-                            (Dict.get field.name model.actionFormValues |> Maybe.withDefault "")
-                            (SetActionField field.name)
+                        Nothing ->
+                            if field.fieldType == "Bool" then
+                                formBooleanField
+                                    (fieldLabel field.name)
+                                    False
+                                    (Dict.get field.name model.actionFormValues |> Maybe.withDefault "false")
+                                    (SetActionField field.name)
 
-                    else if field.fieldType == "DateTime" then
-                        dateTimeField
-                            (fieldLabel field.name ++ " (UTC)")
-                            (Dict.get field.name model.actionFormValues |> Maybe.withDefault "")
-                            (SetActionField field.name)
+                            else if field.fieldType == "Date" then
+                                dateField
+                                    (fieldLabel field.name)
+                                    (Dict.get field.name model.actionFormValues |> Maybe.withDefault "")
+                                    (SetActionField field.name)
 
-                    else if not (List.isEmpty field.enumValues) then
-                        enumSelectField
-                            (fieldLabel field.name)
-                            False
-                            (Dict.get field.name model.actionFormValues |> Maybe.withDefault "")
-                            field.enumValues
-                            (SetActionField field.name)
+                            else if field.fieldType == "DateTime" then
+                                dateTimeField
+                                    (fieldLabel field.name ++ " (UTC)")
+                                    (Dict.get field.name model.actionFormValues |> Maybe.withDefault "")
+                                    (SetActionField field.name)
 
-                    else
-                        Input.text cupertinoTextInputAttrs
-                            { onChange = SetActionField field.name
-                            , text = Dict.get field.name model.actionFormValues |> Maybe.withDefault ""
-                            , placeholder =
-                                Just
-                                    (Input.placeholder []
-                                        (text (placeholderForType field.name field.fieldType))
-                                    )
-                            , label = Input.labelAbove [ Font.size 12 ] (text (fieldLabel field.name))
-                            }
+                            else if not (List.isEmpty field.enumValues) then
+                                enumSelectField
+                                    (fieldLabel field.name)
+                                    False
+                                    (Dict.get field.name model.actionFormValues |> Maybe.withDefault "")
+                                    field.enumValues
+                                    (SetActionField field.name)
+
+                            else
+                                Input.text cupertinoTextInputAttrs
+                                    { onChange = SetActionField field.name
+                                    , text = Dict.get field.name model.actionFormValues |> Maybe.withDefault ""
+                                    , placeholder =
+                                        Just
+                                            (Input.placeholder []
+                                                (text (placeholderForType field.name field.fieldType))
+                                            )
+                                    , label = Input.labelAbove [ Font.size 12 ] (text (fieldLabel field.name))
+                                    }
             in
             column
                 ((height fill) :: cupertinoPanelAttrs 12 16)
                 (List.concat
                     [ [ viewPanelHeader (isCompactLayout model)
                             (if workspace == AppWorkspace then
-                                actionInfo.name
+                                humanizeIdentifier actionInfo.name
 
                              else
-                                "Action: " ++ actionInfo.name
+                                "Action: " ++ humanizeIdentifier actionInfo.name
                             )
                             (if workspace == AppWorkspace then
                                 []
@@ -6516,7 +6640,12 @@ viewActionPanel model actionInfo =
                     , [ if isCompactLayout model then
                             wrappedRow [ width fill, spacing 10 ]
                                 [ cupertinoPrimaryButton
-                                    (Just RunAction)
+                                    (if canRunAction then
+                                        Just RunAction
+
+                                     else
+                                        Nothing
+                                    )
                                     (if workspace == AppWorkspace then
                                         "Continue"
 
@@ -6529,7 +6658,12 @@ viewActionPanel model actionInfo =
                             row [ width fill ]
                                 [ el [ width fill ] none
                                 , cupertinoPrimaryButton
-                                    (Just RunAction)
+                                    (if canRunAction then
+                                        Just RunAction
+
+                                     else
+                                        Nothing
+                                    )
                                     (if workspace == AppWorkspace then
                                         "Continue"
 
@@ -6543,31 +6677,58 @@ viewActionPanel model actionInfo =
                                 none
 
                             Just response ->
-                                column
-                                    (cupertinoInsetCardAttrs 12 ++ [ width fill, spacing 8 ])
-                                    (el [ Font.bold ]
-                                        (text
-                                            (if workspace == AppWorkspace then
-                                                "Result"
-
-                                             else
-                                                "Response"
-                                            )
-                                        )
-                                        :: (response
-                                                |> Dict.toList
-                                                |> List.map
-                                                    (\( key, value ) ->
-                                                        row [ width fill, spacing 8 ]
-                                                            [ el [ Font.bold ] (text key)
-                                                            , paragraph [ Font.size 13, Font.color (rgb255 82 92 108) ] [ text (valueToString value) ]
-                                                            ]
-                                                    )
-                                           )
-                                    )
+                                viewActionResult model response
                       ]
                     ]
                 )
+
+
+viewActionResult : Model -> Row -> Element Msg
+viewActionResult model response =
+    let
+        showAdminDetails =
+            isAdminProfile model && currentWorkspace model == AdminWorkspace
+    in
+    column
+        (cupertinoInsetCardAttrs 12 ++ [ width fill, spacing 12 ])
+        (column
+            [ width fill, spacing 6 ]
+            [ el [ Font.bold, Font.size 18, Font.color (rgb255 39 51 68) ] (text "Action completed")
+            , paragraph [ Font.size 14, Font.color (rgb255 82 92 108) ]
+                [ text "The requested action completed successfully." ]
+            ]
+            :: (if showAdminDetails then
+                    [ el [ width fill, height (px 1), Background.color (rgb255 232 237 245) ] none
+                    , viewActionAdminDetails response
+                    ]
+
+                else
+                    []
+               )
+        )
+
+
+viewActionAdminDetails : Row -> Element Msg
+viewActionAdminDetails response =
+    column
+        [ width fill, spacing 10 ]
+        [ el [ Font.bold, Font.size 14, Font.color (rgb255 56 68 84) ] (text "Admin details")
+        , column
+            (cupertinoInsetCardAttrs 10 ++ [ width fill, spacing 8 ])
+            (el [ Font.bold, Font.size 13, Font.color (rgb255 56 68 84) ] (text "Server response")
+                :: (response
+                        |> Dict.toList
+                        |> List.sortBy Tuple.first
+                        |> List.map
+                            (\( key, value ) ->
+                                row [ width fill, spacing 8 ]
+                                    [ el [ Font.bold, Font.size 13, Font.color (rgb255 56 68 84) ] (text key)
+                                    , paragraph [ Font.size 13, Font.color (rgb255 82 92 108) ] [ text (valueToString value) ]
+                                    ]
+                            )
+                   )
+            )
+        ]
 
 
 viewRows : Model -> Element Msg
@@ -7958,7 +8119,7 @@ viewActionInfo actionInfo =
             ]
         , wrappedRow [ width fill, spacing 8 ]
             [ el [ Font.bold ] (text "Name")
-            , el [ Font.size 13, Font.color (rgb255 93 103 120) ] (text actionInfo.name)
+            , el [ Font.size 13, Font.color (rgb255 93 103 120) ] (text (humanizeIdentifier actionInfo.name))
             ]
         , wrappedRow [ width fill, spacing 8 ]
             [ el [ Font.bold ] (text "Input")

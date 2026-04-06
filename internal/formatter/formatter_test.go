@@ -281,6 +281,54 @@ id:input.id
 	}
 }
 
+func TestFormatActionAliasRefCanonicalOutput(t *testing.T) {
+	valid := `
+app Demo
+entity Post{
+title:String
+}
+type alias PublishPostInput=
+{post:ref Post}
+action publishPost{
+input:PublishPostInput
+loadedPost=load Post{
+id:input.post
+}
+update Post{
+id:loadedPost.id
+title:loadedPost.title
+}
+}
+`
+
+	formatted, err := Format(valid)
+	if err != nil {
+		t.Fatalf("format failed: %v", err)
+	}
+
+	expected := "" +
+		"app Demo\n" +
+		"entity Post {\n" +
+		"  title: String\n" +
+		"}\n" +
+		"type alias PublishPostInput =\n" +
+		"  {post:ref Post}\n" +
+		"action publishPost {\n" +
+		"  input: PublishPostInput\n" +
+		"  loadedPost = load Post {\n" +
+		"    id: input.post\n" +
+		"  }\n" +
+		"  update Post {\n" +
+		"    id: loadedPost.id\n" +
+		"    title: loadedPost.title\n" +
+		"  }\n" +
+		"}\n"
+
+	if formatted != expected {
+		t.Fatalf("unexpected formatted output\n--- expected ---\n%s\n--- got ---\n%s", expected, formatted)
+	}
+}
+
 func TestFormatActionRulesCanonicalOutput(t *testing.T) {
 	valid := `
 app Demo

@@ -121,8 +121,8 @@ entity AuditLog {
 -- 3) write an AuditLog event
 type alias PlaceBookOrderInput =
   { orderRef : String
-  , userId : Int
-  , bookId : Int
+  , userId : ref User
+  , bookId : ref Book
   , quantity : Int
   , unitPrice : Float
   , lineTotal : Float
@@ -133,12 +133,12 @@ type alias PlaceBookOrderInput =
 action placeBookOrder {
   input: PlaceBookOrderInput
 
-  book = load Book {
+  selectedBook = load Book {
     id: input.bookId
   }
 
   rule "You can only place orders for yourself" expect input.userId == user_id or user_role == Admin
-  rule "Not enough books in stock" expect book.stock >= input.quantity
+  rule "Not enough books in stock" expect selectedBook.stock >= input.quantity
 
   order = create Order {
     orderRef: input.orderRef
@@ -159,8 +159,8 @@ action placeBookOrder {
   }
 
   update Book {
-    id: book.id
-    stock: book.stock - input.quantity
+    id: selectedBook.id
+    stock: selectedBook.stock - input.quantity
   }
 
   auditLog = create AuditLog {

@@ -392,3 +392,82 @@ action createGymMember {
 		t.Fatal("expected CreateGymMemberInput.status to appear in schema payload")
 	}
 }
+
+func TestSchemaEndpointIncludesActionInputRelationEntity(t *testing.T) {
+	requireSQLite3(t)
+
+	app := mustParseApp(t, `
+app Blog
+database "./blog.db"
+
+entity Post {
+  title: String
+}
+
+type alias PublishPostInput =
+  { post : ref Post
+  }
+
+action publishPost {
+  input: PublishPostInput
+
+  loadedPost = load Post {
+    id: input.post
+  }
+
+  update Post {
+    id: loadedPost.id
+    title: loadedPost.title
+  }
+}
+`)
+	app.Database = filepath.Join(t.TempDir(), "mar-schema-action-input-rel.db")
+
+	r, err := New(app)
+	if err != nil {
+		t.Fatalf("runtime.New failed: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/_mar/schema", nil)
+	r.handleHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for /_mar/schema, got %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("failed to decode schema response: %v", err)
+	}
+
+	inputAliases, ok := payload["inputAliases"].([]any)
+	if !ok {
+		t.Fatalf("expected inputAliases array, got %#v", payload["inputAliases"])
+	}
+
+	for _, rawAlias := range inputAliases {
+		aliasMap, ok := rawAlias.(map[string]any)
+		if !ok || aliasMap["name"] != "PublishPostInput" {
+			continue
+		}
+		fields, ok := aliasMap["fields"].([]any)
+		if !ok {
+			t.Fatalf("expected alias fields array, got %#v", aliasMap["fields"])
+		}
+		for _, rawField := range fields {
+			fieldMap, ok := rawField.(map[string]any)
+			if !ok || fieldMap["name"] != "post" {
+				continue
+			}
+			if got := fieldMap["type"]; got != "Int" {
+				t.Fatalf("expected PublishPostInput.post type Int, got %#v", got)
+			}
+			if got := fieldMap["relationEntity"]; got != "Post" {
+				t.Fatalf("expected PublishPostInput.post relationEntity Post, got %#v", got)
+			}
+			return
+		}
+	}
+
+	t.Fatal("expected PublishPostInput.post to appear in schema payload")
+}

@@ -818,13 +818,13 @@ docSearchSectionText maybeSectionId =
         Just sectionId ->
             case sectionId of
                 "home-hero" ->
-                    "Home hero. A simple declarative backend language. Mar compiles declarative source into a self-contained server executable with a REST API, database, authentication, authorization, built-in app UI, monitoring, schema migrations, and backups. All in a single binary. Inspired by Elm, PocketBase, and Rails. Get Started. Advanced Guide."
+                    "Home hero. Declare once, run everywhere. Mar is a declarative fullstack language. Define your app once and run it across the backend, the built-in web App, and generated iOS apps today. More platforms coming soon. Inspired by Elm, PocketBase, and Rails. Get Started. Advanced Guide."
 
                 "why-mar" ->
-                    "Why Mar. Less glue code. More backend. Declarative at its core. You describe the system at a higher level. Opinionated on purpose. Mar chooses a coherent runtime instead of exposing endless assembly decisions. Everything bundled. Authentication, authorization, admin tools, logs, monitoring, schema migrations, and built-in database backups are included from the start."
+                    "Why Mar. Less glue code. More fullstack. Declarative at its core. You describe the system at a higher level. Opinionated on purpose. Mar chooses a coherent runtime instead of exposing endless assembly decisions. Everything bundled. Authentication, authorization, admin tools, logs, monitoring, schema migrations, and built-in database backups are included from the start."
 
                 "who-mar-is-for" ->
-                    "Who Mar Is For. Mar is a strong fit for people who want the backend to stay boring in the best way: simple to run, easy to update, operational from day one, and without a lot of handwritten glue. Good fit for small teams, internal tools, MVPs, and product teams that want a coherent backend."
+                    "Who Mar Is For. Mar is a strong fit for people who want fullstack to feel boring, in the best way: simple to run, easy to update, operational from day one, and without a lot of handwritten glue. Good fit for small teams, internal tools, MVPs, and product teams that want a coherent app stack."
 
                 "getting-started-intro" ->
                     "Getting Started. Install Mar, iterate quickly with hot reload, and deploy as a single executable."
@@ -912,16 +912,16 @@ docSearchSectionText maybeSectionId =
                     "Compiler pipeline. Parse. Validate. Generate clients. Build bundle. Stamp prebuilt runtimes. Single executable per target platform. Typed clients. Packaged executables."
 
                 "examples" ->
-                    "Examples. Browse the Shared Todo API, Personal Todo API, and BookStore API examples."
+                    "Examples. Browse the Shared Todo, Personal Todo, and Blog examples."
 
                 "shared-todo-api-example" ->
-                    "Shared Todo API example. Minimal CRUD example using shared-todo.mar."
+                    "Shared Todo example. Minimal CRUD example using shared-todo.mar."
 
                 "personal-todo-api-example" ->
-                    "Personal Todo API example. User-owned todos with admin access, using personal-todo.mar."
+                    "Personal Todo example. User-owned todos with admin access, using personal-todo.mar."
 
-                "bookstore-api-example" ->
-                    "BookStore API example. Auth, roles, and transactional action example using store.mar. placeBookOrder."
+                "blog-example" ->
+                    "Blog example. Posts, comments, and a transactional publish action using blog.mar. publishPost."
 
                 _ ->
                     ""
@@ -935,20 +935,20 @@ docSearchEntries =
     [ { title = "Home"
       , route = Home
       , sectionId = Just "home-hero"
-      , summary = "A simple declarative backend language."
-      , keywords = [ "simple", "declarative", "backend language", "home", "Elm", "PocketBase", "Rails", "Go" ]
+      , summary = "Declare once, run everywhere."
+      , keywords = [ "declare once run everywhere", "declarative", "fullstack language", "backend", "web", "ios", "home", "Elm", "PocketBase", "Rails", "Go" ]
       }
     , { title = "Why Mar"
       , route = Home
       , sectionId = Just "why-mar"
-      , summary = "Less glue code. More backend. Declarative at its core, opinionated on purpose, and everything bundled."
-      , keywords = [ "declarative", "opinionated", "everything bundled", "less glue code", "more backend", "auth", "admin tools", "logs", "monitoring", "backups" ]
+      , summary = "Less glue code. More fullstack. Declarative at its core, opinionated on purpose, and everything bundled."
+      , keywords = [ "declarative", "opinionated", "everything bundled", "less glue code", "more fullstack", "auth", "admin tools", "logs", "monitoring", "backups" ]
       }
     , { title = "Who Mar Is For"
       , route = Home
       , sectionId = Just "who-mar-is-for"
-      , summary = "A strong fit for teams that want the backend to stay boring in the best way: simple to run, easy to update, and operational from day one."
-      , keywords = [ "boring", "backend", "mvp", "lean teams", "small teams", "simple deploy", "easy maintenance", "one binary" ]
+      , summary = "A strong fit for teams that want fullstack to feel boring, in the best way: simple to run, easy to update, and operational from day one."
+      , keywords = [ "boring", "fullstack", "mvp", "lean teams", "small teams", "simple deploy", "easy maintenance", "app stack" ]
       }
     , { title = "Getting Started"
       , route = GettingStarted
@@ -1121,26 +1121,26 @@ docSearchEntries =
     , { title = "Examples"
       , route = Examples
       , sectionId = Just "examples"
-      , summary = "Browse the Shared Todo API, Personal Todo API, and BookStore API examples."
-      , keywords = [ "examples", "shared todo", "personal todo", "store", "bookstore", "sample apps" ]
+      , summary = "Browse the Shared Todo, Personal Todo, and Blog examples."
+      , keywords = [ "examples", "shared todo", "personal todo", "blog", "sample apps" ]
       }
-    , { title = "Shared Todo API example"
+    , { title = "Shared Todo example"
       , route = Examples
       , sectionId = Just "shared-todo-api-example"
       , summary = "Minimal CRUD example using shared-todo.mar."
       , keywords = [ "shared todo", "shared-todo.mar", "minimal crud", "example" ]
       }
-    , { title = "Personal Todo API example"
+    , { title = "Personal Todo example"
       , route = Examples
       , sectionId = Just "personal-todo-api-example"
       , summary = "User-owned todo example with admin access using personal-todo.mar."
       , keywords = [ "personal todo", "personal-todo.mar", "belongs_to user", "admin", "example" ]
       }
-    , { title = "BookStore API example"
+    , { title = "Blog example"
       , route = Examples
-      , sectionId = Just "bookstore-api-example"
-      , summary = "Auth, roles, and transactional action example using store.mar."
-      , keywords = [ "store", "store.mar", "bookstore", "auth", "roles", "transactional action", "placeBookOrder" ]
+      , sectionId = Just "blog-example"
+      , summary = "Posts, comments, and a transactional publish action using blog.mar."
+      , keywords = [ "blog", "blog.mar", "posts", "comments", "auth", "transactional action", "publishPost", "published" ]
       }
     ]
 
@@ -1211,7 +1211,7 @@ homeGetStartedCta =
                 , Font.color (rgb255 72 95 123)
                 , width fill
                 ]
-                [ text "Start with the setup guide and run your first app locally." ]
+                [ text "Start with the setup guide and run your first fullstack Mar app locally." ]
             , row [ width fill ]
                 [ el [ width fill ] none
                 , link
@@ -1799,7 +1799,7 @@ examplesPage model =
         [ panelWithAttributes [ htmlAttribute (HtmlAttr.id "examples"), htmlAttribute (HtmlAttr.id "shared-todo-api-example") ]
             [ row [ width fill, spacing 12 ]
                 [ column [ width fill, spacing 4 ]
-                    [ paragraph [ Font.size 22, Font.bold, Font.color (rgb255 20 53 89) ] [ text "Shared Todo API" ]
+                    [ paragraph [ Font.size 22, Font.bold, Font.color (rgb255 20 53 89) ] [ text "Shared Todo" ]
                     , paragraph [ Font.size 15, Font.color (rgb255 95 114 138) ] [ text "Minimal CRUD example" ]
                     ]
                 ]
@@ -1808,20 +1808,20 @@ examplesPage model =
         , panelWithAttributes [ htmlAttribute (HtmlAttr.id "personal-todo-api-example") ]
             [ row [ width fill, spacing 12 ]
                 [ column [ width fill, spacing 4 ]
-                    [ paragraph [ Font.size 22, Font.bold, Font.color (rgb255 20 53 89) ] [ text "Personal Todo API" ]
+                    [ paragraph [ Font.size 22, Font.bold, Font.color (rgb255 20 53 89) ] [ text "Personal Todo" ]
                     , paragraph [ Font.size 15, Font.color (rgb255 95 114 138) ] [ text "User-owned todos with admin access" ]
                     ]
                 ]
             , codeFromString model "personal-todo.mar" 420 personalTodoExampleSource
             ]
-        , panelWithAttributes [ htmlAttribute (HtmlAttr.id "bookstore-api-example") ]
+        , panelWithAttributes [ htmlAttribute (HtmlAttr.id "blog-example") ]
             [ row [ width fill, spacing 12 ]
                 [ column [ width fill, spacing 4 ]
-                    [ paragraph [ Font.size 22, Font.bold, Font.color (rgb255 20 53 89) ] [ text "BookStore API" ]
-                    , paragraph [ Font.size 15, Font.color (rgb255 95 114 138) ] [ text "Auth, roles, and transactional action" ]
+                    [ paragraph [ Font.size 22, Font.bold, Font.color (rgb255 20 53 89) ] [ text "Blog" ]
+                    , paragraph [ Font.size 15, Font.color (rgb255 95 114 138) ] [ text "Posts, comments, and a transactional publish action" ]
                     ]
                 ]
-            , codeFromString model "store.mar" 360 storeExampleSource
+            , codeFromString model "blog.mar" 500 blogExampleSource
             ]
         , examplesAdvancedCta
         ]
@@ -1865,9 +1865,9 @@ hero =
     panelWithAttributes [ htmlAttribute (HtmlAttr.id "home-hero") ]
         [ column [ spacing 10, width fill ]
             [ paragraph [ Font.size 38, Font.bold, Font.color (rgb255 16 44 79), width (fill |> maximum 900) ]
-                [ text "A simple declarative backend language." ]
+                [ text "Declare once, run everywhere." ]
             , paragraph [ Font.size 18, Font.color (rgb255 72 95 123), width fill ]
-                [ text "Mar compiles declarative source into a self-contained server executable with a REST API, database, authentication, authorization, built-in App UI, monitoring, schema migrations, and backups. All in a single binary." ]
+                [ text "Mar is a declarative fullstack language. Define your app once and run it across the backend, the built-in web App, and generated iOS apps today. More platforms coming soon." ]
             , paragraph [ Font.size 16, Font.color (rgb255 96 116 140), width (fill |> maximum 880) ]
                 [ text "Inspired by "
                 , newTabLink
@@ -2391,7 +2391,7 @@ whyLayoutChosen =
             , Border.rounded 16
             ]
             [ paragraph [ Font.size 32, Font.bold, Font.color (rgb255 246 250 255), width fill ]
-                [ text "Less glue code. More backend." ]
+                [ text "Less glue code. More fullstack." ]
             , paragraph [ Font.size 16, Font.color (rgb255 205 220 238), width fill ]
                 [ text "Declarative at its core. Opinionated on purpose. Everything bundled." ]
             ]
@@ -2435,7 +2435,7 @@ whyFeatureStrip title description =
 
 audienceHeadlineCopy : String
 audienceHeadlineCopy =
-    "For teams that want the backend to feel boring in the best way."
+    "For teams that want fullstack to feel boring, in the best way."
 
 
 audienceSummaryCopy : String
@@ -2445,7 +2445,7 @@ audienceSummaryCopy =
 
 audienceNeedOne : String
 audienceNeedOne =
-    "You want declarative backend code."
+    "You want predictable code."
 
 
 audienceNeedTwo : String
@@ -3375,34 +3375,39 @@ codeFromString model fileName boxHeight source =
                     )
                 )
     in
-    if hasHeader then
-        column
-            [ width fill
-            , spacing 0
-            ]
-            [ row
+    el
+        [ width fill
+        , paddingEach { top = 8, right = 0, bottom = 0, left = 0 }
+        ]
+        (if hasHeader then
+            column
                 [ width fill
-                , paddingEach { top = 0, right = 4, bottom = 0, left = 0 }
+                , spacing 0
                 ]
-                [ el
-                    [ Background.color (rgb255 24 47 73)
-                    , Border.widthEach { top = 1, right = 1, bottom = 0, left = 1 }
-                    , Border.color (rgb255 38 70 105)
-                    , Border.roundEach { topLeft = 10, topRight = 10, bottomLeft = 0, bottomRight = 0 }
-                    , paddingEach { top = 8, right = 12, bottom = 8, left = 12 }
-                    , Font.family [ Font.typeface "IBM Plex Mono", Font.monospace ]
-                    , Font.size 13
-                    , Font.color (rgb255 176 199 225)
+                [ row
+                    [ width fill
+                    , paddingEach { top = 0, right = 4, bottom = 0, left = 0 }
                     ]
-                    (text fileName)
-                , el [ width fill ] (text "")
-                , copyLink model source
+                    [ el
+                        [ Background.color (rgb255 24 47 73)
+                        , Border.widthEach { top = 1, right = 1, bottom = 0, left = 1 }
+                        , Border.color (rgb255 38 70 105)
+                        , Border.roundEach { topLeft = 10, topRight = 10, bottomLeft = 0, bottomRight = 0 }
+                        , paddingEach { top = 8, right = 12, bottom = 8, left = 12 }
+                        , Font.family [ Font.typeface "IBM Plex Mono", Font.monospace ]
+                        , Font.size 13
+                        , Font.color (rgb255 176 199 225)
+                        ]
+                        (text fileName)
+                    , el [ width fill ] (text "")
+                    , copyLink model source
+                    ]
+                , codeBox 0 0
                 ]
-            , codeBox 0 0
-            ]
 
-    else
-        codeBox 10 10
+         else
+            codeBox 10 10
+        )
 
 
 trimTrailingEmptyLine : List String -> List String
@@ -3810,8 +3815,22 @@ token color value =
 
 sharedTodoExampleSource : String
 sharedTodoExampleSource =
-    """app SharedTodo
+    """-- A minimal shared todo app where signed-in users can manage todos.
+-- This is a complete working app definition.
+-- Mar derives the backend, web App, iOS app, monitoring, and runtime tooling from this source.
 
+app SharedTodo
+
+-- Configure your SMTP provider here to send login codes.
+-- During development, you can skip this and read the codes from the console.
+auth {
+  email_from "no-reply@yourdomain.com"
+  smtp_host "smtp.your-provider.com"
+  smtp_username "your-smtp-username"
+  smtp_password_env "SMTP_PASSWORD"
+}
+
+-- Define the app data model.
 entity Todo {
   title: String
   done: Bool
@@ -3914,9 +3933,9 @@ entity AuditLog {
 }
 
 type alias PlaceOrderInput =
-  { userId : Int
-  , inventoryId : Int
-  , cartId : Int
+  { userId : ref User
+  , inventoryId : ref Inventory
+  , cartId : ref Cart
   , total : Float
   }
 
@@ -3924,11 +3943,11 @@ action placeOrder {
   -- All steps run inside a single transaction.
   input: PlaceOrderInput
 
-  inventory = load Inventory {
+  selectedInventory = load Inventory {
     id: input.inventoryId
   }
 
-  rule "Item is out of stock" expect inventory.stock > 0
+  rule "Item is out of stock" expect selectedInventory.stock > 0
 
   order = create Order {
     userId: input.userId
@@ -3937,8 +3956,8 @@ action placeOrder {
   }
 
   updatedInventory = update Inventory {
-    id: inventory.id
-    stock: inventory.stock - 1
+    id: selectedInventory.id
+    stock: selectedInventory.stock - 1
   }
 
   deletedCart = delete Cart {
@@ -4061,92 +4080,86 @@ entity User {
 """
 
 
-storeExampleSource : String
-storeExampleSource =
-    """app BookStoreApi
+blogExampleSource : String
+blogExampleSource =
+    """-- A blog app with posts, comments, and publishing.
+-- Writers create drafts and publish them through an action.
 
-type UserRole {
-  Admin
-  Member
+app Blog
+
+-- Configure your SMTP provider here to send login codes.
+-- During development, you can skip this and read the codes from the console.
+auth {
+  email_from "no-reply@yourdomain.com"
+  smtp_host "smtp.your-provider.com"
+  smtp_username "your-smtp-username"
+  smtp_password_env "SMTP_PASSWORD"
 }
 
--- You can customize the SQLite file name, but this is optional.
-database "book-store.db"
-
-auth {
-  -- These settings are optional.
-  -- Mar also supports other optional auth settings when you need to customize the login flow further.
-  code_ttl_minutes 10
-  session_ttl_hours 24
-  email_from "no-reply@bookstore.local"
-  email_subject "Your BookStore login code"
-  smtp_host "smtp.resend.com"
-  smtp_username "resend"
-  smtp_password_env "RESEND_API_KEY"
+-- A custom type defines the allowed values for post status.
+type PostStatus {
+  Draft
+  Published
 }
 
 -- Every Mar app includes a built-in User entity.
--- Here we extend it with an optional profile field and customize access rules.
+-- Here we extend it with a display name.
 entity User {
   displayName: String optional
-  role: UserRole
 
-  authorize read when user_authenticated and (id == user_id or user_role == Admin)
-  authorize update when user_authenticated and ((id == user_id and role == user_role) or user_role == Admin)
-  authorize create, delete when user_role == Admin
+  authorize read, update when user_authenticated and id == user_id
 }
 
-entity Book {
+-- Posts belong to the signed-in author who created them.
+entity Post {
   title: String
-  authorName: String
-  isbn: String
-  price: Float
-  stock: Int
+  body: String
+  status: PostStatus
 
-  rule "Book title cannot be empty" expect title != ""
-  rule "Price must be greater than zero" expect price > 0
+  belongs_to author: current_user
 
+  rule "Title must have at least 3 chars" expect length title >= 3
+  rule "Body cannot be empty" expect body != ""
+
+  -- Published posts can be read publicly.
   authorize read when anonymous or user_authenticated
   authorize create when user_authenticated
-  authorize update, delete when user_role == Admin
+  authorize update, delete when user_authenticated and author == user_id
 }
 
-type alias PlaceBookOrderInput =
-  { orderRef : String
-  , userId : Int
-  , bookId : Int
-  , quantity : Int
-  , unitPrice : Float
-  , lineTotal : Float
-  , orderTotal : Float
-  , notes : String
+-- Comments belong to a post and to the signed-in author who wrote them.
+entity Comment {
+  body: String
+
+  belongs_to post: Post
+  belongs_to author: current_user
+
+  rule "Comment cannot be empty" expect body != ""
+
+  -- Comments are readable by anyone, even if not authenticated.
+  -- Signed-in users can create comments, and authors can edit or delete their own comments.
+  authorize read when anonymous or user_authenticated
+  authorize create when user_authenticated
+  authorize update, delete when user_authenticated and author == user_id
+}
+
+-- Define the typed input accepted by the publish action.
+type alias PublishPostInput =
+  { postId : ref Post }
+
+-- All steps of an action run inside a single transaction.
+action publishPost {
+  input: PublishPostInput
+
+  loadedPost = load Post {
+    id: input.postId
   }
 
-action placeBookOrder {
-  input: PlaceBookOrderInput
+  rule "You can only publish your own posts" expect loadedPost.author == user_id
 
-  order = create Order {
-    orderRef: input.orderRef
-    userId: input.userId
-    status: "confirmed"
-    total: input.orderTotal
-    currency: "BRL"
-    notes: input.notes
-  }
-
-  orderItem = create OrderItem {
-    orderRef: order.orderRef
-    userId: order.userId
-    bookId: input.bookId
-    quantity: input.quantity
-    unitPrice: input.unitPrice
-    lineTotal: input.lineTotal
-  }
-
-  auditLog = create AuditLog {
-    userId: orderItem.userId
-    event: "book order created"
-    orderRef: orderItem.orderRef
+  update Post {
+    id: loadedPost.id
+    status: Published
   }
 }
 """

@@ -539,6 +539,81 @@ action scheduleTodo {
 	}
 }
 
+func TestParseSupportsRefEntityAliasFields(t *testing.T) {
+	src := `
+app Blog
+
+entity Post {
+  title: String
+}
+
+type alias PublishPostInput =
+  { post: ref Post
+  }
+
+action publishPost {
+  input: PublishPostInput
+
+  loadedPost = load Post {
+    id: input.post
+  }
+
+  update Post {
+    id: loadedPost.id
+    title: loadedPost.title
+  }
+}
+`
+
+	app, err := Parse(src)
+	if err != nil {
+		t.Fatalf("Parse returned error: %v", err)
+	}
+	if len(app.InputAliases) != 1 {
+		t.Fatalf("expected 1 type alias, got %d", len(app.InputAliases))
+	}
+	field := app.InputAliases[0].Fields[0]
+	if field.Name != "post" {
+		t.Fatalf("expected alias field post, got %q", field.Name)
+	}
+	if field.RelationEntity != "Post" {
+		t.Fatalf("expected alias field relation Post, got %q", field.RelationEntity)
+	}
+	if field.Type != "Int" {
+		t.Fatalf("expected alias field underlying type Int, got %q", field.Type)
+	}
+}
+
+func TestParseRejectsRefUnknownEntityAliasFields(t *testing.T) {
+	src := `
+app Blog
+
+entity Post {
+  title: String
+}
+
+type alias PublishPostInput =
+  { post: ref MissingPost
+  }
+
+action publishPost {
+  input: PublishPostInput
+
+  create Post {
+    title: "Hello"
+  }
+}
+`
+
+	_, err := Parse(src)
+	if err == nil {
+		t.Fatal("expected parse error for unknown ref entity in type alias")
+	}
+	if !strings.Contains(err.Error(), "references unknown entity MissingPost") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestParseSupportsBelongsToDefaultName(t *testing.T) {
 	src := `
 app TodoApi

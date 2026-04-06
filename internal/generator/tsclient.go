@@ -60,6 +60,7 @@ func GenerateTSClient(app *model.App) (*TSClientOutput, error) {
 	writeTSLine(buf, "export interface InputAliasFieldMeta {")
 	writeTSLine(buf, "  name: string;")
 	writeTSLine(buf, "  fieldType: string;")
+	writeTSLine(buf, "  relationEntity: string | null;")
 	writeTSLine(buf, "}")
 	writeTSLine(buf, "")
 	writeTSLine(buf, "export interface InputAliasMeta {")
@@ -206,6 +207,7 @@ func GenerateTSClient(app *model.App) (*TSClientOutput, error) {
 			writeTSLine(buf, "        {")
 			writeTSLine(buf, "          name: "+strconv.Quote(field.Name)+",")
 			writeTSLine(buf, "          fieldType: "+strconv.Quote(field.Type)+",")
+			writeTSLine(buf, "          relationEntity: "+tsNullableString(field.RelationEntity)+",")
 			writeTSLine(buf, "        },")
 		}
 		writeTSLine(buf, "      ],")

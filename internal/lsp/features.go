@@ -75,6 +75,7 @@ var (
 		"authorize":                               "Adds authorization rules for one or more CRUD actions. Example: `authorize read, create, update, delete when ...`.",
 		"read":                                    "Used in authorize clauses to control single-record reads and which rows appear in list responses.",
 		"belongs_to":                              "Declares a singular relationship to another entity. Example: `belongs_to User`, `belongs_to customer: User optional`, `belongs_to current_user`, or `belongs_to reviewer: current_user`.",
+		"ref":                                     "Used in action input `type alias` records to reference another entity by primary key. Example: `post : ref Post`.",
 		"current_user":                            "Used in `belongs_to current_user` or `belongs_to reviewer: current_user` to create a required relationship to the authenticated built-in `User` automatically.",
 		"type":                                    "Declares either a closed set of named values like `type UserRole { Admin Member }` or, together with `alias`, an action input record.",
 		"alias":                                   "Used with `type alias` to define an action input record.",

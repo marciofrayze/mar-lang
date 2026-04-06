@@ -73,7 +73,7 @@ type editorSnapshot struct {
 var (
 	marEditorKeywords = map[string]struct{}{
 		"app": {}, "port": {}, "database": {}, "ios": {}, "public": {}, "system": {}, "auth": {}, "entity": {}, "action": {}, "type": {}, "alias": {},
-		"rule": {}, "expect": {}, "authorize": {}, "when": {}, "read": {}, "load": {}, "create": {}, "update": {}, "delete": {}, "belongs_to": {}, "current_user": {},
+		"rule": {}, "expect": {}, "authorize": {}, "when": {}, "read": {}, "load": {}, "create": {}, "update": {}, "delete": {}, "belongs_to": {}, "current_user": {}, "ref": {},
 		"bundle_identifier": {}, "display_name": {}, "server_url": {},
 		"code_ttl_minutes": {}, "session_ttl_hours": {}, "email_from": {}, "email_subject": {}, "smtp_host": {}, "smtp_port": {}, "smtp_username": {}, "smtp_password_env": {}, "smtp_starttls": {},
 		"dir": {}, "mount": {}, "spa_fallback": {},

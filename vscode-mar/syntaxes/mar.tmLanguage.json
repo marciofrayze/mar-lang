@@ -203,6 +203,24 @@
           }
         },
         {
+          "name": "meta.alias.ref-field.declaration.mar",
+          "match": "\\b([a-z][A-Za-z0-9_]*)\\s*(:)\\s*(ref)\\s+([A-Z][A-Za-z0-9_]*)\\b",
+          "captures": {
+            "1": {
+              "name": "variable.other.member.mar"
+            },
+            "2": {
+              "name": "punctuation.separator.key-value.mar"
+            },
+            "3": {
+              "name": "keyword.control.declaration.mar"
+            },
+            "4": {
+              "name": "storage.type.mar"
+            }
+          }
+        },
+        {
           "name": "meta.field.declaration.mar",
           "match": "\\b([a-z][A-Za-z0-9_]*)\\s*(:)\\s*([A-Z][A-Za-z0-9_]*)\\b",
           "captures": {
@@ -313,7 +331,7 @@
       "patterns": [
         {
           "name": "keyword.control.declaration.mar",
-          "match": "\\b(app|port|database|ios|system|public|entity|auth|type|alias|belongs_to)\\b"
+          "match": "\\b(app|port|database|ios|system|public|entity|auth|type|alias|belongs_to|ref)\\b"
         },
         {
           "name": "keyword.control.rule.mar",

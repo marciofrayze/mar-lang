@@ -179,7 +179,7 @@
     "description": "Create a type alias for action inputs",
     "body": [
       "type alias ${1:CreateOrderInput} =",
-      "  { ${2:userId} : ${3:Int}",
+      "  { ${2:user} : ref ${3:User}",
       "  , ${4:total} : ${5:Float}",
       "  }"
     ]

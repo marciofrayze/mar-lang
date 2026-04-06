@@ -115,35 +115,35 @@ entity ClassEnrollment {
 }
 
 type alias EnrollInClassInput =
-  { gymMemberId : Int
-  , workoutClassId : Int
+  { gymMemberId : ref GymMember
+  , workoutClassId : ref WorkoutClass
 }
 
 action enrollInClass {
   input: EnrollInClassInput
 
-  gymMember = load GymMember {
+  selectedGymMember = load GymMember {
     id: input.gymMemberId
   }
 
-  workoutClass = load WorkoutClass {
+  selectedWorkoutClass = load WorkoutClass {
     id: input.workoutClassId
   }
 
-  rule "You can only enroll yourself" expect gymMember.member == user_id
-  rule "Gym membership must be active" expect gymMember.status == Active
-  rule "The class must belong to your gym" expect gymMember.gym == workoutClass.gym
-  rule "The class is already full" expect workoutClass.remainingSpots > 0
+  rule "You can only enroll yourself" expect selectedGymMember.member == user_id
+  rule "Gym membership must be active" expect selectedGymMember.status == Active
+  rule "The class must belong to your gym" expect selectedGymMember.gym == selectedWorkoutClass.gym
+  rule "The class is already full" expect selectedWorkoutClass.remainingSpots > 0
 
   create ClassEnrollment {
-    gym: workoutClass.gym
-    workoutClass: workoutClass.id
-    attendee: gymMember.member
+    gym: selectedWorkoutClass.gym
+    workoutClass: selectedWorkoutClass.id
+    attendee: selectedGymMember.member
     status: Confirmed
   }
 
   update WorkoutClass {
-    id: workoutClass.id
-    remainingSpots: workoutClass.remainingSpots - 1
+    id: selectedWorkoutClass.id
+    remainingSpots: selectedWorkoutClass.remainingSpots - 1
   }
 }

@@ -41,7 +41,7 @@ var (
 	authStmtRe                  = regexp.MustCompile(`^(code_ttl_minutes|session_ttl_hours|auth_request_code_rate_limit_per_minute|auth_login_rate_limit_per_minute|admin_ui_session_ttl_hours|smtp_port|smtp_starttls|security_content_type_nosniff|security_frame_policy|security_referrer_policy)\s+(.+)$`)
 	authQuoteRe                 = regexp.MustCompile(`^(email_from|email_subject|smtp_host|smtp_username|smtp_password_env)\s+"([^"]+)"$`)
 
-	aliasFieldRe        = regexp.MustCompile(`^([a-z][A-Za-z0-9_]*)\s*:\s*(Int|String|Bool|Float|DateTime|Date)\s*$`)
+	aliasFieldRe        = regexp.MustCompile(`^([a-z][A-Za-z0-9_]*)\s*:\s*(?:(ref)\s+([A-Za-z][A-Za-z0-9_]*)|(Int|String|Bool|Float|DateTime|Date|[A-Za-z][A-Za-z0-9_]*))\s*$`)
 	actionFieldAssignRe = regexp.MustCompile(`^([a-z][A-Za-z0-9_]*)\s*:\s*(.+)$`)
 )
 
@@ -297,7 +297,10 @@ func normalizeLine(trimmed string, state *formatState) string {
 			token = strings.TrimSpace(strings.TrimPrefix(token, ","))
 		}
 		if m := aliasFieldRe.FindStringSubmatch(token); m != nil {
-			return prefix + m[1] + " : " + m[2]
+			if m[2] == "ref" {
+				return prefix + m[1] + " : ref " + m[3]
+			}
+			return prefix + m[1] + " : " + m[4]
 		}
 	}
 

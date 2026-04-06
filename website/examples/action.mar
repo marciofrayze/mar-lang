@@ -28,9 +28,9 @@ entity AuditLog {
 }
 
 type alias PlaceOrderInput =
-  { userId : Int
-  , inventoryId : Int
-  , cartId : Int
+  { userId : ref User
+  , inventoryId : ref Inventory
+  , cartId : ref Cart
   , total : Float
   }
 
@@ -38,11 +38,11 @@ action placeOrder {
   -- All steps run inside a single transaction.
   input: PlaceOrderInput
 
-  inventory = load Inventory {
+  selectedInventory = load Inventory {
     id: input.inventoryId
   }
 
-  rule "Item is out of stock" expect inventory.stock > 0
+  rule "Item is out of stock" expect selectedInventory.stock > 0
 
   order = create Order {
     userId: input.userId
@@ -51,8 +51,8 @@ action placeOrder {
   }
 
   updatedInventory = update Inventory {
-    id: inventory.id
-    stock: inventory.stock - 1
+    id: selectedInventory.id
+    stock: selectedInventory.stock - 1
   }
 
   deletedCart = delete Cart {

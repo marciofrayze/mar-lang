@@ -884,7 +884,7 @@ struct ActionsHomeView: View {
             }
         }
         .navigationDestination(for: ActionInfo.self) { action in
-            ActionFormView(action: action, alias: schema.inputAliases.first(where: { $0.name == action.inputAlias }), client: client)
+            ActionFormView(action: action, alias: schema.inputAliases.first(where: { $0.name == action.inputAlias }), schema: schema, client: client)
         }
         .navigationTitle("Actions")
     }
@@ -893,9 +893,11 @@ struct ActionsHomeView: View {
 struct ActionFormView: View {
     let action: ActionInfo
     let alias: InputAliasInfo?
+    let schema: Schema
     let client: MarAPIClient
 
     @State private var values: [String: String] = [:]
+    @State private var relationRows: [String: [Row]] = [:]
     @State private var resultRow: Row?
     @State private var errorMessage: String?
     @State private var isRunning = false
@@ -931,6 +933,9 @@ struct ActionFormView: View {
             }
         }
         .navigationTitle(RowPresentation.humanizeIdentifier(action.name))
+        .task {
+            await loadRelations()
+        }
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button {
@@ -942,8 +947,16 @@ struct ActionFormView: View {
                         Text("Run")
                     }
                 }
-                .disabled(isRunning || alias == nil)
+                .disabled(isRunning || alias == nil || !canRun)
             }
+        }
+    }
+
+    private var canRun: Bool {
+        guard let alias else { return false }
+        return alias.fields.allSatisfy { field in
+            guard let relationEntityName = field.relationEntity else { return true }
+            return relationRows[relationEntityName] != nil
         }
     }
 
@@ -956,7 +969,28 @@ struct ActionFormView: View {
 
     @ViewBuilder
     private func actionFieldView(_ field: InputAliasField) -> some View {
-        if !field.enumValues.isEmpty {
+        if let relationEntityName = field.relationEntity {
+            if let relationEntity = relationEntity(named: relationEntityName), let rows = relationRows[relationEntityName] {
+                Picker(RowPresentation.fieldLabel(field.name), selection: binding(for: field.name)) {
+                    Text("Select \(relationEntity.displayName)")
+                        .tag("")
+
+                    ForEach(rows.indices, id: \.self) { index in
+                        let row = rows[index]
+                        if let id = RowPresentation.rowID(entity: relationEntity, row: row) {
+                            Text(RowPresentation.relatedRowLabel(entity: relationEntity, row: row))
+                                .tag(id)
+                        }
+                    }
+                }
+                .pickerStyle(.navigationLink)
+            } else {
+                LabeledContent(RowPresentation.fieldLabel(field.name)) {
+                    Text("Loading options...")
+                        .foregroundStyle(.secondary)
+                }
+            }
+        } else if !field.enumValues.isEmpty {
             Picker(RowPresentation.fieldLabel(field.name), selection: binding(for: field.name)) {
                 Text("Select \(RowPresentation.fieldLabel(field.name))")
                     .tag("")
@@ -983,6 +1017,26 @@ struct ActionFormView: View {
         } else {
             TextField(RowPresentation.fieldLabel(field.name), text: binding(for: field.name))
                 .keyboardType(field.fieldType == "Int" ? .numberPad : (field.fieldType == "Float" ? .decimalPad : .default))
+        }
+    }
+
+    private func relationEntity(named name: String) -> Entity? {
+        schema.entities.first(where: { $0.name == name })
+    }
+
+    private func loadRelations() async {
+        guard let alias else { return }
+
+        let relationNames = Set(alias.fields.compactMap(\.relationEntity))
+        guard !relationNames.isEmpty else { return }
+
+        for relationName in relationNames {
+            guard relationRows[relationName] == nil, let relationEntity = relationEntity(named: relationName) else { continue }
+            do {
+                relationRows[relationName] = try await client.listRows(entity: relationEntity)
+            } catch {
+                errorMessage = error.localizedDescription
+            }
         }
     }
 

@@ -297,6 +297,9 @@ func Parse(source string) (*model.App, error) {
 	if err := resolveEntityRelations(app); err != nil {
 		return nil, err
 	}
+	if err := resolveAliasRelations(app); err != nil {
+		return nil, err
+	}
 	if err := validateEntityPredicates(app); err != nil {
 		return nil, err
 	}
@@ -1417,6 +1420,9 @@ func validateDeclaredTypes(app *model.App) error {
 	for i := range app.InputAliases {
 		for j := range app.InputAliases[i].Fields {
 			field := &app.InputAliases[i].Fields[j]
+			if field.RelationEntity != "" {
+				continue
+			}
 			enumValues, ok := enumValuesForType(field.Type, typesByName)
 			if !ok {
 				return parserErrorf("type alias %s field %s uses unknown type %s", app.InputAliases[i].Name, field.Name, field.Type)
@@ -1511,6 +1517,38 @@ func resolveEntityRelations(app *model.App) error {
 				return parserErrorf("entity %s has duplicate stored field %q", ent.Name, storageName)
 			}
 			seenStorageNames[storageName] = true
+		}
+	}
+
+	return nil
+}
+
+func resolveAliasRelations(app *model.App) error {
+	if app == nil {
+		return nil
+	}
+
+	entitiesByName := make(map[string]*model.Entity, len(app.Entities))
+	for i := range app.Entities {
+		entitiesByName[app.Entities[i].Name] = &app.Entities[i]
+	}
+
+	for i := range app.InputAliases {
+		alias := &app.InputAliases[i]
+		for j := range alias.Fields {
+			field := &alias.Fields[j]
+			if field.RelationEntity == "" {
+				continue
+			}
+			target := entitiesByName[field.RelationEntity]
+			if target == nil {
+				return parserErrorf("type alias %s field %s references unknown entity %s", alias.Name, field.Name, field.RelationEntity)
+			}
+			pk := entityPrimaryField(target)
+			if pk == nil || !isPrimitiveFieldType(pk.Type) {
+				return parserErrorf("type alias %s field %s cannot reference %s because %s primary key is unsupported", alias.Name, field.Name, field.RelationEntity, field.RelationEntity)
+			}
+			field.Type = pk.Type
 		}
 	}
 
@@ -1657,16 +1695,22 @@ func parseAliasFieldToken(alias *model.TypeAlias, seen map[string]bool, token st
 	if token == "" {
 		return nil
 	}
-	m := match(`^([a-z][A-Za-z0-9_]*)\s*:\s*(`+marTypeRefPattern+`)$`, token)
+	m := match(`^([a-z][A-Za-z0-9_]*)\s*:\s*(?:(ref)\s+(`+marTypeRefPattern+`)|(`+marTypeRefPattern+`))$`, token)
 	if m == nil {
-		return parserErrorf("line %d: invalid field in type alias %s. Expected `name : Type`", lineNo, alias.Name)
+		return parserErrorf("line %d: invalid field in type alias %s. Expected `name : Type` or `name : ref Entity`", lineNo, alias.Name)
 	}
 	name := m[1]
 	if seen[name] {
 		return parserErrorf("line %d: duplicate field %q in type alias %s", lineNo, name, alias.Name)
 	}
 	seen[name] = true
-	alias.Fields = append(alias.Fields, model.AliasField{Name: name, Type: m[2]})
+	field := model.AliasField{Name: name}
+	if m[2] == "ref" {
+		field.RelationEntity = m[3]
+	} else {
+		field.Type = m[4]
+	}
+	alias.Fields = append(alias.Fields, field)
 	return nil
 }
 
