@@ -846,6 +846,34 @@ auth {
 	if app.Auth.SessionTTLHours != 24 {
 		t.Fatalf("unexpected default session_ttl_hours: %d", app.Auth.SessionTTLHours)
 	}
+	if app.Auth.EmailSubject != "Your Auth Api login code" {
+		t.Fatalf("unexpected default email_subject: %q", app.Auth.EmailSubject)
+	}
+}
+
+func TestParseAuthDefaultsHumanizedEmailSubjectWhenAppDeclaredLater(t *testing.T) {
+	src := `
+auth {
+}
+
+app SharedTodo
+
+entity User {
+  email: String
+  role: String
+}
+`
+
+	app, err := Parse(src)
+	if err != nil {
+		t.Fatalf("Parse returned error: %v", err)
+	}
+	if app.Auth == nil {
+		t.Fatal("expected auth block to be parsed")
+	}
+	if app.Auth.EmailSubject != "Your Shared Todo login code" {
+		t.Fatalf("unexpected default email_subject: %q", app.Auth.EmailSubject)
+	}
 }
 
 func TestParseAuthCodeTTLRejectsOutOfRange(t *testing.T) {

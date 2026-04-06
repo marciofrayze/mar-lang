@@ -4,6 +4,7 @@ actor MarAPIClient {
     private let baseURL: URL
     private let session: URLSession
     private var token: String?
+    private var schemaVersionObserver: (@Sendable (String) -> Void)?
 
     init(baseURL: URL, token: String? = nil, session: URLSession = .shared) {
         self.baseURL = baseURL
@@ -15,8 +16,16 @@ actor MarAPIClient {
         self.token = token
     }
 
+    func setSchemaVersionObserver(_ observer: (@Sendable (String) -> Void)?) {
+        schemaVersionObserver = observer
+    }
+
     func fetchSchema() async throws -> Schema {
         try await request("/_mar/schema", method: "GET", authorized: false)
+    }
+
+    func fetchPublicVersion() async throws -> PublicVersionPayload {
+        try await request("/_mar/version", method: "GET", authorized: false)
     }
 
     func requestCode(email: String) async throws -> RequestCodeResponse {
@@ -148,6 +157,8 @@ actor MarAPIClient {
             )
         }
 
+        publishSchemaVersion(from: httpResponse)
+
         guard (200 ... 299).contains(httpResponse.statusCode) else {
             let decoder = JSONDecoder()
             if let apiError = try? decoder.decode(APIErrorResponse.self, from: data) {
@@ -191,6 +202,8 @@ actor MarAPIClient {
                 details: "error: badServerResponse"
             )
         }
+
+        publishSchemaVersion(from: httpResponse)
 
         guard (200 ... 299).contains(httpResponse.statusCode) else {
             if let apiError = try? decoder.decode(APIErrorResponse.self, from: data) {
@@ -241,6 +254,16 @@ actor MarAPIClient {
         }
 
         return request
+    }
+
+    private func publishSchemaVersion(from response: HTTPURLResponse) {
+        guard let version = response.value(forHTTPHeaderField: "X-Mar-Schema-Version")?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !version.isEmpty
+        else {
+            return
+        }
+
+        schemaVersionObserver?(version)
     }
 
     private func resolvedURL(path: String) -> URL {

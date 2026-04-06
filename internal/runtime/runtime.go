@@ -51,6 +51,8 @@ type Runtime struct {
 	versionInfo       VersionInfo
 }
 
+const schemaVersionHeader = "X-Mar-Schema-Version"
+
 type compiledRule struct {
 	Message    string
 	Expression string
@@ -314,6 +316,9 @@ func (r *Runtime) handleHTTP(w http.ResponseWriter, req *http.Request) {
 
 	setCORSHeaders(writer)
 	setSecurityHeaders(writer, r.App)
+	if schemaVersion := r.schemaVersion(); schemaVersion != "" {
+		writer.Header().Set(schemaVersionHeader, schemaVersion)
+	}
 	if req.Method == http.MethodOptions {
 		writer.WriteHeader(http.StatusNoContent)
 		finishRequest()
@@ -649,6 +654,13 @@ func (r *Runtime) writeJSON(w http.ResponseWriter, status int, payload any) {
 	writeJSON(w, status, payload)
 }
 
+func (r *Runtime) schemaVersion() string {
+	if r == nil {
+		return ""
+	}
+	return strings.TrimSpace(r.versionInfo.ManifestHash)
+}
+
 // writeError converts internal errors into consistent JSON API responses.
 func (r *Runtime) writeError(w http.ResponseWriter, err error) {
 	status := http.StatusBadRequest
@@ -696,6 +708,7 @@ func setCORSHeaders(w http.ResponseWriter) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type,Authorization,X-Mar-Admin-UI")
+	w.Header().Set("Access-Control-Expose-Headers", schemaVersionHeader)
 }
 
 func setSecurityHeaders(w http.ResponseWriter, app *model.App) {

@@ -122,6 +122,7 @@ func Parse(source string) (*model.App, error) {
 	var userExtension *model.Entity
 	seenEntities := map[string]bool{}
 	explicitDatabase := false
+	authEmailSubjectExplicit := false
 
 	app := &model.App{
 		Port: 4200,
@@ -152,6 +153,9 @@ func Parse(source string) (*model.App, error) {
 			app.AppName = m[1]
 			if !explicitDatabase {
 				app.Database = defaultDatabaseName(app.AppName)
+			}
+			if app.Auth != nil && !authEmailSubjectExplicit {
+				app.Auth.EmailSubject = defaultAuthEmailSubject(app.AppName)
 			}
 			advance()
 			continue
@@ -214,11 +218,12 @@ func Parse(source string) (*model.App, error) {
 			if app.Auth != nil {
 				return nil, parserErrorf("line %d: auth block already declared", cur.number)
 			}
-			auth, err := parseAuthBlock(lines, &idx)
+			auth, emailSubjectExplicit, err := parseAuthBlock(lines, &idx, app.AppName)
 			if err != nil {
 				return nil, err
 			}
 			app.Auth = auth
+			authEmailSubjectExplicit = emailSubjectExplicit
 			continue
 		}
 
@@ -281,7 +286,7 @@ func Parse(source string) (*model.App, error) {
 		return nil, parserErrorf("missing app declaration")
 	}
 	if app.Auth == nil {
-		app.Auth = defaultAuthConfig()
+		app.Auth = defaultAuthConfig(app.AppName)
 	}
 	if err := injectImplicitUserEntity(app, userExtension); err != nil {
 		return nil, err
@@ -306,7 +311,7 @@ func Parse(source string) (*model.App, error) {
 	return app, nil
 }
 
-func defaultAuthConfig() *model.AuthConfig {
+func defaultAuthConfig(appName string) *model.AuthConfig {
 	return &model.AuthConfig{
 		UserEntity:      "User",
 		EmailField:      "email",
@@ -314,10 +319,18 @@ func defaultAuthConfig() *model.AuthConfig {
 		CodeTTLMinutes:  10,
 		SessionTTLHours: 24,
 		EmailFrom:       "no-reply@mar.local",
-		EmailSubject:    "Your Mar login code",
+		EmailSubject:    defaultAuthEmailSubject(appName),
 		SMTPPort:        587,
 		SMTPStartTLS:    true,
 	}
+}
+
+func defaultAuthEmailSubject(appName string) string {
+	humanName := model.HumanizeIdentifier(appName)
+	if humanName == "" {
+		humanName = "Mar"
+	}
+	return "Your " + humanName + " login code"
 }
 
 func parseIOSBlock(lines []line, idx *int) (*model.IOSConfig, error) {
@@ -416,8 +429,9 @@ func isValidIOSServerURL(value string) bool {
 }
 
 // parseAuthBlock parses the auth configuration block and applies defaults.
-func parseAuthBlock(lines []line, idx *int) (*model.AuthConfig, error) {
-	auth := defaultAuthConfig()
+func parseAuthBlock(lines []line, idx *int, appName string) (*model.AuthConfig, bool, error) {
+	auth := defaultAuthConfig(appName)
+	emailSubjectExplicit := false
 
 	(*idx)++
 	for *idx < len(lines) {
@@ -429,14 +443,14 @@ func parseAuthBlock(lines []line, idx *int) (*model.AuthConfig, error) {
 		}
 		if trimmed == "}" {
 			(*idx)++
-			return auth, nil
+			return auth, emailSubjectExplicit, nil
 		}
 
 		var matched bool
 		if m := match(`^code_ttl_minutes\s+([0-9]{1,4})$`, trimmed); m != nil {
 			value := mustInt(m[1])
 			if value < minCodeTTLMinutes || value > maxCodeTTLMinutes {
-				return nil, parserErrorf(
+				return nil, false, parserErrorf(
 					"line %d: auth.code_ttl_minutes must be between %d and %d",
 					ln.number,
 					minCodeTTLMinutes,
@@ -446,12 +460,12 @@ func parseAuthBlock(lines []line, idx *int) (*model.AuthConfig, error) {
 			auth.CodeTTLMinutes = value
 			matched = true
 		} else if m := match(`^code_ttl_minutes\s+(.+)$`, trimmed); m != nil {
-			return nil, parserErrorf("line %d: auth.code_ttl_minutes must be an integer between %d and %d.", ln.number, minCodeTTLMinutes, maxCodeTTLMinutes)
+			return nil, false, parserErrorf("line %d: auth.code_ttl_minutes must be an integer between %d and %d.", ln.number, minCodeTTLMinutes, maxCodeTTLMinutes)
 		}
 		if m := match(`^session_ttl_hours\s+([0-9]{1,4})$`, trimmed); m != nil {
 			value := mustInt(m[1])
 			if value < minSessionTTLHours || value > maxSessionTTLHours {
-				return nil, parserErrorf(
+				return nil, false, parserErrorf(
 					"line %d: auth.session_ttl_hours must be an integer number of hours between %d and %d (up to 365 days)",
 					ln.number,
 					minSessionTTLHours,
@@ -461,12 +475,12 @@ func parseAuthBlock(lines []line, idx *int) (*model.AuthConfig, error) {
 			auth.SessionTTLHours = value
 			matched = true
 		} else if m := match(`^session_ttl_hours\s+(.+)$`, trimmed); m != nil {
-			return nil, parserErrorf("line %d: auth.session_ttl_hours must be an integer number of hours between %d and %d (up to 365 days).", ln.number, minSessionTTLHours, maxSessionTTLHours)
+			return nil, false, parserErrorf("line %d: auth.session_ttl_hours must be an integer number of hours between %d and %d (up to 365 days).", ln.number, minSessionTTLHours, maxSessionTTLHours)
 		}
 		if m := match(`^auth_request_code_rate_limit_per_minute\s+([0-9]{1,5})$`, trimmed); m != nil {
 			value := mustInt(m[1])
 			if value < minAuthRateLimitPerMinute || value > maxAuthRateLimitPerMinute {
-				return nil, parserErrorf(
+				return nil, false, parserErrorf(
 					"line %d: auth.auth_request_code_rate_limit_per_minute must be between %d and %d",
 					ln.number,
 					minAuthRateLimitPerMinute,
@@ -476,12 +490,12 @@ func parseAuthBlock(lines []line, idx *int) (*model.AuthConfig, error) {
 			auth.AuthRequestCodeRateLimit = intPtr(value)
 			matched = true
 		} else if m := match(`^auth_request_code_rate_limit_per_minute\s+(.+)$`, trimmed); m != nil {
-			return nil, parserErrorf("line %d: auth.auth_request_code_rate_limit_per_minute must be an integer between %d and %d.", ln.number, minAuthRateLimitPerMinute, maxAuthRateLimitPerMinute)
+			return nil, false, parserErrorf("line %d: auth.auth_request_code_rate_limit_per_minute must be an integer between %d and %d.", ln.number, minAuthRateLimitPerMinute, maxAuthRateLimitPerMinute)
 		}
 		if m := match(`^auth_login_rate_limit_per_minute\s+([0-9]{1,5})$`, trimmed); m != nil {
 			value := mustInt(m[1])
 			if value < minAuthRateLimitPerMinute || value > maxAuthRateLimitPerMinute {
-				return nil, parserErrorf(
+				return nil, false, parserErrorf(
 					"line %d: auth.auth_login_rate_limit_per_minute must be between %d and %d",
 					ln.number,
 					minAuthRateLimitPerMinute,
@@ -491,12 +505,12 @@ func parseAuthBlock(lines []line, idx *int) (*model.AuthConfig, error) {
 			auth.AuthLoginRateLimit = intPtr(value)
 			matched = true
 		} else if m := match(`^auth_login_rate_limit_per_minute\s+(.+)$`, trimmed); m != nil {
-			return nil, parserErrorf("line %d: auth.auth_login_rate_limit_per_minute must be an integer between %d and %d.", ln.number, minAuthRateLimitPerMinute, maxAuthRateLimitPerMinute)
+			return nil, false, parserErrorf("line %d: auth.auth_login_rate_limit_per_minute must be an integer between %d and %d.", ln.number, minAuthRateLimitPerMinute, maxAuthRateLimitPerMinute)
 		}
 		if m := match(`^admin_ui_session_ttl_hours\s+([0-9]{1,4})$`, trimmed); m != nil {
 			value := mustInt(m[1])
 			if value < minSessionTTLHours || value > maxSessionTTLHours {
-				return nil, parserErrorf(
+				return nil, false, parserErrorf(
 					"line %d: auth.admin_ui_session_ttl_hours must be an integer number of hours between %d and %d (up to 365 days)",
 					ln.number,
 					minSessionTTLHours,
@@ -506,13 +520,13 @@ func parseAuthBlock(lines []line, idx *int) (*model.AuthConfig, error) {
 			auth.AdminUISessionTTLHours = intPtr(value)
 			matched = true
 		} else if m := match(`^admin_ui_session_ttl_hours\s+(.+)$`, trimmed); m != nil {
-			return nil, parserErrorf("line %d: auth.admin_ui_session_ttl_hours must be an integer number of hours between %d and %d (up to 365 days).", ln.number, minSessionTTLHours, maxSessionTTLHours)
+			return nil, false, parserErrorf("line %d: auth.admin_ui_session_ttl_hours must be an integer number of hours between %d and %d (up to 365 days).", ln.number, minSessionTTLHours, maxSessionTTLHours)
 		}
 		if m := match(`^security_frame_policy\s+(deny|sameorigin)$`, trimmed); m != nil {
 			auth.SecurityFramePolicy = stringPtr(m[1])
 			matched = true
 		} else if m := match(`^security_frame_policy\s+(.+)$`, trimmed); m != nil {
-			return nil, parserErrorf(
+			return nil, false, parserErrorf(
 				"line %d: auth.security_frame_policy must be one of: deny, sameorigin",
 				ln.number,
 			)
@@ -521,7 +535,7 @@ func parseAuthBlock(lines []line, idx *int) (*model.AuthConfig, error) {
 			auth.SecurityReferrerPolicy = stringPtr(m[1])
 			matched = true
 		} else if m := match(`^security_referrer_policy\s+(.+)$`, trimmed); m != nil {
-			return nil, parserErrorf(
+			return nil, false, parserErrorf(
 				"line %d: auth.security_referrer_policy must be one of: strict-origin-when-cross-origin, no-referrer",
 				ln.number,
 			)
@@ -530,7 +544,7 @@ func parseAuthBlock(lines []line, idx *int) (*model.AuthConfig, error) {
 			auth.SecurityContentNoSniff = boolPtr(m[1] == "true")
 			matched = true
 		} else if m := match(`^security_content_type_nosniff\s+(.+)$`, trimmed); m != nil {
-			return nil, parserErrorf(
+			return nil, false, parserErrorf(
 				"line %d: auth.security_content_type_nosniff must be true or false",
 				ln.number,
 			)
@@ -541,6 +555,7 @@ func parseAuthBlock(lines []line, idx *int) (*model.AuthConfig, error) {
 		}
 		if m := match(`^email_subject\s+"([^"]+)"$`, trimmed); m != nil {
 			auth.EmailSubject = m[1]
+			emailSubjectExplicit = true
 			matched = true
 		}
 		if m := match(`^smtp_host\s+"([^"]+)"$`, trimmed); m != nil {
@@ -550,12 +565,12 @@ func parseAuthBlock(lines []line, idx *int) (*model.AuthConfig, error) {
 		if m := match(`^smtp_port\s+([0-9]{1,5})$`, trimmed); m != nil {
 			value := mustInt(m[1])
 			if value < 1 || value > 65535 {
-				return nil, parserErrorf("line %d: auth.smtp_port must be between 1 and 65535", ln.number)
+				return nil, false, parserErrorf("line %d: auth.smtp_port must be between 1 and 65535", ln.number)
 			}
 			auth.SMTPPort = value
 			matched = true
 		} else if m := match(`^smtp_port\s+(.+)$`, trimmed); m != nil {
-			return nil, parserErrorf("line %d: auth.smtp_port must be an integer between 1 and 65535.", ln.number)
+			return nil, false, parserErrorf("line %d: auth.smtp_port must be an integer between 1 and 65535.", ln.number)
 		}
 		if m := match(`^smtp_username\s+"([^"]+)"$`, trimmed); m != nil {
 			auth.SMTPUsername = m[1]
@@ -569,15 +584,15 @@ func parseAuthBlock(lines []line, idx *int) (*model.AuthConfig, error) {
 			auth.SMTPStartTLS = m[1] == "true"
 			matched = true
 		} else if m := match(`^smtp_starttls\s+(.+)$`, trimmed); m != nil {
-			return nil, parserErrorf("line %d: auth.smtp_starttls must be true or false.", ln.number)
+			return nil, false, parserErrorf("line %d: auth.smtp_starttls must be true or false.", ln.number)
 		}
 		if !matched {
-			return nil, unknownStatementError(ln.number, "auth", trimmed, authStatementCandidates)
+			return nil, false, unknownStatementError(ln.number, "auth", trimmed, authStatementCandidates)
 		}
 		(*idx)++
 	}
 
-	return nil, parserErrorf("auth block is missing closing }")
+	return nil, false, parserErrorf("auth block is missing closing }")
 }
 
 func parseUserExtensionBlock(lines []line, idx *int) (*model.Entity, error) {

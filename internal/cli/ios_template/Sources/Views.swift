@@ -22,6 +22,13 @@ struct RootView: View {
             }
         }
         .animation(.easeInOut, value: model.phase)
+        .alert(item: $model.schemaRefreshAlert) { alert in
+            Alert(
+                title: Text(alert.title),
+                message: Text(alert.message),
+                dismissButton: .default(Text("OK"))
+            )
+        }
     }
 }
 
@@ -1045,6 +1052,9 @@ struct ProfileView: View {
                 }
                 if let role = model.authenticatedRole {
                     LabeledContent("Role", value: role)
+                }
+                if let app = model.publicVersion?.app {
+                    LabeledContent("Version", value: AdminFormatting.appBuildLabel(app))
                 }
             }
 

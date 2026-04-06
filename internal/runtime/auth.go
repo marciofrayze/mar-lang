@@ -25,13 +25,21 @@ func (r *Runtime) authConfig() model.AuthConfig {
 			CodeTTLMinutes:  10,
 			SessionTTLHours: 24,
 			EmailFrom:       "no-reply@mar.local",
-			EmailSubject:    "Your Mar login code",
+			EmailSubject:    defaultRuntimeAuthEmailSubject(r.App.AppName),
 			SMTPPort:        587,
 			SMTPStartTLS:    true,
 		}
 	}
 
 	return cfg
+}
+
+func defaultRuntimeAuthEmailSubject(appName string) string {
+	humanName := model.HumanizeIdentifier(appName)
+	if humanName == "" {
+		humanName = "Mar"
+	}
+	return "Your " + humanName + " login code"
 }
 
 // resolveAuth resolves a bearer token into an active session and hydrated auth user.

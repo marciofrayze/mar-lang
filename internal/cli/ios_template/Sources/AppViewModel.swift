@@ -36,6 +36,7 @@ final class AppViewModel: ObservableObject {
     @Published var authCode: String = ""
     @Published var loginStep: LoginStep = .email
     @Published var schema: Schema?
+    @Published var publicVersion: PublicVersionPayload?
     @Published var authenticatedEmail: String?
     @Published var authenticatedRole: String?
     @Published var isBusy = false
@@ -43,10 +44,14 @@ final class AppViewModel: ObservableObject {
     @Published var errorDetails: String?
     @Published var infoMessage: String?
     @Published var loginAlert: LoginAlertState?
+    @Published var schemaRefreshAlert: LoginAlertState?
 
     private let sessionStore = SessionStore()
     private let configuredBaseURL: URL?
     private(set) var client: MarAPIClient?
+    private var currentSchemaVersion: String?
+    private var pendingSchemaVersion: String?
+    private var schemaRefreshInFlight = false
 
     init() {
         configuredBaseURL = Self.normalizedBaseURL(from: generatedServerURL)
@@ -96,10 +101,19 @@ final class AppViewModel: ObservableObject {
         let existing = sessionStore.load()
         let client = MarAPIClient(baseURL: normalizedURL, token: existing?.baseURL == normalizedURL.absoluteString ? existing?.token : nil)
         self.client = client
+        await client.setSchemaVersionObserver { [weak self] version in
+            Task { @MainActor in
+                self?.observeSchemaVersion(version)
+            }
+        }
 
         do {
-            let schema = try await client.fetchSchema()
+            async let schemaTask = client.fetchSchema()
+            async let publicVersionTask = client.fetchPublicVersion()
+
+            let schema = try await schemaTask
             self.schema = schema
+            publicVersion = try? await publicVersionTask
 
             if schema.auth?.enabled == true {
                 if let stored = existing, stored.baseURL == normalizedURL.absoluteString, !stored.token.isEmpty {
@@ -219,6 +233,54 @@ final class AppViewModel: ObservableObject {
             schema = try await client.fetchSchema()
         } catch {
             setError(error)
+        }
+    }
+
+    private func observeSchemaVersion(_ version: String) {
+        let normalized = version.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalized.isEmpty else { return }
+
+        if currentSchemaVersion == nil {
+            currentSchemaVersion = normalized
+            return
+        }
+
+        if currentSchemaVersion == normalized {
+            return
+        }
+
+        if schemaRefreshInFlight {
+            pendingSchemaVersion = normalized
+            return
+        }
+
+        pendingSchemaVersion = normalized
+        schemaRefreshInFlight = true
+        Task { await refreshSchemaInBackground() }
+    }
+
+    private func refreshSchemaInBackground() async {
+        guard let client else {
+            schemaRefreshInFlight = false
+            pendingSchemaVersion = nil
+            return
+        }
+
+        defer {
+            schemaRefreshInFlight = false
+        }
+
+        do {
+            let nextSchema = try await client.fetchSchema()
+            schema = nextSchema
+            if let pending = pendingSchemaVersion?.trimmingCharacters(in: .whitespacesAndNewlines), !pending.isEmpty {
+                currentSchemaVersion = pending
+            }
+            pendingSchemaVersion = nil
+            schemaRefreshAlert = nil
+        } catch {
+            pendingSchemaVersion = nil
+            schemaRefreshAlert = LoginAlertState(title: "Update Available", message: "This app may need an update.")
         }
     }
 

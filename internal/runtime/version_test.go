@@ -23,6 +23,9 @@ func TestVersionEndpointPublicPayload(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200 from /_mar/version, got %d body=%s", rec.Code, rec.Body.String())
 	}
+	if got := rec.Header().Get(schemaVersionHeader); got != "sha256:test-manifest-hash" {
+		t.Fatalf("expected %s header, got %q", schemaVersionHeader, got)
+	}
 
 	var payload map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {

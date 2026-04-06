@@ -429,6 +429,10 @@ struct AdminVersionPayload: Decodable, Hashable {
     let runtime: VersionRuntime
 }
 
+struct PublicVersionPayload: Decodable, Hashable {
+    let app: VersionApp
+}
+
 struct VersionApp: Decodable, Hashable {
     let name: String
     let buildTime: String

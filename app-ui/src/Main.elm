@@ -117,6 +117,10 @@ type alias Model =
     , pendingDelete : Maybe PendingDelete
     , authInlineMessage : Maybe String
     , flash : Maybe String
+    , schemaRefreshNotice : Maybe String
+    , currentSchemaVersion : Maybe String
+    , pendingSchemaVersion : Maybe String
+    , schemaRefreshInFlight : Bool
     , viewportWidth : Int
     , mobileSidebarOpen : Bool
     , keepMobileSidebarOpenOnNextRoute : Bool
@@ -140,24 +144,25 @@ type alias MobileNavEntry =
 type Msg
     = UrlRequested Browser.UrlRequest
     | UrlChanged Url
-    | GotSchema (Result ApiHttpError Schema)
+    | GotSchema (Result ApiHttpError (ApiResponse Schema))
+    | GotSchemaRefresh (Result ApiHttpError (ApiResponse Schema))
     | SelectEntity String
     | SelectAction String
     | ReloadRows
-    | GotRows (Result ApiHttpError (List Row))
-    | GotRelationRows String (Result ApiHttpError (List Row))
+    | GotRows (Result ApiHttpError (ApiResponse (List Row)))
+    | GotRelationRows String (Result ApiHttpError (ApiResponse (List Row)))
     | SelectPerformance
     | SelectRequestLogs
     | SelectDatabase
     | ReloadDatabase
     | ReloadPerformance
     | ReloadRequestLogs
-    | GotPerformance (Result ApiHttpError PerfPayload)
-    | GotAdminVersion (Result ApiHttpError AdminVersionPayload)
-    | GotRequestLogs (Result ApiHttpError RequestLogsPayload)
-    | GotBackups (Result ApiHttpError BackupsPayload)
+    | GotPerformance (Result ApiHttpError (ApiResponse PerfPayload))
+    | GotAdminVersion (Result ApiHttpError (ApiResponse AdminVersionPayload))
+    | GotRequestLogs (Result ApiHttpError (ApiResponse RequestLogsPayload))
+    | GotBackups (Result ApiHttpError (ApiResponse BackupsPayload))
     | TriggerBackup
-    | GotBackup (Result ApiHttpError BackupResponse)
+    | GotBackup (Result ApiHttpError (ApiResponse BackupResponse))
     | SetAuthEmail String
     | SetAuthCode String
     | SetBootstrapField String String
@@ -165,14 +170,14 @@ type Msg
     | SwitchWorkspace WorkspaceMode
     | SetActionField String String
     | RequestAuthCode
-    | GotRequestAuthCode (Result ApiHttpError RequestCodeResponse)
+    | GotRequestAuthCode (Result ApiHttpError (ApiResponse RequestCodeResponse))
     | BootstrapFirstAdmin
-    | GotBootstrapFirstAdmin (Result ApiHttpError RequestCodeResponse)
+    | GotBootstrapFirstAdmin (Result ApiHttpError (ApiResponse RequestCodeResponse))
     | LoginWithCode
-    | GotLoginWithCode AuthScope (Result ApiHttpError LoginResponse)
-    | GotAuthMe AuthScope (Result ApiHttpError AuthMeResponse)
+    | GotLoginWithCode AuthScope (Result ApiHttpError (ApiResponse LoginResponse))
+    | GotAuthMe AuthScope (Result ApiHttpError (ApiResponse AuthMeResponse))
     | LogoutSession
-    | GotLogoutSession AuthScope (Result ApiHttpError ())
+    | GotLogoutSession AuthScope (Result ApiHttpError (ApiResponse ()))
     | ToggleAuthTools
     | SelectRow Row
     | StartCreate
@@ -181,15 +186,16 @@ type Msg
     | CancelForm
     | SetFormField String String
     | SubmitForm
-    | GotCreate (Result ApiHttpError Row)
-    | GotUpdate (Result ApiHttpError Row)
+    | GotCreate (Result ApiHttpError (ApiResponse Row))
+    | GotUpdate (Result ApiHttpError (ApiResponse Row))
     | RequestDeleteRow Row
     | ConfirmDelete
     | CancelDelete
-    | GotDelete (Result ApiHttpError ())
+    | GotDelete (Result ApiHttpError (ApiResponse ()))
     | RunAction
-    | GotRunAction (Result ApiHttpError Row)
+    | GotRunAction (Result ApiHttpError (ApiResponse Row))
     | ClearFlash
+    | RefreshPage
     | ViewportResized Int
     | ToggleMobileSidebar
     | CloseMobileSidebar
@@ -207,6 +213,13 @@ type alias ApiErrorPayload =
     { statusCode : Int
     , errorCode : Maybe String
     , message : String
+    , schemaVersion : Maybe String
+    }
+
+
+type alias ApiResponse a =
+    { value : a
+    , schemaVersion : Maybe String
     }
 
 
@@ -534,6 +547,10 @@ init flags url navKey =
             , pendingDelete = Nothing
             , authInlineMessage = Nothing
             , flash = Nothing
+            , schemaRefreshNotice = Nothing
+            , currentSchemaVersion = Nothing
+            , pendingSchemaVersion = Nothing
+            , schemaRefreshInFlight = False
             , viewportWidth = max 320 flags.viewportWidth
             , mobileSidebarOpen = False
             , keepMobileSidebarOpenOnNextRoute = False
@@ -982,11 +999,21 @@ update msg model =
 
         GotSchema result ->
             case result of
-                Ok schema ->
+                Ok response ->
                     let
+                        schema =
+                            response.value
+
                         nextModel =
                             { model
                                 | schema = Loaded schema
+                                , currentSchemaVersion =
+                                    case response.schemaVersion of
+                                        Just version ->
+                                            Just version
+
+                                        Nothing ->
+                                            model.currentSchemaVersion
                                 , authStage =
                                     if hasActiveSession model then
                                         AuthStageSession
@@ -1005,7 +1032,42 @@ update msg model =
                     ( nextModel, loadAuthMe AppAuthScope nextModel )
 
                 Err httpError ->
-                    ( { model | schema = Failed (httpErrorToString httpError), rows = Failed "schema unavailable", sessionRestorePending = False }, Cmd.none )
+                    withObservedSchemaVersionFromError httpError
+                        ( { model | schema = Failed (httpErrorToString httpError), rows = Failed "schema unavailable", sessionRestorePending = False }, Cmd.none )
+
+        GotSchemaRefresh result ->
+            case result of
+                Ok response ->
+                    let
+                        refreshedSchema =
+                            response.value
+
+                        nextModel =
+                            { model
+                                | schema = Loaded refreshedSchema
+                                , currentSchemaVersion =
+                                    case response.schemaVersion of
+                                        Just version ->
+                                            Just version
+
+                                        Nothing ->
+                                            model.pendingSchemaVersion
+                                , pendingSchemaVersion = Nothing
+                                , schemaRefreshInFlight = False
+                                , schemaRefreshNotice = Nothing
+                              }
+                    in
+                    applyCurrentRoute nextModel
+
+                Err httpError ->
+                    withObservedSchemaVersionFromError httpError
+                        ( { model
+                        | pendingSchemaVersion = Nothing
+                        , schemaRefreshInFlight = False
+                        , schemaRefreshNotice = Just "This page may need a refresh to load the latest version."
+                      }
+                        , Cmd.none
+                        )
 
         SelectEntity entityName ->
             let
@@ -1030,8 +1092,11 @@ update msg model =
 
         GotRows result ->
             case result of
-                Ok rows ->
+                Ok response ->
                     let
+                        rows =
+                            response.value
+
                         nextModel =
                             case model.selectedEntity of
                                 Just entity ->
@@ -1043,28 +1108,29 @@ update msg model =
                                 Nothing ->
                                     { model | rows = Loaded rows }
                     in
-                    ( syncRouteSelection nextModel, Cmd.none )
+                    withObservedSchemaVersion response.schemaVersion ( syncRouteSelection nextModel, Cmd.none )
 
                 Err httpError ->
                     case handleUnauthorizedSessionExpiry model httpError of
                         Just outcome ->
-                            outcome
+                            withObservedSchemaVersionFromError httpError outcome
 
                         Nothing ->
-                            ( { model | rows = Failed (httpErrorToString httpError) }, Cmd.none )
+                            withObservedSchemaVersionFromError httpError ( { model | rows = Failed (httpErrorToString httpError) }, Cmd.none )
 
         GotRelationRows entityName result ->
             case result of
-                Ok rows ->
-                    ( { model | relationRows = Dict.insert entityName (Loaded rows) model.relationRows }, Cmd.none )
+                Ok response ->
+                    withObservedSchemaVersion response.schemaVersion
+                        ( { model | relationRows = Dict.insert entityName (Loaded response.value) model.relationRows }, Cmd.none )
 
                 Err httpError ->
                     case handleUnauthorizedSessionExpiry model httpError of
                         Just outcome ->
-                            outcome
+                            withObservedSchemaVersionFromError httpError outcome
 
                         Nothing ->
-                            ( { model | relationRows = Dict.insert entityName (Failed (httpErrorToString httpError)) model.relationRows }, Cmd.none )
+                            withObservedSchemaVersionFromError httpError ( { model | relationRows = Dict.insert entityName (Failed (httpErrorToString httpError)) model.relationRows }, Cmd.none )
 
         SelectPerformance ->
             if not (isAdminProfile model) then
@@ -1126,55 +1192,59 @@ update msg model =
 
         GotPerformance result ->
             case result of
-                Ok perf ->
-                    ( { model | perf = Loaded perf }, Cmd.none )
+                Ok response ->
+                    withObservedSchemaVersion response.schemaVersion
+                        ( { model | perf = Loaded response.value }, Cmd.none )
 
                 Err httpError ->
                     case handleUnauthorizedSessionExpiry model httpError of
                         Just outcome ->
-                            outcome
+                            withObservedSchemaVersionFromError httpError outcome
 
                         Nothing ->
-                            ( { model | perf = Failed (httpErrorToString httpError) }, Cmd.none )
+                            withObservedSchemaVersionFromError httpError ( { model | perf = Failed (httpErrorToString httpError) }, Cmd.none )
 
         GotAdminVersion result ->
             case result of
-                Ok payload ->
-                    ( { model | adminVersion = Loaded payload }, Cmd.none )
+                Ok response ->
+                    withObservedSchemaVersion response.schemaVersion
+                        ( { model | adminVersion = Loaded response.value }, Cmd.none )
 
                 Err httpError ->
                     case handleUnauthorizedSessionExpiry model httpError of
                         Just outcome ->
-                            outcome
+                            withObservedSchemaVersionFromError httpError outcome
 
                         Nothing ->
-                            ( { model | adminVersion = Failed (httpErrorToString httpError) }, Cmd.none )
+                            withObservedSchemaVersionFromError httpError ( { model | adminVersion = Failed (httpErrorToString httpError) }, Cmd.none )
 
         GotRequestLogs result ->
             case result of
-                Ok payload ->
-                    ( { model | requestLogs = Loaded payload }, Cmd.none )
+                Ok response ->
+                    withObservedSchemaVersion response.schemaVersion
+                        ( { model | requestLogs = Loaded response.value }, Cmd.none )
 
                 Err httpError ->
                     case handleUnauthorizedSessionExpiry model httpError of
                         Just outcome ->
-                            outcome
+                            withObservedSchemaVersionFromError httpError outcome
 
                         Nothing ->
-                            ( { model | requestLogs = Failed (httpErrorToString httpError) }, Cmd.none )
+                            withObservedSchemaVersionFromError httpError ( { model | requestLogs = Failed (httpErrorToString httpError) }, Cmd.none )
 
         GotBackups result ->
             case result of
-                Ok backups ->
-                    ( { model | backups = Loaded backups }, Cmd.none )
+                Ok response ->
+                    withObservedSchemaVersion response.schemaVersion
+                        ( { model | backups = Loaded response.value }, Cmd.none )
 
                 Err httpError ->
                     case handleUnauthorizedSessionExpiry model httpError of
                         Just outcome ->
-                            outcome
+                            withObservedSchemaVersionFromError httpError outcome
 
                         Nothing ->
-                            ( { model | backups = Failed (httpErrorToString httpError) }, Cmd.none )
+                            withObservedSchemaVersionFromError httpError ( { model | backups = Failed (httpErrorToString httpError) }, Cmd.none )
 
         SetAuthEmail email ->
             if model.authSubmitting == Just AuthSubmitSendingCode then
@@ -1214,18 +1284,19 @@ update msg model =
 
         GotRequestAuthCode result ->
             case result of
-                Ok _ ->
-                    ( { model
-                        | authStage = AuthStageCode
-                        , authSubmitting = Nothing
-                        , authInlineMessage = Nothing
-                        , flash = Nothing
-                      }
-                    , Cmd.none
-                    )
+                Ok response ->
+                    withObservedSchemaVersion response.schemaVersion
+                        ( { model
+                            | authStage = AuthStageCode
+                            , authSubmitting = Nothing
+                            , authInlineMessage = Nothing
+                            , flash = Nothing
+                          }
+                        , Cmd.none
+                        )
 
                 Err httpError ->
-                    ( { model | authSubmitting = Nothing, flash = Just (authRequestCodeErrorToString httpError) }, Cmd.none )
+                    withObservedSchemaVersionFromError httpError ( { model | authSubmitting = Nothing, flash = Just (authRequestCodeErrorToString httpError) }, Cmd.none )
 
         BootstrapFirstAdmin ->
             if String.trim model.authEmail == "" then
@@ -1244,11 +1315,12 @@ update msg model =
 
         GotBootstrapFirstAdmin result ->
             case result of
-                Ok _ ->
-                    ( { model | authStage = AuthStageCode, authSubmitting = Nothing, firstAdminCodeRequested = True, authInlineMessage = Nothing, flash = Nothing }, loadSchema model.apiBase )
+                Ok response ->
+                    withObservedSchemaVersion response.schemaVersion
+                        ( { model | authStage = AuthStageCode, authSubmitting = Nothing, firstAdminCodeRequested = True, authInlineMessage = Nothing, flash = Nothing }, loadSchema model.apiBase )
 
                 Err httpError ->
-                    ( { model | authSubmitting = Nothing, flash = Just (authRequestCodeErrorToString httpError) }, Cmd.none )
+                    withObservedSchemaVersionFromError httpError ( { model | authSubmitting = Nothing, flash = Just (authRequestCodeErrorToString httpError) }, Cmd.none )
 
         LoginWithCode ->
             if String.trim model.authEmail == "" || String.trim model.authCode == "" then
@@ -1266,10 +1338,13 @@ update msg model =
 
         GotLoginWithCode scope result ->
             case result of
-                Ok response ->
+                Ok apiResponse ->
                     case scope of
                         AppAuthScope ->
                             let
+                                response =
+                                    apiResponse.value
+
                                 nextRoute =
                                     routeForAuthenticatedRole response.role model.currentRoute
 
@@ -1295,17 +1370,21 @@ update msg model =
                                 saveSessionCmd =
                                     saveSessionFromModel nextModel
                             in
-                            ( nextModel, Cmd.batch [ schemaCmd, saveSessionCmd, replaceRoute nextRoute nextModel ] )
+                            withObservedSchemaVersion apiResponse.schemaVersion
+                                ( nextModel, Cmd.batch [ schemaCmd, saveSessionCmd, replaceRoute nextRoute nextModel ] )
 
                 Err httpError ->
-                    ( { model | authSubmitting = Nothing, flash = Just (authLoginErrorToString httpError) }, Cmd.none )
+                    withObservedSchemaVersionFromError httpError ( { model | authSubmitting = Nothing, flash = Just (authLoginErrorToString httpError) }, Cmd.none )
 
         GotAuthMe scope result ->
             case result of
-                Ok response ->
+                Ok apiResponse ->
                     case scope of
                         AppAuthScope ->
                             let
+                                response =
+                                    apiResponse.value
+
                                 nextRoute =
                                     routeForAuthenticatedRole response.role model.currentRoute
 
@@ -1319,7 +1398,7 @@ update msg model =
                                         , flash = Nothing
                                     }
                             in
-                            applyCurrentRoute nextModel
+                            withObservedSchemaVersion apiResponse.schemaVersion (applyCurrentRoute nextModel)
 
                 Err httpError ->
                     if isUnauthorizedError httpError then
@@ -1350,10 +1429,10 @@ update msg model =
                                                     Nothing
                                         }
                                 in
-                                ( nextModel, saveSessionFromModel nextModel )
+                                withObservedSchemaVersionFromError httpError ( nextModel, saveSessionFromModel nextModel )
 
                     else
-                        ( { model
+                        withObservedSchemaVersionFromError httpError ( { model
                             | sessionRestorePending = False
                             , flash =
                                 if model.sessionRestorePending then
@@ -1382,13 +1461,13 @@ update msg model =
 
         GotLogoutSession scope result ->
             case result of
-                Ok _ ->
+                Ok response ->
                     case scope of
                         AppAuthScope ->
-                            ( model, Cmd.none )
+                            withObservedSchemaVersion response.schemaVersion ( model, Cmd.none )
 
-                Err _ ->
-                    ( model, Cmd.none )
+                Err httpError ->
+                    withObservedSchemaVersionFromError httpError ( model, Cmd.none )
 
         TriggerBackup ->
             if not (isAdminProfile model) then
@@ -1399,20 +1478,21 @@ update msg model =
 
         GotBackup result ->
             case result of
-                Ok _ ->
+                Ok response ->
                     let
                         nextModel =
                             { model | flash = Nothing, backups = Loading }
                     in
-                    ( nextModel, Cmd.batch [ loadBackups nextModel, loadPerformance nextModel ] )
+                    withObservedSchemaVersion response.schemaVersion
+                        ( nextModel, Cmd.batch [ loadBackups nextModel, loadPerformance nextModel ] )
 
                 Err httpError ->
                     case handleUnauthorizedSessionExpiry model httpError of
                         Just outcome ->
-                            outcome
+                            withObservedSchemaVersionFromError httpError outcome
 
                         Nothing ->
-                            ( { model | flash = Just (httpErrorToString httpError) }, Cmd.none )
+                            withObservedSchemaVersionFromError httpError ( { model | flash = Just (httpErrorToString httpError) }, Cmd.none )
 
         ToggleAuthTools ->
             let
@@ -1514,8 +1594,11 @@ update msg model =
 
         GotCreate result ->
             case result of
-                Ok createdRow ->
+                Ok response ->
                     let
+                        createdRow =
+                            response.value
+
                         nextRows =
                             case model.rows of
                                 Loaded items ->
@@ -1535,23 +1618,27 @@ update msg model =
                     in
                     case ( model.selectedEntity, rowIdForCurrentSelection nextModel createdRow ) of
                         ( Just entity, Just rowKey ) ->
-                            ( nextModel, replaceRoute (RouteEntityDetail (currentWorkspace nextModel) entity.name rowKey) nextModel )
+                            withObservedSchemaVersion response.schemaVersion
+                                ( nextModel, replaceRoute (RouteEntityDetail (currentWorkspace nextModel) entity.name rowKey) nextModel )
 
                         _ ->
-                            ( nextModel, Cmd.none )
+                            withObservedSchemaVersion response.schemaVersion ( nextModel, Cmd.none )
 
                 Err httpError ->
                     case handleUnauthorizedSessionExpiry model httpError of
                         Just outcome ->
-                            outcome
+                            withObservedSchemaVersionFromError httpError outcome
 
                         Nothing ->
-                            ( { model | flash = Just (httpErrorToString httpError) }, Cmd.none )
+                            withObservedSchemaVersionFromError httpError ( { model | flash = Just (httpErrorToString httpError) }, Cmd.none )
 
         GotUpdate result ->
             case result of
-                Ok updatedRow ->
+                Ok response ->
                     let
+                        updatedRow =
+                            response.value
+
                         nextRows =
                             case ( model.selectedEntity, model.rows ) of
                                 ( Just entity, Loaded items ) ->
@@ -1571,18 +1658,18 @@ update msg model =
                     in
                     case ( model.selectedEntity, rowIdForCurrentSelection nextModel updatedRow ) of
                         ( Just _, Just _ ) ->
-                            ( nextModel, backRoute nextModel )
+                            withObservedSchemaVersion response.schemaVersion ( nextModel, backRoute nextModel )
 
                         _ ->
-                            ( nextModel, Cmd.none )
+                            withObservedSchemaVersion response.schemaVersion ( nextModel, Cmd.none )
 
                 Err httpError ->
                     case handleUnauthorizedSessionExpiry model httpError of
                         Just outcome ->
-                            outcome
+                            withObservedSchemaVersionFromError httpError outcome
 
                         Nothing ->
-                            ( { model | flash = Just (httpErrorToString httpError) }, Cmd.none )
+                            withObservedSchemaVersionFromError httpError ( { model | flash = Just (httpErrorToString httpError) }, Cmd.none )
 
         RequestDeleteRow rowValue ->
             case model.selectedEntity of
@@ -1617,7 +1704,7 @@ update msg model =
 
         GotDelete result ->
             case result of
-                Ok _ ->
+                Ok response ->
                     let
                         nextModel =
                             case model.pendingDelete of
@@ -1630,18 +1717,18 @@ update msg model =
                     in
                     case routeForCurrentEntityList nextModel of
                         Just route ->
-                            ( nextModel, replaceRoute route nextModel )
+                            withObservedSchemaVersion response.schemaVersion ( nextModel, replaceRoute route nextModel )
 
                         Nothing ->
-                            ( nextModel, Cmd.none )
+                            withObservedSchemaVersion response.schemaVersion ( nextModel, Cmd.none )
 
                 Err httpError ->
                     case handleUnauthorizedSessionExpiry model httpError of
                         Just outcome ->
-                            outcome
+                            withObservedSchemaVersionFromError httpError outcome
 
                         Nothing ->
-                            ( { model | flash = Just (httpErrorToString httpError), pendingDelete = Nothing }, Cmd.none )
+                            withObservedSchemaVersionFromError httpError ( { model | flash = Just (httpErrorToString httpError), pendingDelete = Nothing }, Cmd.none )
 
         RunAction ->
             case model.selectedAction of
@@ -1659,18 +1746,22 @@ update msg model =
         GotRunAction result ->
             case result of
                 Ok response ->
-                    ( { model | actionResult = Just response, flash = Just "Action executed successfully" }, Cmd.none )
+                    withObservedSchemaVersion response.schemaVersion
+                        ( { model | actionResult = Just response.value, flash = Just "Action executed successfully" }, Cmd.none )
 
                 Err httpError ->
                     case handleUnauthorizedSessionExpiry model httpError of
                         Just outcome ->
-                            outcome
+                            withObservedSchemaVersionFromError httpError outcome
 
                         Nothing ->
-                            ( { model | flash = Just (httpErrorToString httpError) }, Cmd.none )
+                            withObservedSchemaVersionFromError httpError ( { model | flash = Just (httpErrorToString httpError) }, Cmd.none )
 
         ClearFlash ->
             ( { model | flash = Nothing }, Cmd.none )
+
+        RefreshPage ->
+            ( model, Nav.load (Url.toString model.currentUrl) )
 
         ViewportResized widthPx ->
             ( { model
@@ -1703,6 +1794,14 @@ loadSchema apiBase =
     Http.get
         { url = apiBase ++ "/_mar/schema"
         , expect = expectJsonWithApiError GotSchema decodeSchema
+        }
+
+
+loadSchemaRefresh : String -> Cmd Msg
+loadSchemaRefresh apiBase =
+    Http.get
+        { url = apiBase ++ "/_mar/schema"
+        , expect = expectJsonWithApiError GotSchemaRefresh decodeSchema
         }
 
 
@@ -2183,21 +2282,24 @@ runAction model actionInfo payload =
         }
 
 
-expectJsonWithApiError : (Result ApiHttpError a -> msg) -> Decode.Decoder a -> Http.Expect msg
+expectJsonWithApiError : (Result ApiHttpError (ApiResponse a) -> msg) -> Decode.Decoder a -> Http.Expect msg
 expectJsonWithApiError toMsg decoder =
     Http.expectStringResponse toMsg
         (\response ->
             case response of
-                Http.GoodStatus_ _ body ->
+                Http.GoodStatus_ metadata body ->
                     case Decode.decodeString decoder body of
                         Ok value ->
-                            Ok value
+                            Ok
+                                { value = value
+                                , schemaVersion = schemaVersionFromMetadata metadata
+                                }
 
                         Err decodeError ->
                             Err (ApiBadBody ("Failed to decode response: " ++ Decode.errorToString decodeError))
 
                 Http.BadStatus_ metadata body ->
-                    Err (ApiBadResponse (apiErrorPayload metadata.statusCode body))
+                    Err (ApiBadResponse (apiErrorPayload metadata.statusCode (schemaVersionFromMetadata metadata) body))
 
                 Http.BadUrl_ url ->
                     Err (ApiBadUrl url)
@@ -2210,16 +2312,19 @@ expectJsonWithApiError toMsg decoder =
         )
 
 
-expectUnitWithApiError : (Result ApiHttpError () -> msg) -> Http.Expect msg
+expectUnitWithApiError : (Result ApiHttpError (ApiResponse ()) -> msg) -> Http.Expect msg
 expectUnitWithApiError toMsg =
     Http.expectStringResponse toMsg
         (\response ->
             case response of
-                Http.GoodStatus_ _ _ ->
-                    Ok ()
+                Http.GoodStatus_ metadata _ ->
+                    Ok
+                        { value = ()
+                        , schemaVersion = schemaVersionFromMetadata metadata
+                        }
 
                 Http.BadStatus_ metadata body ->
-                    Err (ApiBadResponse (apiErrorPayload metadata.statusCode body))
+                    Err (ApiBadResponse (apiErrorPayload metadata.statusCode (schemaVersionFromMetadata metadata) body))
 
                 Http.BadUrl_ url ->
                     Err (ApiBadUrl url)
@@ -2232,18 +2337,19 @@ expectUnitWithApiError toMsg =
         )
 
 
-apiErrorPayload : Int -> String -> ApiErrorPayload
-apiErrorPayload statusCode body =
+apiErrorPayload : Int -> Maybe String -> String -> ApiErrorPayload
+apiErrorPayload statusCode schemaVersion body =
     let
         fallback =
             { statusCode = statusCode
             , errorCode = Nothing
             , message = "HTTP error: " ++ String.fromInt statusCode
+            , schemaVersion = schemaVersion
             }
     in
     case Decode.decodeString apiErrorDecoder body of
         Ok payload ->
-            { payload | statusCode = statusCode }
+            { payload | statusCode = statusCode, schemaVersion = schemaVersion }
 
         Err _ ->
             fallback
@@ -2251,7 +2357,7 @@ apiErrorPayload statusCode body =
 
 apiErrorDecoder : Decode.Decoder ApiErrorPayload
 apiErrorDecoder =
-    Decode.map3 ApiErrorPayload
+    Decode.map4 ApiErrorPayload
         (Decode.succeed 0)
         (Decode.oneOf
             [ Decode.field "errorCode" (Decode.map Just Decode.string)
@@ -2264,6 +2370,64 @@ apiErrorDecoder =
             , Decode.field "message" Decode.string
             ]
         )
+        (Decode.succeed Nothing)
+
+
+schemaVersionFromMetadata : Http.Metadata -> Maybe String
+schemaVersionFromMetadata metadata =
+    metadata.headers
+        |> Dict.get "x-mar-schema-version"
+        |> Maybe.map String.trim
+        |> Maybe.andThen
+            (\value ->
+                if value == "" then
+                    Nothing
+
+                else
+                    Just value
+            )
+
+
+withObservedSchemaVersion : Maybe String -> ( Model, Cmd Msg ) -> ( Model, Cmd Msg )
+withObservedSchemaVersion maybeVersion ( model, cmd ) =
+    case maybeVersion of
+        Nothing ->
+            ( model, cmd )
+
+        Just version ->
+            case model.currentSchemaVersion of
+                Nothing ->
+                    ( { model | currentSchemaVersion = Just version }, cmd )
+
+                Just currentVersion ->
+                    if currentVersion == version || model.pendingSchemaVersion == Just version then
+                        ( model, cmd )
+
+                    else if model.schemaRefreshInFlight then
+                        ( { model | pendingSchemaVersion = Just version }, cmd )
+
+                    else
+                        ( { model
+                            | pendingSchemaVersion = Just version
+                            , schemaRefreshInFlight = True
+                          }
+                        , Cmd.batch [ cmd, loadSchemaRefresh model.apiBase ]
+                        )
+
+
+schemaVersionFromHttpError : ApiHttpError -> Maybe String
+schemaVersionFromHttpError httpError =
+    case httpError of
+        ApiBadResponse payload ->
+            payload.schemaVersion
+
+        _ ->
+            Nothing
+
+
+withObservedSchemaVersionFromError : ApiHttpError -> ( Model, Cmd Msg ) -> ( Model, Cmd Msg )
+withObservedSchemaVersionFromError httpError =
+    withObservedSchemaVersion (schemaVersionFromHttpError httpError)
 
 
 requestCodeDecoder : Decode.Decoder RequestCodeResponse
@@ -3807,19 +3971,13 @@ viewAuthGate model =
 
 viewAuthFlashSlot : Model -> Element Msg
 viewAuthFlashSlot model =
-    let
-        minHeightPx =
-            if isCompactLayout model then
-                92
-
-            else
-                78
-    in
-    el
+    column
         [ width fill
-        , htmlAttribute (HtmlAttr.style "min-height" (String.fromInt minHeightPx ++ "px"))
+        , spacing 12
         ]
-        (viewFlash model)
+        [ viewSchemaRefreshNotice model
+        , viewFlash model
+        ]
 
 
 viewSidebar : Model -> Element Msg
@@ -4326,6 +4484,7 @@ viewContent model =
                )
         )
         [ viewAuthToolsPanel model
+        , viewSchemaRefreshNotice model
         , viewFlash model
         , if isAuthToolsOpen model then
             none
@@ -5251,12 +5410,15 @@ enumSelectField labelText isOptional currentValue enumValues onChangeMsg =
         options =
             List.map (\enumValue -> ( enumValue, humanizeIdentifier enumValue )) enumValues
 
-        allOptions =
+        promptLabel =
             if isOptional then
-                ( "", "No selection" ) :: options
+                "No selection"
 
             else
-                options
+                "Select " ++ String.toLower labelText
+
+        allOptions =
+            ( "", promptLabel ) :: options
 
         selectedValue =
             let
@@ -6093,6 +6255,29 @@ viewFlash model =
                             [ text message ]
                         , cupertinoPrimaryButton (Just ClearFlash) "Close"
                         ]
+                ]
+
+
+viewSchemaRefreshNotice : Model -> Element Msg
+viewSchemaRefreshNotice model =
+    case model.schemaRefreshNotice of
+        Nothing ->
+            none
+
+        Just message ->
+            column
+                [ width fill
+                , Background.color (rgb255 244 248 255)
+                , Border.rounded 10
+                , Border.width 1
+                , Border.color (rgb255 179 200 236)
+                , padding 12
+                , spacing 12
+                ]
+                [ paragraph
+                    (width fill :: wrapAnywhereAttrs)
+                    [ text message ]
+                , cupertinoPrimaryButton (Just RefreshPage) "Refresh"
                 ]
 
 
