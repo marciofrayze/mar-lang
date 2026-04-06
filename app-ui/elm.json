@@ -18,8 +18,7 @@
     "indirect": {
       "elm/bytes": "1.0.8",
       "elm/file": "1.0.5",
-      "elm/parser": "1.1.0",
-      "elm/virtual-dom": "1.0.3"
+      "elm/virtual-dom": "1.0.5"
     }
   },
   "test-dependencies": {
